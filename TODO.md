@@ -230,39 +230,40 @@ type InterestRule struct {
 
 ## Зависимости
 
-* [ ] Добавить `pgx`.
-* [ ] Добавить инструмент миграций:
+* [x] Добавить `pgx`.
+* [x] Добавить инструмент миграций:
 
-  * [ ] `goose`
+  * [x] `goose`
   * или [ ] `golang-migrate`
-* [ ] Добавить Docker Compose для локального PostgreSQL.
+* [x] Добавить Docker Compose для локального PostgreSQL.
 
 ## Таблицы
 
-* [ ] `accounts`
-* [ ] `transactions`
-* [ ] `categories`
-* [ ] `interest_rules`
-* [ ] `interest_accruals`
-* [ ] `balance_snapshots`
-* [ ] `settings`
+* [x] `accounts`
+* [x] `transactions`
+* [x] `categories`
+* [x] `interest_rules`
+* [x] `interest_accruals`
+* [x] `balance_snapshots`
+* [x] `settings`
 
 ## Миграции
 
-* [ ] `000001_create_accounts.sql`
-* [ ] `000002_create_categories.sql`
-* [ ] `000003_create_transactions.sql`
-* [ ] `000004_create_interest_rules.sql`
-* [ ] `000005_create_interest_accruals.sql`
-* [ ] `000006_create_balance_snapshots.sql`
+* [x] `000002_create_accounts.sql`
+* [x] `000003_create_categories.sql`
+* [x] `000004_create_transactions.sql`
+* [x] `000005_create_interest_rules.sql`
+* [x] `000006_create_interest_accruals.sql`
+* [x] `000007_create_balance_snapshots.sql`
+* [x] `000008_create_settings.sql`
 
 ## Индексы
 
-* [ ] `transactions(account_id, occurred_at)`
-* [ ] `transactions(type)`
-* [ ] `interest_rules(account_id, is_active)`
-* [ ] `interest_accruals(account_id, accrual_date)`
-* [ ] unique index для защиты от повторного начисления:
+* [x] `transactions(account_id, occurred_at)`
+* [x] `transactions(type)`
+* [x] `interest_rules(account_id, is_active)`
+* [x] `interest_accruals(account_id, accrual_date)`
+* [x] unique index для защиты от повторного начисления:
 
 ```sql
 UNIQUE(account_id, accrual_date, rule_id)
