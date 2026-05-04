@@ -1,0 +1,113 @@
+version: "2"
+
+run:
+  concurrency: 2
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - wastedassign
+    - wrapcheck
+    - nilnil
+    - predeclared
+    - bodyclose
+    - contextcheck
+    - noctx
+    - rowserrcheck
+    - sqlclosecheck
+    - revive
+    - gocritic
+    - gosec
+    - usetesting
+    - durationcheck
+    - makezero
+
+  settings:
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+        - style
+
+    gosec:
+      excludes:
+        - G307
+        - G108
+        - G404
+
+    revive:
+      rules:
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: error-return
+        - name: error-naming
+        - name: var-naming
+        - name: indent-error-flow
+        - name: empty-block
+        - name: superfluous-else
+        - name: unreachable-code
+        - name: unused-parameter
+
+  exclusions:
+    generated: lax
+    rules:
+      # CLI boundaries intentionally return user-facing errors from command handlers.
+      - path: ^cmd/.*\.go$
+        linters:
+          - wrapcheck
+          - gosec
+      # Existing command package is user-facing legacy CLI code; avoid a broad refactor in this cleanup.
+      - path: ^internal/commands/.*\.go$
+        linters:
+          - wrapcheck
+          - gosec
+      # Legacy service compatibility wrappers still pass Deposit by value until domain-core refactor.
+      - path: ^internal/services/utils\.go$
+        linters:
+          - gocritic
+        text: hugeParam
+      # Legacy JSON storage keeps nil-not-found and value-style ledger APIs until domain-core refactor.
+      - path: ^internal/storage/.*\.go$
+        linters:
+          - gocritic
+          - nilnil
+        text: hugeParam|nestingReduce|nil error
+      - path: ^internal/storage/deposit_storage\.go$
+        linters:
+          - nilnil
+      # Keep legacy calculator API stable in this cleanup; pointer refactor belongs to domain-core work.
+      - path: ^pkg/calculator/.*\.go$
+        linters:
+          - gocritic
+        text: hugeParam
+    presets:
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - vendor$
+      - internal/commands$
+      - internal/commands/.*
+      - third_party$
+      - builtin$
+      - examples$
+      - internal/mocks$
+
+issues:
+  max-same-issues: 0
+
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - vendor$
+      - internal/commands$
+      - internal/commands/.*
+      - third_party$
+      - builtin$
+      - examples$
+      - internal/mocks$
