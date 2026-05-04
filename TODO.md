@@ -17,7 +17,7 @@
 
 ### CLI
 
-* [ ] Проверить все текущие команды:
+* [x] Проверить все текущие команды:
 
   * [x] `list`
   * [x] `create`
@@ -93,7 +93,7 @@ func BpsToPercentString(bps int64) string
 
 ### Account
 
-* [ ] Добавить модель `Account`.
+* [x] Добавить модель `Account`.
 
 ```go
 type Account struct {
@@ -111,16 +111,16 @@ type Account struct {
 
 Типы счетов:
 
-* [ ] `cash`
-* [ ] `card`
-* [ ] `savings`
-* [ ] `term_deposit`
-* [ ] `broker`
-* [ ] `other`
+* [x] `cash`
+* [x] `card`
+* [x] `savings`
+* [x] `term_deposit`
+* [x] `broker`
+* [x] `other`
 
 ### Transaction
 
-* [ ] Добавить модель `Transaction`.
+* [x] Добавить модель `Transaction`.
 
 ```go
 type Transaction struct {
@@ -138,17 +138,17 @@ type Transaction struct {
 
 Типы операций:
 
-* [ ] `initial_balance`
-* [ ] `income`
-* [ ] `expense`
-* [ ] `transfer_in`
-* [ ] `transfer_out`
-* [ ] `interest_income`
-* [ ] `adjustment`
+* [x] `initial_balance`
+* [x] `income`
+* [x] `expense`
+* [x] `transfer_in`
+* [x] `transfer_out`
+* [x] `interest_income`
+* [x] `adjustment`
 
 ### InterestRule
 
-* [ ] Добавить модель `InterestRule`.
+* [x] Добавить модель `InterestRule`.
 
 ```go
 type InterestRule struct {
@@ -168,28 +168,28 @@ type InterestRule struct {
 
 Поддерживаемые значения:
 
-* [ ] `accrual_frequency = daily | monthly | end_of_term`
-* [ ] `capitalization_frequency = daily | monthly | end_of_term | none`
-* [ ] `day_count_convention = actual_365 | actual_366 | actual_actual`
+* [x] `accrual_frequency = daily | monthly | end_of_term`
+* [x] `capitalization_frequency = daily | monthly | end_of_term | none`
+* [x] `day_count_convention = actual_365 | actual_366 | actual_actual`
 
 ### Category
 
-* [ ] Добавить модель `Category`.
+* [x] Добавить модель `Category`.
 
 Категории по умолчанию:
 
-* [ ] Зарплата
-* [ ] Проценты по вкладам
-* [ ] Еда
-* [ ] Транспорт
-* [ ] Подписки
-* [ ] Жилье
-* [ ] Здоровье
-* [ ] Обучение
-* [ ] Инвестиции
-* [ ] Финансовая подушка
-* [ ] Развлечения
-* [ ] Прочее
+* [x] Зарплата
+* [x] Проценты по вкладам
+* [x] Еда
+* [x] Транспорт
+* [x] Подписки
+* [x] Жилье
+* [x] Здоровье
+* [x] Обучение
+* [x] Инвестиции
+* [x] Финансовая подушка
+* [x] Развлечения
+* [x] Прочее
 
 ## Сервисы
 
