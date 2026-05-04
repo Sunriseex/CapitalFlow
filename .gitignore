@@ -1,0 +1,24 @@
+# Binaries and build output
+/bin/
+/dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test/benchmark artifacts
+*.test
+*.out
+*.prof
+coverage.out
+
+# Go workspace (if used)
+go.work
+go.work.sum
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+AGENTS.md
