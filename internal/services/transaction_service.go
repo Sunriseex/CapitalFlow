@@ -43,6 +43,9 @@ func (s *TransactionService) Create(ctx context.Context, req CreateTransactionRe
 	if req.AmountMinor == 0 {
 		return nil, fmt.Errorf("amount must be non-zero")
 	}
+	if req.Type != models.TransactionTypeAdjustment && req.AmountMinor < 0 {
+		return nil, fmt.Errorf("amount must be positive for %s transactions", req.Type)
+	}
 
 	occurredAt := req.OccurredAt
 	if occurredAt.IsZero() {
