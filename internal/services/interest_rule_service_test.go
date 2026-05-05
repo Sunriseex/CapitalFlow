@@ -55,12 +55,14 @@ func TestInterestRuleServiceCreateDefaults(t *testing.T) {
 }
 
 func TestInterestRuleServiceCreateNormalizesDatePointers(t *testing.T) {
+	promoRate := int64(2_400)
 	promoEndDate := time.Date(2026, 5, 31, 23, 59, 59, 0, time.Local)
 	endDate := time.Date(2026, 12, 31, 23, 59, 59, 0, time.Local)
 
 	rule, err := NewInterestRuleService(nil).Create(t.Context(), CreateInterestRuleRequest{
 		AccountID:     "account-1",
 		AnnualRateBps: 1_200,
+		PromoRateBps:  &promoRate,
 		PromoEndDate:  &promoEndDate,
 		EndDate:       &endDate,
 	})
@@ -72,6 +74,42 @@ func TestInterestRuleServiceCreateNormalizesDatePointers(t *testing.T) {
 	}
 	if rule.EndDate == nil || rule.EndDate.Format(time.RFC3339) != "2026-12-31T00:00:00Z" {
 		t.Fatalf("end date = %v, want 2026-12-31 UTC date", rule.EndDate)
+	}
+}
+
+func TestInterestRuleServiceCreateRejectsIncompletePromo(t *testing.T) {
+	promoRate := int64(2_400)
+	promoEndDate := time.Date(2026, 5, 31, 0, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name string
+		req  CreateInterestRuleRequest
+	}{
+		{
+			name: "promo rate without end date",
+			req: CreateInterestRuleRequest{
+				AccountID:     "account-1",
+				AnnualRateBps: 1_200,
+				PromoRateBps:  &promoRate,
+			},
+		},
+		{
+			name: "promo end date without rate",
+			req: CreateInterestRuleRequest{
+				AccountID:     "account-1",
+				AnnualRateBps: 1_200,
+				PromoEndDate:  &promoEndDate,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewInterestRuleService(nil).Create(t.Context(), tt.req)
+			if err == nil {
+				t.Fatal("expected error")
+			}
+		})
 	}
 }
 

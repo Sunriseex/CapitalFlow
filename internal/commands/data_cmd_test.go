@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -53,6 +54,66 @@ func TestDepositExportWritesSnapshot(t *testing.T) {
 	}
 	if snapshot.Source.AppVersion != "test" {
 		t.Fatalf("app version = %q, want test", snapshot.Source.AppVersion)
+	}
+}
+
+func TestDepositExportTreatsMissingPaymentsFileAsEmpty(t *testing.T) {
+	tmp := t.TempDir()
+	setTestConfig(tmp)
+
+	if err := security.AtomicWriteJSON(models.DepositsData{}, config.AppConfig.DepositsDataPath); err != nil {
+		t.Fatalf("write deposits: %v", err)
+	}
+
+	exportPath := filepath.Join(tmp, "export.json")
+	if err := DepositExport(exportPath); err != nil {
+		t.Fatalf("export: %v", err)
+	}
+
+	data, err := os.ReadFile(exportPath)
+	if err != nil {
+		t.Fatalf("read export: %v", err)
+	}
+	var snapshot ExportSnapshot
+	if err := json.Unmarshal(data, &snapshot); err != nil {
+		t.Fatalf("decode export: %v", err)
+	}
+	if len(snapshot.Payments) != 0 {
+		t.Fatalf("payments count = %d, want 0", len(snapshot.Payments))
+	}
+}
+
+func TestExecuteNoArgsTreatsMissingPaymentsFileAsEmpty(t *testing.T) {
+	tmp := t.TempDir()
+	setTestConfig(tmp)
+
+	oldArgs := os.Args
+	os.Args = []string{"payments-manager"}
+	t.Cleanup(func() {
+		os.Args = oldArgs
+	})
+
+	oldStdout := os.Stdout
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("create pipe: %v", err)
+	}
+	os.Stdout = writer
+
+	err = Execute()
+
+	writer.Close()
+	os.Stdout = oldStdout
+
+	var output bytes.Buffer
+	if _, copyErr := output.ReadFrom(reader); copyErr != nil {
+		t.Fatalf("read output: %v", copyErr)
+	}
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if output.String() != "Нет активных платежей\n" {
+		t.Fatalf("output = %q, want empty payment message", output.String())
 	}
 }
 

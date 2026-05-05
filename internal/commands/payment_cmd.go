@@ -186,7 +186,7 @@ func extendPaymentDate(payment models.Payment) string {
 }
 
 func ListPayments() error {
-	data, err := storage.LoadPayments(config.AppConfig.DataPath)
+	data, err := storage.LoadPaymentsOrEmpty(config.AppConfig.DataPath)
 	if err != nil {
 		slog.Error("Ошибка загрузки данных платежей", "error", err)
 		return fmt.Errorf("ошибка загрузки данных: %v", err)

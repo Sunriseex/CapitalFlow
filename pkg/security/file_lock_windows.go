@@ -3,11 +3,11 @@
 package security
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
+
+	"golang.org/x/sys/windows"
 )
 
 func WithFileLock(path string, fn func() error) error {
@@ -15,21 +15,18 @@ func WithFileLock(path string, fn func() error) error {
 	if err := os.MkdirAll(filepath.Dir(lockPath), 0o755); err != nil {
 		return fmt.Errorf("create lock directory: %w", err)
 	}
-	var file *os.File
-	var err error
-
-	for range 100 {
-		file, err = os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0o600)
-		if err == nil {
-			defer os.Remove(lockPath)
-			defer file.Close()
-			return fn()
-		}
-		if !errors.Is(err, os.ErrExist) {
-			return fmt.Errorf("create lock file: %w", err)
-		}
-		time.Sleep(50 * time.Millisecond)
+	file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return fmt.Errorf("open lock file: %w", err)
 	}
+	defer file.Close()
 
-	return fmt.Errorf("acquire file lock %s: %w", lockPath, err)
+	overlapped := &windows.Overlapped{}
+	handle := windows.Handle(file.Fd())
+	if err := windows.LockFileEx(handle, windows.LOCKFILE_EXCLUSIVE_LOCK, 0, 1, 0, overlapped); err != nil {
+		return fmt.Errorf("acquire file lock: %w", err)
+	}
+	defer windows.UnlockFileEx(handle, 0, 1, 0, overlapped)
+
+	return fn()
 }

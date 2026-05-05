@@ -51,7 +51,7 @@ func SavePayments(data *models.PaymentData, dataPath string) error {
 func MutatePayments(dataPath string, fn func(*models.PaymentData) error) error {
 	expandedPath := ExpandPath(dataPath)
 	return security.WithFileLock(expandedPath, func() error {
-		data, err := loadPaymentsOrEmpty(expandedPath)
+		data, err := LoadPaymentsOrEmpty(expandedPath)
 		if err != nil {
 			return err
 		}
@@ -65,7 +65,8 @@ func MutatePayments(dataPath string, fn func(*models.PaymentData) error) error {
 	})
 }
 
-func loadPaymentsOrEmpty(dataPath string) (*models.PaymentData, error) {
+// LoadPaymentsOrEmpty loads payment data and treats a missing file as an empty dataset.
+func LoadPaymentsOrEmpty(dataPath string) (*models.PaymentData, error) {
 	data, err := LoadPayments(dataPath)
 	if err == nil {
 		return data, nil

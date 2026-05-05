@@ -33,7 +33,7 @@ func DepositExport(outputPath string) error {
 		return errors.NewStorageError("экспорт вкладов", err)
 	}
 
-	payments, err := storage.LoadPayments(config.AppConfig.DataPath)
+	payments, err := storage.LoadPaymentsOrEmpty(config.AppConfig.DataPath)
 	if err != nil {
 		return errors.NewStorageError("экспорт платежей", err)
 	}

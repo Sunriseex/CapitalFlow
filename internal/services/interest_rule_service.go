@@ -65,6 +65,12 @@ func (s *InterestRuleService) Create(ctx context.Context, req CreateInterestRule
 	if req.PromoRateBps != nil && *req.PromoRateBps <= 0 {
 		return nil, fmt.Errorf("promo rate must be positive")
 	}
+	if req.PromoRateBps != nil && req.PromoEndDate == nil {
+		return nil, fmt.Errorf("promo end date is required when promo rate is set")
+	}
+	if req.PromoRateBps == nil && req.PromoEndDate != nil {
+		return nil, fmt.Errorf("promo rate is required when promo end date is set")
+	}
 
 	accrualFrequency := req.AccrualFrequency
 	if accrualFrequency == "" {
