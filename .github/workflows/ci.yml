@@ -1,0 +1,156 @@
+name: CI
+
+on:
+    pull_request:
+    push:
+        branches:
+            - master
+            - main
+
+permissions:
+    contents: read
+
+concurrency:
+    group: ci-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+env:
+    GOFLAGS: -buildvcs=false
+    DATABASE_URL: postgres://finance_tracker:finance_tracker@localhost:5432/finance_tracker?sslmode=disable
+
+jobs:
+    test:
+        name: Test (${{ matrix.os }})
+        runs-on: ${{ matrix.os }}
+
+        strategy:
+            fail-fast: false
+            matrix:
+                os:
+                    - ubuntu-latest
+                    - windows-latest
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v6
+
+            - name: Setup Go
+              uses: actions/setup-go@v6
+              with:
+                  go-version-file: go.mod
+                  cache-dependency-path: go.sum
+
+            - name: Download dependencies
+              run: go mod download
+
+            - name: Check gofmt
+              if: runner.os != 'Windows'
+              run: |
+                  files="$(gofmt -l $(git ls-files '*.go'))"
+                  if [ -n "$files" ]; then
+                    echo "gofmt required for:"
+                    echo "$files"
+                    exit 1
+                  fi
+
+            - name: Check gofmt
+              if: runner.os == 'Windows'
+              shell: pwsh
+              run: |
+                  $files = git ls-files '*.go'
+                  $bad = gofmt -l $files
+                  if ($bad) {
+                    Write-Host "gofmt required for:"
+                    Write-Host $bad
+                    exit 1
+                  }
+
+            - name: Check go mod tidy
+              run: |
+                  go mod tidy
+                  git diff --exit-code -- go.mod go.sum
+
+            - name: Run tests
+              run: go test ./...
+
+            - name: Build binaries
+              run: go build ./cmd/...
+
+    race:
+        name: Race tests
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v6
+
+            - name: Setup Go
+              uses: actions/setup-go@v6
+              with:
+                  go-version-file: go.mod
+                  cache-dependency-path: go.sum
+
+            - name: Run race tests
+              run: go test -race ./...
+
+    lint:
+        name: Lint
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v6
+
+            - name: Setup Go
+              uses: actions/setup-go@v6
+              with:
+                  go-version-file: go.mod
+                  cache-dependency-path: go.sum
+
+            - name: Run golangci-lint
+              uses: golangci/golangci-lint-action@v9
+              with:
+                  version: v2.11
+                  args: --config=.golangci.yaml
+
+    migrations:
+        name: PostgreSQL migrations
+        runs-on: ubuntu-latest
+
+        services:
+            postgres:
+                image: postgres:17-alpine
+                env:
+                    POSTGRES_DB: finance_tracker
+                    POSTGRES_USER: finance_tracker
+                    POSTGRES_PASSWORD: finance_tracker
+                ports:
+                    - 5432:5432
+                options: >-
+                    --health-cmd "pg_isready -U finance_tracker -d
+                    finance_tracker" --health-interval 5s --health-timeout 3s
+                    --health-retries 10
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v6
+
+            - name: Setup Go
+              uses: actions/setup-go@v6
+              with:
+                  go-version-file: go.mod
+                  cache-dependency-path: go.sum
+
+            - name: Run migrations up
+              run: |
+                  go run github.com/pressly/goose/v3/cmd/goose@v3.27.1 \
+                    -dir migrations \
+                    postgres "$DATABASE_URL" \
+                    up
+
+            - name: Check migration status
+              run: |
+                  go run github.com/pressly/goose/v3/cmd/goose@v3.27.1 \
+                    -dir migrations \
+                    postgres "$DATABASE_URL" \
+                    status
