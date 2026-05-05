@@ -54,6 +54,27 @@ func TestInterestRuleServiceCreateDefaults(t *testing.T) {
 	}
 }
 
+func TestInterestRuleServiceCreateNormalizesDatePointers(t *testing.T) {
+	promoEndDate := time.Date(2026, 5, 31, 23, 59, 59, 0, time.Local)
+	endDate := time.Date(2026, 12, 31, 23, 59, 59, 0, time.Local)
+
+	rule, err := NewInterestRuleService(nil).Create(t.Context(), CreateInterestRuleRequest{
+		AccountID:     "account-1",
+		AnnualRateBps: 1_200,
+		PromoEndDate:  &promoEndDate,
+		EndDate:       &endDate,
+	})
+	if err != nil {
+		t.Fatalf("create interest rule: %v", err)
+	}
+	if rule.PromoEndDate == nil || rule.PromoEndDate.Format(time.RFC3339) != "2026-05-31T00:00:00Z" {
+		t.Fatalf("promo end date = %v, want 2026-05-31 UTC date", rule.PromoEndDate)
+	}
+	if rule.EndDate == nil || rule.EndDate.Format(time.RFC3339) != "2026-12-31T00:00:00Z" {
+		t.Fatalf("end date = %v, want 2026-12-31 UTC date", rule.EndDate)
+	}
+}
+
 func TestInterestRuleServiceAccrue(t *testing.T) {
 	rule := models.InterestRule{
 		ID:                 "rule-1",
@@ -79,6 +100,9 @@ func TestInterestRuleServiceAccrue(t *testing.T) {
 	if got.Transaction == nil {
 		t.Fatal("transaction is nil")
 	}
+	if got.Accrual == nil {
+		t.Fatal("accrual is nil")
+	}
 	if got.Transaction.Type != models.TransactionTypeInterestIncome {
 		t.Fatalf("transaction type = %s, want interest_income", got.Transaction.Type)
 	}
@@ -87,6 +111,9 @@ func TestInterestRuleServiceAccrue(t *testing.T) {
 	}
 	if got.Transaction.OccurredAt.Format(time.DateOnly) != "2026-05-04" {
 		t.Fatalf("occurred at = %s, want 2026-05-04", got.Transaction.OccurredAt.Format(time.DateOnly))
+	}
+	if got.Accrual.RuleID != "rule-1" {
+		t.Fatalf("accrual rule id = %s, want rule-1", got.Accrual.RuleID)
 	}
 }
 
@@ -134,13 +161,11 @@ func TestInterestRuleServiceAccrueSkipsDuplicate(t *testing.T) {
 		Rule:         rule,
 		BalanceMinor: 100_000_00,
 		AccrualDate:  accrualDate,
-		ExistingTransactions: []models.Transaction{
+		ExistingAccruals: []models.InterestAccrual{
 			{
 				AccountID:   "account-1",
-				Type:        models.TransactionTypeInterestIncome,
-				AmountMinor: 3_288,
-				Description: "interest accrual rule=rule-1 date=2026-05-04",
-				OccurredAt:  accrualDate,
+				RuleID:      "rule-1",
+				AccrualDate: accrualDate,
 			},
 		},
 	})
@@ -153,6 +178,9 @@ func TestInterestRuleServiceAccrueSkipsDuplicate(t *testing.T) {
 	if got.Transaction != nil {
 		t.Fatal("transaction must be nil")
 	}
+	if got.Accrual != nil {
+		t.Fatal("accrual must be nil")
+	}
 }
 
 func TestInterestRuleServiceAccrueValidatesRuleDate(t *testing.T) {
@@ -164,6 +192,28 @@ func TestInterestRuleServiceAccrueValidatesRuleDate(t *testing.T) {
 		DayCountConvention: models.DayCountConventionActual365,
 		IsActive:           true,
 		StartDate:          time.Date(2026, 5, 5, 0, 0, 0, 0, time.UTC),
+	}
+
+	_, err := NewInterestRuleService(nil).Accrue(t.Context(), AccrueRuleInterestRequest{
+		Rule:         rule,
+		BalanceMinor: 100_000_00,
+		AccrualDate:  time.Date(2026, 5, 4, 0, 0, 0, 0, time.UTC),
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestInterestRuleServiceAccrueRejectsUnsupportedCapitalization(t *testing.T) {
+	rule := models.InterestRule{
+		ID:                      "rule-1",
+		AccountID:               "account-1",
+		AnnualRateBps:           1_200,
+		AccrualFrequency:        models.AccrualFrequencyDaily,
+		CapitalizationFrequency: models.CapitalizationFrequencyMonthly,
+		DayCountConvention:      models.DayCountConventionActual365,
+		IsActive:                true,
+		StartDate:               time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
 
 	_, err := NewInterestRuleService(nil).Accrue(t.Context(), AccrueRuleInterestRequest{

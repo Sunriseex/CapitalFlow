@@ -1,6 +1,7 @@
 -- +goose Up
 CREATE TABLE categories (
     id UUID PRIMARY KEY,
+    slug TEXT UNIQUE NOT NULL,
     name TEXT NOT NULL,
     parent_id UUID REFERENCES categories(id) ON DELETE SET NULL,
     is_default BOOLEAN NOT NULL DEFAULT false,

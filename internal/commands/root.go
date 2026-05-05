@@ -12,8 +12,7 @@ func Execute() error {
 		return fmt.Errorf("ошибка инициализации конфига: %v", err)
 	}
 	if len(os.Args) == 1 {
-		DisplayWidget()
-		return nil
+		return ListPayments()
 	}
 	switch os.Args[1] {
 	case "paid":
@@ -29,7 +28,10 @@ func Execute() error {
 		return nil
 
 	default:
-		DisplayWidget()
-		return nil
+		return ShowUnknownCommand(os.Args[1])
 	}
+}
+
+func ShowUnknownCommand(command string) error {
+	return fmt.Errorf("неизвестная команда: %s", command)
 }

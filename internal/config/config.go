@@ -15,6 +15,7 @@ import (
 type Config struct {
 	TelegramToken    string
 	TelegramUserID   int64
+	AppVersion       string
 	DataPath         string
 	DepositsDataPath string
 	LogLevel         slog.Level
@@ -73,6 +74,7 @@ func Init() error {
 	AppConfig = &Config{
 		TelegramToken:    getEnv("TELEGRAM_BOT_TOKEN", ""),
 		TelegramUserID:   getEnvInt64("TELEGRAM_USER_ID", 0),
+		AppVersion:       getEnv("APP_VERSION", "0.1.0-dev"),
 		DataPath:         dataPath,
 		DepositsDataPath: depositsDataPath,
 		LogLevel:         logLevel,

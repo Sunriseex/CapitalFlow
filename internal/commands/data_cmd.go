@@ -20,8 +20,7 @@ type ExportSnapshot struct {
 }
 
 type ExportSnapshotSource struct {
-	DepositsPath string `json:"deposits_path"`
-	PaymentsPath string `json:"payments_path"`
+	AppVersion string `json:"app_version"`
 }
 
 func DepositExport(outputPath string) error {
@@ -42,8 +41,7 @@ func DepositExport(outputPath string) error {
 	snapshot := ExportSnapshot{
 		ExportedAt: time.Now().UTC(),
 		Source: ExportSnapshotSource{
-			DepositsPath: config.AppConfig.DepositsDataPath,
-			PaymentsPath: config.AppConfig.DataPath,
+			AppVersion: config.AppConfig.AppVersion,
 		},
 		Deposits: deposits.Deposits,
 		Payments: payments.Payments,

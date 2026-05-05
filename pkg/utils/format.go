@@ -23,6 +23,19 @@ func RublesToKopecks(rublesStr string) (int64, error) {
 	return kopecks, nil
 }
 
+func RublesToPositiveKopecks(rublesStr string) (int64, error) {
+	amount, err := money.ParsePositiveRUB(rublesStr)
+	if err != nil {
+		return 0, fmt.Errorf("неверная сумма: %w", err)
+	}
+
+	kopecks, err := money.DecimalToLegacyKopecks(amount)
+	if err != nil {
+		return 0, fmt.Errorf("convert amount to kopecks: %w", err)
+	}
+	return kopecks, nil
+}
+
 func TruncateString(str string, length int) string {
 	if len(str) <= length {
 		return str

@@ -36,3 +36,14 @@ func TestAccountServiceCreateValidatesInput(t *testing.T) {
 		t.Fatal("expected error")
 	}
 }
+
+func TestAccountServiceCreateValidatesCurrency(t *testing.T) {
+	_, err := NewAccountService().Create(t.Context(), CreateAccountRequest{
+		Name:     "Savings",
+		Type:     models.AccountTypeSavings,
+		Currency: "RUB1",
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}

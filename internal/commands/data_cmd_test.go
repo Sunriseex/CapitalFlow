@@ -51,6 +51,9 @@ func TestDepositExportWritesSnapshot(t *testing.T) {
 	if len(snapshot.Deposits) != 1 {
 		t.Fatalf("deposits count = %d, want 1", len(snapshot.Deposits))
 	}
+	if snapshot.Source.AppVersion != "test" {
+		t.Fatalf("app version = %q, want test", snapshot.Source.AppVersion)
+	}
 }
 
 func TestDepositBackupCreatesFiles(t *testing.T) {
@@ -79,6 +82,7 @@ func TestDepositBackupCreatesFiles(t *testing.T) {
 
 func setTestConfig(tmp string) {
 	config.AppConfig = &config.Config{
+		AppVersion:       "test",
 		DataPath:         filepath.Join(tmp, "payments.json"),
 		DepositsDataPath: filepath.Join(tmp, "deposits.json"),
 	}

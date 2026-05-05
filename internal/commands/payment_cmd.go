@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"math"
 	"os"
 	"sort"
 	"time"
@@ -24,13 +25,17 @@ func getNearestPayment() *models.Payment {
 		return nil
 	}
 
+	return getNearestPaymentFromData(data)
+}
+
+func getNearestPaymentFromData(data *models.PaymentData) *models.Payment {
 	if data == nil || len(data.Payments) == 0 {
 		slog.Debug("Нет данных о платежах или список пуст")
 		return nil
 	}
 
 	var nearest *models.Payment
-	minDays := 999
+	minDays := math.MaxInt
 
 	for i := range data.Payments {
 		currentPayment := data.Payments[i]
@@ -63,134 +68,61 @@ func getNearestPayment() *models.Payment {
 	return nearest
 }
 
-func DisplayWidget() {
-	payment := getNearestPayment()
-	if payment == nil {
-		fmt.Println("💳 Нет платежей")
-		return
-	}
-
-	if payment.DueDate == "" {
-		slog.Warn("Платеж без даты окончания", "payment_id", payment.ID, "name", payment.Name)
-		fmt.Println("💳 Ошибка: нет даты платежа")
-		return
-	}
-
-	days := utils.DaysUntil(payment.DueDate)
-	amount := utils.FormatRubles(payment.Amount)
-
-	name := payment.Name
-	if len(name) > 15 {
-		name = name[:15] + "…"
-	}
-
-	var icon string
-
-	switch {
-	case days < 0:
-		icon = "🔴"
-	case days == 0:
-		icon = "🟠"
-	case days <= 7:
-		icon = "🟡"
-	default:
-		icon = "🟢"
-	}
-	intervalInfo := ""
-	if payment.DaysInterval > 0 {
-		intervalInfo = fmt.Sprintf(" [%dд]", payment.DaysInterval)
-	}
-
-	fmt.Printf("%s %s %s₽ · %dд%s\n", icon, name, amount, days, intervalInfo)
-}
 func MarkPaid() error {
-
-	data, err := storage.LoadPayments(config.AppConfig.DataPath)
-
-	if err != nil {
-		slog.Error("Ошибка загрузки данных платежей", "error", err)
-		return fmt.Errorf("ошибка загрузки данных: %v", err)
-	}
-
-	payment := getNearestPayment()
-	if payment == nil {
-		slog.Warn("Попытка оплатить несуществующий платеж")
-		return fmt.Errorf("нет активных платежей")
-	}
-
 	today := time.Now().Format("2006-01-02")
-	slog.Debug("Начало обработки оплаты платежа",
-		"payment_id", payment.ID,
-		"name", payment.Name,
-		"amount", payment.Amount)
 
-	slog.Debug("Отладочная информация перед обновлением",
-		"payment", payment.Name,
-		"id", payment.ID,
-		"type", payment.Type,
-		"due_date", payment.DueDate)
+	if err := storage.MutatePayments(config.AppConfig.DataPath, func(data *models.PaymentData) error {
+		payment := getNearestPaymentFromData(data)
+		if payment == nil {
+			slog.Warn("Попытка оплатить несуществующий платеж")
+			return fmt.Errorf("нет активных платежей")
+		}
 
-	found := false
-	for i := range data.Payments {
-		if data.Payments[i].ID == payment.ID {
-			found = true
+		slog.Debug("Начало обработки оплаты платежа",
+			"payment_id", payment.ID,
+			"name", payment.Name,
+			"amount", payment.Amount)
 
-			slog.Debug("Найден платеж для обновления", "name", data.Payments[i].Name)
+		for i := range data.Payments {
+			if data.Payments[i].ID != payment.ID {
+				continue
+			}
 
 			oldDueDate := data.Payments[i].DueDate
-
 			if payment.Type == "one-time" {
 				data.Payments[i].PaymentDate = today
-				slog.Info("Разовый платеж оплачен",
-					"payment_id", payment.ID,
-					"name", payment.Name)
 				fmt.Printf("  ✅ Разовый платеж '%s' помечен как оплаченный\n", payment.Name)
-			} else {
-				newDueDate := extendPaymentDate(data.Payments[i])
-
-				data.Payments[i].DueDate = newDueDate
-				data.Payments[i].PaymentDate = ""
-
-				intervalInfo := ""
-
-				if payment.DaysInterval > 0 {
-					intervalInfo = fmt.Sprintf(" (интервал %d дней)", payment.DaysInterval)
-				}
-
-				oldDueParsed, _ := time.Parse("2006-01-02", oldDueDate)
-				newDueParsed, _ := time.Parse("2006-01-02", newDueDate)
-				daysAdded := int(newDueParsed.Sub(oldDueParsed).Hours() / 24)
-
-				slog.Info("Повторяющийся платеж обновлен",
-					"payment_id", payment.ID,
-					"name", payment.Name,
-					"old_due_date", oldDueDate,
-					"new_due_date", newDueDate,
-					"days_added", daysAdded)
-
-				fmt.Printf("  ✅ Повторяющийся платеж '%s' обновлен.\n",
-					payment.Name)
-				fmt.Printf("Старая дата: %s\n", oldDueDate)
-				fmt.Printf("Новая дата: %s\n", newDueDate)
-				fmt.Printf("Добавлено дней: %d%s\n", daysAdded, intervalInfo)
+				return nil
 			}
-			break
+
+			newDueDate := extendPaymentDate(data.Payments[i])
+			data.Payments[i].DueDate = newDueDate
+			data.Payments[i].PaymentDate = ""
+
+			intervalInfo := ""
+			if payment.DaysInterval > 0 {
+				intervalInfo = fmt.Sprintf(" (интервал %d дней)", payment.DaysInterval)
+			}
+
+			oldDueParsed, _ := time.Parse("2006-01-02", oldDueDate)
+			newDueParsed, _ := time.Parse("2006-01-02", newDueDate)
+			daysAdded := int(newDueParsed.Sub(oldDueParsed).Hours() / 24)
+
+			fmt.Printf("  ✅ Повторяющийся платеж '%s' обновлен.\n", payment.Name)
+			fmt.Printf("Старая дата: %s\n", oldDueDate)
+			fmt.Printf("Новая дата: %s\n", newDueDate)
+			fmt.Printf("Добавлено дней: %d%s\n", daysAdded, intervalInfo)
+			return nil
 		}
-	}
 
-	if !found {
-		slog.Error("Платеж не найден в данных", "payment_id", payment.ID)
 		return fmt.Errorf("платеж с ID %s не найден в данных", payment.ID)
+	}); err != nil {
+		return err
 	}
 
-	if err := storage.SavePayments(data, config.AppConfig.DataPath); err != nil {
-		slog.Error("Ошибка сохранения платежей", "error", err)
-		return fmt.Errorf("ошибка сохранения данных: %v", err)
-	}
 	slog.Debug("Данные платежей успешно сохранены")
 	fmt.Printf("  Данные успешно сохранены\n")
 
-	DisplayWidget()
 	return nil
 }
 func extendPaymentDate(payment models.Payment) string {
@@ -354,7 +286,7 @@ func AddPayment() error {
 		slog.Warn("Попытка добавления платежа без имени или суммы")
 		return fmt.Errorf("необходимо указать --name и --amount")
 	}
-	amount, err := utils.RublesToKopecks(*amountStr)
+	amount, err := utils.RublesToPositiveKopecks(*amountStr)
 	if err != nil {
 		slog.Error("Ошибка конвертации суммы платежа",
 			"amount_string", *amountStr,
@@ -390,11 +322,6 @@ func AddPayment() error {
 
 		return fmt.Errorf("некорректный тип. Допустимые: monthly, yearly, one-time")
 	}
-	data, err := storage.LoadPayments(config.AppConfig.DataPath)
-	if err != nil {
-		slog.Warn("Файл платежей не найден, создается новый", "error", err)
-		data = &models.PaymentData{Payments: []models.Payment{}}
-	}
 	id := uuid.New().String()
 	newPayment := models.Payment{
 		ID:           id,
@@ -405,8 +332,11 @@ func AddPayment() error {
 		Category:     *category,
 		DaysInterval: *days,
 	}
-	data.Payments = append(data.Payments, newPayment)
-	if err := storage.SavePayments(data, config.AppConfig.DataPath); err != nil {
+
+	if err := storage.MutatePayments(config.AppConfig.DataPath, func(data *models.PaymentData) error {
+		data.Payments = append(data.Payments, newPayment)
+		return nil
+	}); err != nil {
 		slog.Error("Ошибка сохранения нового платежа",
 			"payment_id", id,
 			"error", err)
@@ -432,56 +362,53 @@ func AddPayment() error {
 }
 
 func CleanupPayments() error {
-	data, err := storage.LoadPayments(config.AppConfig.DataPath)
-	if err != nil {
-		slog.Error("Ошибка загрузки платежей для очистки", "error", err)
-		return fmt.Errorf("ошибка загрузки данных: %v", err)
-	}
-	initialCount := len(data.Payments)
-	cleanedData := cleanupOldPayments(*data)
-
-	if err := storage.SavePayments(&cleanedData, config.AppConfig.DataPath); err != nil {
-		slog.Error("Ошибка сохранения очищенных платежей", "error", err)
-		return fmt.Errorf("ошибка сохранения данных: %v", err)
+	var initialCount, finalCount int
+	if err := storage.MutatePayments(config.AppConfig.DataPath, func(data *models.PaymentData) error {
+		initialCount = len(data.Payments)
+		cleanedData := cleanupOldPaidPayments(*data, 7)
+		finalCount = len(cleanedData.Payments)
+		*data = cleanedData
+		return nil
+	}); err != nil {
+		return fmt.Errorf("ошибка очистки данных: %v", err)
 	}
 
-	removedCount := initialCount - len(cleanedData.Payments)
+	removedCount := initialCount - finalCount
 	slog.Info("Очистка платежей завершена",
 		"initial_count", initialCount,
-		"final_count", len(cleanedData.Payments),
+		"final_count", finalCount,
 		"removed_count", removedCount)
 
-	fmt.Printf("Очистка завершена. Удалено %d старых платежей\n", initialCount-len(cleanedData.Payments))
+	fmt.Printf("Очистка завершена. Удалено %d старых платежей\n", removedCount)
 	return nil
 }
 
-func cleanupOldPayments(data models.PaymentData) models.PaymentData {
+func cleanupOldPaidPayments(data models.PaymentData, keepDays int) models.PaymentData {
 	var validPayments []models.Payment
-	now := time.Now()
-	cutoffDate := now.AddDate(0, 0, -7)
+	cutoffDate := time.Now().AddDate(0, 0, -keepDays)
 
-	slog.Debug("Начало очистки старых платежей", "cutoff_date", cutoffDate.Format("2006-01-02"))
+	slog.Debug("Начало очистки старых оплаченных платежей", "cutoff_date", cutoffDate.Format("2006-01-02"))
 
 	for _, payment := range data.Payments {
-		if payment.PaymentDate != "" {
+		if payment.PaymentDate == "" {
 			validPayments = append(validPayments, payment)
 			continue
 		}
-		due, err := time.Parse("2006-01-02", payment.DueDate)
+		paidAt, err := time.Parse("2006-01-02", payment.PaymentDate)
 		if err != nil {
-			slog.Warn("Ошибка парсинга даты платежа при очистке",
+			slog.Warn("Ошибка парсинга даты оплаты при очистке",
 				"payment_id", payment.ID,
-				"due_date", payment.DueDate)
+				"payment_date", payment.PaymentDate)
 			validPayments = append(validPayments, payment)
 			continue
 		}
-		if due.After(cutoffDate) {
+		if paidAt.After(cutoffDate) {
 			validPayments = append(validPayments, payment)
 		} else {
-			slog.Debug("Платеж удален при очистке",
+			slog.Debug("Оплаченный платеж удален при очистке",
 				"payment_id", payment.ID,
 				"name", payment.Name,
-				"due_date", payment.DueDate)
+				"payment_date", payment.PaymentDate)
 		}
 	}
 
@@ -493,11 +420,10 @@ func ShowHelp() {
 	fmt.Println(`Payments CLI - Управление платежами
 
 Команды:
-  payments-manager                    - Показать виджет с ближайшим платежом
   payments-manager paid               - Отметить ближайший платеж как оплаченный
   payments-manager list               - Показать все активные платежи
   payments-manager add                - Добавить новый платеж
-  payments-manager cleanup            - Очистить старые платежи
+  payments-manager cleanup            - Очистить старые оплаченные платежи
 
 Команда add (примеры):
   # С указанием даты

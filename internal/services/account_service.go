@@ -44,6 +44,10 @@ func (s *AccountService) Create(ctx context.Context, req CreateAccountRequest) (
 	if currency == "" {
 		currency = "RUB"
 	}
+	currency = strings.ToUpper(currency)
+	if !validCurrency(currency) {
+		return nil, fmt.Errorf("invalid currency: %s", currency)
+	}
 
 	openedAt := req.OpenedAt
 	if openedAt.IsZero() {
@@ -56,12 +60,24 @@ func (s *AccountService) Create(ctx context.Context, req CreateAccountRequest) (
 		Name:      name,
 		Bank:      strings.TrimSpace(req.Bank),
 		Type:      req.Type,
-		Currency:  strings.ToUpper(currency),
+		Currency:  currency,
 		IsActive:  true,
 		OpenedAt:  openedAt,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}, nil
+}
+
+func validCurrency(currency string) bool {
+	if len(currency) != 3 {
+		return false
+	}
+	for _, r := range currency {
+		if r < 'A' || r > 'Z' {
+			return false
+		}
+	}
+	return true
 }
 
 func validAccountType(accountType models.AccountType) bool {

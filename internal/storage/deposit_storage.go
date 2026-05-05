@@ -20,49 +20,48 @@ func CreateDeposit(deposit *models.Deposit, dataPath string) error {
 
 	slog.Debug("Создание вклада в хранилище", "name", deposit.Name, "path", dataPath)
 
-	data, err := LoadDeposits(dataPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			data = &models.DepositsData{
-				Deposits: []models.Deposit{},
+	expandedPath := ExpandPath(dataPath)
+	return security.WithFileLock(expandedPath, func() error {
+		data, err := LoadDeposits(expandedPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				data = &models.DepositsData{
+					Deposits: []models.Deposit{},
+				}
+			} else {
+				return errors.WrapError(
+					errors.ErrStorage,
+					"ошибка загрузки вкладов при создании",
+					err,
+				)
 			}
-		} else {
-			return errors.WrapError(
-				errors.ErrStorage,
-				"ошибка загрузки вкладов при создании",
-				err,
-			)
 		}
-	}
 
-	now := time.Now()
-	deposit.CreatedAt = now
-	deposit.UpdatedAt = now
+		now := time.Now()
+		deposit.CreatedAt = now
+		deposit.UpdatedAt = now
 
-	if deposit.ID == "" {
-		deposit.ID = generateDepositID()
-	}
-
-	for i := range data.Deposits {
-		existingDeposit := &data.Deposits[i]
-		if existingDeposit.Name == deposit.Name && existingDeposit.Bank == deposit.Bank {
-			return errors.NewValidationError(
-				"вклад с таким названием уже существует в этом банке",
-				map[string]interface{}{
-					"name": deposit.Name,
-					"bank": deposit.Bank,
-				},
-			)
+		if deposit.ID == "" {
+			deposit.ID = generateDepositID()
 		}
-	}
 
-	data.Deposits = append(data.Deposits, *deposit)
+		for i := range data.Deposits {
+			existingDeposit := &data.Deposits[i]
+			if existingDeposit.Name == deposit.Name && existingDeposit.Bank == deposit.Bank {
+				return errors.NewValidationError(
+					"вклад с таким названием уже существует в этом банке",
+					map[string]interface{}{
+						"name": deposit.Name,
+						"bank": deposit.Bank,
+					},
+				)
+			}
+		}
 
-	if err := SaveDeposit(*data, dataPath); err != nil {
-		return err
-	}
+		data.Deposits = append(data.Deposits, *deposit)
 
-	return nil
+		return saveDepositUnlocked(*data, expandedPath)
+	})
 }
 
 func LoadDeposits(dataPath string) (*models.DepositsData, error) {
@@ -92,7 +91,12 @@ func SaveDeposit(data models.DepositsData, dataPath string) error {
 	slog.Debug("Сохранение вкладов", "count", len(data.Deposits), "path", dataPath)
 
 	expandedPath := ExpandPath(dataPath)
+	return security.WithFileLock(expandedPath, func() error {
+		return saveDepositUnlocked(data, expandedPath)
+	})
+}
 
+func saveDepositUnlocked(data models.DepositsData, expandedPath string) error {
 	if _, err := security.BackupFile(expandedPath); err != nil {
 		return errors.NewStorageError("резервная копия вкладов", err)
 	}
@@ -108,90 +112,96 @@ func UpdateDepositAmount(depositID string, amount int64, dataPath string) error 
 
 	slog.Debug("Обновление суммы вклада", "deposit_id", depositID, "amount", amount)
 
-	data, err := LoadDeposits(dataPath)
-	if err != nil {
+	expandedPath := ExpandPath(dataPath)
+	return security.WithFileLock(expandedPath, func() error {
+		data, err := LoadDeposits(expandedPath)
+		if err != nil {
 
-		slog.Error("Ошибка загрузки вкладов при обновлении суммы",
-			"deposit_id", depositID,
-			"error", err)
-
-		return errors.WrapError(
-			errors.ErrStorage,
-			"ошибка загрузки вкладов при обновлении суммы",
-			err,
-		)
-	}
-
-	found := false
-	for i := range data.Deposits {
-		if data.Deposits[i].ID == depositID {
-			newAmount := data.Deposits[i].Amount + amount
-			if newAmount < 0 {
-
-				slog.Error("Недостаточно средств на вкладе",
-					"deposit_id", depositID,
-					"current_amount", data.Deposits[i].Amount,
-					"requested_change", amount,
-					"resulting_amount", newAmount)
-
-				return errors.NewBusinessLogicError(
-					"недостаточно средств на вкладе",
-					map[string]interface{}{
-						"deposit_id":       depositID,
-						"current_amount":   data.Deposits[i].Amount,
-						"requested_change": amount,
-						"resulting_amount": newAmount,
-					},
-				)
-			}
-
-			data.Deposits[i].Amount = newAmount
-			data.Deposits[i].UpdatedAt = time.Now()
-			found = true
-			slog.Debug("Сумма вклада обновлена",
+			slog.Error("Ошибка загрузки вкладов при обновлении суммы",
 				"deposit_id", depositID,
-				"previous_amount", data.Deposits[i].Amount-amount,
-				"new_amount", newAmount)
+				"error", err)
 
-			break
+			return errors.WrapError(
+				errors.ErrStorage,
+				"ошибка загрузки вкладов при обновлении суммы",
+				err,
+			)
 		}
-	}
 
-	if !found {
-		slog.Warn("Вклад не найден для обновления суммы", "deposit_id", depositID)
-		return errors.NewNotFoundError("вклад", depositID)
-	}
+		found := false
+		for i := range data.Deposits {
+			if data.Deposits[i].ID == depositID {
+				newAmount := data.Deposits[i].Amount + amount
+				if newAmount < 0 {
 
-	return SaveDeposit(*data, dataPath)
+					slog.Error("Недостаточно средств на вкладе",
+						"deposit_id", depositID,
+						"current_amount", data.Deposits[i].Amount,
+						"requested_change", amount,
+						"resulting_amount", newAmount)
+
+					return errors.NewBusinessLogicError(
+						"недостаточно средств на вкладе",
+						map[string]interface{}{
+							"deposit_id":       depositID,
+							"current_amount":   data.Deposits[i].Amount,
+							"requested_change": amount,
+							"resulting_amount": newAmount,
+						},
+					)
+				}
+
+				data.Deposits[i].Amount = newAmount
+				data.Deposits[i].UpdatedAt = time.Now()
+				found = true
+				slog.Debug("Сумма вклада обновлена",
+					"deposit_id", depositID,
+					"previous_amount", data.Deposits[i].Amount-amount,
+					"new_amount", newAmount)
+
+				break
+			}
+		}
+
+		if !found {
+			slog.Warn("Вклад не найден для обновления суммы", "deposit_id", depositID)
+			return errors.NewNotFoundError("вклад", depositID)
+		}
+
+		return saveDepositUnlocked(*data, expandedPath)
+	})
 }
 
 func UpdateDeposit(updatedDeposit *models.Deposit, dataPath string) error {
-	data, err := LoadDeposits(dataPath)
-	if err != nil {
-		return errors.WrapError(
-			errors.ErrStorage,
-			"ошибка загрузки вкладов при обновлении",
-			err,
-		)
-	}
-
-	found := false
-	for i := range data.Deposits {
-		if data.Deposits[i].ID == updatedDeposit.ID {
-			created := data.Deposits[i].CreatedAt
-			data.Deposits[i] = *updatedDeposit
-			data.Deposits[i].CreatedAt = created
-			data.Deposits[i].UpdatedAt = time.Now()
-			found = true
-			break
+	expandedPath := ExpandPath(dataPath)
+	return security.WithFileLock(expandedPath, func() error {
+		data, err := LoadDeposits(expandedPath)
+		if err != nil {
+			return errors.WrapError(
+				errors.ErrStorage,
+				"ошибка загрузки вкладов при обновлении",
+				err,
+			)
 		}
-	}
 
-	if !found {
-		return errors.NewNotFoundError("вклад", updatedDeposit.ID)
-	}
+		found := false
+		for i := range data.Deposits {
+			if data.Deposits[i].ID == updatedDeposit.ID {
+				created := data.Deposits[i].CreatedAt
+				data.Deposits[i] = *updatedDeposit
+				data.Deposits[i].CreatedAt = created
+				data.Deposits[i].UpdatedAt = time.Now()
+				found = true
+				break
+			}
+		}
 
-	return SaveDeposit(*data, dataPath)
+		if !found {
+			return errors.NewNotFoundError("вклад", updatedDeposit.ID)
+		}
+
+		return saveDepositUnlocked(*data, expandedPath)
+	})
 }
 
 func GetDepositByID(depositID, dataPath string) (*models.Deposit, error) {

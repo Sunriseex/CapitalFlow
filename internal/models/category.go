@@ -4,22 +4,23 @@ import "time"
 
 type Category struct {
 	ID        string    `json:"id"`
+	Slug      string    `json:"slug"`
 	Name      string    `json:"name"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
 var DefaultCategories = []Category{
-	{ID: "salary", Name: "Зарплата"},
-	{ID: "deposit_interest", Name: "Проценты по вкладам"},
-	{ID: "food", Name: "Еда"},
-	{ID: "transport", Name: "Транспорт"},
-	{ID: "subscriptions", Name: "Подписки"},
-	{ID: "housing", Name: "Жилье"},
-	{ID: "health", Name: "Здоровье"},
-	{ID: "education", Name: "Обучение"},
-	{ID: "investments", Name: "Инвестиции"},
-	{ID: "emergency_fund", Name: "Финансовая подушка"},
-	{ID: "entertainment", Name: "Развлечения"},
-	{ID: "other", Name: "Прочее"},
+	{Slug: "salary", Name: "Зарплата"},
+	{Slug: "deposit_interest", Name: "Проценты по вкладам"},
+	{Slug: "food", Name: "Еда"},
+	{Slug: "transport", Name: "Транспорт"},
+	{Slug: "subscriptions", Name: "Подписки"},
+	{Slug: "housing", Name: "Жилье"},
+	{Slug: "health", Name: "Здоровье"},
+	{Slug: "education", Name: "Обучение"},
+	{Slug: "investments", Name: "Инвестиции"},
+	{Slug: "emergency_fund", Name: "Финансовая подушка"},
+	{Slug: "entertainment", Name: "Развлечения"},
+	{Slug: "other", Name: "Прочее"},
 }

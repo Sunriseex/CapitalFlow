@@ -1,13 +1,15 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/sunriseex/finance-manager/internal/config"
+	"github.com/sunriseex/finance-manager/internal/models"
+	"github.com/sunriseex/finance-manager/pkg/security"
 )
 
 func DepositDoctor() error {
@@ -17,8 +19,8 @@ func DepositDoctor() error {
 		name string
 		err  error
 	}{
-		{name: "deposits JSON", err: validateJSONFile(config.AppConfig.DepositsDataPath)},
-		{name: "payments JSON", err: validateJSONFile(config.AppConfig.DataPath)},
+		{name: "deposits JSON", err: validateDepositsFile(config.AppConfig.DepositsDataPath)},
+		{name: "payments JSON", err: validatePaymentsFile(config.AppConfig.DataPath)},
 	}
 
 	failed := 0
@@ -43,17 +45,40 @@ func DepositDoctor() error {
 	return nil
 }
 
-func validateJSONFile(path string) error {
-	file, err := os.Open(path)
-	if err != nil {
+func validateDepositsFile(path string) error {
+	var data models.DepositsData
+	if err := security.SafeReadJSON(path, &data); err != nil {
 		return err
 	}
-	defer file.Close()
+	for _, deposit := range data.Deposits {
+		if strings.TrimSpace(deposit.ID) == "" {
+			return fmt.Errorf("deposit has empty id")
+		}
+		if deposit.Amount < 0 {
+			return fmt.Errorf("deposit %s has negative amount", deposit.ID)
+		}
+		if strings.TrimSpace(deposit.Name) == "" {
+			return fmt.Errorf("deposit %s has empty name", deposit.ID)
+		}
+	}
+	return nil
+}
 
-	var payload any
-	decoder := json.NewDecoder(file)
-	if err := decoder.Decode(&payload); err != nil {
-		return fmt.Errorf("invalid JSON: %w", err)
+func validatePaymentsFile(path string) error {
+	var data models.PaymentData
+	if err := security.SafeReadJSON(path, &data); err != nil {
+		return err
+	}
+	for _, payment := range data.Payments {
+		if strings.TrimSpace(payment.ID) == "" {
+			return fmt.Errorf("payment has empty id")
+		}
+		if payment.Amount <= 0 {
+			return fmt.Errorf("payment %s has non-positive amount", payment.ID)
+		}
+		if strings.TrimSpace(payment.Name) == "" {
+			return fmt.Errorf("payment %s has empty name", payment.ID)
+		}
 	}
 	return nil
 }

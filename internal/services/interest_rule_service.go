@@ -36,14 +36,15 @@ type CreateInterestRuleRequest struct {
 }
 
 type AccrueRuleInterestRequest struct {
-	Rule                 models.InterestRule
-	BalanceMinor         int64
-	AccrualDate          time.Time
-	ExistingTransactions []models.Transaction
+	Rule             models.InterestRule
+	BalanceMinor     int64
+	AccrualDate      time.Time
+	ExistingAccruals []models.InterestAccrual
 }
 
 type AccrueRuleInterestResponse struct {
 	Transaction *models.Transaction
+	Accrual     *models.InterestAccrual
 	Skipped     bool
 }
 
@@ -100,18 +101,30 @@ func (s *InterestRuleService) Create(ctx context.Context, req CreateInterestRule
 		return nil, fmt.Errorf("promo end date must be on or after start date")
 	}
 
+	var endDate *time.Time
+	if req.EndDate != nil {
+		normalized := dateOnly(*req.EndDate)
+		endDate = &normalized
+	}
+
+	var promoEndDate *time.Time
+	if req.PromoEndDate != nil {
+		normalized := dateOnly(*req.PromoEndDate)
+		promoEndDate = &normalized
+	}
+
 	return &models.InterestRule{
 		ID:                      uuid.NewString(),
 		AccountID:               accountID,
 		AnnualRateBps:           req.AnnualRateBps,
 		PromoRateBps:            req.PromoRateBps,
-		PromoEndDate:            req.PromoEndDate,
+		PromoEndDate:            promoEndDate,
 		AccrualFrequency:        accrualFrequency,
 		CapitalizationFrequency: capitalizationFrequency,
 		DayCountConvention:      dayCountConvention,
 		IsActive:                true,
 		StartDate:               startDate,
-		EndDate:                 req.EndDate,
+		EndDate:                 endDate,
 	}, nil
 }
 
@@ -139,7 +152,12 @@ func (s *InterestRuleService) Accrue(ctx context.Context, req AccrueRuleInterest
 	if req.Rule.AccrualFrequency != models.AccrualFrequencyDaily {
 		return nil, fmt.Errorf("unsupported accrual frequency for manual accrual: %s", req.Rule.AccrualFrequency)
 	}
-	if hasInterestAccrual(req.ExistingTransactions, req.Rule, accrualDate) {
+	if req.Rule.CapitalizationFrequency != models.CapitalizationFrequencyDaily &&
+		req.Rule.CapitalizationFrequency != models.CapitalizationFrequencyNone &&
+		req.Rule.CapitalizationFrequency != "" {
+		return nil, fmt.Errorf("unsupported capitalization frequency: %s", req.Rule.CapitalizationFrequency)
+	}
+	if hasInterestAccrual(req.ExistingAccruals, req.Rule, accrualDate) {
 		return &AccrueRuleInterestResponse{Skipped: true}, nil
 	}
 
@@ -159,7 +177,19 @@ func (s *InterestRuleService) Accrue(ctx context.Context, req AccrueRuleInterest
 		return nil, fmt.Errorf("create interest income transaction: %w", err)
 	}
 
-	return &AccrueRuleInterestResponse{Transaction: tx}, nil
+	accrual := &models.InterestAccrual{
+		ID:            uuid.NewString(),
+		AccountID:     req.Rule.AccountID,
+		RuleID:        req.Rule.ID,
+		TransactionID: tx.ID,
+		AccrualDate:   accrualDate,
+		AmountMinor:   amountMinor,
+		BalanceMinor:  req.BalanceMinor,
+		AnnualRateBps: effectiveRateBps(req.Rule, accrualDate),
+		CreatedAt:     time.Now(),
+	}
+
+	return &AccrueRuleInterestResponse{Transaction: tx, Accrual: accrual}, nil
 }
 
 func validateRuleForAccrual(rule models.InterestRule) error {
@@ -223,13 +253,11 @@ func ruleActiveOn(rule models.InterestRule, date time.Time) bool {
 	return true
 }
 
-func hasInterestAccrual(transactions []models.Transaction, rule models.InterestRule, date time.Time) bool {
-	description := interestAccrualDescription(rule.ID, date)
-	for _, tx := range transactions {
-		if tx.AccountID == rule.AccountID &&
-			tx.Type == models.TransactionTypeInterestIncome &&
-			dateOnly(tx.OccurredAt).Equal(date) &&
-			tx.Description == description {
+func hasInterestAccrual(accruals []models.InterestAccrual, rule models.InterestRule, date time.Time) bool {
+	for _, accrual := range accruals {
+		if accrual.AccountID == rule.AccountID &&
+			accrual.RuleID == rule.ID &&
+			dateOnly(accrual.AccrualDate).Equal(date) {
 			return true
 		}
 	}

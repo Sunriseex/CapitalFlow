@@ -43,6 +43,26 @@ func SavePayments(data *models.PaymentData, dataPath string) error {
 	slog.Debug("Сохранение платежей", "count", len(data.Payments), "path", dataPath)
 
 	expandedPath := ExpandPath(dataPath)
+	return security.WithFileLock(expandedPath, func() error {
+		return savePaymentsUnlocked(data, expandedPath)
+	})
+}
+
+func MutatePayments(dataPath string, fn func(*models.PaymentData) error) error {
+	expandedPath := ExpandPath(dataPath)
+	return security.WithFileLock(expandedPath, func() error {
+		data, err := LoadPayments(expandedPath)
+		if err != nil {
+			return err
+		}
+		if err := fn(data); err != nil {
+			return err
+		}
+		return savePaymentsUnlocked(data, expandedPath)
+	})
+}
+
+func savePaymentsUnlocked(data *models.PaymentData, expandedPath string) error {
 	if _, err := security.BackupFile(expandedPath); err != nil {
 		slog.Error("Ошибка создания резервной копии платежей", "path", expandedPath, "error", err)
 		return errors.NewStorageError("резервная копия платежей", err)
