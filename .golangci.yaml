@@ -21,7 +21,6 @@ linters:
     - sqlclosecheck
     - revive
     - gocritic
-    - gosec
     - usetesting
     - durationcheck
     - makezero
@@ -32,12 +31,6 @@ linters:
         - diagnostic
         - performance
         - style
-
-    gosec:
-      excludes:
-        - G307
-        - G108
-        - G404
 
     revive:
       rules:

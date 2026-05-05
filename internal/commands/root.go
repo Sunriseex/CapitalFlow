@@ -3,17 +3,11 @@ package commands
 import (
 	"fmt"
 	"os"
-
-	"github.com/sunriseex/finance-manager/internal/config"
 )
 
 func Execute() error {
-	if err := config.Init(); err != nil {
-		return fmt.Errorf("ошибка инициализации конфига: %v", err)
-	}
 	if len(os.Args) == 1 {
-		DisplayWidget()
-		return nil
+		return ListPayments()
 	}
 	switch os.Args[1] {
 	case "paid":
@@ -22,8 +16,6 @@ func Execute() error {
 		return ListPayments()
 	case "add":
 		return AddPayment()
-	case "ledger":
-		return ShowLedger()
 	case "cleanup":
 		return CleanupPayments()
 	case "help", "--help", "-h":
@@ -31,7 +23,10 @@ func Execute() error {
 		return nil
 
 	default:
-		DisplayWidget()
-		return nil
+		return ShowUnknownCommand(os.Args[1])
 	}
+}
+
+func ShowUnknownCommand(command string) error {
+	return fmt.Errorf("неизвестная команда: %s", command)
 }

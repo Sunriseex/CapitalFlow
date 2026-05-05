@@ -1,3 +1,4 @@
+-- +goose Up
 CREATE TABLE users (
     id UUID PRIMARY KEY,
     email TEXT NOT NULL,
@@ -20,3 +21,7 @@ CREATE TABLE refresh_tokens (
 CREATE UNIQUE INDEX refresh_tokens_token_hash_idx ON refresh_tokens (token_hash);
 CREATE INDEX refresh_tokens_user_id_idx ON refresh_tokens (user_id);
 CREATE INDEX refresh_tokens_active_idx ON refresh_tokens (user_id, expires_at) WHERE revoked_at IS NULL;
+
+-- +goose Down
+DROP TABLE IF EXISTS refresh_tokens;
+DROP TABLE IF EXISTS users;

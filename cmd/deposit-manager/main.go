@@ -98,6 +98,10 @@ func executeCommand(command string, args []string) error {
 		return commands.DepositDoctor()
 	case "find":
 		return handleFindCommand(args)
+	case "export":
+		return handleExportCommand(args)
+	case "backup":
+		return commands.DepositBackup()
 	case "help", "-h", "--help":
 		showHelp()
 		return nil
@@ -148,6 +152,14 @@ func handleFindCommand(args []string) error {
 	return commands.DepositFind(args[0], args[1])
 }
 
+func handleExportCommand(args []string) error {
+	outputPath := ""
+	if len(args) > 0 {
+		outputPath = args[0]
+	}
+	return commands.DepositExport(outputPath)
+}
+
 func handleCreateCommand(args []string) error {
 	if len(args) < 6 {
 		showCreateUsage()
@@ -156,7 +168,7 @@ func handleCreateCommand(args []string) error {
 
 	var createParams struct {
 		name, bank, depositType, promoEndDate string
-		amount                                int
+		amount                                int64
 		rate                                  float64
 		termMonths                            int
 		promoRate                             *float64
@@ -202,7 +214,7 @@ func handleCreateCommand(args []string) error {
 
 func validateAndParseCreateParams(params *struct {
 	name, bank, depositType, promoEndDate string
-	amount                                int
+	amount                                int64
 	rate                                  float64
 	termMonths                            int
 	promoRate                             *float64
@@ -270,6 +282,8 @@ func showHelp() {
   deposit-manager accrue-interest   - Автоматическое начисление процентов
   deposit-manager find <name> <bank> - Найти вклад по имени и банку
   deposit-manager doctor            - Проверить конфиг и файлы данных
+  deposit-manager export [path]     - Экспортировать данные в JSON
+  deposit-manager backup            - Создать резервные копии файлов данных
   deposit-manager version           - Показать версию
   deposit-manager help              - Показать эту справку
 

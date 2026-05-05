@@ -6,14 +6,27 @@ import (
 	"github.com/sunriseex/finance-manager/pkg/money"
 )
 
-func FormatRubles(kopecks int) string {
+func FormatRubles(kopecks int64) string {
 	return money.FormatLegacyKopecks(kopecks)
 }
 
-func RublesToKopecks(rublesStr string) (int, error) {
+func RublesToKopecks(rublesStr string) (int64, error) {
 	amount, err := money.ParseRUB(rublesStr)
 	if err != nil {
 		return 0, fmt.Errorf("неверный формат суммы: %w", err)
+	}
+
+	kopecks, err := money.DecimalToLegacyKopecks(amount)
+	if err != nil {
+		return 0, fmt.Errorf("convert amount to kopecks: %w", err)
+	}
+	return kopecks, nil
+}
+
+func RublesToPositiveKopecks(rublesStr string) (int64, error) {
+	amount, err := money.ParsePositiveRUB(rublesStr)
+	if err != nil {
+		return 0, fmt.Errorf("неверная сумма: %w", err)
 	}
 
 	kopecks, err := money.DecimalToLegacyKopecks(amount)

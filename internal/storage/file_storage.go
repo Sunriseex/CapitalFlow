@@ -43,6 +43,57 @@ func SavePayments(data *models.PaymentData, dataPath string) error {
 	slog.Debug("Сохранение платежей", "count", len(data.Payments), "path", dataPath)
 
 	expandedPath := ExpandPath(dataPath)
+	if err := security.WithFileLock(expandedPath, func() error {
+		return savePaymentsUnlocked(data, expandedPath)
+	}); err != nil {
+		return errors.NewStorageError("сохранение платежей", err)
+	}
+	return nil
+}
+
+func MutatePayments(dataPath string, fn func(*models.PaymentData) error) error {
+	expandedPath := ExpandPath(dataPath)
+	var mutationErr error
+	if err := security.WithFileLock(expandedPath, func() error {
+		data, err := LoadPaymentsOrEmpty(expandedPath)
+		if err != nil {
+			return err
+		}
+		if data.Payments == nil {
+			data.Payments = []models.Payment{}
+		}
+		if err := fn(data); err != nil {
+			mutationErr = err
+			return err
+		}
+		return savePaymentsUnlocked(data, expandedPath)
+	}); err != nil {
+		if mutationErr != nil {
+			return mutationErr
+		}
+		return errors.NewStorageError("изменение платежей", err)
+	}
+	return nil
+}
+
+// LoadPaymentsOrEmpty loads payment data and treats a missing file as an empty dataset.
+func LoadPaymentsOrEmpty(dataPath string) (*models.PaymentData, error) {
+	data, err := LoadPayments(dataPath)
+	if err == nil {
+		return data, nil
+	}
+
+	expandedPath := ExpandPath(dataPath)
+	if _, statErr := os.Stat(expandedPath); os.IsNotExist(statErr) {
+		return &models.PaymentData{
+			Payments: []models.Payment{},
+		}, nil
+	}
+
+	return nil, err
+}
+
+func savePaymentsUnlocked(data *models.PaymentData, expandedPath string) error {
 	if _, err := security.BackupFile(expandedPath); err != nil {
 		slog.Error("Ошибка создания резервной копии платежей", "path", expandedPath, "error", err)
 		return errors.NewStorageError("резервная копия платежей", err)

@@ -1,64 +1,3 @@
-# TODO: Finance Manager Roadmap
-
-## Цель проекта
-
-Превратить текущий `scripts/finance-manager` из CLI-утилиты для вкладов в локальный финансовый трекер с WebUI, расчетом капитализации, учетом счетов, доходов/расходов, калькулятором распределения дохода, умным бюджетированием и будущей LLM-подсистемой рекомендаций.
-
-Проект должен остаться полезным лично владельцу, но при этом выглядеть как сильный backend pet-project: чистая доменная модель, PostgreSQL, WebUI, фоновые задачи, тесты, финансовые расчеты, аналитика и возможность дальнейшего расширения.
-
-## Product focus после pressure-test
-
-Проект не нужно строить как широкий consumer startup на старте. Для рынка он пока слишком большой и конкурирует с `Actual Budget`, `Firefly III`, таблицами и банковскими приложениями.
-
-Первый сильный wedge: локальный трекер для человека с несколькими счетами, вкладами и накопительными счетами, где важно видеть объяснимый баланс, проценты, капитализацию и прогноз.
-
-Главная формулировка MVP:
-
-```text
-Local-first tracker for deposits, savings accounts, capitalization, and explainable money flows.
-```
-
-## ICP для проверки
-
-Первый пользовательский профиль:
-
-* человек ведет личные финансы вручную или в таблице;
-* имеет 3+ счетов, вкладов или накопительных счетов;
-* хочет понимать, сколько реально принесут проценты;
-* не хочет отдавать все финансовые данные cloud-сервису;
-* готов использовать self-hosted или локальное приложение.
-
-## Validation Gates
-
-* [ ] MVP должен быть полезен лично владельцу без LLM и без smart budget.
-* [ ] До WebUI должно быть можно доказать корректность балансов через CLI/API и тесты.
-* [ ] До smart-функций должна быть надежная история транзакций.
-* [ ] До LLM должен быть безопасный summary layer без доступа к сырой БД.
-* [ ] Любая новая фича должна отвечать на вопрос: помогает ли она объяснить баланс, проценты или денежный поток?
-
----
-
-## Основные принципы разработки
-
-* [x] Не переписывать все сразу.
-* [x] Развивать текущий `finance-manager` эволюционно.
-* [x] Сначала стабилизировать ядро вкладов и расчетов.
-* [ ] Затем ввести универсальные счета и транзакции как core MVP.
-* [ ] После этого добавить тонкий API и минимальный WebUI.
-* [ ] Не расширять scope, пока не работает core: accounts, transactions, balance, interest.
-* [ ] Allocation, smart budget, goals и LLM не должны блокировать v1 core.
-* [ ] Все деньги хранить в минимальных единицах: копейки, `int64`.
-* [x] Не использовать `float64` для денег в новых money helpers.
-* Money model note: для новой бизнес-логики выбран `decimal.Decimal`; legacy JSON пока сохраняет суммы в копейках для обратной совместимости.
-* [ ] Ставки хранить как basis points: `1200 = 12.00%`.
-* [ ] Любое изменение баланса должно иметь объяснимую операцию.
-* [ ] Не менять баланс “магически”.
-* [ ] Проценты должны создаваться как отдельные транзакции.
-* [ ] Любой автоматический job должен быть идемпотентным.
-* [ ] WebUI не должен скрывать причину цифр: пользователь должен понимать, откуда взялся баланс.
-
----
-
 # v0.1 — Stabilize current Deposit Manager
 
 ## Цель
@@ -72,21 +11,20 @@ Local-first tracker for deposits, savings accounts, capitalization, and explaina
 * Расчет доходности.
 * Начисление процентов для `savings`.
 * JSON-хранилище.
-* Ledger-записи.
 
 ## TODO
 
 ### CLI
 
-* [ ] Проверить все текущие команды:
+* [x] Проверить все текущие команды:
 
-  * [ ] `list`
-  * [ ] `create`
-  * [ ] `topup`
-  * [ ] `calculate`
-  * [ ] `update`
-  * [ ] `accrue-interest`
-  * [ ] `find`
+  * [x] `list`
+  * [x] `create`
+  * [x] `topup`
+  * [x] `calculate`
+  * [x] `update`
+  * [x] `accrue-interest`
+  * [x] `find`
   * [x] `help`
 * [x] Убрать из help команды, которые реально не реализованы.
 * [x] Добавить команду `version`.
@@ -96,7 +34,7 @@ Local-first tracker for deposits, savings accounts, capitalization, and explaina
 ### Деньги и ставки
 
 * [x] Проверить все места, где суммы переводятся из рублей в копейки.
-* [ ] Заменить `int` на `int64` для денежных значений.
+* [x] Заменить `int` на `int64` для денежных значений.
 * [x] Подготовить миграцию ставок с `float64` на decimal/basis-points helpers.
 * [x] Добавить helper:
 
@@ -125,16 +63,16 @@ func BpsToPercentString(bps int64) string
 
 * [x] Добавить backup перед записью JSON.
 * [x] Добавить проверку целостности JSON-файлов.
-* [ ] Добавить команду `export`.
-* [ ] Добавить команду `backup`.
+* [x] Добавить команду `export`.
+* [x] Добавить команду `backup`.
 
 ## Acceptance Criteria
 
 * [x] Проверенные CLI-команды работают без panic (`version`, `help`, `doctor`).
-* [ ] Все денежные значения внутри бизнес-логики используют `int64`.
+* [x] Все денежные значения внутри бизнес-логики используют `int64`.
 * [x] Покрыты тестами базовые расчеты процентов.
 * [x] Есть резервная копия данных перед изменением файлов.
-* [ ] CLI можно использовать как раньше.
+* [x] CLI можно использовать как раньше.
 
 ---
 
@@ -154,7 +92,7 @@ func BpsToPercentString(bps int64) string
 
 ### Account
 
-* [ ] Добавить модель `Account`.
+* [x] Добавить модель `Account`.
 
 ```go
 type Account struct {
@@ -172,16 +110,16 @@ type Account struct {
 
 Типы счетов:
 
-* [ ] `cash`
-* [ ] `card`
-* [ ] `savings`
-* [ ] `term_deposit`
-* [ ] `broker`
-* [ ] `other`
+* [x] `cash`
+* [x] `card`
+* [x] `savings`
+* [x] `term_deposit`
+* [x] `broker`
+* [x] `other`
 
 ### Transaction
 
-* [ ] Добавить модель `Transaction`.
+* [x] Добавить модель `Transaction`.
 
 ```go
 type Transaction struct {
@@ -199,17 +137,17 @@ type Transaction struct {
 
 Типы операций:
 
-* [ ] `initial_balance`
-* [ ] `income`
-* [ ] `expense`
-* [ ] `transfer_in`
-* [ ] `transfer_out`
-* [ ] `interest_income`
-* [ ] `adjustment`
+* [x] `initial_balance`
+* [x] `income`
+* [x] `expense`
+* [x] `transfer_in`
+* [x] `transfer_out`
+* [x] `interest_income`
+* [x] `adjustment`
 
 ### InterestRule
 
-* [ ] Добавить модель `InterestRule`.
+* [x] Добавить модель `InterestRule`.
 
 ```go
 type InterestRule struct {
@@ -229,58 +167,58 @@ type InterestRule struct {
 
 Поддерживаемые значения:
 
-* [ ] `accrual_frequency = daily | monthly | end_of_term`
-* [ ] `capitalization_frequency = daily | monthly | end_of_term | none`
-* [ ] `day_count_convention = actual_365 | actual_366 | actual_actual`
+* [x] `accrual_frequency = daily | monthly | end_of_term`
+* [x] `capitalization_frequency = daily | monthly | end_of_term | none`
+* [x] `day_count_convention = actual_365 | actual_366 | actual_actual`
 
 ### Category
 
-* [ ] Добавить модель `Category`.
+* [x] Добавить модель `Category`.
 
 Категории по умолчанию:
 
-* [ ] Зарплата
-* [ ] Проценты по вкладам
-* [ ] Еда
-* [ ] Транспорт
-* [ ] Подписки
-* [ ] Жилье
-* [ ] Здоровье
-* [ ] Обучение
-* [ ] Инвестиции
-* [ ] Финансовая подушка
-* [ ] Развлечения
-* [ ] Прочее
+* [x] Зарплата
+* [x] Проценты по вкладам
+* [x] Еда
+* [x] Транспорт
+* [x] Подписки
+* [x] Жилье
+* [x] Здоровье
+* [x] Обучение
+* [x] Инвестиции
+* [x] Финансовая подушка
+* [x] Развлечения
+* [x] Прочее
 
 ## Сервисы
 
-* [ ] `AccountService`
-* [ ] `TransactionService`
-* [ ] `TransferService`
-* [ ] `InterestRuleService`
-* [ ] `BalanceService`
+* [x] `AccountService`
+* [x] `TransactionService`
+* [x] `TransferService`
+* [x] `InterestRuleService`
+* [x] `BalanceService`
 
 ## Правила
 
-* [ ] Баланс счета считается из операций.
-* [ ] Перевод создает две операции:
+* [x] Баланс счета считается из операций.
+* [x] Перевод создает две операции:
 
-  * [ ] `transfer_out` на исходном счете
-  * [ ] `transfer_in` на целевом счете
-* [ ] Начисление процентов создает операцию `interest_income`.
-* [ ] Ручная правка баланса создает `adjustment`.
+  * [x] `transfer_out` на исходном счете
+  * [x] `transfer_in` на целевом счете
+* [x] Начисление процентов создает операцию `interest_income`.
+* [x] Ручная правка баланса создает `adjustment`.
 
 ## Acceptance Criteria
 
-* [ ] Можно создать `Account` без WebUI.
-* [ ] Можно создать `Transaction` без WebUI.
-* [ ] Можно посчитать баланс счета через список транзакций.
-* [ ] Можно создать накопительный счет с правилом процентов.
-* [ ] Можно начислить проценты как отдельную транзакцию.
-* [ ] Повторное начисление за тот же день не создает дубль на уровне сервиса.
-* [ ] Старый `Deposit` еще не удален, но новая модель уже работает отдельно.
-* [ ] Написаны unit-тесты на баланс.
-* [ ] Написаны unit-тесты на проценты через `InterestRule`.
+* [x] Можно создать `Account` без WebUI.
+* [x] Можно создать `Transaction` без WebUI.
+* [x] Можно посчитать баланс счета через список транзакций.
+* [x] Можно создать накопительный счет с правилом процентов.
+* [x] Можно начислить проценты как отдельную транзакцию.
+* [x] Повторное начисление за тот же день не создает дубль на уровне сервиса.
+* [x] Старый `Deposit` еще не удален, но новая модель уже работает отдельно.
+* [x] Написаны unit-тесты на баланс.
+* [x] Написаны unit-тесты на проценты через `InterestRule`.
 
 ---
 
@@ -292,39 +230,40 @@ type InterestRule struct {
 
 ## Зависимости
 
-* [ ] Добавить `pgx`.
-* [ ] Добавить инструмент миграций:
+* [x] Добавить `pgx`.
+* [x] Добавить инструмент миграций:
 
-  * [ ] `goose`
+  * [x] `goose`
   * или [ ] `golang-migrate`
-* [ ] Добавить Docker Compose для локального PostgreSQL.
+* [x] Добавить Docker Compose для локального PostgreSQL.
 
 ## Таблицы
 
-* [ ] `accounts`
-* [ ] `transactions`
-* [ ] `categories`
-* [ ] `interest_rules`
-* [ ] `interest_accruals`
-* [ ] `balance_snapshots`
-* [ ] `settings`
+* [x] `accounts`
+* [x] `transactions`
+* [x] `categories`
+* [x] `interest_rules`
+* [x] `interest_accruals`
+* [x] `balance_snapshots`
+* [x] `settings`
 
 ## Миграции
 
-* [ ] `000001_create_accounts.sql`
-* [ ] `000002_create_categories.sql`
-* [ ] `000003_create_transactions.sql`
-* [ ] `000004_create_interest_rules.sql`
-* [ ] `000005_create_interest_accruals.sql`
-* [ ] `000006_create_balance_snapshots.sql`
+* [x] `000002_create_accounts.sql`
+* [x] `000003_create_categories.sql`
+* [x] `000004_create_transactions.sql`
+* [x] `000005_create_interest_rules.sql`
+* [x] `000006_create_interest_accruals.sql`
+* [x] `000007_create_balance_snapshots.sql`
+* [x] `000008_create_settings.sql`
 
 ## Индексы
 
-* [ ] `transactions(account_id, occurred_at)`
-* [ ] `transactions(type)`
-* [ ] `interest_rules(account_id, is_active)`
-* [ ] `interest_accruals(account_id, accrual_date)`
-* [ ] unique index для защиты от повторного начисления:
+* [x] `transactions(account_id, occurred_at)`
+* [x] `transactions(type)`
+* [x] `interest_rules(account_id, is_active)`
+* [x] `interest_accruals(account_id, accrual_date)`
+* [x] unique index для защиты от повторного начисления:
 
 ```sql
 UNIQUE(account_id, accrual_date, rule_id)
@@ -1124,78 +1063,6 @@ LLM должна получать примерно такой контекст:
 * [ ] Auth proxy.
 * [ ] Grafana metrics.
 * [ ] Prometheus endpoint.
-
----
-
-# Roadmap Gates
-
-## Gate 1 — Reliable CLI Core
-
-Можно двигаться дальше, когда:
-
-* [ ] все текущие CLI-команды проверены;
-* [ ] деньги в новой бизнес-логике не используют `int`/`float64`;
-* [ ] ставки хранятся как basis points;
-* [ ] тесты покрывают базовые проценты и edge cases.
-
-## Gate 2 — Domain Core MVP
-
-Можно двигаться дальше, когда:
-
-* [ ] баланс считается только из операций;
-* [ ] перевод создает две связанные операции;
-* [ ] проценты создаются отдельной операцией;
-* [ ] повторное начисление процентов идемпотентно;
-* [ ] старый `Deposit` работает рядом с новой моделью.
-
-## Gate 3 — Storage
-
-Можно двигаться дальше, когда:
-
-* [ ] PostgreSQL поднимается одной командой;
-* [ ] миграции применяются одной командой;
-* [ ] JSON-вклады мигрируются без потери сумм;
-* [ ] балансы после миграции совпадают.
-
-## Gate 4 — Usable App
-
-Можно двигаться дальше, когда:
-
-* [ ] API закрывает accounts, transactions, transfers, balances, interest;
-* [ ] WebUI позволяет пользоваться core-flow каждый день;
-* [ ] пользователь видит объяснение баланса;
-* [ ] backup/restore не оставлен на самый конец.
-
----
-
-# First Implementation Order
-
-## Первый практический порядок задач
-
-1. [x] Создать ветку `feature/finance-manager-roadmap`.
-2. [x] Добавить этот TODO в проект.
-3. [ ] Добавить `README.md` для текущего `deposit-manager`.
-4. [ ] Добавить `docs/architecture.md` с текущим и целевым состоянием.
-5. [x] Добавить тесты на текущий calculator.
-6. [ ] Проверить все CLI-команды из v0.1 и закрыть regressions.
-7. [ ] Перевести оставшиеся денежные значения на `int64`.
-8. [ ] Перевести ставки на basis points в новой бизнес-логике.
-9. [ ] Добавить `Account`, `Transaction`, `Category`.
-10. [ ] Добавить `BalanceService` и тесты баланса.
-11. [ ] Добавить `InterestRule` и начисление процентов как транзакции.
-12. [ ] Добавить идемпотентность начислений на уровне сервиса.
-13. [ ] Добавить PostgreSQL, миграции и Docker Compose.
-14. [ ] Добавить `migrate-json` из старых вкладов.
-15. [ ] Поднять тонкий HTTP API для core-flow.
-16. [ ] Сделать WebUI MVP: accounts, transactions, balances, interest.
-17. [ ] Добавить backup/restore перед расширением фич.
-18. [ ] Добавить reports/analytics.
-19. [ ] Добавить allocation calculator.
-20. [ ] Добавить budgeting/goals.
-21. [ ] Добавить smart budget calculator.
-22. [ ] Добавить LLM foundation через безопасный summary layer.
-
----
 
 # Notes
 
