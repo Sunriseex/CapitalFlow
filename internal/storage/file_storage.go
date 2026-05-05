@@ -53,6 +53,7 @@ func SavePayments(data *models.PaymentData, dataPath string) error {
 
 func MutatePayments(dataPath string, fn func(*models.PaymentData) error) error {
 	expandedPath := ExpandPath(dataPath)
+	var mutationErr error
 	if err := security.WithFileLock(expandedPath, func() error {
 		data, err := LoadPaymentsOrEmpty(expandedPath)
 		if err != nil {
@@ -62,10 +63,14 @@ func MutatePayments(dataPath string, fn func(*models.PaymentData) error) error {
 			data.Payments = []models.Payment{}
 		}
 		if err := fn(data); err != nil {
+			mutationErr = err
 			return err
 		}
 		return savePaymentsUnlocked(data, expandedPath)
 	}); err != nil {
+		if mutationErr != nil {
+			return mutationErr
+		}
 		return errors.NewStorageError("изменение платежей", err)
 	}
 	return nil

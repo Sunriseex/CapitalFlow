@@ -119,6 +119,7 @@ func UpdateDepositAmount(depositID string, amount int64, dataPath string) error 
 	slog.Debug("Обновление суммы вклада", "deposit_id", depositID, "amount", amount)
 
 	expandedPath := ExpandPath(dataPath)
+	var domainErr error
 	if err := security.WithFileLock(expandedPath, func() error {
 		data, err := LoadDeposits(expandedPath)
 		if err != nil {
@@ -146,7 +147,7 @@ func UpdateDepositAmount(depositID string, amount int64, dataPath string) error 
 						"requested_change", amount,
 						"resulting_amount", newAmount)
 
-					return errors.NewBusinessLogicError(
+					domainErr = errors.NewBusinessLogicError(
 						"недостаточно средств на вкладе",
 						map[string]interface{}{
 							"deposit_id":       depositID,
@@ -155,6 +156,7 @@ func UpdateDepositAmount(depositID string, amount int64, dataPath string) error 
 							"resulting_amount": newAmount,
 						},
 					)
+					return domainErr
 				}
 
 				data.Deposits[i].Amount = newAmount
@@ -171,11 +173,15 @@ func UpdateDepositAmount(depositID string, amount int64, dataPath string) error 
 
 		if !found {
 			slog.Warn("Вклад не найден для обновления суммы", "deposit_id", depositID)
-			return errors.NewNotFoundError("вклад", depositID)
+			domainErr = errors.NewNotFoundError("вклад", depositID)
+			return domainErr
 		}
 
 		return saveDepositUnlocked(*data, expandedPath)
 	}); err != nil {
+		if domainErr != nil {
+			return domainErr
+		}
 		return errors.NewStorageError("обновление суммы вклада", err)
 	}
 	return nil
