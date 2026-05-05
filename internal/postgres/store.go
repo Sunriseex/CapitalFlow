@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -46,5 +47,8 @@ func mapNotFound(err error) error {
 }
 
 func (s *Store) Ping(ctx context.Context) error {
-	return s.pool.Ping(ctx)
+	if err := s.pool.Ping(ctx); err != nil {
+		return fmt.Errorf("ping postgres: %w", err)
+	}
+	return nil
 }

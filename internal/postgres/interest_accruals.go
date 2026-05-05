@@ -28,7 +28,7 @@ func (r *InterestAccrualRepository) Create(ctx context.Context, accrual *models.
 	return nil
 }
 
-func (r *InterestAccrualRepository) GetByAccountDateRule(ctx context.Context, accountID string, accrualDate string, ruleID string) (*models.InterestAccrual, error) {
+func (r *InterestAccrualRepository) GetByAccountDateRule(ctx context.Context, accountID, accrualDate, ruleID string) (*models.InterestAccrual, error) {
 	accrual, err := scanInterestAccrual(r.pool.QueryRow(ctx, selectInterestAccrualSQL+` WHERE account_id = $1 AND accrual_date = $2 AND rule_id = $3`, accountID, accrualDate, ruleID))
 	if err != nil {
 		return nil, fmt.Errorf("get interest accrual: %w", mapNotFound(err))

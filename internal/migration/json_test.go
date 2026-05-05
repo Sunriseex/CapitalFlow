@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/sunriseex/finance-manager/internal/models"
 	"github.com/sunriseex/finance-manager/internal/repository"
@@ -103,6 +104,50 @@ func TestJSONMigratorIsIdempotentByLegacyID(t *testing.T) {
 	}
 	if !report.BalanceMatchesSource {
 		t.Fatal("second run balance must match source")
+	}
+}
+
+func TestJSONMigratorRepairsPartialLegacyMigration(t *testing.T) {
+	ctx := t.Context()
+	accounts := newFakeAccountRepo()
+	transactions := newFakeTransactionRepo()
+	rules := newFakeInterestRuleRepo()
+	migrator := NewJSONMigrator(accounts, transactions, rules)
+
+	legacyID := "legacy-1"
+	legacyIDPtr := legacyID
+	account := &models.Account{
+		ID:       "account-1",
+		LegacyID: &legacyIDPtr,
+		Name:     "Savings",
+		Type:     models.AccountTypeSavings,
+		Currency: "RUB",
+		OpenedAt: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+	}
+	if err := accounts.Create(ctx, account); err != nil {
+		t.Fatalf("seed account: %v", err)
+	}
+
+	report, err := migrator.MigrateDeposits(ctx, []models.Deposit{{
+		ID:             legacyID,
+		Name:           "Savings",
+		Type:           models.DepositTypeSavings,
+		Amount:         100_000,
+		InterestRate:   12,
+		StartDate:      "2026-05-01",
+		Capitalization: models.CapitalizationDaily,
+	}})
+	if err != nil {
+		t.Fatalf("migrate deposits: %v", err)
+	}
+	if report.SkippedExisting != 1 {
+		t.Fatalf("skipped = %d, want 1", report.SkippedExisting)
+	}
+	if report.CreatedInterestRules != 1 || report.CreatedTransactions != 1 {
+		t.Fatalf("created rules=%d tx=%d, want 1 each", report.CreatedInterestRules, report.CreatedTransactions)
+	}
+	if !report.BalanceMatchesSource {
+		t.Fatal("balance must match source after repair")
 	}
 }
 

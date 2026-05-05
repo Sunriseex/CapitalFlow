@@ -31,7 +31,9 @@ func (r *TransactionRepository) CreateMany(ctx context.Context, transactions []m
 	if err != nil {
 		return fmt.Errorf("begin create transactions: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
 
 	for i := range transactions {
 		if err := insertTransaction(ctx, tx, &transactions[i]); err != nil {
@@ -136,5 +138,8 @@ func insertTransaction(ctx context.Context, execer transactionExecer, transactio
 		INSERT INTO transactions (id, account_id, related_account_id, type, amount_minor, category_id, description, occurred_at, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`, transaction.ID, transaction.AccountID, transaction.RelatedAccountID, transaction.Type, transaction.AmountMinor, transaction.CategoryID, transaction.Description, transaction.OccurredAt, transaction.CreatedAt)
-	return err
+	if err != nil {
+		return fmt.Errorf("insert transaction: %w", err)
+	}
+	return nil
 }

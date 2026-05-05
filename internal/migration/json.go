@@ -77,8 +77,7 @@ func (m *JSONMigrator) migrateDeposit(ctx context.Context, deposit *models.Depos
 
 	existing, err := m.accounts.GetByLegacyID(ctx, legacyID)
 	if err == nil {
-		report.SkippedExisting++
-		return m.accountBalance(ctx, existing.ID)
+		return m.migrateExistingDeposit(ctx, deposit, existing, report)
 	}
 	if !errors.Is(err, repository.ErrNotFound) {
 		return 0, fmt.Errorf("lookup legacy account: %w", err)
@@ -103,7 +102,7 @@ func (m *JSONMigrator) migrateDeposit(ctx context.Context, deposit *models.Depos
 		return 0, fmt.Errorf("deposit name is required")
 	}
 	if err := m.accounts.Create(ctx, account); err != nil {
-		return 0, err
+		return 0, fmt.Errorf("create account: %w", err)
 	}
 	report.CreatedAccounts++
 
@@ -112,7 +111,7 @@ func (m *JSONMigrator) migrateDeposit(ctx context.Context, deposit *models.Depos
 		return 0, err
 	}
 	if err := m.rules.Create(ctx, rule); err != nil {
-		return 0, err
+		return 0, fmt.Errorf("create interest rule: %w", err)
 	}
 	report.CreatedInterestRules++
 
@@ -121,23 +120,63 @@ func (m *JSONMigrator) migrateDeposit(ctx context.Context, deposit *models.Depos
 		AccountID:   account.ID,
 		Type:        models.TransactionTypeInitialBalance,
 		AmountMinor: deposit.Amount,
-		Description: fmt.Sprintf("legacy initial balance deposit=%s", legacyID),
+		Description: legacyInitialDescription(legacyID),
 		OccurredAt:  openedAt,
 		CreatedAt:   now,
 	}
 	if err := m.transactions.Create(ctx, transaction); err != nil {
-		return 0, err
+		return 0, fmt.Errorf("create initial balance transaction: %w", err)
 	}
 	report.CreatedTransactions++
 
 	return deposit.Amount, nil
 }
 
-func (m *JSONMigrator) accountBalance(ctx context.Context, accountID string) (int64, error) {
-	transactions, err := m.transactions.ListByAccount(ctx, accountID)
+func (m *JSONMigrator) migrateExistingDeposit(ctx context.Context, deposit *models.Deposit, account *models.Account, report *JSONMigrationReport) (int64, error) {
+	report.SkippedExisting++
+
+	rules, err := m.rules.ListByAccount(ctx, account.ID)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("list existing rules: %w", err)
 	}
+	if len(rules) == 0 {
+		openedAt := firstNonZeroDate(parseDate(deposit.StartDate), account.OpenedAt, time.Now().UTC())
+		rule, err := interestRuleForDeposit(deposit, account.ID, openedAt)
+		if err != nil {
+			return 0, err
+		}
+		if err := m.rules.Create(ctx, rule); err != nil {
+			return 0, fmt.Errorf("create missing interest rule: %w", err)
+		}
+		report.CreatedInterestRules++
+	}
+
+	transactions, err := m.transactions.ListByAccount(ctx, account.ID)
+	if err != nil {
+		return 0, fmt.Errorf("list existing transactions: %w", err)
+	}
+	if !hasLegacyInitialTransaction(transactions, deposit.ID) {
+		now := time.Now().UTC()
+		transaction := &models.Transaction{
+			ID:          uuid.NewString(),
+			AccountID:   account.ID,
+			Type:        models.TransactionTypeInitialBalance,
+			AmountMinor: deposit.Amount,
+			Description: legacyInitialDescription(deposit.ID),
+			OccurredAt:  firstNonZeroDate(parseDate(deposit.StartDate), account.OpenedAt, now),
+			CreatedAt:   now,
+		}
+		if err := m.transactions.Create(ctx, transaction); err != nil {
+			return 0, fmt.Errorf("create missing initial balance transaction: %w", err)
+		}
+		report.CreatedTransactions++
+		transactions = append(transactions, *transaction)
+	}
+
+	return balanceFromTransactions(transactions)
+}
+
+func balanceFromTransactions(transactions []models.Transaction) (int64, error) {
 	var balance int64
 	for i := range transactions {
 		switch transactions[i].Type {
@@ -226,6 +265,20 @@ func capitalizationForDeposit(capitalization string) models.CapitalizationFreque
 
 func rateToBps(rate float64) int64 {
 	return decimal.NewFromFloat(rate).Mul(decimal.NewFromInt(100)).Round(0).IntPart()
+}
+
+func hasLegacyInitialTransaction(transactions []models.Transaction, legacyID string) bool {
+	description := legacyInitialDescription(legacyID)
+	for i := range transactions {
+		if transactions[i].Type == models.TransactionTypeInitialBalance && transactions[i].Description == description {
+			return true
+		}
+	}
+	return false
+}
+
+func legacyInitialDescription(legacyID string) string {
+	return fmt.Sprintf("legacy initial balance deposit=%s", legacyID)
 }
 
 func parseDate(input string) time.Time {
