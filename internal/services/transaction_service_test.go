@@ -7,7 +7,7 @@ import (
 )
 
 func TestTransactionServiceCreate(t *testing.T) {
-	tx, err := NewTransactionService().Create(t.Context(), CreateTransactionRequest{
+	tx, err := NewTransactionService().Create(t.Context(), &CreateTransactionRequest{
 		AccountID:   "account-1",
 		Type:        models.TransactionTypeIncome,
 		AmountMinor: 10_000,
@@ -28,7 +28,7 @@ func TestTransactionServiceCreate(t *testing.T) {
 }
 
 func TestTransactionServiceCreateValidatesInput(t *testing.T) {
-	_, err := NewTransactionService().Create(t.Context(), CreateTransactionRequest{
+	_, err := NewTransactionService().Create(t.Context(), &CreateTransactionRequest{
 		AccountID:   "account-1",
 		Type:        models.TransactionTypeIncome,
 		AmountMinor: 0,
@@ -50,7 +50,7 @@ func TestTransactionServiceCreateRejectsNegativeNonAdjustmentAmounts(t *testing.
 
 	for _, transactionType := range tests {
 		t.Run(string(transactionType), func(t *testing.T) {
-			_, err := NewTransactionService().Create(t.Context(), CreateTransactionRequest{
+			_, err := NewTransactionService().Create(t.Context(), &CreateTransactionRequest{
 				AccountID:   "account-1",
 				Type:        transactionType,
 				AmountMinor: -1,
@@ -63,7 +63,7 @@ func TestTransactionServiceCreateRejectsNegativeNonAdjustmentAmounts(t *testing.
 }
 
 func TestTransactionServiceCreateAllowsNegativeAdjustments(t *testing.T) {
-	tx, err := NewTransactionService().Create(t.Context(), CreateTransactionRequest{
+	tx, err := NewTransactionService().Create(t.Context(), &CreateTransactionRequest{
 		AccountID:   "account-1",
 		Type:        models.TransactionTypeAdjustment,
 		AmountMinor: -1_000,

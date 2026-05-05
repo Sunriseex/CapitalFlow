@@ -25,11 +25,14 @@ type CreateAccountRequest struct {
 	OpenedAt time.Time
 }
 
-func (s *AccountService) Create(ctx context.Context, req CreateAccountRequest) (*models.Account, error) {
+func (s *AccountService) Create(ctx context.Context, req *CreateAccountRequest) (*models.Account, error) {
 	select {
 	case <-ctx.Done():
 		return nil, fmt.Errorf("create account: %w", ctx.Err())
 	default:
+	}
+	if req == nil {
+		return nil, fmt.Errorf("create account request is required")
 	}
 
 	name := strings.TrimSpace(req.Name)

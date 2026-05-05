@@ -21,7 +21,7 @@ func CreateDeposit(deposit *models.Deposit, dataPath string) error {
 	slog.Debug("Создание вклада в хранилище", "name", deposit.Name, "path", dataPath)
 
 	expandedPath := ExpandPath(dataPath)
-	return security.WithFileLock(expandedPath, func() error {
+	if err := security.WithFileLock(expandedPath, func() error {
 		data, err := LoadDeposits(expandedPath)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -61,7 +61,10 @@ func CreateDeposit(deposit *models.Deposit, dataPath string) error {
 		data.Deposits = append(data.Deposits, *deposit)
 
 		return saveDepositUnlocked(*data, expandedPath)
-	})
+	}); err != nil {
+		return errors.NewStorageError("создание вклада", err)
+	}
+	return nil
 }
 
 func LoadDeposits(dataPath string) (*models.DepositsData, error) {
@@ -91,9 +94,12 @@ func SaveDeposit(data models.DepositsData, dataPath string) error {
 	slog.Debug("Сохранение вкладов", "count", len(data.Deposits), "path", dataPath)
 
 	expandedPath := ExpandPath(dataPath)
-	return security.WithFileLock(expandedPath, func() error {
+	if err := security.WithFileLock(expandedPath, func() error {
 		return saveDepositUnlocked(data, expandedPath)
-	})
+	}); err != nil {
+		return errors.NewStorageError("сохранение вкладов", err)
+	}
+	return nil
 }
 
 func saveDepositUnlocked(data models.DepositsData, expandedPath string) error {
@@ -113,7 +119,7 @@ func UpdateDepositAmount(depositID string, amount int64, dataPath string) error 
 	slog.Debug("Обновление суммы вклада", "deposit_id", depositID, "amount", amount)
 
 	expandedPath := ExpandPath(dataPath)
-	return security.WithFileLock(expandedPath, func() error {
+	if err := security.WithFileLock(expandedPath, func() error {
 		data, err := LoadDeposits(expandedPath)
 		if err != nil {
 
@@ -169,12 +175,15 @@ func UpdateDepositAmount(depositID string, amount int64, dataPath string) error 
 		}
 
 		return saveDepositUnlocked(*data, expandedPath)
-	})
+	}); err != nil {
+		return errors.NewStorageError("обновление суммы вклада", err)
+	}
+	return nil
 }
 
 func UpdateDeposit(updatedDeposit *models.Deposit, dataPath string) error {
 	expandedPath := ExpandPath(dataPath)
-	return security.WithFileLock(expandedPath, func() error {
+	if err := security.WithFileLock(expandedPath, func() error {
 		data, err := LoadDeposits(expandedPath)
 		if err != nil {
 			return errors.WrapError(
@@ -201,7 +210,10 @@ func UpdateDeposit(updatedDeposit *models.Deposit, dataPath string) error {
 		}
 
 		return saveDepositUnlocked(*data, expandedPath)
-	})
+	}); err != nil {
+		return errors.NewStorageError("обновление вклада", err)
+	}
+	return nil
 }
 
 func GetDepositByID(depositID, dataPath string) (*models.Deposit, error) {

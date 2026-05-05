@@ -49,7 +49,7 @@ func (s *TransferService) Create(ctx context.Context, req CreateTransferRequest)
 
 	inRelatedID := fromAccountID
 	outRelatedID := toAccountID
-	outTx, err := s.transactions.Create(ctx, CreateTransactionRequest{
+	outTx, err := s.transactions.Create(ctx, &CreateTransactionRequest{
 		AccountID:        fromAccountID,
 		RelatedAccountID: &outRelatedID,
 		Type:             models.TransactionTypeTransferOut,
@@ -60,7 +60,7 @@ func (s *TransferService) Create(ctx context.Context, req CreateTransferRequest)
 		return nil, fmt.Errorf("create transfer out transaction: %w", err)
 	}
 
-	inTx, err := s.transactions.Create(ctx, CreateTransactionRequest{
+	inTx, err := s.transactions.Create(ctx, &CreateTransactionRequest{
 		AccountID:        toAccountID,
 		RelatedAccountID: &inRelatedID,
 		Type:             models.TransactionTypeTransferIn,

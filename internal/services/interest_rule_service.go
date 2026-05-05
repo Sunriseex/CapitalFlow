@@ -48,11 +48,14 @@ type AccrueRuleInterestResponse struct {
 	Skipped     bool
 }
 
-func (s *InterestRuleService) Create(ctx context.Context, req CreateInterestRuleRequest) (*models.InterestRule, error) {
+func (s *InterestRuleService) Create(ctx context.Context, req *CreateInterestRuleRequest) (*models.InterestRule, error) {
 	select {
 	case <-ctx.Done():
 		return nil, fmt.Errorf("create interest rule: %w", ctx.Err())
 	default:
+	}
+	if req == nil {
+		return nil, fmt.Errorf("create interest rule request is required")
 	}
 
 	accountID := strings.TrimSpace(req.AccountID)
@@ -134,14 +137,17 @@ func (s *InterestRuleService) Create(ctx context.Context, req CreateInterestRule
 	}, nil
 }
 
-func (s *InterestRuleService) Accrue(ctx context.Context, req AccrueRuleInterestRequest) (*AccrueRuleInterestResponse, error) {
+func (s *InterestRuleService) Accrue(ctx context.Context, req *AccrueRuleInterestRequest) (*AccrueRuleInterestResponse, error) {
 	select {
 	case <-ctx.Done():
 		return nil, fmt.Errorf("accrue interest: %w", ctx.Err())
 	default:
 	}
+	if req == nil {
+		return nil, fmt.Errorf("accrue interest request is required")
+	}
 
-	if err := validateRuleForAccrual(req.Rule); err != nil {
+	if err := validateRuleForAccrual(&req.Rule); err != nil {
 		return nil, err
 	}
 	if req.BalanceMinor <= 0 {
@@ -152,7 +158,7 @@ func (s *InterestRuleService) Accrue(ctx context.Context, req AccrueRuleInterest
 	if accrualDate.IsZero() {
 		accrualDate = dateOnly(time.Now())
 	}
-	if !ruleActiveOn(req.Rule, accrualDate) {
+	if !ruleActiveOn(&req.Rule, accrualDate) {
 		return nil, fmt.Errorf("interest rule is not active on %s", accrualDate.Format(time.DateOnly))
 	}
 	if req.Rule.AccrualFrequency != models.AccrualFrequencyDaily {
@@ -163,16 +169,16 @@ func (s *InterestRuleService) Accrue(ctx context.Context, req AccrueRuleInterest
 		req.Rule.CapitalizationFrequency != "" {
 		return nil, fmt.Errorf("unsupported capitalization frequency: %s", req.Rule.CapitalizationFrequency)
 	}
-	if hasInterestAccrual(req.ExistingAccruals, req.Rule, accrualDate) {
+	if hasInterestAccrual(req.ExistingAccruals, &req.Rule, accrualDate) {
 		return &AccrueRuleInterestResponse{Skipped: true}, nil
 	}
 
-	amountMinor := calculateDailyInterestMinor(req.BalanceMinor, effectiveRateBps(req.Rule, accrualDate), req.Rule.DayCountConvention, accrualDate)
+	amountMinor := calculateDailyInterestMinor(req.BalanceMinor, effectiveRateBps(&req.Rule, accrualDate), req.Rule.DayCountConvention, accrualDate)
 	if amountMinor <= 0 {
 		return nil, fmt.Errorf("calculated interest is zero")
 	}
 
-	tx, err := s.transactions.Create(ctx, CreateTransactionRequest{
+	tx, err := s.transactions.Create(ctx, &CreateTransactionRequest{
 		AccountID:   req.Rule.AccountID,
 		Type:        models.TransactionTypeInterestIncome,
 		AmountMinor: amountMinor,
@@ -191,14 +197,14 @@ func (s *InterestRuleService) Accrue(ctx context.Context, req AccrueRuleInterest
 		AccrualDate:   accrualDate,
 		AmountMinor:   amountMinor,
 		BalanceMinor:  req.BalanceMinor,
-		AnnualRateBps: effectiveRateBps(req.Rule, accrualDate),
+		AnnualRateBps: effectiveRateBps(&req.Rule, accrualDate),
 		CreatedAt:     time.Now(),
 	}
 
 	return &AccrueRuleInterestResponse{Transaction: tx, Accrual: accrual}, nil
 }
 
-func validateRuleForAccrual(rule models.InterestRule) error {
+func validateRuleForAccrual(rule *models.InterestRule) error {
 	if strings.TrimSpace(rule.ID) == "" {
 		return fmt.Errorf("interest rule id is required")
 	}
@@ -242,14 +248,14 @@ func daysInYear(convention models.DayCountConvention, date time.Time) int {
 	}
 }
 
-func effectiveRateBps(rule models.InterestRule, date time.Time) int64 {
+func effectiveRateBps(rule *models.InterestRule, date time.Time) int64 {
 	if rule.PromoRateBps != nil && rule.PromoEndDate != nil && !date.After(dateOnly(*rule.PromoEndDate)) {
 		return *rule.PromoRateBps
 	}
 	return rule.AnnualRateBps
 }
 
-func ruleActiveOn(rule models.InterestRule, date time.Time) bool {
+func ruleActiveOn(rule *models.InterestRule, date time.Time) bool {
 	if date.Before(dateOnly(rule.StartDate)) {
 		return false
 	}
@@ -259,8 +265,9 @@ func ruleActiveOn(rule models.InterestRule, date time.Time) bool {
 	return true
 }
 
-func hasInterestAccrual(accruals []models.InterestAccrual, rule models.InterestRule, date time.Time) bool {
-	for _, accrual := range accruals {
+func hasInterestAccrual(accruals []models.InterestAccrual, rule *models.InterestRule, date time.Time) bool {
+	for i := range accruals {
+		accrual := &accruals[i]
 		if accrual.AccountID == rule.AccountID &&
 			accrual.RuleID == rule.ID &&
 			dateOnly(accrual.AccrualDate).Equal(date) {

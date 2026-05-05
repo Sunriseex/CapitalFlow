@@ -31,13 +31,14 @@ func (s *BalanceService) Calculate(ctx context.Context, req CalculateBalanceRequ
 
 	var balance int64
 	var count int
-	for _, tx := range req.Transactions {
+	for i := range req.Transactions {
 		select {
 		case <-ctx.Done():
 			return nil, fmt.Errorf("calculate balance: %w", ctx.Err())
 		default:
 		}
 
+		tx := &req.Transactions[i]
 		if tx.AccountID != req.AccountID {
 			continue
 		}
@@ -57,7 +58,7 @@ func (s *BalanceService) Calculate(ctx context.Context, req CalculateBalanceRequ
 	}, nil
 }
 
-func transactionDelta(tx models.Transaction) (int64, error) {
+func transactionDelta(tx *models.Transaction) (int64, error) {
 	switch tx.Type {
 	case models.TransactionTypeInitialBalance,
 		models.TransactionTypeIncome,

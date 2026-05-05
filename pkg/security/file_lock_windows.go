@@ -26,7 +26,9 @@ func WithFileLock(path string, fn func() error) error {
 	if err := windows.LockFileEx(handle, windows.LOCKFILE_EXCLUSIVE_LOCK, 0, 1, 0, overlapped); err != nil {
 		return fmt.Errorf("acquire file lock: %w", err)
 	}
-	defer windows.UnlockFileEx(handle, 0, 1, 0, overlapped)
+	defer func() {
+		_ = windows.UnlockFileEx(handle, 0, 1, 0, overlapped)
+	}()
 
 	return fn()
 }

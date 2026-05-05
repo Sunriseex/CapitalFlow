@@ -36,7 +36,7 @@ func (s *AdjustmentService) Create(ctx context.Context, req CreateAdjustmentRequ
 		return nil, fmt.Errorf("adjustment amount must be non-zero")
 	}
 
-	tx, err := s.transactions.Create(ctx, CreateTransactionRequest{
+	tx, err := s.transactions.Create(ctx, &CreateTransactionRequest{
 		AccountID:   accountID,
 		Type:        models.TransactionTypeAdjustment,
 		AmountMinor: req.AmountMinor,

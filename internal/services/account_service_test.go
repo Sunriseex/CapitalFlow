@@ -7,7 +7,7 @@ import (
 )
 
 func TestAccountServiceCreate(t *testing.T) {
-	account, err := NewAccountService().Create(t.Context(), CreateAccountRequest{
+	account, err := NewAccountService().Create(t.Context(), &CreateAccountRequest{
 		Name:     "Savings",
 		Bank:     "Yandex",
 		Type:     models.AccountTypeSavings,
@@ -28,7 +28,7 @@ func TestAccountServiceCreate(t *testing.T) {
 }
 
 func TestAccountServiceCreateValidatesInput(t *testing.T) {
-	_, err := NewAccountService().Create(t.Context(), CreateAccountRequest{
+	_, err := NewAccountService().Create(t.Context(), &CreateAccountRequest{
 		Name: "Savings",
 		Type: "invalid",
 	})
@@ -38,7 +38,7 @@ func TestAccountServiceCreateValidatesInput(t *testing.T) {
 }
 
 func TestAccountServiceCreateValidatesCurrency(t *testing.T) {
-	_, err := NewAccountService().Create(t.Context(), CreateAccountRequest{
+	_, err := NewAccountService().Create(t.Context(), &CreateAccountRequest{
 		Name:     "Savings",
 		Type:     models.AccountTypeSavings,
 		Currency: "RUB1",

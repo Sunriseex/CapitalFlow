@@ -10,7 +10,7 @@ import (
 func TestInterestRuleServiceCreate(t *testing.T) {
 	startDate := time.Date(2026, 5, 1, 12, 0, 0, 0, time.Local)
 
-	rule, err := NewInterestRuleService(nil).Create(t.Context(), CreateInterestRuleRequest{
+	rule, err := NewInterestRuleService(nil).Create(t.Context(), &CreateInterestRuleRequest{
 		AccountID:               "account-1",
 		AnnualRateBps:           1_200,
 		AccrualFrequency:        models.AccrualFrequencyDaily,
@@ -36,7 +36,7 @@ func TestInterestRuleServiceCreate(t *testing.T) {
 }
 
 func TestInterestRuleServiceCreateDefaults(t *testing.T) {
-	rule, err := NewInterestRuleService(nil).Create(t.Context(), CreateInterestRuleRequest{
+	rule, err := NewInterestRuleService(nil).Create(t.Context(), &CreateInterestRuleRequest{
 		AccountID:     "account-1",
 		AnnualRateBps: 1_200,
 	})
@@ -59,7 +59,7 @@ func TestInterestRuleServiceCreateNormalizesDatePointers(t *testing.T) {
 	promoEndDate := time.Date(2026, 5, 31, 23, 59, 59, 0, time.Local)
 	endDate := time.Date(2026, 12, 31, 23, 59, 59, 0, time.Local)
 
-	rule, err := NewInterestRuleService(nil).Create(t.Context(), CreateInterestRuleRequest{
+	rule, err := NewInterestRuleService(nil).Create(t.Context(), &CreateInterestRuleRequest{
 		AccountID:     "account-1",
 		AnnualRateBps: 1_200,
 		PromoRateBps:  &promoRate,
@@ -105,7 +105,7 @@ func TestInterestRuleServiceCreateRejectsIncompletePromo(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewInterestRuleService(nil).Create(t.Context(), tt.req)
+			_, err := NewInterestRuleService(nil).Create(t.Context(), &tt.req)
 			if err == nil {
 				t.Fatal("expected error")
 			}
@@ -124,7 +124,7 @@ func TestInterestRuleServiceAccrue(t *testing.T) {
 		StartDate:          time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
 
-	got, err := NewInterestRuleService(nil).Accrue(t.Context(), AccrueRuleInterestRequest{
+	got, err := NewInterestRuleService(nil).Accrue(t.Context(), &AccrueRuleInterestRequest{
 		Rule:         rule,
 		BalanceMinor: 100_000_00,
 		AccrualDate:  time.Date(2026, 5, 4, 15, 0, 0, 0, time.Local),
@@ -170,7 +170,7 @@ func TestInterestRuleServiceAccrueUsesPromoRate(t *testing.T) {
 		StartDate:          time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
 
-	got, err := NewInterestRuleService(nil).Accrue(t.Context(), AccrueRuleInterestRequest{
+	got, err := NewInterestRuleService(nil).Accrue(t.Context(), &AccrueRuleInterestRequest{
 		Rule:         rule,
 		BalanceMinor: 100_000_00,
 		AccrualDate:  time.Date(2026, 5, 4, 0, 0, 0, 0, time.UTC),
@@ -195,7 +195,7 @@ func TestInterestRuleServiceAccrueSkipsDuplicate(t *testing.T) {
 	}
 	accrualDate := time.Date(2026, 5, 4, 0, 0, 0, 0, time.UTC)
 
-	got, err := NewInterestRuleService(nil).Accrue(t.Context(), AccrueRuleInterestRequest{
+	got, err := NewInterestRuleService(nil).Accrue(t.Context(), &AccrueRuleInterestRequest{
 		Rule:         rule,
 		BalanceMinor: 100_000_00,
 		AccrualDate:  accrualDate,
@@ -232,7 +232,7 @@ func TestInterestRuleServiceAccrueValidatesRuleDate(t *testing.T) {
 		StartDate:          time.Date(2026, 5, 5, 0, 0, 0, 0, time.UTC),
 	}
 
-	_, err := NewInterestRuleService(nil).Accrue(t.Context(), AccrueRuleInterestRequest{
+	_, err := NewInterestRuleService(nil).Accrue(t.Context(), &AccrueRuleInterestRequest{
 		Rule:         rule,
 		BalanceMinor: 100_000_00,
 		AccrualDate:  time.Date(2026, 5, 4, 0, 0, 0, 0, time.UTC),
@@ -254,7 +254,7 @@ func TestInterestRuleServiceAccrueRejectsUnsupportedCapitalization(t *testing.T)
 		StartDate:               time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
 
-	_, err := NewInterestRuleService(nil).Accrue(t.Context(), AccrueRuleInterestRequest{
+	_, err := NewInterestRuleService(nil).Accrue(t.Context(), &AccrueRuleInterestRequest{
 		Rule:         rule,
 		BalanceMinor: 100_000_00,
 		AccrualDate:  time.Date(2026, 5, 4, 0, 0, 0, 0, time.UTC),

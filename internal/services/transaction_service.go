@@ -27,11 +27,14 @@ type CreateTransactionRequest struct {
 	OccurredAt       time.Time
 }
 
-func (s *TransactionService) Create(ctx context.Context, req CreateTransactionRequest) (*models.Transaction, error) {
+func (s *TransactionService) Create(ctx context.Context, req *CreateTransactionRequest) (*models.Transaction, error) {
 	select {
 	case <-ctx.Done():
 		return nil, fmt.Errorf("create transaction: %w", ctx.Err())
 	default:
+	}
+	if req == nil {
+		return nil, fmt.Errorf("create transaction request is required")
 	}
 
 	if strings.TrimSpace(req.AccountID) == "" {

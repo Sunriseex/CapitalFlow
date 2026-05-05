@@ -13,6 +13,11 @@ CREATE TABLE interest_rules (
     end_date DATE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT interest_rules_promo_pair_check CHECK (
+        (promo_rate_bps IS NULL AND promo_end_date IS NULL)
+        OR
+        (promo_rate_bps IS NOT NULL AND promo_end_date IS NOT NULL)
+    ),
     CHECK (end_date IS NULL OR end_date >= start_date),
     CHECK (promo_end_date IS NULL OR promo_end_date >= start_date)
 );

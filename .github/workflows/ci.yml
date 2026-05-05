@@ -84,6 +84,7 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
@@ -99,7 +100,7 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           version: v2.11
-          args: --config=.golangci.yaml
+          args: --config=.golangci.yaml --timeout=5m
 
   migrations:
     name: PostgreSQL migrations
