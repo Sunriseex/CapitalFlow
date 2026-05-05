@@ -18,9 +18,16 @@ func main() {
 	if err := commands.Execute(); err != nil {
 		userMsg := errors.GetUserFriendlyMessage(err)
 		slog.Error("Ошибка выполнения команды",
-			"command", os.Args[1],
+			"command", commandName(os.Args),
 			"error", userMsg,
 			"details", err)
 		os.Exit(1)
 	}
+}
+
+func commandName(args []string) string {
+	if len(args) < 2 {
+		return "default"
+	}
+	return args[1]
 }
