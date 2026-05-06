@@ -14,7 +14,7 @@ type Handler struct {
 	store *postgres.Store
 }
 
-func NewRouter(store *postgres.Store) http.Handler {
+func NewRouter(store *postgres.Store, apiAuthToken string) http.Handler {
 	h := &Handler{store: store}
 	r := chi.NewRouter()
 	r.Use(chimiddleware.RequestID)
@@ -26,6 +26,8 @@ func NewRouter(store *postgres.Store) http.Handler {
 	r.Get("/ready", h.ready)
 
 	r.Route("/api", func(r chi.Router) {
+		r.Use(appmiddleware.BearerTokenAuth(apiAuthToken))
+
 		r.Get("/accounts", h.listAccounts)
 		r.Post("/accounts", h.createAccount)
 		r.Get("/accounts/{id}", h.getAccount)

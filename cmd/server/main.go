@@ -49,7 +49,7 @@ func run() error {
 
 	server := &http.Server{
 		Addr:              *addr,
-		Handler:           handlers.NewRouter(store),
+		Handler:           handlers.NewRouter(store, config.AppConfig.APIAuthToken),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 

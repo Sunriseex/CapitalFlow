@@ -78,3 +78,37 @@ func TestDecodeOptionalJSONRejectsUnknownFields(t *testing.T) {
 		t.Fatal("expected error")
 	}
 }
+
+func TestDecodeJSONRejectsTrailingData(t *testing.T) {
+	req := httptest.NewRequestWithContext(
+		t.Context(),
+		http.MethodPost,
+		"/api/accounts",
+		strings.NewReader(`{"name":"A"}{"name":"B"}`),
+	)
+
+	var body struct {
+		Name string `json:"name"`
+	}
+
+	if err := decodeJSON(req, &body); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestDecodeJSONRejectsUnknownFields(t *testing.T) {
+	req := httptest.NewRequestWithContext(
+		t.Context(),
+		http.MethodPost,
+		"/api/accounts",
+		strings.NewReader(`{"name":"A","unknown":true}`),
+	)
+
+	var body struct {
+		Name string `json:"name"`
+	}
+
+	if err := decodeJSON(req, &body); err == nil {
+		t.Fatal("expected error")
+	}
+}

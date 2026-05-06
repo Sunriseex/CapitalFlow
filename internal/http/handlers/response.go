@@ -41,9 +41,16 @@ func writeServiceError(w http.ResponseWriter, err error) {
 func decodeJSON(r *http.Request, dst any) error {
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
+
 	if err := decoder.Decode(dst); err != nil {
 		return fmt.Errorf("decode json body: %w", err)
 	}
+
+	var extra any
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+		return fmt.Errorf("json body must contain a single object")
+	}
+
 	return nil
 }
 
