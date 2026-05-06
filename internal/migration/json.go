@@ -80,6 +80,20 @@ func (m *JSONMigrator) MigrateDeposits(ctx context.Context, deposits []models.De
 	return report, nil
 }
 
+func parseRequiredDate(fieldName, input string) (time.Time, error) {
+	value := strings.TrimSpace(input)
+	if value == "" {
+		return time.Time{}, fmt.Errorf("%s is required", fieldName)
+	}
+
+	date, err := time.Parse(time.DateOnly, value)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid %s: %q", fieldName, input)
+	}
+
+	return dateOnly(date), nil
+}
+
 func (m *JSONMigrator) migrateDeposit(ctx context.Context, deposit *models.Deposit, report *JSONMigrationReport) (int64, error) {
 	legacyID := strings.TrimSpace(deposit.ID)
 	if legacyID == "" {
@@ -98,14 +112,21 @@ func (m *JSONMigrator) migrateDeposit(ctx context.Context, deposit *models.Depos
 	}
 
 	now := time.Now().UTC()
-	openedAt := firstNonZeroDate(parseDate(deposit.StartDate), deposit.CreatedAt, now)
+	openedAt, err := parseRequiredDate("start date", deposit.StartDate)
+	if err != nil {
+		return 0, err
+	}
 	legacyIDPtr := legacyID
+	accountType, err := accountTypeForDeposit(deposit.Type)
+	if err != nil {
+		return 0, err
+	}
 	account := &models.Account{
 		ID:        uuid.NewString(),
 		LegacyID:  &legacyIDPtr,
 		Name:      strings.TrimSpace(deposit.Name),
 		Bank:      strings.TrimSpace(deposit.Bank),
-		Type:      accountTypeForDeposit(deposit.Type),
+		Type:      accountType,
 		Currency:  "RUB",
 		IsActive:  true,
 		OpenedAt:  openedAt,
@@ -144,13 +165,16 @@ func (m *JSONMigrator) migrateDeposit(ctx context.Context, deposit *models.Depos
 func (m *JSONMigrator) migrateExistingDeposit(ctx context.Context, deposit *models.Deposit, account *models.Account, report *JSONMigrationReport) (int64, error) {
 	report.SkippedExisting++
 	legacyID := strings.TrimSpace(deposit.ID)
+	openedAt, err := parseRequiredDate("start date", deposit.StartDate)
+	if err != nil {
+		return 0, err
+	}
 
 	rules, err := m.rules.ListByAccount(ctx, account.ID)
 	if err != nil {
 		return 0, fmt.Errorf("list existing rules: %w", err)
 	}
 	if len(rules) == 0 {
-		openedAt := firstNonZeroDate(parseDate(deposit.StartDate), account.OpenedAt, time.Now().UTC())
 		rule, err := interestRuleForDeposit(deposit, account.ID, openedAt)
 		if err != nil {
 			return 0, err
@@ -174,7 +198,7 @@ func (m *JSONMigrator) migrateExistingDeposit(ctx context.Context, deposit *mode
 			Type:        models.TransactionTypeInitialBalance,
 			AmountMinor: deposit.Amount,
 			Description: legacyInitialDescription(legacyID),
-			OccurredAt:  firstNonZeroDate(parseDate(deposit.StartDate), account.OpenedAt, now),
+			OccurredAt:  openedAt,
 			CreatedAt:   now,
 		}
 		if err := m.transactions.Create(ctx, transaction); err != nil {
@@ -252,11 +276,15 @@ func interestRuleForDeposit(deposit *models.Deposit, accountID string, openedAt 
 	}, nil
 }
 
-func accountTypeForDeposit(depositType string) models.AccountType {
-	if depositType == models.DepositTypeTerm {
-		return models.AccountTypeTermDeposit
+func accountTypeForDeposit(depositType string) (models.AccountType, error) {
+	switch strings.TrimSpace(depositType) {
+	case models.DepositTypeSavings:
+		return models.AccountTypeSavings, nil
+	case models.DepositTypeTerm:
+		return models.AccountTypeTermDeposit, nil
+	default:
+		return "", fmt.Errorf("unsupported legacy deposit type: %q", depositType)
 	}
-	return models.AccountTypeSavings
 }
 
 func capitalizationForDeposit(capitalization string) (models.CapitalizationFrequency, error) {

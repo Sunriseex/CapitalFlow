@@ -645,3 +645,148 @@ func (r *fakeInterestRuleRepo) Update(_ context.Context, rule *models.InterestRu
 	r.byID[rule.ID] = &cp
 	return nil
 }
+func TestAccountTypeForDeposit(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		want        models.AccountType
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:  "savings maps to savings account",
+			input: models.DepositTypeSavings,
+			want:  models.AccountTypeSavings,
+		},
+		{
+			name:  "term maps to term deposit account",
+			input: models.DepositTypeTerm,
+			want:  models.AccountTypeTermDeposit,
+		},
+		{
+			name:  "trimmed term maps to term deposit account",
+			input: "  term  ",
+			want:  models.AccountTypeTermDeposit,
+		},
+		{
+			name:        "empty type is rejected",
+			input:       "",
+			wantErr:     true,
+			errContains: `unsupported legacy deposit type: ""`,
+		},
+		{
+			name:        "unknown type is rejected",
+			input:       "saving",
+			wantErr:     true,
+			errContains: `unsupported legacy deposit type: "saving"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := accountTypeForDeposit(tt.input)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if tt.errContains != "" && !strings.Contains(err.Error(), tt.errContains) {
+					t.Fatalf("error = %q, want contains %q", err.Error(), tt.errContains)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Fatalf("account type = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+func TestJSONMigratorRejectsUnsupportedLegacyDepositType(t *testing.T) {
+	ctx := t.Context()
+	migrator, _, _, _, _ := newTestJSONMigrator()
+
+	report, err := migrator.MigrateDeposits(ctx, []models.Deposit{
+		{
+			ID:             "legacy-invalid-type",
+			Name:           "Invalid Type Deposit",
+			Type:           "saving",
+			Amount:         100_000,
+			InterestRate:   12,
+			StartDate:      "2026-05-01",
+			Capitalization: models.CapitalizationDaily,
+		},
+	})
+	if err != nil {
+		t.Fatalf("migrate deposits: %v", err)
+	}
+	if len(report.Errors) != 1 {
+		t.Fatalf("errors = %v, want 1 error", report.Errors)
+	}
+	if report.CreatedAccounts != 0 || report.CreatedInterestRules != 0 || report.CreatedTransactions != 0 {
+		t.Fatalf(
+			"created accounts=%d rules=%d tx=%d, want all zero",
+			report.CreatedAccounts,
+			report.CreatedInterestRules,
+			report.CreatedTransactions,
+		)
+	}
+	if report.BalanceMatchesSource {
+		t.Fatal("balance should not match source when migration has errors")
+	}
+}
+
+func TestParseRequiredDate(t *testing.T) {
+	date, err := parseRequiredDate("start date", "2026-05-01")
+	if err != nil {
+		t.Fatalf("parse required date: %v", err)
+	}
+	if got := date.Format(time.DateOnly); got != "2026-05-01" {
+		t.Fatalf("date = %s, want 2026-05-01", got)
+	}
+
+	if _, err := parseRequiredDate("start date", ""); err == nil {
+		t.Fatal("expected error for empty date")
+	}
+
+	if _, err := parseRequiredDate("start date", "06-05-2026"); err == nil {
+		t.Fatal("expected error for malformed date")
+	}
+}
+
+func TestJSONMigratorRejectsMalformedLegacyStartDate(t *testing.T) {
+	ctx := t.Context()
+	migrator, _, _, _, _ := newTestJSONMigrator()
+
+	report, err := migrator.MigrateDeposits(ctx, []models.Deposit{
+		{
+			ID:             "legacy-bad-start-date",
+			Name:           "Bad Start Date Deposit",
+			Type:           models.DepositTypeSavings,
+			Amount:         100_000,
+			InterestRate:   12,
+			StartDate:      "06-05-2026",
+			Capitalization: models.CapitalizationDaily,
+		},
+	})
+	if err != nil {
+		t.Fatalf("migrate deposits: %v", err)
+	}
+	if len(report.Errors) != 1 {
+		t.Fatalf("errors = %v, want 1 error", report.Errors)
+	}
+	if report.CreatedAccounts != 0 || report.CreatedInterestRules != 0 || report.CreatedTransactions != 0 {
+		t.Fatalf(
+			"created accounts=%d rules=%d tx=%d, want all zero",
+			report.CreatedAccounts,
+			report.CreatedInterestRules,
+			report.CreatedTransactions,
+		)
+	}
+	if report.BalanceMatchesSource {
+		t.Fatal("balance should not match source when migration has errors")
+	}
+}

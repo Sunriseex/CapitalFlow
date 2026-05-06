@@ -38,7 +38,7 @@ func newTestStore(t *testing.T) *Store {
 	return NewStore(pool)
 }
 
-func seedAccount(t *testing.T, ctx context.Context, store *Store) *models.Account {
+func seedAccount(ctx context.Context, t *testing.T, store *Store) *models.Account {
 	t.Helper()
 
 	now := time.Now().UTC()
@@ -64,7 +64,7 @@ func seedAccount(t *testing.T, ctx context.Context, store *Store) *models.Accoun
 	return account
 }
 
-func seedInterestRule(t *testing.T, ctx context.Context, store *Store, accountID string) *models.InterestRule {
+func seedInterestRule(ctx context.Context, t *testing.T, store *Store, accountID string) *models.InterestRule {
 	t.Helper()
 
 	now := time.Now().UTC()
@@ -283,8 +283,8 @@ func TestInterestAccrualCreateWithTransactionRollsBackOnAccrualFailure(t *testin
 	ctx := t.Context()
 	store := newTestStore(t)
 
-	account := seedAccount(t, ctx, store)
-	seedInterestRule(t, ctx, store, account.ID)
+	account := seedAccount(ctx, t, store)
+	seedInterestRule(ctx, t, store, account.ID)
 	tx := &models.Transaction{
 		ID:          uuid.NewString(),
 		AccountID:   account.ID,
