@@ -222,6 +222,93 @@ func TestJSONMigratorUsesTrimmedLegacyIDForExistingInitialBalance(t *testing.T) 
 	}
 }
 
+func TestJSONMigratorExistingAccountIgnoresPostMigrationActivityForSourceBalance(t *testing.T) {
+	ctx := t.Context()
+	accounts := newFakeAccountRepo()
+	transactions := newFakeTransactionRepo()
+	rules := newFakeInterestRuleRepo()
+	migrator := NewJSONMigrator(accounts, transactions, rules)
+
+	legacyID := "legacy-1"
+	legacyIDPtr := legacyID
+	account := &models.Account{
+		ID:       "account-1",
+		LegacyID: &legacyIDPtr,
+		Name:     "Savings",
+		Type:     models.AccountTypeSavings,
+		Currency: "RUB",
+		OpenedAt: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+	}
+	if err := accounts.Create(ctx, account); err != nil {
+		t.Fatalf("seed account: %v", err)
+	}
+	if err := rules.Create(ctx, &models.InterestRule{
+		ID:                 "rule-1",
+		AccountID:          account.ID,
+		AnnualRateBps:      1_200,
+		AccrualFrequency:   models.AccrualFrequencyDaily,
+		DayCountConvention: models.DayCountConventionActual365,
+		IsActive:           true,
+		StartDate:          account.OpenedAt,
+	}); err != nil {
+		t.Fatalf("seed rule: %v", err)
+	}
+	seedTransactions := []models.Transaction{
+		{
+			ID:          "tx-initial",
+			AccountID:   account.ID,
+			Type:        models.TransactionTypeInitialBalance,
+			AmountMinor: 100_000,
+			Description: legacyInitialDescription(legacyID),
+			OccurredAt:  account.OpenedAt,
+			CreatedAt:   account.OpenedAt,
+		},
+		{
+			ID:          "tx-interest",
+			AccountID:   account.ID,
+			Type:        models.TransactionTypeInterestIncome,
+			AmountMinor: 5_000,
+			Description: "interest accrual",
+			OccurredAt:  account.OpenedAt.AddDate(0, 0, 1),
+			CreatedAt:   account.OpenedAt.AddDate(0, 0, 1),
+		},
+		{
+			ID:          "tx-expense",
+			AccountID:   account.ID,
+			Type:        models.TransactionTypeExpense,
+			AmountMinor: 2_000,
+			Description: "card payment",
+			OccurredAt:  account.OpenedAt.AddDate(0, 0, 2),
+			CreatedAt:   account.OpenedAt.AddDate(0, 0, 2),
+		},
+	}
+	if err := transactions.CreateMany(ctx, seedTransactions); err != nil {
+		t.Fatalf("seed transactions: %v", err)
+	}
+
+	report, err := migrator.MigrateDeposits(ctx, []models.Deposit{{
+		ID:             legacyID,
+		Name:           "Savings",
+		Type:           models.DepositTypeSavings,
+		Amount:         100_000,
+		InterestRate:   12,
+		StartDate:      "2026-05-01",
+		Capitalization: models.CapitalizationDaily,
+	}})
+	if err != nil {
+		t.Fatalf("migrate deposits: %v", err)
+	}
+	if report.CreatedTransactions != 0 {
+		t.Fatalf("created transactions = %d, want 0", report.CreatedTransactions)
+	}
+	if report.MigratedBalanceMinor != 100_000 {
+		t.Fatalf("migrated balance = %d, want 100000", report.MigratedBalanceMinor)
+	}
+	if !report.BalanceMatchesSource {
+		t.Fatal("balance must match source")
+	}
+}
+
 type fakeDepositMigrationRepo struct {
 	accounts     *fakeAccountRepo
 	transactions *fakeTransactionRepo

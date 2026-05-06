@@ -175,7 +175,8 @@ func (m *JSONMigrator) migrateExistingDeposit(ctx context.Context, deposit *mode
 	if err != nil {
 		return 0, fmt.Errorf("list existing transactions: %w", err)
 	}
-	if !hasLegacyInitialTransaction(transactions, legacyID) {
+	legacyInitialBalance, ok := legacyInitialBalanceFromTransactions(transactions, legacyID)
+	if !ok {
 		now := time.Now().UTC()
 		transaction := &models.Transaction{
 			ID:          uuid.NewString(),
@@ -190,30 +191,23 @@ func (m *JSONMigrator) migrateExistingDeposit(ctx context.Context, deposit *mode
 			return 0, fmt.Errorf("create missing initial balance transaction: %w", err)
 		}
 		report.CreatedTransactions++
-		transactions = append(transactions, *transaction)
+		legacyInitialBalance = deposit.Amount
 	}
 
-	return balanceFromTransactions(transactions)
+	return legacyInitialBalance, nil
 }
 
-func balanceFromTransactions(transactions []models.Transaction) (int64, error) {
+func legacyInitialBalanceFromTransactions(transactions []models.Transaction, legacyID string) (int64, bool) {
+	description := legacyInitialDescription(legacyID)
 	var balance int64
+	var found bool
 	for i := range transactions {
-		switch transactions[i].Type {
-		case models.TransactionTypeInitialBalance,
-			models.TransactionTypeIncome,
-			models.TransactionTypeTransferIn,
-			models.TransactionTypeInterestIncome,
-			models.TransactionTypeAdjustment:
+		if transactions[i].Type == models.TransactionTypeInitialBalance && transactions[i].Description == description {
 			balance += transactions[i].AmountMinor
-		case models.TransactionTypeExpense,
-			models.TransactionTypeTransferOut:
-			balance -= transactions[i].AmountMinor
-		default:
-			return 0, fmt.Errorf("unknown transaction type: %s", transactions[i].Type)
+			found = true
 		}
 	}
-	return balance, nil
+	return balance, found
 }
 
 func interestRuleForDeposit(deposit *models.Deposit, accountID string, openedAt time.Time) (*models.InterestRule, error) {
@@ -285,16 +279,6 @@ func capitalizationForDeposit(capitalization string) models.CapitalizationFreque
 
 func rateToBps(rate float64) int64 {
 	return decimal.NewFromFloat(rate).Mul(decimal.NewFromInt(100)).Round(0).IntPart()
-}
-
-func hasLegacyInitialTransaction(transactions []models.Transaction, legacyID string) bool {
-	description := legacyInitialDescription(legacyID)
-	for i := range transactions {
-		if transactions[i].Type == models.TransactionTypeInitialBalance && transactions[i].Description == description {
-			return true
-		}
-	}
-	return false
 }
 
 func legacyInitialDescription(legacyID string) string {
