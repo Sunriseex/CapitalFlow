@@ -262,6 +262,7 @@ func validateInterestRule(rule *models.InterestRule) error {
 
 func parseOptionalDatePtr(input *string) (*time.Time, error) {
 	if input == nil {
+		//nolint:nilnil // nil date pointer means optional date was not provided.
 		return nil, nil
 	}
 	date, err := parseOptionalDate(*input)
@@ -269,6 +270,7 @@ func parseOptionalDatePtr(input *string) (*time.Time, error) {
 		return nil, err
 	}
 	if date.IsZero() {
+		//nolint:nilnil // empty date string clears optional date.
 		return nil, nil
 	}
 	return &date, nil

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -28,8 +29,7 @@ func run() error {
 	defer cancel()
 
 	if err := config.Init(); err != nil {
-		slog.Error("config init failed", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("config init: %w", err)
 	}
 
 	addr := flag.String("addr", ":8080", "HTTP listen address")
@@ -38,15 +38,13 @@ func run() error {
 
 	pool, err := postgres.OpenPool(ctx, *databaseURL)
 	if err != nil {
-		slog.Error("open postgres failed", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("open postgres pool: %w", err)
 	}
 	defer pool.Close()
 
 	store := postgres.NewStore(pool)
 	if err := store.Ping(ctx); err != nil {
-		slog.Error("postgres ping failed", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("postgres ping: %w", err)
 	}
 
 	server := &http.Server{
@@ -56,9 +54,10 @@ func run() error {
 	}
 
 	slog.Info("server listening", "addr", *addr)
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+
+	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return fmt.Errorf("listen and serve: %w", err)
 	}
+
 	return nil
 }
