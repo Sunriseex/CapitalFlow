@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -35,6 +36,10 @@ func run() error {
 	addr := flag.String("addr", ":8080", "HTTP listen address")
 	databaseURL := flag.String("database-url", config.AppConfig.DatabaseURL, "PostgreSQL connection URL")
 	flag.Parse()
+
+	if strings.TrimSpace(config.AppConfig.APIAuthToken) == "" {
+		return fmt.Errorf("API_AUTH_TOKEN is required")
+	}
 
 	pool, err := postgres.OpenPool(ctx, *databaseURL)
 	if err != nil {
