@@ -147,11 +147,10 @@ func (h *Handler) updateInterestRule(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) accrueInterest(w http.ResponseWriter, r *http.Request) {
 	accountID := chi.URLParam(r, "id")
 	var req dto.AccrueInterestRequest
-	if r.Body != nil {
-		if err := decodeJSON(r, &req); err != nil {
-			writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
-			return
-		}
+
+	if err := decodeOptionalJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
+		return
 	}
 
 	accrualDate, err := parseOptionalDate(req.Date)
@@ -248,15 +247,41 @@ func validateInterestRule(rule *models.InterestRule) error {
 	if (rule.PromoRateBps == nil) != (rule.PromoEndDate == nil) {
 		return errValidation("promo rate and promo end date must be set together")
 	}
+
 	if rule.AccrualFrequency == "" {
 		rule.AccrualFrequency = models.AccrualFrequencyDaily
 	}
+	if !validAccrualFrequency(rule.AccrualFrequency) {
+		return errValidation("invalid accrual frequency: " + string(rule.AccrualFrequency))
+	}
+
 	if rule.CapitalizationFrequency == "" {
 		rule.CapitalizationFrequency = models.CapitalizationFrequencyNone
 	}
+	if !validCapitalizationFrequency(rule.CapitalizationFrequency) {
+		return errValidation("invalid capitalization frequency: " + string(rule.CapitalizationFrequency))
+	}
+
 	if rule.DayCountConvention == "" {
 		rule.DayCountConvention = models.DayCountConventionActual365
 	}
+	if !validDayCountConvention(rule.DayCountConvention) {
+		return errValidation("invalid day count convention: " + string(rule.DayCountConvention))
+	}
+
+	startDate := dateOnly(rule.StartDate)
+	if startDate.IsZero() {
+		return errValidation("start date is required")
+	}
+
+	if rule.EndDate != nil && dateOnly(*rule.EndDate).Before(startDate) {
+		return errValidation("end date must be on or after start date")
+	}
+
+	if rule.PromoEndDate != nil && dateOnly(*rule.PromoEndDate).Before(startDate) {
+		return errValidation("promo end date must be on or after start date")
+	}
+
 	return nil
 }
 
@@ -274,4 +299,45 @@ func parseOptionalDatePtr(input *string) (*time.Time, error) {
 		return nil, nil
 	}
 	return &date, nil
+}
+
+func validAccrualFrequency(frequency models.AccrualFrequency) bool {
+	switch frequency {
+	case models.AccrualFrequencyDaily,
+		models.AccrualFrequencyMonthly,
+		models.AccrualFrequencyEndOfTerm:
+		return true
+	default:
+		return false
+	}
+}
+
+func validCapitalizationFrequency(frequency models.CapitalizationFrequency) bool {
+	switch frequency {
+	case models.CapitalizationFrequencyDaily,
+		models.CapitalizationFrequencyMonthly,
+		models.CapitalizationFrequencyEndOfTerm,
+		models.CapitalizationFrequencyNone:
+		return true
+	default:
+		return false
+	}
+}
+
+func validDayCountConvention(convention models.DayCountConvention) bool {
+	switch convention {
+	case models.DayCountConventionActual365,
+		models.DayCountConventionActual366,
+		models.DayCountConventionActualActual:
+		return true
+	default:
+		return false
+	}
+}
+
+func dateOnly(date time.Time) time.Time {
+	if date.IsZero() {
+		return time.Time{}
+	}
+	return time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
 }

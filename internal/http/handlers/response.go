@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/sunriseex/finance-manager/internal/http/dto"
@@ -44,4 +45,21 @@ func decodeJSON(r *http.Request, dst any) error {
 		return fmt.Errorf("decode json body: %w", err)
 	}
 	return nil
+}
+
+func decodeOptionalJSON(r *http.Request, dst any) error {
+	if r.Body == nil {
+		return nil
+	}
+
+	err := decodeJSON(r, dst)
+	if err == nil {
+		return nil
+	}
+
+	if errors.Is(err, io.EOF) {
+		return nil
+	}
+
+	return fmt.Errorf("decode optional json body: %w", err)
 }

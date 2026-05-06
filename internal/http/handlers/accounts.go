@@ -124,7 +124,7 @@ func validateAccount(account *models.Account) error {
 	if !validAccountType(account.Type) {
 		return errValidation("invalid account type: " + string(account.Type))
 	}
-	if len(account.Currency) != 3 {
+	if !validCurrency(account.Currency) {
 		return errValidation("invalid currency: " + account.Currency)
 	}
 	return nil
@@ -142,4 +142,18 @@ func validAccountType(accountType models.AccountType) bool {
 	default:
 		return false
 	}
+}
+
+func validCurrency(currency string) bool {
+	if len(currency) != 3 {
+		return false
+	}
+
+	for _, r := range currency {
+		if r < 'A' || r > 'Z' {
+			return false
+		}
+	}
+
+	return true
 }
