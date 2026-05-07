@@ -55,9 +55,21 @@ func (h *Handler) createTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.RelatedAccountID != nil && !validateOptionalUUID(w, *req.RelatedAccountID, "related_account_id") {
-		return
+	if req.RelatedAccountID != nil {
+		relatedAccountID := strings.TrimSpace(*req.RelatedAccountID)
+		if !validateOptionalUUID(w, relatedAccountID, "related_account_id") {
+			return
+		}
+
+		if relatedAccountID != "" {
+			if !h.ensureAccountExists(w, r, relatedAccountID) {
+				return
+			}
+		}
+
+		req.RelatedAccountID = &relatedAccountID
 	}
+
 	if req.CategoryID != nil && !validateOptionalUUID(w, *req.CategoryID, "category_id") {
 		return
 	}
