@@ -42,7 +42,7 @@ func (h *Handler) createAccount(w http.ResponseWriter, r *http.Request) {
 		OpenedAt: openedAt,
 	})
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "validation_error", err.Error(), nil)
+		writeValidationOrServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, dto.AccountFromModel(account))

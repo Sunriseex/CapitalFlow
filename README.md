@@ -52,7 +52,7 @@ The project is intended as a practical backend learning project with production-
 
 ## Requirements
 
-* Go 1.25 or newer, based on the project `go.mod`.
+* Go 1.26.2 or newer, based on the project `go.mod`.
 * PostgreSQL 17 or compatible.
 * `goose` for running migrations.
 * `golangci-lint` for local linting.
