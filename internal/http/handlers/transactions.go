@@ -12,6 +12,10 @@ import (
 func (h *Handler) listTransactions(w http.ResponseWriter, r *http.Request) {
 	accountID := strings.TrimSpace(r.URL.Query().Get("account_id"))
 
+	if !validateOptionalUUID(w, accountID, "account_id") {
+		return
+	}
+
 	var (
 		transactions []models.Transaction
 		err          error
@@ -25,6 +29,7 @@ func (h *Handler) listTransactions(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, err)
 		return
 	}
+
 	writeJSON(w, http.StatusOK, dto.TransactionsFromModels(transactions))
 }
 

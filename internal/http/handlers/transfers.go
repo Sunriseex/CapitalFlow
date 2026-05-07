@@ -29,6 +29,13 @@ func (h *Handler) createTransfer(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if !validateOptionalUUID(w, fromAccountID, "from_account_id") {
+		return
+	}
+	if !validateOptionalUUID(w, toAccountID, "to_account_id") {
+		return
+	}
+
 	result, err := services.NewTransferService(
 		services.NewTransactionService(h.store.Transactions()),
 	).Create(r.Context(), services.CreateTransferRequest{

@@ -32,6 +32,7 @@ func routeUUIDParam(w http.ResponseWriter, r *http.Request, name string) (string
 
 	return value, true
 }
+
 func validateOptionalUUID(w http.ResponseWriter, value, field string) bool {
 	value = strings.TrimSpace(value)
 	if value == "" {
