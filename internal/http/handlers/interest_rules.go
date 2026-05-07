@@ -255,6 +255,10 @@ func (h *Handler) accrueInterest(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ruleForAccrual(r *http.Request, accountID, ruleID string, accrualDate time.Time) (*models.InterestRule, error) {
 	ruleID = strings.TrimSpace(ruleID)
 	if ruleID != "" {
+		if !isValidUUID(ruleID) {
+			return nil, errValidation("invalid rule_id")
+		}
+
 		rule, err := h.store.InterestRules().GetByID(r.Context(), ruleID)
 		if err != nil {
 			return nil, fmt.Errorf("get interest rule: %w", err)
