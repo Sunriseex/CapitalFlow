@@ -43,6 +43,10 @@ func (h *Handler) createTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if rejectDirectTransferTransaction(w, req.Type) {
+		return
+	}
+
 	transaction, err := services.NewTransactionService(h.store.Transactions()).Create(r.Context(), &services.CreateTransactionRequest{
 		AccountID:        req.AccountID,
 		RelatedAccountID: req.RelatedAccountID,
@@ -99,4 +103,19 @@ func (h *Handler) deleteTransaction(w http.ResponseWriter, r *http.Request) {
 func isTransferTransaction(transactionType models.TransactionType) bool {
 	return transactionType == models.TransactionTypeTransferIn ||
 		transactionType == models.TransactionTypeTransferOut
+}
+
+func rejectDirectTransferTransaction(w http.ResponseWriter, transactionType models.TransactionType) bool {
+	if !isTransferTransaction(transactionType) {
+		return false
+	}
+
+	writeError(
+		w,
+		http.StatusBadRequest,
+		"validation_error",
+		"Transfer transactions must be created through the transfer endpoint",
+		nil,
+	)
+	return true
 }
