@@ -676,6 +676,73 @@ func TestInterestRuleServiceAccrueReturnsValidationError(t *testing.T) {
 	}
 }
 
+func TestInterestRuleServiceRecalculateCompoundsWhenCapitalizationDaily(t *testing.T) {
+	rule := validAccrualTestRule()
+	rule.CapitalizationFrequency = models.CapitalizationFrequencyDaily
+
+	got, err := NewInterestRuleService(nil).Recalculate(t.Context(), &RecalculateRuleInterestRequest{
+		Rule: rule,
+		Transactions: []models.Transaction{
+			{
+				ID:          "initial",
+				AccountID:   rule.AccountID,
+				Type:        models.TransactionTypeInitialBalance,
+				AmountMinor: 100_000_00,
+				OccurredAt:  time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+			},
+		},
+		FromDate: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+		ToDate:   time.Date(2026, 5, 3, 0, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("recalculate interest: %v", err)
+	}
+
+	if got.CreatedAccruals != 3 {
+		t.Fatalf("created accruals = %d, want 3", got.CreatedAccruals)
+	}
+
+	if got.Transactions[0].AmountMinor != 3_288 {
+		t.Fatalf("day 1 amount = %d, want 3288", got.Transactions[0].AmountMinor)
+	}
+	if got.Transactions[1].AmountMinor <= got.Transactions[0].AmountMinor {
+		t.Fatalf("day 2 amount = %d, want more than day 1 due to daily capitalization", got.Transactions[1].AmountMinor)
+	}
+}
+
+func TestInterestRuleServiceRecalculateDoesNotCompoundWhenCapitalizationNone(t *testing.T) {
+	rule := validAccrualTestRule()
+	rule.CapitalizationFrequency = models.CapitalizationFrequencyNone
+
+	got, err := NewInterestRuleService(nil).Recalculate(t.Context(), &RecalculateRuleInterestRequest{
+		Rule: rule,
+		Transactions: []models.Transaction{
+			{
+				ID:          "initial",
+				AccountID:   rule.AccountID,
+				Type:        models.TransactionTypeInitialBalance,
+				AmountMinor: 100_000_00,
+				OccurredAt:  time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+			},
+		},
+		FromDate: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+		ToDate:   time.Date(2026, 5, 3, 0, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("recalculate interest: %v", err)
+	}
+
+	if got.CreatedAccruals != 3 {
+		t.Fatalf("created accruals = %d, want 3", got.CreatedAccruals)
+	}
+
+	for _, tx := range got.Transactions {
+		if tx.AmountMinor != 3_288 {
+			t.Fatalf("amount = %d, want 3288 without compounding", tx.AmountMinor)
+		}
+	}
+}
+
 func validAccrualTestRule() models.InterestRule {
 	return models.InterestRule{
 		ID:                      "rule-1",

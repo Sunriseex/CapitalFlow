@@ -385,7 +385,10 @@ func (s *InterestRuleService) Recalculate(ctx context.Context, req *RecalculateR
 		response.Accruals = append(response.Accruals, accrual)
 		response.CreatedAccruals++
 		response.TotalAmountMinor += amountMinor
-		workingTransactions = append(workingTransactions, *tx)
+
+		if req.Rule.CapitalizationFrequency == models.CapitalizationFrequencyDaily {
+			workingTransactions = append(workingTransactions, *tx)
+		}
 	}
 
 	if s.accruals != nil {
