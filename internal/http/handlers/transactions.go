@@ -55,23 +55,35 @@ func (h *Handler) createTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var relatedAccountID *string
 	if req.RelatedAccountID != nil {
-		relatedAccountID := strings.TrimSpace(*req.RelatedAccountID)
-		if !validateOptionalUUID(w, relatedAccountID, "related_account_id") {
+		normalized := strings.TrimSpace(*req.RelatedAccountID)
+		if !validateOptionalUUID(w, normalized, "related_account_id") {
 			return
 		}
 
-		if relatedAccountID != "" {
-			if !h.ensureAccountExists(w, r, relatedAccountID) {
+		if normalized != "" {
+			if !h.ensureAccountExists(w, r, normalized) {
 				return
 			}
+			relatedAccountID = &normalized
 		}
-
-		req.RelatedAccountID = &relatedAccountID
 	}
 
-	if req.CategoryID != nil && !validateOptionalUUID(w, *req.CategoryID, "category_id") {
-		return
+	var categoryID *string
+	if req.CategoryID != nil {
+		normalized := strings.TrimSpace(*req.CategoryID)
+		if !validateOptionalUUID(w, normalized, "category_id") {
+			return
+		}
+
+		if normalized != "" {
+			if _, err := h.store.Categories().GetByID(r.Context(), normalized); err != nil {
+				writeServiceError(w, err)
+				return
+			}
+			categoryID = &normalized
+		}
 	}
 
 	if accountID != "" {
@@ -82,10 +94,10 @@ func (h *Handler) createTransaction(w http.ResponseWriter, r *http.Request) {
 
 	transaction, err := services.NewTransactionService(h.store.Transactions()).Create(r.Context(), &services.CreateTransactionRequest{
 		AccountID:        accountID,
-		RelatedAccountID: req.RelatedAccountID,
+		RelatedAccountID: relatedAccountID,
 		Type:             req.Type,
 		AmountMinor:      req.AmountMinor,
-		CategoryID:       req.CategoryID,
+		CategoryID:       categoryID,
 		Description:      req.Description,
 		OccurredAt:       occurredAt,
 	})
