@@ -353,14 +353,14 @@ internal/domain
 * [x] `POST /api/transactions`
 * [x] `GET /api/transactions/{id}`
 * [x] `DELETE /api/transactions/{id}`
-* [ ] Добавить pagination для `GET /api/transactions` (`limit`, `cursor` или `page`).
-* [ ] Добавить server-side filtering для `GET /api/transactions`:
+* [x] Добавить pagination для `GET /api/transactions` (`limit`, `cursor` или `page`).
+* [x] Добавить server-side filtering для `GET /api/transactions`:
 
-  * [ ] счет
-  * [ ] категория
-  * [ ] тип операции
-  * [ ] период дат
-  * [ ] поиск по описанию
+  * [x] счет
+  * [x] категория
+  * [x] тип операции
+  * [x] период дат
+  * [x] поиск по описанию
 
 ### Transfers
 

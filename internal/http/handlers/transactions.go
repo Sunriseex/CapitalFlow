@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/sunriseex/capitalflow/internal/http/dto"
 	"github.com/sunriseex/capitalflow/internal/models"
@@ -10,9 +12,8 @@ import (
 )
 
 func (h *Handler) listTransactions(w http.ResponseWriter, r *http.Request) {
-	accountID := strings.TrimSpace(r.URL.Query().Get("account_id"))
-
-	if !validateOptionalUUID(w, accountID, "account_id") {
+	filter, ok := parseTransactionListFilter(w, r)
+	if !ok {
 		return
 	}
 
@@ -20,17 +21,145 @@ func (h *Handler) listTransactions(w http.ResponseWriter, r *http.Request) {
 		transactions []models.Transaction
 		err          error
 	)
-	if accountID == "" {
+	if filter.AccountID == "" {
 		transactions, err = h.store.Transactions().List(r.Context())
 	} else {
-		transactions, err = h.store.Transactions().ListByAccount(r.Context(), accountID)
+		transactions, err = h.store.Transactions().ListByAccount(r.Context(), filter.AccountID)
 	}
 	if err != nil {
 		writeServiceError(w, err)
 		return
 	}
 
+	transactions = applyTransactionListFilter(transactions, &filter)
 	writeJSON(w, http.StatusOK, dto.TransactionsFromModels(transactions))
+}
+
+type transactionListFilter struct {
+	AccountID  string
+	CategoryID string
+	Type       models.TransactionType
+	FromDate   time.Time
+	ToDate     time.Time
+	Search     string
+	Limit      int
+	Page       int
+}
+
+func parseTransactionListFilter(w http.ResponseWriter, r *http.Request) (transactionListFilter, bool) {
+	query := r.URL.Query()
+	filter := transactionListFilter{
+		AccountID:  strings.TrimSpace(query.Get("account_id")),
+		CategoryID: strings.TrimSpace(query.Get("category_id")),
+		Type:       models.TransactionType(strings.TrimSpace(query.Get("type"))),
+		Search:     strings.ToLower(strings.TrimSpace(query.Get("search"))),
+		Page:       1,
+	}
+
+	if !validateOptionalUUID(w, filter.AccountID, "account_id") ||
+		!validateOptionalUUID(w, filter.CategoryID, "category_id") {
+		return transactionListFilter{}, false
+	}
+
+	if filter.Type != "" && !validTransactionFilterType(filter.Type) {
+		writeError(w, http.StatusBadRequest, "validation_error", "invalid type: "+string(filter.Type), nil)
+		return transactionListFilter{}, false
+	}
+
+	var err error
+	filter.FromDate, err = parseOptionalDate(query.Get("from_date"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "validation_error", err.Error(), nil)
+		return transactionListFilter{}, false
+	}
+	filter.ToDate, err = parseOptionalDate(query.Get("to_date"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "validation_error", err.Error(), nil)
+		return transactionListFilter{}, false
+	}
+	if !filter.FromDate.IsZero() && !filter.ToDate.IsZero() && filter.ToDate.Before(filter.FromDate) {
+		writeError(w, http.StatusBadRequest, "validation_error", "to_date must be on or after from_date", nil)
+		return transactionListFilter{}, false
+	}
+
+	filter.Limit, err = parseOptionalPositiveInt(query.Get("limit"), "limit")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "validation_error", err.Error(), nil)
+		return transactionListFilter{}, false
+	}
+	filter.Page, err = parseOptionalPositiveInt(query.Get("page"), "page")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "validation_error", err.Error(), nil)
+		return transactionListFilter{}, false
+	}
+	if filter.Page == 0 {
+		filter.Page = 1
+	}
+
+	return filter, true
+}
+
+func validTransactionFilterType(transactionType models.TransactionType) bool {
+	switch transactionType {
+	case models.TransactionTypeInitialBalance,
+		models.TransactionTypeIncome,
+		models.TransactionTypeExpense,
+		models.TransactionTypeTransferIn,
+		models.TransactionTypeTransferOut,
+		models.TransactionTypeInterestIncome,
+		models.TransactionTypeAdjustment:
+		return true
+	default:
+		return false
+	}
+}
+
+func parseOptionalPositiveInt(input, field string) (int, error) {
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return 0, nil
+	}
+
+	value, err := strconv.Atoi(input)
+	if err != nil || value <= 0 {
+		return 0, errValidation(field + " must be a positive integer")
+	}
+	return value, nil
+}
+
+func applyTransactionListFilter(transactions []models.Transaction, filter *transactionListFilter) []models.Transaction {
+	filtered := make([]models.Transaction, 0, len(transactions))
+	for i := range transactions {
+		transaction := transactions[i]
+		if filter.CategoryID != "" && (transaction.CategoryID == nil || *transaction.CategoryID != filter.CategoryID) {
+			continue
+		}
+		if filter.Type != "" && transaction.Type != filter.Type {
+			continue
+		}
+		occurredAt := dateOnly(transaction.OccurredAt)
+		if !filter.FromDate.IsZero() && occurredAt.Before(dateOnly(filter.FromDate)) {
+			continue
+		}
+		if !filter.ToDate.IsZero() && occurredAt.After(dateOnly(filter.ToDate)) {
+			continue
+		}
+		if filter.Search != "" && !strings.Contains(strings.ToLower(transaction.Description), filter.Search) {
+			continue
+		}
+		filtered = append(filtered, transaction)
+	}
+
+	if filter.Limit <= 0 {
+		return filtered
+	}
+
+	start := (filter.Page - 1) * filter.Limit
+	if start >= len(filtered) {
+		return []models.Transaction{}
+	}
+	end := min(start+filter.Limit, len(filtered))
+	return filtered[start:end]
 }
 
 func (h *Handler) createTransaction(w http.ResponseWriter, r *http.Request) {

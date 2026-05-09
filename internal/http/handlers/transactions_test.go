@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -50,6 +51,80 @@ func TestIsTransferTransaction(t *testing.T) {
 			got := isTransferTransaction(tt.transactionType)
 			if got != tt.want {
 				t.Fatalf("isTransferTransaction(%q) = %t, want %t", tt.transactionType, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestApplyTransactionListFilter(t *testing.T) {
+	categoryID := "11111111-1111-1111-1111-111111111111"
+	transactions := []models.Transaction{
+		{
+			ID:          "old-income",
+			Type:        models.TransactionTypeIncome,
+			AmountMinor: 10_000,
+			CategoryID:  &categoryID,
+			Description: "Salary May",
+			OccurredAt:  time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC),
+		},
+		{
+			ID:          "expense",
+			Type:        models.TransactionTypeExpense,
+			AmountMinor: 3_000,
+			Description: "Food",
+			OccurredAt:  time.Date(2026, 5, 2, 12, 0, 0, 0, time.UTC),
+		},
+		{
+			ID:          "new-income",
+			Type:        models.TransactionTypeIncome,
+			AmountMinor: 20_000,
+			CategoryID:  &categoryID,
+			Description: "Salary June",
+			OccurredAt:  time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC),
+		},
+	}
+
+	got := applyTransactionListFilter(transactions, &transactionListFilter{
+		CategoryID: categoryID,
+		Type:       models.TransactionTypeIncome,
+		FromDate:   time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+		ToDate:     time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC),
+		Search:     "salary",
+		Limit:      1,
+		Page:       2,
+	})
+
+	if len(got) != 1 {
+		t.Fatalf("filtered len = %d, want 1", len(got))
+	}
+	if got[0].ID != "new-income" {
+		t.Fatalf("filtered transaction = %s, want new-income", got[0].ID)
+	}
+}
+
+func TestParseTransactionListFilterRejectsInvalidQuery(t *testing.T) {
+	tests := []string{
+		"/api/transactions?account_id=bad",
+		"/api/transactions?category_id=bad",
+		"/api/transactions?type=bad",
+		"/api/transactions?from_date=2026-13-01",
+		"/api/transactions?from_date=2026-06-01&to_date=2026-05-01",
+		"/api/transactions?limit=0",
+		"/api/transactions?page=-1",
+	}
+
+	for _, target := range tests {
+		t.Run(target, func(t *testing.T) {
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, target, nil)
+			rec := httptest.NewRecorder()
+
+			_, ok := parseTransactionListFilter(rec, req)
+
+			if ok {
+				t.Fatal("filter parse succeeded, want rejection")
+			}
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
 			}
 		})
 	}
