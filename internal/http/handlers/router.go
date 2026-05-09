@@ -21,12 +21,15 @@ func NewRouter(store *postgres.Store, apiAuthToken string) http.Handler {
 	r.Use(chimiddleware.RealIP)
 	r.Use(appmiddleware.RequestLogger)
 	r.Use(chimiddleware.Recoverer)
+	r.Use(appmiddleware.DevCORS)
 
 	r.Get("/health", h.health)
 	r.Get("/ready", h.ready)
 
 	r.Route("/api", func(r chi.Router) {
 		r.Use(appmiddleware.BearerTokenAuth(apiAuthToken))
+
+		r.Get("/categories", h.listCategories)
 
 		r.Get("/accounts", h.listAccounts)
 		r.Post("/accounts", h.createAccount)
