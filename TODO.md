@@ -385,7 +385,7 @@ internal/domain
 
 * [x] Добавить OpenAPI spec для всех `/api/*` endpoints.
 * [x] Описать DTO, ошибки, auth, pagination и filtering.
-* [ ] Добавить проверку OpenAPI spec в CI после стабилизации контракта.
+* [x] Добавить проверку OpenAPI spec в CI после стабилизации контракта.
 
 Не делать до стабильного core:
 
@@ -1140,7 +1140,7 @@ LLM должна получать примерно такой контекст:
   * [x] `npm run lint`
   * [x] `npm run build`
 * [x] Backend CI и frontend CI должны быть отдельными checks.
-* [ ] Добавить OpenAPI validation check, когда spec станет обязательной.
+* [x] Добавить OpenAPI validation check, когда spec станет обязательной.
 
 ---
 
