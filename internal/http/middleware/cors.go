@@ -14,7 +14,7 @@ type CORSConfig struct {
 	MaxAgeSeconds  int
 }
 
-func CORS(cfg CORSConfig) func(http.Handler) http.Handler {
+func CORS(cfg *CORSConfig) func(http.Handler) http.Handler {
 	allowedMethods := strings.Join(cfg.AllowedMethods, ", ")
 	allowedHeaders := strings.Join(cfg.AllowedHeaders, ", ")
 	maxAgeSeconds := cfg.MaxAgeSeconds
@@ -44,7 +44,7 @@ func CORS(cfg CORSConfig) func(http.Handler) http.Handler {
 }
 
 func DevCORS(next http.Handler) http.Handler {
-	return CORS(CORSConfig{
+	return CORS(&CORSConfig{
 		AllowedOrigins: []string{"http://localhost:5173", "http://127.0.0.1:5173"},
 		AllowedMethods: []string{
 			http.MethodGet,

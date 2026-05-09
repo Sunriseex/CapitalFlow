@@ -39,7 +39,7 @@ func NewRouter(store Store, cfg RouterConfig) http.Handler {
 	r.Use(chimiddleware.RealIP)
 	r.Use(appmiddleware.RequestLogger)
 	r.Use(chimiddleware.Recoverer)
-	r.Use(appmiddleware.CORS(appmiddleware.CORSConfig{
+	r.Use(appmiddleware.CORS(&appmiddleware.CORSConfig{
 		AllowedOrigins: cfg.CORSAllowedOrigins,
 		AllowedMethods: []string{
 			http.MethodGet,

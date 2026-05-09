@@ -7,7 +7,7 @@ import (
 )
 
 func TestCORSAllowsConfiguredOrigin(t *testing.T) {
-	handler := CORS(CORSConfig{
+	handler := CORS(&CORSConfig{
 		AllowedOrigins: []string{"http://localhost:5173"},
 		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
 		AllowedHeaders: []string{"Authorization", "Content-Type"},
@@ -33,7 +33,7 @@ func TestCORSAllowsConfiguredOrigin(t *testing.T) {
 }
 
 func TestCORSRejectsUnknownOriginHeader(t *testing.T) {
-	handler := CORS(CORSConfig{
+	handler := CORS(&CORSConfig{
 		AllowedOrigins: []string{"http://localhost:5173"},
 		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
 		AllowedHeaders: []string{"Authorization", "Content-Type"},
