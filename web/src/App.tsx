@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactElement, ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { QueryClient } from "@tanstack/react-query";
@@ -9,9 +9,11 @@ import {
   Archive,
   BadgePercent,
   Landmark,
+  Moon,
   Pencil,
   Plus,
   Settings,
+  Sun,
   Trash2,
   Wallet,
 } from "lucide-react";
@@ -35,20 +37,28 @@ import { Button, Empty, Field, IconButton, Input, Panel, Select } from "./compon
 
 type View = "dashboard" | "accounts" | "transactions";
 type QuickAction = "income" | "expense" | "transfer" | "account" | null;
+type Theme = "light" | "dark";
 
 const today = new Date().toISOString().slice(0, 10);
 const accountTypes: AccountType[] = ["cash", "card", "savings", "term_deposit", "broker", "other"];
 const transactionTypes: TransactionType[] = ["income", "expense", "adjustment"];
+const themeStorageKey = "capitalflow_theme";
 
 export function App() {
   const [view, setView] = useState<View>("dashboard");
   const [selectedAccountId, setSelectedAccountId] = useState("");
   const [quickAction, setQuickAction] = useState<QuickAction>(null);
   const [authOpen, setAuthOpen] = useState(false);
+  const [theme, setTheme] = useState<Theme>(() => storedTheme());
   const accounts = useQuery({ queryKey: ["accounts"], queryFn: api.accounts });
   const categories = useQuery({ queryKey: ["categories"], queryFn: api.categories });
 
   const selectedAccount = accounts.data?.find((account) => account.id === selectedAccountId);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem(themeStorageKey, theme);
+  }, [theme]);
 
   return (
     <div className="app">
@@ -81,6 +91,12 @@ export function App() {
             <h1>{selectedAccount ? selectedAccount.name : titleForView(view)}</h1>
           </div>
           <div className="quick-actions">
+            <IconButton
+              title={theme === "dark" ? "Light theme" : "Dark theme"}
+              onClick={() => setTheme((current) => current === "dark" ? "light" : "dark")}
+            >
+              {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+            </IconButton>
             <IconButton title="Income" onClick={() => setQuickAction("income")}>
               <ArrowDownLeft size={18} />
             </IconButton>
@@ -233,7 +249,7 @@ function DashboardView({ onOpenAccount }: { onOpenAccount: (id: string) => void 
                   <stop offset="95%" stopColor="#315f8d" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke="#e2e9e5" vertical={false} />
+              <CartesianGrid stroke="var(--chart-grid)" vertical={false} />
               <XAxis dataKey="period" axisLine={false} tickLine={false} />
               <YAxis axisLine={false} tickLine={false} width={70} tickFormatter={(value) => formatCompactMoney(Number(value))} />
               <Tooltip formatter={(value) => formatMoney(Number(value), primaryCurrency)} />
@@ -267,7 +283,7 @@ function DashboardView({ onOpenAccount }: { onOpenAccount: (id: string) => void 
       <Panel title="Cashflow">
         <ChartShell>
           <ComposedChart data={chartData} margin={{ top: 8, right: 14, bottom: 0, left: 0 }}>
-            <CartesianGrid stroke="#e2e9e5" vertical={false} />
+            <CartesianGrid stroke="var(--chart-grid)" vertical={false} />
             <XAxis dataKey="period" axisLine={false} tickLine={false} />
             <YAxis axisLine={false} tickLine={false} width={70} tickFormatter={(value) => formatCompactMoney(Number(value))} />
             <Tooltip formatter={(value) => formatMoney(Number(value), primaryCurrency)} />
@@ -280,7 +296,7 @@ function DashboardView({ onOpenAccount }: { onOpenAccount: (id: string) => void 
       <Panel title="Interest income">
         <ChartShell>
           <LineChart data={interestData} margin={{ top: 8, right: 14, bottom: 0, left: 0 }}>
-            <CartesianGrid stroke="#e2e9e5" vertical={false} />
+            <CartesianGrid stroke="var(--chart-grid)" vertical={false} />
             <XAxis dataKey="period" axisLine={false} tickLine={false} />
             <YAxis axisLine={false} tickLine={false} width={70} tickFormatter={(value) => formatCompactMoney(Number(value))} />
             <Tooltip formatter={(value) => formatMoney(Number(value), primaryCurrency)} />
@@ -813,4 +829,12 @@ function titleForView(view: View) {
     accounts: "Accounts",
     transactions: "Transactions",
   }[view];
+}
+
+function storedTheme(): Theme {
+  const stored = localStorage.getItem(themeStorageKey);
+  if (stored === "dark" || stored === "light") {
+    return stored;
+  }
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }

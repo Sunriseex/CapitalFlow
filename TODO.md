@@ -451,10 +451,10 @@ internal/domain
 
 ### Product UX
 
-* [ ] Добавить переключение светлой/темной темы.
-* [ ] Сделать современное premium-оформление для dashboard, таблиц, форм и empty states.
-* [ ] Сохранить выбранную тему в `localStorage`.
-* [ ] Проверить контраст, hover/focus states и mobile layout.
+* [x] Добавить переключение светлой/темной темы.
+* [x] Сделать современное premium-оформление для dashboard, таблиц, форм и empty states.
+* [x] Сохранить выбранную тему в `localStorage`.
+* [x] Проверить контраст, hover/focus states и mobile layout.
 
 ### Frontend Architecture
 
