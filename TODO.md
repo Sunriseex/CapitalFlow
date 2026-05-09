@@ -458,15 +458,15 @@ internal/domain
 
 ### Frontend Architecture
 
-* [ ] Разбить `web/src/App.tsx` на feature-модули:
+* [x] Разбить `web/src/App.tsx` на feature-модули:
 
-  * [ ] `features/dashboard`
-  * [ ] `features/accounts`
-  * [ ] `features/transactions`
-  * [ ] `shared/ui`
-  * [ ] `shared/api`
-* [ ] Оставить `App.tsx` только для layout, routing/view state и composition.
-* [ ] Не менять поведение при рефакторинге без отдельной задачи.
+  * [x] `features/dashboard`
+  * [x] `features/accounts`
+  * [x] `features/transactions`
+  * [x] `shared/ui`
+  * [x] `shared/api`
+* [x] Оставить `App.tsx` только для layout, routing/view state и composition.
+* [x] Не менять поведение при рефакторинге без отдельной задачи.
 
 ### Dashboard
 
