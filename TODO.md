@@ -383,8 +383,8 @@ internal/domain
 
 ### API Contract
 
-* [ ] Добавить OpenAPI spec для всех `/api/*` endpoints.
-* [ ] Описать DTO, ошибки, auth, pagination и filtering.
+* [x] Добавить OpenAPI spec для всех `/api/*` endpoints.
+* [x] Описать DTO, ошибки, auth, pagination и filtering.
 * [ ] Добавить проверку OpenAPI spec в CI после стабилизации контракта.
 
 Не делать до стабильного core:

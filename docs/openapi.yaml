@@ -1,0 +1,928 @@
+openapi: 3.0.3
+info:
+  title: CapitalFlow API
+  version: 0.5.0
+servers:
+  - url: http://localhost:8080/api
+security:
+  - bearerAuth: []
+tags:
+  - name: Categories
+  - name: Accounts
+  - name: Transactions
+  - name: Transfers
+  - name: Interest Rules
+  - name: Dashboard
+paths:
+  /categories:
+    get:
+      tags: [Categories]
+      summary: List categories
+      responses:
+        "200":
+          description: Categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+        default:
+          $ref: "#/components/responses/APIError"
+  /accounts:
+    get:
+      tags: [Accounts]
+      summary: List accounts
+      responses:
+        "200":
+          description: Accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Account"
+        default:
+          $ref: "#/components/responses/APIError"
+    post:
+      tags: [Accounts]
+      summary: Create account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAccountRequest"
+      responses:
+        "201":
+          description: Created account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        default:
+          $ref: "#/components/responses/APIError"
+  /accounts/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ID"
+    get:
+      tags: [Accounts]
+      summary: Get account
+      responses:
+        "200":
+          description: Account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        default:
+          $ref: "#/components/responses/APIError"
+    patch:
+      tags: [Accounts]
+      summary: Update account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAccountRequest"
+      responses:
+        "200":
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        default:
+          $ref: "#/components/responses/APIError"
+  /accounts/{id}/archive:
+    parameters:
+      - $ref: "#/components/parameters/ID"
+    post:
+      tags: [Accounts]
+      summary: Archive account
+      responses:
+        "200":
+          description: Archived account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        default:
+          $ref: "#/components/responses/APIError"
+  /accounts/{id}/balance:
+    parameters:
+      - $ref: "#/components/parameters/ID"
+    get:
+      tags: [Accounts]
+      summary: Get account balance
+      responses:
+        "200":
+          description: Account balance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountBalance"
+        default:
+          $ref: "#/components/responses/APIError"
+  /transactions:
+    get:
+      tags: [Transactions]
+      summary: List transactions
+      parameters:
+        - name: account_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: category_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: type
+          in: query
+          schema:
+            $ref: "#/components/schemas/TransactionType"
+        - name: from_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to_date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+      responses:
+        "200":
+          description: Transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Transaction"
+        default:
+          $ref: "#/components/responses/APIError"
+    post:
+      tags: [Transactions]
+      summary: Create transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTransactionRequest"
+      responses:
+        "201":
+          description: Created transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+        default:
+          $ref: "#/components/responses/APIError"
+  /transactions/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ID"
+    get:
+      tags: [Transactions]
+      summary: Get transaction
+      responses:
+        "200":
+          description: Transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+        default:
+          $ref: "#/components/responses/APIError"
+    delete:
+      tags: [Transactions]
+      summary: Delete transaction
+      responses:
+        "204":
+          description: Deleted
+        default:
+          $ref: "#/components/responses/APIError"
+  /transfers:
+    post:
+      tags: [Transfers]
+      summary: Create transfer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTransferRequest"
+      responses:
+        "201":
+          description: Created transfer pair
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransferResponse"
+        default:
+          $ref: "#/components/responses/APIError"
+  /accounts/{id}/interest-rules:
+    parameters:
+      - $ref: "#/components/parameters/ID"
+    get:
+      tags: [Interest Rules]
+      summary: List account interest rules
+      responses:
+        "200":
+          description: Interest rules
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InterestRule"
+        default:
+          $ref: "#/components/responses/APIError"
+    post:
+      tags: [Interest Rules]
+      summary: Create interest rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInterestRuleRequest"
+      responses:
+        "201":
+          description: Created interest rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterestRule"
+        default:
+          $ref: "#/components/responses/APIError"
+  /interest-rules/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ID"
+    patch:
+      tags: [Interest Rules]
+      summary: Update interest rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateInterestRuleRequest"
+      responses:
+        "200":
+          description: Updated interest rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterestRule"
+        default:
+          $ref: "#/components/responses/APIError"
+  /accounts/{id}/accrue-interest:
+    parameters:
+      - $ref: "#/components/parameters/ID"
+    post:
+      tags: [Interest Rules]
+      summary: Accrue interest for one day
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccrueInterestRequest"
+      responses:
+        "200":
+          description: Created interest transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+        default:
+          $ref: "#/components/responses/APIError"
+  /accounts/{id}/recalculate-interest:
+    parameters:
+      - $ref: "#/components/parameters/ID"
+    post:
+      tags: [Interest Rules]
+      summary: Replace and recalculate daily interest accruals
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecalculateInterestRequest"
+      responses:
+        "200":
+          description: Recalculation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecalculateInterestResponse"
+        default:
+          $ref: "#/components/responses/APIError"
+  /dashboard/summary:
+    get:
+      tags: [Dashboard]
+      summary: Dashboard summary
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+        default:
+          $ref: "#/components/responses/APIError"
+  /dashboard/net-worth:
+    get:
+      tags: [Dashboard]
+      summary: Net worth snapshot
+      responses:
+        "200":
+          description: Net worth
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardNetWorth"
+        default:
+          $ref: "#/components/responses/APIError"
+  /dashboard/cashflow:
+    get:
+      tags: [Dashboard]
+      summary: Monthly cashflow buckets
+      parameters:
+        - $ref: "#/components/parameters/Months"
+      responses:
+        "200":
+          description: Cashflow buckets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardCashflow"
+        default:
+          $ref: "#/components/responses/APIError"
+  /dashboard/interest-income:
+    get:
+      tags: [Dashboard]
+      summary: Monthly interest income buckets
+      parameters:
+        - $ref: "#/components/parameters/Months"
+      responses:
+        "200":
+          description: Interest income buckets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardInterestIncome"
+        default:
+          $ref: "#/components/responses/APIError"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    ID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Months:
+      name: months
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 60
+        default: 6
+  responses:
+    APIError:
+      description: API error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              example: validation_error
+            message:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+    AccountType:
+      type: string
+      enum: [cash, card, savings, term_deposit, broker, other]
+    TransactionType:
+      type: string
+      enum: [initial_balance, income, expense, transfer_in, transfer_out, interest_income, adjustment]
+    AccrualFrequency:
+      type: string
+      enum: [daily, monthly, end_of_term]
+    CapitalizationFrequency:
+      type: string
+      enum: [none, daily, monthly, end_of_term]
+    DayCountConvention:
+      type: string
+      enum: [actual_365, actual_366, actual_actual]
+    Amount:
+      type: object
+      required: [currency, amount_minor]
+      properties:
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        amount_minor:
+          type: integer
+          format: int64
+    Account:
+      type: object
+      required: [id, name, type, currency, is_active, opened_at, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        legacy_id:
+          type: string
+          nullable: true
+        name:
+          type: string
+        bank:
+          type: string
+        type:
+          $ref: "#/components/schemas/AccountType"
+        currency:
+          type: string
+        is_active:
+          type: boolean
+        opened_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CreateAccountRequest:
+      type: object
+      required: [name, bank, type, currency, opened_at]
+      properties:
+        name:
+          type: string
+        bank:
+          type: string
+        type:
+          $ref: "#/components/schemas/AccountType"
+        currency:
+          type: string
+        opened_at:
+          type: string
+          format: date
+    UpdateAccountRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        bank:
+          type: string
+        type:
+          $ref: "#/components/schemas/AccountType"
+        currency:
+          type: string
+        opened_at:
+          type: string
+          format: date
+        is_active:
+          type: boolean
+    AccountBalance:
+      type: object
+      required: [account_id, balance_minor, transaction_count]
+      properties:
+        account_id:
+          type: string
+          format: uuid
+        balance_minor:
+          type: integer
+          format: int64
+        transaction_count:
+          type: integer
+    Category:
+      type: object
+      required: [id, slug, name, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Transaction:
+      type: object
+      required: [id, account_id, type, amount_minor, occurred_at, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        account_id:
+          type: string
+          format: uuid
+        related_account_id:
+          type: string
+          format: uuid
+          nullable: true
+        type:
+          $ref: "#/components/schemas/TransactionType"
+        amount_minor:
+          type: integer
+          format: int64
+        category_id:
+          type: string
+          format: uuid
+          nullable: true
+        description:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+    CreateTransactionRequest:
+      type: object
+      required: [account_id, type, amount_minor, description, occurred_at]
+      properties:
+        account_id:
+          type: string
+          format: uuid
+        related_account_id:
+          type: string
+          format: uuid
+          nullable: true
+        type:
+          $ref: "#/components/schemas/TransactionType"
+        amount_minor:
+          type: integer
+          format: int64
+        category_id:
+          type: string
+          format: uuid
+          nullable: true
+        description:
+          type: string
+        occurred_at:
+          type: string
+          format: date
+    CreateTransferRequest:
+      type: object
+      required: [from_account_id, to_account_id, amount_minor, description]
+      properties:
+        from_account_id:
+          type: string
+          format: uuid
+        to_account_id:
+          type: string
+          format: uuid
+        amount_minor:
+          type: integer
+          format: int64
+        description:
+          type: string
+    TransferResponse:
+      type: object
+      required: [out, in]
+      properties:
+        out:
+          $ref: "#/components/schemas/Transaction"
+        in:
+          $ref: "#/components/schemas/Transaction"
+    InterestRule:
+      type: object
+      required:
+        - id
+        - account_id
+        - annual_rate_bps
+        - accrual_frequency
+        - capitalization_frequency
+        - day_count_convention
+        - is_active
+        - start_date
+      properties:
+        id:
+          type: string
+          format: uuid
+        account_id:
+          type: string
+          format: uuid
+        annual_rate_bps:
+          type: integer
+          format: int64
+        promo_rate_bps:
+          type: integer
+          format: int64
+          nullable: true
+        promo_end_date:
+          type: string
+          format: date-time
+          nullable: true
+        accrual_frequency:
+          $ref: "#/components/schemas/AccrualFrequency"
+        capitalization_frequency:
+          $ref: "#/components/schemas/CapitalizationFrequency"
+        day_count_convention:
+          $ref: "#/components/schemas/DayCountConvention"
+        is_active:
+          type: boolean
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+          nullable: true
+    CreateInterestRuleRequest:
+      type: object
+      required: [annual_rate_bps, accrual_frequency, capitalization_frequency, day_count_convention, start_date]
+      properties:
+        annual_rate_bps:
+          type: integer
+          format: int64
+        promo_rate_bps:
+          type: integer
+          format: int64
+          nullable: true
+        promo_end_date:
+          type: string
+          format: date
+          nullable: true
+        accrual_frequency:
+          $ref: "#/components/schemas/AccrualFrequency"
+        capitalization_frequency:
+          $ref: "#/components/schemas/CapitalizationFrequency"
+        day_count_convention:
+          $ref: "#/components/schemas/DayCountConvention"
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+          nullable: true
+    UpdateInterestRuleRequest:
+      type: object
+      properties:
+        annual_rate_bps:
+          type: integer
+          format: int64
+        promo_rate_bps:
+          type: integer
+          format: int64
+          nullable: true
+        promo_end_date:
+          type: string
+          format: date
+          nullable: true
+        accrual_frequency:
+          $ref: "#/components/schemas/AccrualFrequency"
+        capitalization_frequency:
+          $ref: "#/components/schemas/CapitalizationFrequency"
+        day_count_convention:
+          $ref: "#/components/schemas/DayCountConvention"
+        is_active:
+          type: boolean
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+          nullable: true
+    AccrueInterestRequest:
+      type: object
+      properties:
+        rule_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+    RecalculateInterestRequest:
+      type: object
+      properties:
+        rule_id:
+          type: string
+          format: uuid
+        from_date:
+          type: string
+          format: date
+        to_date:
+          type: string
+          format: date
+    RecalculateInterestResponse:
+      type: object
+      required: [account_id, rule_id, from_date, to_date, deleted_accruals, created_accruals, skipped_days, total_amount_minor]
+      properties:
+        account_id:
+          type: string
+          format: uuid
+        rule_id:
+          type: string
+          format: uuid
+        from_date:
+          type: string
+          format: date-time
+        to_date:
+          type: string
+          format: date-time
+        deleted_accruals:
+          type: integer
+          format: int64
+        created_accruals:
+          type: integer
+          format: int64
+        skipped_days:
+          type: integer
+          format: int64
+        total_amount_minor:
+          type: integer
+          format: int64
+    DashboardAccountBalance:
+      allOf:
+        - $ref: "#/components/schemas/AccountBalance"
+        - type: object
+          required: [name, type, currency, is_active]
+          properties:
+            name:
+              type: string
+            bank:
+              type: string
+            type:
+              $ref: "#/components/schemas/AccountType"
+            currency:
+              type: string
+            is_active:
+              type: boolean
+    DashboardSummary:
+      type: object
+      required:
+        - generated_at
+        - accounts_count
+        - active_accounts_count
+        - balances
+        - monthly_income
+        - monthly_expense
+        - monthly_interest_income
+        - account_balances
+        - recent_transactions
+        - recent_transactions_limit
+        - recent_transactions_returned
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+        accounts_count:
+          type: integer
+        active_accounts_count:
+          type: integer
+        balances:
+          type: array
+          items:
+            $ref: "#/components/schemas/Amount"
+        monthly_income:
+          type: array
+          items:
+            $ref: "#/components/schemas/Amount"
+        monthly_expense:
+          type: array
+          items:
+            $ref: "#/components/schemas/Amount"
+        monthly_interest_income:
+          type: array
+          items:
+            $ref: "#/components/schemas/Amount"
+        account_balances:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardAccountBalance"
+        recent_transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Transaction"
+        recent_transactions_limit:
+          type: integer
+        recent_transactions_returned:
+          type: integer
+    DashboardNetWorth:
+      type: object
+      required: [generated_at, balances, account_balances]
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+        balances:
+          type: array
+          items:
+            $ref: "#/components/schemas/Amount"
+        account_balances:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardAccountBalance"
+    DashboardCashflowBucket:
+      type: object
+      required: [period, income, expense, net_cashflow, transaction_count]
+      properties:
+        period:
+          type: string
+        income:
+          type: array
+          items:
+            $ref: "#/components/schemas/Amount"
+        expense:
+          type: array
+          items:
+            $ref: "#/components/schemas/Amount"
+        net_cashflow:
+          type: array
+          items:
+            $ref: "#/components/schemas/Amount"
+        transaction_count:
+          type: integer
+    DashboardCashflow:
+      type: object
+      required: [generated_at, months, buckets]
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+        months:
+          type: integer
+        buckets:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardCashflowBucket"
+    DashboardInterestIncomeBucket:
+      type: object
+      required: [period, interest_income, transaction_count]
+      properties:
+        period:
+          type: string
+        interest_income:
+          type: array
+          items:
+            $ref: "#/components/schemas/Amount"
+        transaction_count:
+          type: integer
+    DashboardInterestIncome:
+      type: object
+      required: [generated_at, months, total, buckets]
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+        months:
+          type: integer
+        total:
+          type: array
+          items:
+            $ref: "#/components/schemas/Amount"
+        buckets:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardInterestIncomeBucket"
