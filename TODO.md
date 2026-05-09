@@ -1134,12 +1134,12 @@ LLM должна получать примерно такой контекст:
 
 ## CI/CD до v1.0
 
-* [ ] Добавить frontend CI job:
+* [x] Добавить frontend CI job:
 
-  * [ ] `npm ci`
-  * [ ] `npm run lint`
-  * [ ] `npm run build`
-* [ ] Backend CI и frontend CI должны быть отдельными checks.
+  * [x] `npm ci`
+  * [x] `npm run lint`
+  * [x] `npm run build`
+* [x] Backend CI и frontend CI должны быть отдельными checks.
 * [ ] Добавить OpenAPI validation check, когда spec станет обязательной.
 
 ---
