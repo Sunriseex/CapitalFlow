@@ -102,12 +102,8 @@ paths:
       tags: [Accounts]
       summary: Archive account
       responses:
-        "200":
+        "204":
           description: Archived account
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Account"
         default:
           $ref: "#/components/responses/APIError"
   /accounts/{id}/balance:
@@ -309,12 +305,18 @@ paths:
             schema:
               $ref: "#/components/schemas/AccrueInterestRequest"
       responses:
-        "200":
-          description: Created interest transaction
+        "201":
+          description: Created interest accrual
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Transaction"
+                $ref: "#/components/schemas/AccrueInterestResponse"
+        "200":
+          description: Accrual skipped
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccrueInterestSkippedResponse"
         default:
           $ref: "#/components/responses/APIError"
   /accounts/{id}/recalculate-interest:
@@ -926,3 +928,63 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DashboardInterestIncomeBucket"
+    AccrueInterestResponse:
+      type: object
+      required: [skipped, transaction, accrual]
+      properties:
+        skipped:
+          type: boolean
+          enum: [false]
+        transaction:
+          $ref: "#/components/schemas/Transaction"
+        accrual:
+          $ref: "#/components/schemas/InterestAccrual"
+
+    AccrueInterestSkippedResponse:
+      type: object
+      required: [skipped]
+      properties:
+        skipped:
+          type: boolean
+          enum: [true]
+
+    InterestAccrual:
+      type: object
+      required:
+       - id
+       - account_id
+       - rule_id
+       - transaction_id
+       - accrual_date
+       - amount_minor
+       - balance_minor
+       - annual_rate_bps
+       - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        account_id:
+          type: string
+          format: uuid
+        rule_id:
+          type: string
+          format: uuid
+        transaction_id:
+          type: string
+          format: uuid
+        accrual_date:
+          type: string
+          format: date-time
+        amount_minor:
+          type: integer
+          format: int64
+        balance_minor:
+          type: integer
+          format: int64
+        annual_rate_bps:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
