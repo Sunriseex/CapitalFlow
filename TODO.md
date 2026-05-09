@@ -282,7 +282,7 @@ UNIQUE(account_id, accrual_date, rule_id)
 * [x] Написать команду:
 
 ```bash
-finance-manager migrate-json
+capitalflow migrate-json
 ```
 
 Она должна:
@@ -561,10 +561,10 @@ internal/domain
 
 ## Команды
 
-* [ ] `finance-manager accrue --date YYYY-MM-DD`
-* [ ] `finance-manager accrue --account <id>`
-* [ ] `finance-manager forecast --account <id> --days 365`
-* [ ] `finance-manager recalculate --account <id> --from YYYY-MM-DD`
+* [ ] `capitalflow accrue --date YYYY-MM-DD`
+* [ ] `capitalflow accrue --account <id>`
+* [ ] `capitalflow forecast --account <id> --days 365`
+* [ ] `capitalflow recalculate --account <id> --from YYYY-MM-DD`
 
 ## Acceptance Criteria
 
@@ -983,7 +983,7 @@ LLM должна получать примерно такой контекст:
 
 ---
 
-# v1.0 — Personal Finance Tracker Core Release
+# v1.0 — Personal CapitalFlow Core Release
 
 ## Цель
 

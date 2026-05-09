@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/sunriseex/finance-manager/internal/http/dto"
-	"github.com/sunriseex/finance-manager/internal/repository"
-	"github.com/sunriseex/finance-manager/internal/services"
+	"github.com/sunriseex/capitalflow/internal/http/dto"
+	"github.com/sunriseex/capitalflow/internal/repository"
+	"github.com/sunriseex/capitalflow/internal/services"
 )
 
 func writeJSON(w http.ResponseWriter, status int, value any) {

@@ -9,13 +9,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sunriseex/finance-manager/internal/config"
-	"github.com/sunriseex/finance-manager/internal/migration"
-	"github.com/sunriseex/finance-manager/internal/models"
-	"github.com/sunriseex/finance-manager/internal/postgres"
-	"github.com/sunriseex/finance-manager/internal/services"
-	"github.com/sunriseex/finance-manager/internal/storage"
-	"github.com/sunriseex/finance-manager/pkg/money"
+	"github.com/sunriseex/capitalflow/internal/config"
+	"github.com/sunriseex/capitalflow/internal/migration"
+	"github.com/sunriseex/capitalflow/internal/models"
+	"github.com/sunriseex/capitalflow/internal/postgres"
+	"github.com/sunriseex/capitalflow/internal/services"
+	"github.com/sunriseex/capitalflow/internal/storage"
+	"github.com/sunriseex/capitalflow/pkg/money"
 )
 
 const version = "0.3.0-dev"
@@ -412,18 +412,18 @@ func parseAmountMinor(input string) (int64, error) {
 }
 
 func showHelp() {
-	fmt.Println(`finance-manager
+	fmt.Println(`capitalflow
 
 Commands:
-  finance-manager doctor [--database-url url]
-  finance-manager accounts list [--database-url url]
-  finance-manager accounts create --name name [--type type] [--bank bank] [--currency RUB] [--opened YYYY-MM-DD]
-  finance-manager transactions list [--account id] [--database-url url]
-  finance-manager transactions create --account id --type income --amount 1000.00 [--description text] [--occurred YYYY-MM-DD]
-  finance-manager balance --account id [--database-url url]
-  finance-manager migrate-json [--deposits path] [--database-url url]
-  finance-manager version
-  finance-manager help`)
+  capitalflow doctor [--database-url url]
+  capitalflow accounts list [--database-url url]
+  capitalflow accounts create --name name [--type type] [--bank bank] [--currency RUB] [--opened YYYY-MM-DD]
+  capitalflow transactions list [--account id] [--database-url url]
+  capitalflow transactions create --account id --type income --amount 1000.00 [--description text] [--occurred YYYY-MM-DD]
+  capitalflow balance --account id [--database-url url]
+  capitalflow migrate-json [--deposits path] [--database-url url]
+  capitalflow version
+  capitalflow help`)
 }
 
 func isTransferTransactionType(transactionType models.TransactionType) bool {

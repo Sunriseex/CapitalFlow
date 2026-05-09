@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/sunriseex/finance-manager/internal/http/dto"
+	"github.com/sunriseex/capitalflow/internal/http/dto"
 )
 
 func (h *Handler) listCategories(w http.ResponseWriter, r *http.Request) {

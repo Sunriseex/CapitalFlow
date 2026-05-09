@@ -7,10 +7,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/sunriseex/finance-manager/internal/commands"
-	"github.com/sunriseex/finance-manager/internal/config"
-	"github.com/sunriseex/finance-manager/internal/storage"
-	"github.com/sunriseex/finance-manager/pkg/errors"
+	"github.com/sunriseex/capitalflow/internal/commands"
+	"github.com/sunriseex/capitalflow/internal/config"
+	"github.com/sunriseex/capitalflow/internal/storage"
+	"github.com/sunriseex/capitalflow/pkg/errors"
 )
 
 const version = "0.1.0-dev"

@@ -1,4 +1,4 @@
-module github.com/sunriseex/finance-manager
+module github.com/sunriseex/capitalflow
 
 go 1.26.2
 

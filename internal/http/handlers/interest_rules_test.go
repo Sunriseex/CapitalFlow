@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sunriseex/finance-manager/internal/models"
+	"github.com/sunriseex/capitalflow/internal/models"
 )
 
 func TestLatestApplicableInterestRuleSelectsRuleForResolvedEndDate(t *testing.T) {

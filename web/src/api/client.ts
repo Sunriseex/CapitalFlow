@@ -11,13 +11,15 @@ import type {
   TransactionType,
 } from "./types";
 
-const tokenKey = "finance_tracker_api_token";
-const apiBaseKey = "finance_tracker_api_base";
+const tokenKey = "capitalflow_api_token";
+const apiBaseKey = "capitalflow_api_base";
+const legacyTokenKey = "finance_tracker_api_token";
+const legacyApiBaseKey = "finance_tracker_api_base";
 const legacyDefaultApiBase = "http://localhost:8080/api";
 const defaultApiBase = "/api";
 
 export function getStoredToken() {
-  return localStorage.getItem(tokenKey) ?? "";
+  return localStorage.getItem(tokenKey) ?? localStorage.getItem(legacyTokenKey) ?? "";
 }
 
 export function setStoredToken(token: string) {
@@ -25,7 +27,7 @@ export function setStoredToken(token: string) {
 }
 
 export function getStoredApiBase() {
-  const stored = localStorage.getItem(apiBaseKey)?.replace(/\/$/, "");
+  const stored = (localStorage.getItem(apiBaseKey) ?? localStorage.getItem(legacyApiBaseKey))?.replace(/\/$/, "");
   if (!stored || stored === legacyDefaultApiBase) {
     return defaultApiBase;
   }

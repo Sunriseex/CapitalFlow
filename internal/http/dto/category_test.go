@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sunriseex/finance-manager/internal/models"
+	"github.com/sunriseex/capitalflow/internal/models"
 )
 
 func TestCategoriesFromModels(t *testing.T) {

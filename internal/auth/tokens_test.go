@@ -9,7 +9,7 @@ const testSecret = "01234567890123456789012345678901"
 
 func TestTokenServiceIssueAndValidateAccess(t *testing.T) {
 	now := time.Date(2026, 5, 2, 12, 0, 0, 0, time.UTC)
-	service, err := NewTokenService(testSecret, "finance-manager", 15*time.Minute, 30*24*time.Hour)
+	service, err := NewTokenService(testSecret, "capitalflow", 15*time.Minute, 30*24*time.Hour)
 	if err != nil {
 		t.Fatalf("new token service: %v", err)
 	}
@@ -33,7 +33,7 @@ func TestTokenServiceIssueAndValidateAccess(t *testing.T) {
 
 func TestTokenServiceRejectsExpiredAccessToken(t *testing.T) {
 	now := time.Date(2026, 5, 2, 12, 0, 0, 0, time.UTC)
-	service, err := NewTokenService(testSecret, "finance-manager", time.Minute, 30*24*time.Hour)
+	service, err := NewTokenService(testSecret, "capitalflow", time.Minute, 30*24*time.Hour)
 	if err != nil {
 		t.Fatalf("new token service: %v", err)
 	}
@@ -49,11 +49,11 @@ func TestTokenServiceRejectsExpiredAccessToken(t *testing.T) {
 
 func TestTokenServiceRejectsInvalidSignature(t *testing.T) {
 	now := time.Date(2026, 5, 2, 12, 0, 0, 0, time.UTC)
-	service, err := NewTokenService(testSecret, "finance-manager", time.Minute, 30*24*time.Hour)
+	service, err := NewTokenService(testSecret, "capitalflow", time.Minute, 30*24*time.Hour)
 	if err != nil {
 		t.Fatalf("new token service: %v", err)
 	}
-	otherService, err := NewTokenService("abcdefghijklmnopqrstuvwxyz123456", "finance-manager", time.Minute, 30*24*time.Hour)
+	otherService, err := NewTokenService("abcdefghijklmnopqrstuvwxyz123456", "capitalflow", time.Minute, 30*24*time.Hour)
 	if err != nil {
 		t.Fatalf("new other token service: %v", err)
 	}

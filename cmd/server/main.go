@@ -13,9 +13,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sunriseex/finance-manager/internal/config"
-	"github.com/sunriseex/finance-manager/internal/http/handlers"
-	"github.com/sunriseex/finance-manager/internal/postgres"
+	"github.com/sunriseex/capitalflow/internal/config"
+	"github.com/sunriseex/capitalflow/internal/http/handlers"
+	"github.com/sunriseex/capitalflow/internal/postgres"
 )
 
 func main() {

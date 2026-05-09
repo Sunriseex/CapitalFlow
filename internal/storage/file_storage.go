@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/sunriseex/finance-manager/internal/models"
-	"github.com/sunriseex/finance-manager/pkg/errors"
-	"github.com/sunriseex/finance-manager/pkg/security"
+	"github.com/sunriseex/capitalflow/internal/models"
+	"github.com/sunriseex/capitalflow/pkg/errors"
+	"github.com/sunriseex/capitalflow/pkg/security"
 )
 
 func ExpandPath(path string) string {

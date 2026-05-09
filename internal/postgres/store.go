@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/sunriseex/finance-manager/internal/repository"
+	"github.com/sunriseex/capitalflow/internal/repository"
 )
 
 type Store struct {

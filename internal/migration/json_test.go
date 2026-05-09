@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sunriseex/finance-manager/internal/models"
-	"github.com/sunriseex/finance-manager/internal/repository"
+	"github.com/sunriseex/capitalflow/internal/models"
+	"github.com/sunriseex/capitalflow/internal/repository"
 )
 
 func newTestJSONMigrator() (

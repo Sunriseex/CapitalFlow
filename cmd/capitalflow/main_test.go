@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sunriseex/finance-manager/internal/config"
+	"github.com/sunriseex/capitalflow/internal/config"
 )
 
 func TestRunTransactionsCreateRejectsTransferTypes(t *testing.T) {

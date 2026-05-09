@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sunriseex/finance-manager/internal/http/dto"
-	"github.com/sunriseex/finance-manager/internal/models"
-	"github.com/sunriseex/finance-manager/internal/services"
+	"github.com/sunriseex/capitalflow/internal/http/dto"
+	"github.com/sunriseex/capitalflow/internal/models"
+	"github.com/sunriseex/capitalflow/internal/services"
 )
 
 func (h *Handler) listAccounts(w http.ResponseWriter, r *http.Request) {

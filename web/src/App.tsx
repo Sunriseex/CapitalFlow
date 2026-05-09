@@ -55,7 +55,7 @@ export function App() {
       <aside className="sidebar">
         <div className="brand">
           <Wallet size={22} />
-          <span>Finance Tracker</span>
+          <span>CapitalFlow</span>
         </div>
         <nav>
           <button className={view === "dashboard" ? "active" : ""} onClick={() => setView("dashboard")}>
