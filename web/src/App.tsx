@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDownLeft, ArrowRightLeft, ArrowUpRight, Landmark, LogIn, LogOut, Moon, Plus, Settings, ShieldCheck, Sun, Wallet } from "lucide-react";
-import { ApiClientError, api, getStoredApiBase, getStoredToken, setStoredApiBase } from "./api/client";
+import { ApiClientError, api, getStoredToken } from "./api/client";
 import { AccountDetails } from "./features/accounts/AccountDetails";
 import { AccountsView } from "./features/accounts/AccountsView";
 import { CreateAccountForm } from "./features/accounts/CreateAccountForm";
@@ -142,14 +142,12 @@ function AuthScreen({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [primaryCurrency, setPrimaryCurrency] = useState("RUB");
-  const [apiBase, setApiBase] = useState(getStoredApiBase());
   const [error, setError] = useState("");
   const setupRequired = status.data?.setup_required;
   const isSetup = setupRequired === true;
 
   async function submit() {
     setError("");
-    setStoredApiBase(apiBase);
     try {
       if (isSetup) {
         await api.setup({ email, password, primary_currency: primaryCurrency });
@@ -169,6 +167,52 @@ function AuthScreen({
           <Wallet size={24} />
           <span>CapitalFlow</span>
         </div>
+
+        <div className="auth-preview">
+          <div className="auth-preview-card auth-preview-hero">
+            <span>Portfolio value</span>
+            <strong>₽ 1,284,500</strong>
+            <small>+₽ 42,800 this month</small>
+          </div>
+
+          <div className="auth-preview-metrics">
+            <div className="auth-preview-card">
+              <span>Income</span>
+              <strong>₽ 180,000</strong>
+            </div>
+            <div className="auth-preview-card">
+              <span>Expenses</span>
+              <strong>₽ 92,400</strong>
+            </div>
+          </div>
+
+          <div className="auth-preview-card">
+            <div className="auth-preview-chart">
+              <i style={{ height: "42%" }} />
+              <i style={{ height: "58%" }} />
+              <i style={{ height: "48%" }} />
+              <i style={{ height: "74%" }} />
+              <i style={{ height: "66%" }} />
+              <i style={{ height: "84%" }} />
+            </div>
+          </div>
+
+          <div className="auth-preview-card auth-preview-list">
+            <div className="auth-preview-row">
+              <span>Savings</span>
+              <strong>62%</strong>
+            </div>
+            <div className="auth-preview-row">
+              <span>Broker</span>
+              <strong>24%</strong>
+            </div>
+            <div className="auth-preview-row">
+              <span>Cash</span>
+              <strong>14%</strong>
+            </div>
+          </div>
+        </div>
+
         <div className="auth-info-panel">
           <ShieldCheck size={18} />
           <span>{isSetup ? "First local user setup" : "Private local session"}</span>
@@ -195,12 +239,6 @@ function AuthScreen({
             <span>This is the first launch. Create the local owner account and choose the base budget currency.</span>
           </div>
         ) : null}
-        <details className="advanced-auth">
-          <summary>Connection settings</summary>
-          <Field label="API base">
-            <Input value={apiBase} onChange={(event) => setApiBase(event.target.value)} />
-          </Field>
-        </details>
         <Field label="Email">
           <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" />
         </Field>
@@ -228,14 +266,9 @@ function AuthScreen({
 
 function SessionPanel({ onLogout }: { onLogout: () => void }) {
   const queryClient = useQueryClient();
-  const [apiBase, setApiBase] = useState(getStoredApiBase());
 
   return (
-    <form className="auth-panel" onSubmit={(event) => { event.preventDefault(); setStoredApiBase(apiBase); location.reload(); }}>
-      <Field label="API base">
-        <Input value={apiBase} onChange={(event) => setApiBase(event.target.value)} />
-      </Field>
-      <Button>Save</Button>
+    <div className="auth-panel">
       <Button
         className="muted-button"
         type="button"
@@ -248,7 +281,7 @@ function SessionPanel({ onLogout }: { onLogout: () => void }) {
       >
         <LogOut size={16} /> Logout
       </Button>
-    </form>
+    </div>
   );
 }
 

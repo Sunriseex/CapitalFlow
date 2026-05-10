@@ -472,7 +472,8 @@ nav button:focus-visible {
 .auth-info {
   min-height: calc(100vh - 48px);
   display: grid;
-  align-content: space-between;
+  grid-template-rows: auto 1fr auto;
+  gap: 28px;
   padding: 28px;
   color: var(--hero-text);
   background: var(--hero-bg);
@@ -487,6 +488,98 @@ nav button:focus-visible {
   gap: 10px;
   font-size: 18px;
   font-weight: 800;
+}
+
+.auth-preview {
+  align-self: center;
+  display: grid;
+  gap: 14px;
+  width: min(520px, 100%);
+}
+
+.auth-preview-card {
+  padding: 16px;
+  color: var(--hero-text);
+  background: var(--hero-panel);
+  border: 1px solid rgb(255 255 255 / 0.12);
+  border-radius: 12px;
+  box-shadow: 0 16px 42px rgb(0 0 0 / 0.16);
+}
+
+.auth-preview-card span,
+.auth-preview-card small {
+  display: block;
+  color: var(--hero-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.auth-preview-card strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 20px;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+.auth-preview-hero {
+  padding: 20px;
+}
+
+.auth-preview-hero strong {
+  font-size: 36px;
+}
+
+.auth-preview-hero small {
+  margin-top: 8px;
+  color: var(--auth-accent);
+}
+
+.auth-preview-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.auth-preview-chart {
+  height: 148px;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  align-items: end;
+  gap: 10px;
+  padding-top: 6px;
+}
+
+.auth-preview-chart i {
+  display: block;
+  min-height: 22px;
+  border-radius: 999px 999px 6px 6px;
+  background: linear-gradient(180deg, #b7f2d7, #4fb990 55%, #315f8d);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+}
+
+.auth-preview-list {
+  display: grid;
+  gap: 10px;
+}
+
+.auth-preview-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgb(255 255 255 / 0.1);
+}
+
+.auth-preview-row:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.auth-preview-row strong {
+  margin-top: 0;
+  font-size: 14px;
 }
 
 .auth-info-panel {
@@ -513,24 +606,6 @@ nav button:focus-visible {
   border-radius: 10px;
   font-size: 13px;
   font-weight: 650;
-}
-
-.advanced-auth {
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 10px 12px;
-  background: var(--subtle);
-}
-
-.advanced-auth summary {
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.advanced-auth .field {
-  margin-top: 10px;
 }
 
 .primary-button {
@@ -806,6 +881,14 @@ tbody tr:hover {
   .auth-info {
     min-height: auto;
     gap: 26px;
+  }
+
+  .auth-preview-hero strong {
+    font-size: 30px;
+  }
+
+  .auth-preview-chart {
+    height: 112px;
   }
 
   .sidebar {
