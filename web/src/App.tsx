@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDownLeft, ArrowRightLeft, ArrowUpRight, Landmark, LogOut, Moon, Plus, Settings, Sun, Wallet } from "lucide-react";
+import { ArrowDownLeft, ArrowRightLeft, ArrowUpRight, Landmark, LogIn, LogOut, Moon, Plus, Settings, ShieldCheck, Sun, Wallet } from "lucide-react";
 import { ApiClientError, api, getStoredApiBase, getStoredToken, setStoredApiBase } from "./api/client";
 import { AccountDetails } from "./features/accounts/AccountDetails";
 import { AccountsView } from "./features/accounts/AccountsView";
@@ -139,20 +139,19 @@ function AuthScreen({
   setTheme: (theme: Theme) => void;
 }) {
   const status = useQuery({ queryKey: ["auth-status"], queryFn: api.authStatus, retry: false });
-  const [mode, setMode] = useState<"setup" | "login">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [primaryCurrency, setPrimaryCurrency] = useState("RUB");
   const [apiBase, setApiBase] = useState(getStoredApiBase());
   const [error, setError] = useState("");
   const setupRequired = status.data?.setup_required;
-  const activeMode = setupRequired ? "setup" : mode;
+  const isSetup = setupRequired === true;
 
   async function submit() {
     setError("");
     setStoredApiBase(apiBase);
     try {
-      if (activeMode === "setup") {
+      if (isSetup) {
         await api.setup({ email, password, primary_currency: primaryCurrency });
       } else {
         await api.login({ email, password });
@@ -165,11 +164,22 @@ function AuthScreen({
 
   return (
     <div className="auth-page">
+      <section className="auth-info">
+        <div className="auth-info-brand">
+          <Wallet size={24} />
+          <span>CapitalFlow</span>
+        </div>
+        <div className="auth-info-panel">
+          <ShieldCheck size={18} />
+          <span>{isSetup ? "First local user setup" : "Private local session"}</span>
+        </div>
+      </section>
+
       <form className="auth-card" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
         <div className="auth-card-header">
-          <div className="brand auth-brand">
-            <Wallet size={22} />
-            <span>CapitalFlow</span>
+          <div>
+            <p className="eyebrow">{isSetup ? "Registration" : "Login"}</p>
+            <h1>{isSetup ? "Create your first user" : "Welcome back"}</h1>
           </div>
           <IconButton
             title={theme === "dark" ? "Light theme" : "Dark theme"}
@@ -179,26 +189,25 @@ function AuthScreen({
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
           </IconButton>
         </div>
-        {setupRequired === false ? (
-          <div className="segmented">
-            <button type="button" className={mode === "login" ? "active" : ""} onClick={() => setMode("login")}>
-              Login
-            </button>
-            <button type="button" className={mode === "setup" ? "active" : ""} onClick={() => setMode("setup")}>
-              Setup
-            </button>
+        {isSetup ? (
+          <div className="setup-notice">
+            <ShieldCheck size={18} />
+            <span>This is the first launch. Create the local owner account and choose the base budget currency.</span>
           </div>
         ) : null}
-        <Field label="API base">
-          <Input value={apiBase} onChange={(event) => setApiBase(event.target.value)} />
-        </Field>
+        <details className="advanced-auth">
+          <summary>Connection settings</summary>
+          <Field label="API base">
+            <Input value={apiBase} onChange={(event) => setApiBase(event.target.value)} />
+          </Field>
+        </details>
         <Field label="Email">
           <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" />
         </Field>
         <Field label="Password">
-          <Input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={activeMode === "setup" ? "new-password" : "current-password"} />
+          <Input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={isSetup ? "new-password" : "current-password"} />
         </Field>
-        {activeMode === "setup" ? (
+        {isSetup ? (
           <Field label="Primary currency">
             <Select value={primaryCurrency} onChange={(event) => setPrimaryCurrency(event.target.value)}>
               {currencyOptions().map((currency) => (
@@ -208,7 +217,10 @@ function AuthScreen({
           </Field>
         ) : null}
         {error ? <div className="error">{error}</div> : null}
-        <Button disabled={status.isLoading}>{activeMode === "setup" ? "Create user" : "Login"}</Button>
+        <Button className="primary-button" disabled={status.isLoading}>
+          {isSetup ? <ShieldCheck size={16} /> : <LogIn size={16} />}
+          {isSetup ? "Create account" : "Login"}
+        </Button>
       </form>
     </div>
   );
