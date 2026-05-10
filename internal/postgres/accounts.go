@@ -118,6 +118,19 @@ func (r *AccountRepository) ArchiveForUser(ctx context.Context, id, userID strin
 	return nil
 }
 
+func (r *AccountRepository) ClaimUnowned(ctx context.Context, userID string) error {
+	_, err := r.pool.Exec(ctx, `
+		UPDATE accounts
+		SET owner_user_id = $1, updated_at = now()
+		WHERE owner_user_id IS NULL
+	`, userID)
+	if err != nil {
+		return fmt.Errorf("claim unowned accounts: %w", err)
+	}
+
+	return nil
+}
+
 func (r *AccountRepository) getAccount(ctx context.Context, query string, args ...any) (*models.Account, error) {
 	account, err := scanAccount(r.pool.QueryRow(ctx, query, args...))
 	if err != nil {

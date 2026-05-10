@@ -21,6 +21,7 @@ type AuthService struct {
 	users        repository.UserRepository
 	refresh      repository.RefreshTokenRepository
 	audit        repository.AuthAuditRepository
+	accounts     repository.AccountRepository
 	tokens       *auth.TokenService
 	passwordFunc func(string, security.PasswordParams) (string, error)
 	verifyFunc   func(string, string) (bool, error)
@@ -57,6 +58,14 @@ type AuthSession struct {
 	RefreshExpiresAt time.Time
 }
 
+type AuthServiceOption func(*AuthService)
+
+func WithAuthAccountRepository(repo repository.AccountRepository) AuthServiceOption {
+	return func(s *AuthService) {
+		s.accounts = repo
+	}
+}
+
 func (s *AuthService) Setup(ctx context.Context, req AuthRequest) (*AuthSession, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("setup auth: %w", err)
@@ -82,6 +91,13 @@ func (s *AuthService) Setup(ctx context.Context, req AuthRequest) (*AuthSession,
 	if err := s.users.Create(ctx, user); err != nil {
 		s.auditEvent(ctx, "setup_failed", req.Email, nil, false, "save_failed")
 		return nil, fmt.Errorf("save user: %w", err)
+	}
+
+	if s.accounts != nil {
+		if err := s.accounts.ClaimUnowned(ctx, user.ID); err != nil {
+			s.auditEvent(ctx, "setup_failed", req.Email, &user.ID, false, "claim_unowned_accounts_failed")
+			return nil, fmt.Errorf("claim unowned accounts: %w", err)
+		}
 	}
 
 	session, err := s.issueSession(ctx, user)
@@ -214,7 +230,7 @@ func (s *AuthService) Logout(ctx context.Context, rawRefreshToken string) error 
 		return fmt.Errorf("get refresh token: %w", err)
 	}
 	if err := s.refresh.Revoke(ctx, token.ID, s.now()); err != nil {
-		return err
+		return fmt.Errorf("revoke refresh token: %w", err)
 	}
 	s.auditEvent(ctx, "logout", "", &token.UserID, true, "")
 	return nil

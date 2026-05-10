@@ -57,5 +57,9 @@ func (s *ProfileService) Update(ctx context.Context, req UpdateProfileRequest) (
 	if err := s.users.UpdatePrimaryCurrency(ctx, req.UserID, primaryCurrency, s.now()); err != nil {
 		return nil, fmt.Errorf("update primary currency: %w", err)
 	}
-	return s.users.GetByID(ctx, req.UserID)
+	user, err := s.users.GetByID(ctx, req.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("get updated user: %w", err)
+	}
+	return user, nil
 }

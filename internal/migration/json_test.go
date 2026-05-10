@@ -535,6 +535,17 @@ func (r *fakeAccountRepo) ListByUser(ctx context.Context, _ string) ([]models.Ac
 	return r.List(ctx)
 }
 
+func (r *fakeAccountRepo) ClaimUnowned(_ context.Context, userID string) error {
+	for _, account := range r.byID {
+		if account.OwnerUserID == nil {
+			ownerUserID := userID
+			account.OwnerUserID = &ownerUserID
+		}
+	}
+
+	return nil
+}
+
 func (r *fakeAccountRepo) Update(_ context.Context, account *models.Account) error {
 	if _, ok := r.byID[account.ID]; !ok {
 		return repository.ErrNotFound

@@ -18,6 +18,7 @@ type AccountRepository interface {
 	UpdateForUser(ctx context.Context, account *models.Account, userID string) error
 	Archive(ctx context.Context, id string) error
 	ArchiveForUser(ctx context.Context, id, userID string) error
+	ClaimUnowned(ctx context.Context, userID string) error
 }
 
 type DepositMigrationRepository interface {
