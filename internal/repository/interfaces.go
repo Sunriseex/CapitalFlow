@@ -50,3 +50,19 @@ type InterestAccrualRepository interface {
 	GetByAccountDateRule(ctx context.Context, accountID, accrualDate, ruleID string) (*models.InterestAccrual, error)
 	ListByAccount(ctx context.Context, accountID string) ([]models.InterestAccrual, error)
 }
+
+type UserRepository interface {
+	Create(ctx context.Context, user *models.User) error
+	Count(ctx context.Context) (int64, error)
+	GetByEmail(ctx context.Context, email string) (*models.User, error)
+	GetByID(ctx context.Context, id string) (*models.User, error)
+	UpdatePrimaryCurrency(ctx context.Context, id, primaryCurrency string, updatedAt time.Time) error
+}
+
+type RefreshTokenRepository interface {
+	Create(ctx context.Context, token *models.RefreshToken) error
+	GetByID(ctx context.Context, id string) (*models.RefreshToken, error)
+	GetByHash(ctx context.Context, tokenHash string) (*models.RefreshToken, error)
+	Revoke(ctx context.Context, id string, revokedAt time.Time) error
+	RevokeByUser(ctx context.Context, userID string, revokedAt time.Time) error
+}
