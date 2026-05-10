@@ -33,7 +33,7 @@ db-down:
 	@docker compose down
 
 db-migrate:
-	@go run github.com/pressly/goose/v3/cmd/goose@v3.27.1 -dir migrations postgres "$${DATABASE_URL:-postgres://finance_tracker:finance_tracker@localhost:5432/finance_tracker?sslmode=disable}" up
+	@go run github.com/pressly/goose/v3/cmd/goose@v3.27.1 -dir migrations postgres "$${DATABASE_URL:-postgres://capitalflow:capitalflow@localhost:5432/capitalflow?sslmode=disable}" up
 
 db-rollback:
-	@go run github.com/pressly/goose/v3/cmd/goose@v3.27.1 -dir migrations postgres "$${DATABASE_URL:-postgres://finance_tracker:finance_tracker@localhost:5432/finance_tracker?sslmode=disable}" down
+	@go run github.com/pressly/goose/v3/cmd/goose@v3.27.1 -dir migrations postgres "$${DATABASE_URL:-postgres://capitalflow:capitalflow@localhost:5432/capitalflow?sslmode=disable}" down

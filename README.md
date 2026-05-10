@@ -1,6 +1,6 @@
-# Finance Tracker
+# CapitalFlow
 
-Finance Tracker is a Go backend application for tracking personal finances. It stores accounts, transactions, transfers, interest rules, interest accruals, and migrated legacy deposit data in PostgreSQL.
+CapitalFlow is a Go backend application for tracking personal finances. It stores accounts, transactions, transfers, interest rules, interest accruals, and migrated legacy deposit data in PostgreSQL.
 
 The project is intended as a practical backend learning project with production-oriented practices: layered structure, PostgreSQL migrations, HTTP handlers, validation, CI, linting, integration tests, and API authentication.
 
@@ -83,7 +83,7 @@ Minimal configuration:
 APP_VERSION=0.1.0-dev
 LOG_LEVEL=debug
 
-DATABASE_URL=postgres://finance_tracker:finance_tracker@localhost:5432/finance_tracker?sslmode=disable
+DATABASE_URL=postgres://capitalflow:capitalflow@localhost:5432/capitalflow?sslmode=disable
 API_AUTH_TOKEN=change-me-to-a-long-random-token
 
 DATA_PATH=~/.config/waybar/payments.json
@@ -118,8 +118,8 @@ API_AUTH_TOKEN=<generated-token>
 Create a local PostgreSQL database and user:
 
 ```sql
-CREATE USER finance_tracker WITH PASSWORD 'finance_tracker';
-CREATE DATABASE finance_tracker OWNER finance_tracker;
+CREATE USER capitalflow WITH PASSWORD 'capitalflow';
+CREATE DATABASE capitalflow OWNER capitalflow;
 ```
 
 Run migrations:
@@ -127,7 +127,7 @@ Run migrations:
 ```bash
 go run github.com/pressly/goose/v3/cmd/goose@v3.27.1 \
   -dir migrations \
-  postgres "postgres://finance_tracker:finance_tracker@localhost:5432/finance_tracker?sslmode=disable" \
+  postgres "postgres://capitalflow:capitalflow@localhost:5432/capitalflow?sslmode=disable" \
   up
 ```
 
@@ -136,7 +136,7 @@ Check migration status:
 ```bash
 go run github.com/pressly/goose/v3/cmd/goose@v3.27.1 \
   -dir migrations \
-  postgres "postgres://finance_tracker:finance_tracker@localhost:5432/finance_tracker?sslmode=disable" \
+  postgres "postgres://capitalflow:capitalflow@localhost:5432/capitalflow?sslmode=disable" \
   status
 ```
 
@@ -155,7 +155,7 @@ Or pass a database URL explicitly:
 ```bash
 go run ./cmd/server \
   --addr :8080 \
-  --database-url "postgres://finance_tracker:finance_tracker@localhost:5432/finance_tracker?sslmode=disable"
+  --database-url "postgres://capitalflow:capitalflow@localhost:5432/capitalflow?sslmode=disable"
 ```
 
 Public endpoints:

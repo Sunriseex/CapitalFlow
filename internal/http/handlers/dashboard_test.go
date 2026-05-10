@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sunriseex/finance-manager/internal/http/dto"
-	"github.com/sunriseex/finance-manager/internal/models"
+	"github.com/sunriseex/capitalflow/internal/http/dto"
+	"github.com/sunriseex/capitalflow/internal/models"
 )
 
 func TestBuildDashboardSummary(t *testing.T) {

@@ -11,12 +11,15 @@ import type {
   TransactionType,
 } from "./types";
 
-const tokenKey = "finance_tracker_api_token";
-const apiBaseKey = "finance_tracker_api_base";
-const defaultApiBase = "http://localhost:8080/api";
+const tokenKey = "capitalflow_api_token";
+const apiBaseKey = "capitalflow_api_base";
+const legacyTokenKey = "finance_tracker_api_token";
+const legacyApiBaseKey = "finance_tracker_api_base";
+const legacyDefaultApiBase = "http://localhost:8080/api";
+const defaultApiBase = "/api";
 
 export function getStoredToken() {
-  return localStorage.getItem(tokenKey) ?? "";
+  return localStorage.getItem(tokenKey) ?? localStorage.getItem(legacyTokenKey) ?? "";
 }
 
 export function setStoredToken(token: string) {
@@ -24,11 +27,16 @@ export function setStoredToken(token: string) {
 }
 
 export function getStoredApiBase() {
-  return localStorage.getItem(apiBaseKey) ?? defaultApiBase;
+  const stored = (localStorage.getItem(apiBaseKey) ?? localStorage.getItem(legacyApiBaseKey))?.replace(/\/$/, "");
+  if (!stored || stored === legacyDefaultApiBase) {
+    return defaultApiBase;
+  }
+  return stored;
 }
 
 export function setStoredApiBase(base: string) {
-  localStorage.setItem(apiBaseKey, base.trim().replace(/\/$/, ""));
+  const normalized = base.trim().replace(/\/$/, "");
+  localStorage.setItem(apiBaseKey, normalized || defaultApiBase);
 }
 
 export class ApiClientError extends Error {
@@ -83,6 +91,12 @@ export const api = {
   interestRules: (accountId: string) => apiFetch<InterestRule[]>(`/accounts/${accountId}/interest-rules`),
   createAccount: (input: { name: string; bank: string; type: AccountType; currency: string; opened_at: string }) =>
     apiFetch<Account>("/accounts", { method: "POST", body: JSON.stringify(input) }),
+  updateAccount: (
+    id: string,
+    input: { name: string; bank: string; type: AccountType; currency: string; opened_at: string; is_active: boolean },
+  ) => apiFetch<Account>(`/accounts/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+  archiveAccount: (id: string) =>
+    apiFetch<void>(`/accounts/${id}/archive`, { method: "POST" }),
   createTransaction: (input: {
     account_id: string;
     type: TransactionType;
@@ -91,12 +105,16 @@ export const api = {
     description: string;
     occurred_at: string;
   }) => apiFetch<Transaction>("/transactions", { method: "POST", body: JSON.stringify(input) }),
+  deleteTransaction: (id: string) =>
+    apiFetch<void>(`/transactions/${id}`, { method: "DELETE" }),
   createTransfer: (input: { from_account_id: string; to_account_id: string; amount_minor: number; description: string }) =>
     apiFetch<{ out: Transaction; in: Transaction }>("/transfers", { method: "POST", body: JSON.stringify(input) }),
   createInterestRule: (
     accountId: string,
     input: {
       annual_rate_bps: number;
+      promo_rate_bps?: number | null;
+      promo_end_date?: string | null;
       accrual_frequency: "daily";
       capitalization_frequency: "none" | "daily" | "monthly" | "end_of_term";
       day_count_convention: "actual_365";

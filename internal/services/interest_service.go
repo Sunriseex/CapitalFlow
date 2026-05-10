@@ -6,11 +6,11 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/sunriseex/finance-manager/internal/config"
-	"github.com/sunriseex/finance-manager/internal/models"
-	"github.com/sunriseex/finance-manager/internal/storage"
-	"github.com/sunriseex/finance-manager/pkg/calculator"
-	"github.com/sunriseex/finance-manager/pkg/errors"
+	"github.com/sunriseex/capitalflow/internal/config"
+	"github.com/sunriseex/capitalflow/internal/models"
+	"github.com/sunriseex/capitalflow/internal/storage"
+	"github.com/sunriseex/capitalflow/pkg/calculator"
+	"github.com/sunriseex/capitalflow/pkg/errors"
 )
 
 type InterestService struct{}

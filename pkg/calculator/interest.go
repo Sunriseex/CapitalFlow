@@ -5,8 +5,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/sunriseex/finance-manager/internal/models"
-	"github.com/sunriseex/finance-manager/pkg/dates"
+	"github.com/sunriseex/capitalflow/internal/models"
+	"github.com/sunriseex/capitalflow/pkg/dates"
 )
 
 func CalculateIncome(deposit models.Deposit, days int) decimal.Decimal {

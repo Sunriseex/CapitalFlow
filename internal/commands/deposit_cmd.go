@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/sunriseex/finance-manager/internal/config"
-	"github.com/sunriseex/finance-manager/internal/services"
-	"github.com/sunriseex/finance-manager/internal/storage"
-	"github.com/sunriseex/finance-manager/pkg/dates"
-	"github.com/sunriseex/finance-manager/pkg/errors"
-	"github.com/sunriseex/finance-manager/pkg/money"
+	"github.com/sunriseex/capitalflow/internal/config"
+	"github.com/sunriseex/capitalflow/internal/services"
+	"github.com/sunriseex/capitalflow/internal/storage"
+	"github.com/sunriseex/capitalflow/pkg/dates"
+	"github.com/sunriseex/capitalflow/pkg/errors"
+	"github.com/sunriseex/capitalflow/pkg/money"
 )
 
 func DepositCreate(name, bank, depositType string, amount int64, interestRate float64, termMonths int, promoRate *float64, promoEndDate string) error {

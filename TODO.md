@@ -282,7 +282,7 @@ UNIQUE(account_id, accrual_date, rule_id)
 * [x] Написать команду:
 
 ```bash
-finance-manager migrate-json
+capitalflow migrate-json
 ```
 
 Она должна:
@@ -353,6 +353,14 @@ internal/domain
 * [x] `POST /api/transactions`
 * [x] `GET /api/transactions/{id}`
 * [x] `DELETE /api/transactions/{id}`
+* [x] Добавить pagination для `GET /api/transactions` (`limit`, `cursor` или `page`).
+* [x] Добавить server-side filtering для `GET /api/transactions`:
+
+  * [x] счет
+  * [x] категория
+  * [x] тип операции
+  * [x] период дат
+  * [x] поиск по описанию
 
 ### Transfers
 
@@ -372,6 +380,12 @@ internal/domain
 * [x] `GET /api/dashboard/net-worth`
 * [x] `GET /api/dashboard/cashflow`
 * [x] `GET /api/dashboard/interest-income`
+
+### API Contract
+
+* [x] Добавить OpenAPI spec для всех `/api/*` endpoints.
+* [x] Описать DTO, ошибки, auth, pagination и filtering.
+* [x] Добавить проверку OpenAPI spec в CI после стабилизации контракта.
 
 Не делать до стабильного core:
 
@@ -435,6 +449,25 @@ internal/domain
 
 ## Страницы
 
+### Product UX
+
+* [x] Добавить переключение светлой/темной темы.
+* [x] Сделать современное premium-оформление для dashboard, таблиц, форм и empty states.
+* [x] Сохранить выбранную тему в `localStorage`.
+* [x] Проверить контраст, hover/focus states и mobile layout.
+
+### Frontend Architecture
+
+* [x] Разбить `web/src/App.tsx` на feature-модули:
+
+  * [x] `features/dashboard`
+  * [x] `features/accounts`
+  * [x] `features/transactions`
+  * [x] `shared/ui`
+  * [x] `shared/api`
+* [x] Оставить `App.tsx` только для layout, routing/view state и composition.
+* [x] Не менять поведение при рефакторинге без отдельной задачи.
+
 ### Dashboard
 
 * [x] Общий капитал.
@@ -492,8 +525,8 @@ internal/domain
 * [x] Начальный баланс.
 * [x] Ставка.
 * [x] Капитализация.
-* [ ] Промо-ставка.
-* [ ] Дата окончания промо.
+* [x] Промо-ставка.
+* [x] Дата окончания промо.
 
 ## Acceptance Criteria
 
@@ -506,6 +539,60 @@ internal/domain
 * [x] Можно увидеть, из каких операций получился баланс.
 * [x] Можно увидеть начисленные проценты по счету.
 * [x] Нет smart budget, goals и LLM в первом WebUI MVP.
+* [x] WebUI проходит CI job: `npm ci`, `npm run lint`, `npm run build`.
+
+---
+
+# v0.5.1 — Auth & Secure Local User
+
+## Цель
+
+Сделать вход пользователя в сам CapitalFlow, чтобы дальнейшая работа с данными шла через личную сессию, а не через общий Bearer token.
+
+## Security Requirements
+
+* [ ] Регистрация пользователя при первом заходе в сервис.
+* [ ] После первого пользователя закрыть публичную регистрацию или требовать admin invite/setup token.
+* [ ] Хешировать пароль через `argon2id`.
+* [ ] Не хранить plaintext password, reset tokens или JWT secrets в репозитории.
+* [ ] Использовать access JWT с коротким TTL.
+* [ ] Использовать refresh token с rotation и server-side revocation.
+* [ ] Хранить refresh token безопасно: httpOnly cookie или hashed token в БД.
+* [ ] Добавить logout с отзывом refresh token.
+* [ ] Добавить защиту от brute force:
+
+  * [ ] rate limit на login/register
+  * [ ] одинаковые сообщения для неверного email/password
+  * [ ] audit log для auth-событий
+* [ ] Продумать CSRF модель, если refresh хранится в cookie.
+* [ ] Не отдавать чувствительные auth-ошибки в UI.
+
+## Backend
+
+* [ ] Таблица пользователей.
+* [ ] Таблица refresh sessions/tokens.
+* [ ] `POST /auth/setup` для первого пользователя.
+* [ ] `POST /auth/login`.
+* [ ] `POST /auth/refresh`.
+* [ ] `POST /auth/logout`.
+* [ ] Middleware auth через JWT claims.
+* [ ] Привязать пользовательские данные к owner/user id до multi-user сценариев.
+
+## Frontend
+
+* [ ] Первый экран setup/register, если пользователей нет.
+* [ ] Login screen.
+* [ ] Session bootstrap при открытии приложения.
+* [ ] Авто-refresh access token.
+* [ ] Ясные, но безопасные сообщения об ошибках входа.
+
+## Acceptance Criteria
+
+* [ ] Новый пользователь может настроить сервис при первом запуске.
+* [ ] После setup dashboard доступен только после login.
+* [ ] Пароли хранятся только как Argon2id hash.
+* [ ] JWT нельзя использовать после logout/refresh rotation revoke.
+* [ ] Auth покрыт unit и handler tests.
 
 ---
 
@@ -561,10 +648,10 @@ internal/domain
 
 ## Команды
 
-* [ ] `finance-manager accrue --date YYYY-MM-DD`
-* [ ] `finance-manager accrue --account <id>`
-* [ ] `finance-manager forecast --account <id> --days 365`
-* [ ] `finance-manager recalculate --account <id> --from YYYY-MM-DD`
+* [ ] `capitalflow accrue --date YYYY-MM-DD`
+* [ ] `capitalflow accrue --account <id>`
+* [ ] `capitalflow forecast --account <id> --days 365`
+* [ ] `capitalflow recalculate --account <id> --from YYYY-MM-DD`
 
 ## Acceptance Criteria
 
@@ -878,6 +965,15 @@ type AllocationSimulation struct {
 * [ ] Автоматический ежедневный backup БД.
 * [ ] Ручной backup из WebUI.
 * [ ] Restore из backup.
+* [ ] Backup перед опасными операциями: import, bulk delete, restore, migrations.
+* [ ] Настроить retention policy:
+
+  * [ ] ежедневные backup за 7 дней
+  * [ ] еженедельные backup за 4 недели
+  * [ ] ручные backup без автоудаления
+* [ ] Шифровать backup или хранить в защищенной директории.
+* [ ] Проверять restore на тестовой БД.
+* [ ] Документировать команды backup/restore.
 
 ## NixOS integration
 
@@ -885,6 +981,14 @@ type AllocationSimulation struct {
 * [ ] systemd service.
 * [ ] local reverse proxy option.
 * [ ] backup timer.
+
+## Docker
+
+* [ ] Добавить Dockerfile для backend.
+* [ ] Добавить Dockerfile для web.
+* [ ] Добавить production docker-compose для backend + web + PostgreSQL.
+* [ ] Добавить healthcheck для backend container.
+* [ ] Не запекать secrets в image.
 
 ## Acceptance Criteria
 
@@ -983,7 +1087,7 @@ LLM должна получать примерно такой контекст:
 
 ---
 
-# v1.0 — Personal Finance Tracker Core Release
+# v1.0 — Personal CapitalFlow Core Release
 
 ## Цель
 
@@ -1027,6 +1131,16 @@ LLM должна получать примерно такой контекст:
 * [ ] Миграции.
 * [ ] Тестирование.
 * [ ] Docker/NixOS окружение.
+
+## CI/CD до v1.0
+
+* [x] Добавить frontend CI job:
+
+  * [x] `npm ci`
+  * [x] `npm run lint`
+  * [x] `npm run build`
+* [x] Backend CI и frontend CI должны быть отдельными checks.
+* [x] Добавить OpenAPI validation check, когда spec станет обязательной.
 
 ---
 

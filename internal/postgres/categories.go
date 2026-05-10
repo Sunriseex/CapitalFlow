@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/sunriseex/finance-manager/internal/models"
+	"github.com/sunriseex/capitalflow/internal/models"
 )
 
 type CategoryRepository struct {

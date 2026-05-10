@@ -12,8 +12,8 @@ export function parseMoneyToMinor(value: string) {
   return Math.round(Number(normalized) * 100);
 }
 
-export function amountFor(amounts: Amount[] = [], currency = "RUB") {
-  return amounts.find((amount) => amount.currency === currency)?.amount_minor ?? 0;
+export function amountFor(amounts: Amount[] | null | undefined, currency = "RUB") {
+  return amounts?.find((amount) => amount.currency === currency)?.amount_minor ?? 0;
 }
 
 export function signedAmount(transaction: Transaction) {

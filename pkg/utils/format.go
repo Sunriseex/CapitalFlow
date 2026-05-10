@@ -3,7 +3,7 @@ package utils
 import (
 	"fmt"
 
-	"github.com/sunriseex/finance-manager/pkg/money"
+	"github.com/sunriseex/capitalflow/pkg/money"
 )
 
 func FormatRubles(kopecks int64) string {

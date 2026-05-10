@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sunriseex/finance-manager/internal/models"
+	"github.com/sunriseex/capitalflow/internal/models"
 )
 
 type AdjustmentService struct {

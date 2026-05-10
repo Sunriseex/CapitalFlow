@@ -1,11 +1,11 @@
 services:
   postgres:
     image: postgres:17-alpine
-    container_name: finance-tracker-postgres
+    container_name: capitalflow-postgres
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-finance_tracker}
-      POSTGRES_USER: ${POSTGRES_USER:-finance_tracker}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-finance_tracker}
+      POSTGRES_DB: ${POSTGRES_DB:-capitalflow}
+      POSTGRES_USER: ${POSTGRES_USER:-capitalflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-capitalflow}
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:

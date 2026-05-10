@@ -4,13 +4,13 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/sunriseex/finance-manager/internal/config"
-	"github.com/sunriseex/finance-manager/internal/models"
-	"github.com/sunriseex/finance-manager/internal/storage"
-	"github.com/sunriseex/finance-manager/pkg/calculator"
-	"github.com/sunriseex/finance-manager/pkg/dates"
-	"github.com/sunriseex/finance-manager/pkg/errors"
-	"github.com/sunriseex/finance-manager/pkg/validation"
+	"github.com/sunriseex/capitalflow/internal/config"
+	"github.com/sunriseex/capitalflow/internal/models"
+	"github.com/sunriseex/capitalflow/internal/storage"
+	"github.com/sunriseex/capitalflow/pkg/calculator"
+	"github.com/sunriseex/capitalflow/pkg/dates"
+	"github.com/sunriseex/capitalflow/pkg/errors"
+	"github.com/sunriseex/capitalflow/pkg/validation"
 )
 
 type DepositService struct {

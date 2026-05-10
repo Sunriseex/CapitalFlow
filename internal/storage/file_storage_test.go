@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/sunriseex/finance-manager/internal/models"
-	appErrors "github.com/sunriseex/finance-manager/pkg/errors"
+	"github.com/sunriseex/capitalflow/internal/models"
+	appErrors "github.com/sunriseex/capitalflow/pkg/errors"
 )
 
 func TestMutatePaymentsCreatesMissingFile(t *testing.T) {

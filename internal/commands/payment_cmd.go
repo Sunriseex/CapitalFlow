@@ -12,10 +12,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/sunriseex/finance-manager/internal/config"
-	"github.com/sunriseex/finance-manager/internal/models"
-	"github.com/sunriseex/finance-manager/internal/storage"
-	"github.com/sunriseex/finance-manager/pkg/utils"
+	"github.com/sunriseex/capitalflow/internal/config"
+	"github.com/sunriseex/capitalflow/internal/models"
+	"github.com/sunriseex/capitalflow/internal/storage"
+	"github.com/sunriseex/capitalflow/pkg/utils"
 )
 
 func getNearestPayment() *models.Payment {

@@ -8,8 +8,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 
-	appmiddleware "github.com/sunriseex/finance-manager/internal/http/middleware"
-	"github.com/sunriseex/finance-manager/internal/repository"
+	appmiddleware "github.com/sunriseex/capitalflow/internal/http/middleware"
+	"github.com/sunriseex/capitalflow/internal/repository"
 )
 
 type Store interface {

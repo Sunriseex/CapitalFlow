@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/sunriseex/finance-manager/internal/models"
+	"github.com/sunriseex/capitalflow/internal/models"
 )
 
 func TestTransferServiceCreate(t *testing.T) {

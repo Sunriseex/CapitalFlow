@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/sunriseex/finance-manager/internal/http/dto"
-	"github.com/sunriseex/finance-manager/internal/services"
+	"github.com/sunriseex/capitalflow/internal/http/dto"
+	"github.com/sunriseex/capitalflow/internal/services"
 )
 
 func (h *Handler) createTransfer(w http.ResponseWriter, r *http.Request) {

@@ -5,7 +5,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/sunriseex/finance-manager/internal/models"
+	"github.com/sunriseex/capitalflow/internal/models"
 )
 
 func TestCalculateIncome(t *testing.T) {

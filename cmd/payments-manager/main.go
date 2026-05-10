@@ -4,9 +4,9 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/sunriseex/finance-manager/internal/commands"
-	"github.com/sunriseex/finance-manager/internal/config"
-	"github.com/sunriseex/finance-manager/pkg/errors"
+	"github.com/sunriseex/capitalflow/internal/commands"
+	"github.com/sunriseex/capitalflow/internal/config"
+	"github.com/sunriseex/capitalflow/pkg/errors"
 )
 
 func main() {

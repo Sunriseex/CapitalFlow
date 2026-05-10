@@ -1,4 +1,5 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from "react";
+import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactElement, ReactNode, SelectHTMLAttributes } from "react";
+import { ResponsiveContainer } from "recharts";
 
 export function Panel({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
@@ -40,3 +41,24 @@ export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
 export function Empty({ children }: { children: ReactNode }) {
   return <div className="empty">{children}</div>;
 }
+
+export function FormShell({ title, error, onSubmit, children }: { title: string; error: string; onSubmit: () => void; children: ReactNode }) {
+  return (
+    <form className="form" onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
+      <h2>{title}</h2>
+      {error ? <div className="error">{error}</div> : null}
+      {children}
+    </form>
+  );
+}
+
+export function ChartShell({ children, size = "regular" }: { children: ReactElement; size?: "regular" | "large" }) {
+  return (
+    <div className={`chart chart-${size}`}>
+      <ResponsiveContainer width="100%" height="100%">
+        {children}
+      </ResponsiveContainer>
+    </div>
+  );
+}
+

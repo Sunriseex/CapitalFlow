@@ -10,7 +10,7 @@ import (
 
 	"github.com/joho/godotenv"
 
-	"github.com/sunriseex/finance-manager/pkg/errors"
+	"github.com/sunriseex/capitalflow/pkg/errors"
 )
 
 type Config struct {
@@ -36,7 +36,7 @@ func Init() error {
 	}
 
 	envPaths := []string{
-		filepath.Join(home, "nixos", "scripts", "finance-manager", "configs", ".env"),
+		filepath.Join(home, "nixos", "scripts", "capitalflow", "configs", ".env"),
 		"./configs/.env",
 	}
 
@@ -82,7 +82,7 @@ func Init() error {
 		AppVersion:       getEnv("APP_VERSION", "0.1.0-dev"),
 		DataPath:         dataPath,
 		DepositsDataPath: depositsDataPath,
-		DatabaseURL:      getEnv("DATABASE_URL", "postgres://finance_tracker:finance_tracker@localhost:5432/finance_tracker?sslmode=disable"),
+		DatabaseURL:      getEnv("DATABASE_URL", "postgres://capitalflow:capitalflow@localhost:5432/capitalflow?sslmode=disable"),
 		LogLevel:         logLevel,
 		APIAuthToken:     getEnv("API_AUTH_TOKEN", ""),
 		CORSAllowedOrigins: getEnvList("CORS_ALLOWED_ORIGINS", []string{

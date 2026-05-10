@@ -5,11 +5,11 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/sunriseex/finance-manager/internal/config"
-	"github.com/sunriseex/finance-manager/internal/models"
-	"github.com/sunriseex/finance-manager/internal/storage"
-	"github.com/sunriseex/finance-manager/pkg/errors"
-	"github.com/sunriseex/finance-manager/pkg/security"
+	"github.com/sunriseex/capitalflow/internal/config"
+	"github.com/sunriseex/capitalflow/internal/models"
+	"github.com/sunriseex/capitalflow/internal/storage"
+	"github.com/sunriseex/capitalflow/pkg/errors"
+	"github.com/sunriseex/capitalflow/pkg/security"
 )
 
 type ExportSnapshot struct {
@@ -25,7 +25,7 @@ type ExportSnapshotSource struct {
 
 func DepositExport(outputPath string) error {
 	if outputPath == "" {
-		outputPath = "finance-manager-export-" + time.Now().UTC().Format("20060102T150405Z") + ".json"
+		outputPath = "capitalflow-export-" + time.Now().UTC().Format("20060102T150405Z") + ".json"
 	}
 
 	deposits, err := storage.LoadDeposits(config.AppConfig.DepositsDataPath)
