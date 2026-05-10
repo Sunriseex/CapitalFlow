@@ -577,7 +577,7 @@ internal/domain
 * [x] `POST /auth/logout`.
 * [x] Middleware auth через JWT claims.
 * [x] Основная валюта пользователя хранится в профиле.
-* [ ] Привязать пользовательские данные к owner/user id до multi-user сценариев.
+* [x] Привязать пользовательские данные к owner/user id до multi-user сценариев.
 
 ## Frontend
 

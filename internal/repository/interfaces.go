@@ -10,10 +10,14 @@ import (
 type AccountRepository interface {
 	Create(ctx context.Context, account *models.Account) error
 	GetByID(ctx context.Context, id string) (*models.Account, error)
+	GetByIDForUser(ctx context.Context, id, userID string) (*models.Account, error)
 	GetByLegacyID(ctx context.Context, legacyID string) (*models.Account, error)
 	List(ctx context.Context) ([]models.Account, error)
+	ListByUser(ctx context.Context, userID string) ([]models.Account, error)
 	Update(ctx context.Context, account *models.Account) error
+	UpdateForUser(ctx context.Context, account *models.Account, userID string) error
 	Archive(ctx context.Context, id string) error
+	ArchiveForUser(ctx context.Context, id, userID string) error
 }
 
 type DepositMigrationRepository interface {
@@ -24,9 +28,13 @@ type TransactionRepository interface {
 	Create(ctx context.Context, transaction *models.Transaction) error
 	CreateMany(ctx context.Context, transactions []models.Transaction) error
 	GetByID(ctx context.Context, id string) (*models.Transaction, error)
+	GetByIDForUser(ctx context.Context, id, userID string) (*models.Transaction, error)
 	List(ctx context.Context) ([]models.Transaction, error)
+	ListByUser(ctx context.Context, userID string) ([]models.Transaction, error)
 	ListByAccount(ctx context.Context, accountID string) ([]models.Transaction, error)
+	ListByAccountForUser(ctx context.Context, accountID, userID string) ([]models.Transaction, error)
 	Delete(ctx context.Context, id string) error
+	DeleteForUser(ctx context.Context, id, userID string) error
 }
 
 type CategoryRepository interface {
