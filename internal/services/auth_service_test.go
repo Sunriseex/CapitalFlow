@@ -120,6 +120,43 @@ func TestAuthServiceRefreshRotatesToken(t *testing.T) {
 	}
 }
 
+func TestAuthServiceRefreshDetectsReuseAndRevokesUserTokens(t *testing.T) {
+	service, users, refresh, audit := newTestAuthService(t)
+	users.byID["user-1"] = &models.User{ID: "user-1", Email: "user@example.com"}
+	revokedAt := service.now().Add(-time.Minute)
+
+	oldRaw := "old-refresh-token"
+	oldHash := auth.HashRefreshToken(oldRaw)
+	refresh.byHash[oldHash] = &models.RefreshToken{
+		ID:        "token-1",
+		UserID:    "user-1",
+		TokenHash: oldHash,
+		ExpiresAt: service.now().Add(time.Hour),
+		RevokedAt: &revokedAt,
+		CreatedAt: service.now().Add(-time.Hour),
+	}
+
+	activeHash := auth.HashRefreshToken("active-refresh-token")
+	refresh.byHash[activeHash] = &models.RefreshToken{
+		ID:        "token-2",
+		UserID:    "user-1",
+		TokenHash: activeHash,
+		ExpiresAt: service.now().Add(time.Hour),
+		CreatedAt: service.now(),
+	}
+
+	_, err := service.Refresh(t.Context(), oldRaw)
+	if !IsValidationError(err) {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+	if refresh.byHash[activeHash].RevokedAt == nil {
+		t.Fatal("expected active user refresh token to be revoked")
+	}
+	if !audit.hasEvent("refresh_reuse_detected") {
+		t.Fatal("expected refresh reuse audit event")
+	}
+}
+
 func TestAuthServiceLogoutRevokesRefreshToken(t *testing.T) {
 	service, _, refresh, audit := newTestAuthService(t)
 	raw := "refresh-token"

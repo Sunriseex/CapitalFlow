@@ -163,7 +163,11 @@ func (s *AuthService) Refresh(ctx context.Context, rawRefreshToken string) (*Aut
 	}
 	if !token.IsActive(now) {
 		if token.RevokedAt != nil {
-			_ = s.refresh.RevokeByUser(ctx, token.UserID, now)
+			if err := s.refresh.RevokeByUser(ctx, token.UserID, now); err != nil {
+				return nil, fmt.Errorf("revoke refresh token family: %w", err)
+			}
+			s.auditEvent(ctx, "refresh_reuse_detected", "", &token.UserID, false, "revoked_refresh_token_reused")
+			return nil, validationError("invalid refresh token")
 		}
 		s.auditEvent(ctx, "refresh_failed", "", &token.UserID, false, "inactive_refresh_token")
 		return nil, validationError("invalid refresh token")

@@ -610,7 +610,7 @@ internal/domain
 
 ## Security Hardening
 
-* [ ] Reuse Detection для refresh token
+* [x] Reuse Detection для refresh token
 * [ ] Политика сложности пароля (`zxcvbn`)
 * [ ] Account lockout с нарастающей задержкой
 * [ ] Смена пароля + выход со всех устройств
@@ -634,7 +634,7 @@ internal/domain
 
 ## Acceptance Criteria
 
-* [ ] Reused refresh token немедленно инвалидирует session family
+* [x] Reused refresh token немедленно инвалидирует session family
 * [ ] Password policy блокирует слабые и компрометированные пароли
 * [ ] Suspicious login attempts приводят к progressive lockout
 * [ ] Пользователь может завершить все активные сессии
