@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDownLeft, ArrowRightLeft, ArrowUpRight, Landmark, LogIn, LogOut, Moon, Plus, Settings, ShieldCheck, Sun, Wallet } from "lucide-react";
-import { ApiClientError, api, getStoredToken } from "./api/client";
+import { ApiClientError, api, clearStoredSession, getStoredToken } from "./api/client";
 import { AccountDetails } from "./features/accounts/AccountDetails";
 import { AccountsView } from "./features/accounts/AccountsView";
 import { CreateAccountForm } from "./features/accounts/CreateAccountForm";
@@ -28,13 +28,20 @@ export function App() {
 
   const selectedAccount = accounts.data?.find((account) => account.id === selectedAccountId);
   const primaryCurrency = profile.data?.user.primary_currency ?? "RUB";
+  const sessionInvalid = profile.error instanceof ApiClientError && profile.error.status === 401;
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem(themeStorageKey, theme);
   }, [theme]);
 
-  if (!hasSession) {
+  useEffect(() => {
+    if (sessionInvalid) {
+      clearStoredSession();
+    }
+  }, [sessionInvalid]);
+
+  if (!hasSession || sessionInvalid) {
     return <AuthScreen onAuthenticated={() => setHasSession(true)} theme={theme} setTheme={setTheme} />;
   }
 
