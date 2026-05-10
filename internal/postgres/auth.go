@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/sunriseex/capitalflow/internal/models"
+	"github.com/sunriseex/capitalflow/internal/repository"
 )
 
 type UserRepository struct {
@@ -118,13 +119,16 @@ func (r *RefreshTokenRepository) GetByHash(ctx context.Context, tokenHash string
 }
 
 func (r *RefreshTokenRepository) Revoke(ctx context.Context, id string, revokedAt time.Time) error {
-	_, err := r.pool.Exec(ctx, `
+	tag, err := r.pool.Exec(ctx, `
 		UPDATE refresh_tokens
 		SET revoked_at = $2
 		WHERE id = $1 AND revoked_at IS NULL
 	`, id, revokedAt)
 	if err != nil {
 		return fmt.Errorf("revoke refresh token: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("revoke refresh token: %w", repository.ErrNotFound)
 	}
 	return nil
 }
