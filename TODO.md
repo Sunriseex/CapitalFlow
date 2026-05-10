@@ -596,6 +596,51 @@ internal/domain
 
 ---
 
+---
+
+# v0.5.2 — Auth Security Hardening
+
+## Цель
+
+Довести auth-систему до production-grade security baseline:
+защитить refresh flow, сессии, password policy, audit trail и observability.
+
+## Security Hardening
+
+* [ ] Reuse Detection для refresh token
+* [ ] Политика сложности пароля (`zxcvbn`)
+* [ ] Account lockout с нарастающей задержкой
+* [ ] Смена пароля + выход со всех устройств
+* [ ] Управление сессиями (список, отзыв)
+* [ ] Подготовка email-поля и верификации (схема)
+* [ ] Audit log таблица и запись всех событий
+* [ ] Secure cookie:
+  * [ ] `Secure`
+  * [ ] `HttpOnly`
+  * [ ] `SameSite`
+  * [ ] `Path`
+* [ ] Middleware JWT -> `userID` в context
+* [ ] Unit + handler + security tests (включая reuse)
+* [ ] Observability:
+  * [ ] метрики для auth
+  * [ ] алерты для auth incidents
+* [ ] Документация:
+  * [ ] Security Model
+  * [ ] Runbook
+  * [ ] ADR
+
+## Acceptance Criteria
+
+* [ ] Reused refresh token немедленно инвалидирует session family
+* [ ] Password policy блокирует слабые и компрометированные пароли
+* [ ] Suspicious login attempts приводят к progressive lockout
+* [ ] Пользователь может завершить все активные сессии
+* [ ] Все auth-события попадают в audit log
+* [ ] Auth security покрыт тестами и метриками
+* [ ] Есть документация для эксплуатации и incident response
+
+---
+
 # v0.6 — Deposit & Capitalization Engine
 
 ## Цель
