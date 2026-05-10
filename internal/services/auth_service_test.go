@@ -13,7 +13,7 @@ import (
 )
 
 func TestAuthServiceSetupCreatesFirstUserSession(t *testing.T) {
-	service, users, refresh := newTestAuthService(t)
+	service, users, refresh, audit := newTestAuthService(t)
 
 	session, err := service.Setup(t.Context(), AuthRequest{
 		Email:           " User@Example.COM ",
@@ -35,10 +35,13 @@ func TestAuthServiceSetupCreatesFirstUserSession(t *testing.T) {
 	if len(users.byID) != 1 || len(refresh.byHash) != 1 {
 		t.Fatalf("expected persisted user and refresh token")
 	}
+	if !audit.hasEvent("setup_success") {
+		t.Fatal("expected setup success audit event")
+	}
 }
 
 func TestAuthServiceSetupRejectsInvalidPrimaryCurrency(t *testing.T) {
-	service, _, _ := newTestAuthService(t)
+	service, _, _, audit := newTestAuthService(t)
 
 	_, err := service.Setup(t.Context(), AuthRequest{
 		Email:           "user@example.com",
@@ -48,10 +51,13 @@ func TestAuthServiceSetupRejectsInvalidPrimaryCurrency(t *testing.T) {
 	if !IsValidationError(err) {
 		t.Fatalf("expected validation error, got %v", err)
 	}
+	if !audit.hasEvent("setup_failed") {
+		t.Fatal("expected setup failed audit event")
+	}
 }
 
 func TestAuthServiceSetupRejectsSecondUser(t *testing.T) {
-	service, users, _ := newTestAuthService(t)
+	service, users, _, _ := newTestAuthService(t)
 	users.byID["user-1"] = &models.User{ID: "user-1", Email: "user@example.com"}
 
 	_, err := service.Setup(t.Context(), AuthRequest{
@@ -64,7 +70,7 @@ func TestAuthServiceSetupRejectsSecondUser(t *testing.T) {
 }
 
 func TestAuthServiceLoginRejectsWrongPasswordWithSafeMessage(t *testing.T) {
-	service, users, _ := newTestAuthService(t)
+	service, users, _, audit := newTestAuthService(t)
 	users.byID["user-1"] = &models.User{
 		ID:           "user-1",
 		Email:        "user@example.com",
@@ -78,10 +84,13 @@ func TestAuthServiceLoginRejectsWrongPasswordWithSafeMessage(t *testing.T) {
 	if err == nil || err.Error() != "invalid email or password" {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	if !audit.hasEvent("login_failed") {
+		t.Fatal("expected login failed audit event")
+	}
 }
 
 func TestAuthServiceRefreshRotatesToken(t *testing.T) {
-	service, users, refresh := newTestAuthService(t)
+	service, users, refresh, audit := newTestAuthService(t)
 	users.byID["user-1"] = &models.User{ID: "user-1", Email: "user@example.com"}
 	oldRaw := "old-refresh-token"
 	oldHash := auth.HashRefreshToken(oldRaw)
@@ -106,10 +115,13 @@ func TestAuthServiceRefreshRotatesToken(t *testing.T) {
 	if len(refresh.byHash) != 2 {
 		t.Fatalf("refresh token count = %d, want 2", len(refresh.byHash))
 	}
+	if !audit.hasEvent("refresh_success") {
+		t.Fatal("expected refresh success audit event")
+	}
 }
 
 func TestAuthServiceLogoutRevokesRefreshToken(t *testing.T) {
-	service, _, refresh := newTestAuthService(t)
+	service, _, refresh, audit := newTestAuthService(t)
 	raw := "refresh-token"
 	hash := auth.HashRefreshToken(raw)
 	refresh.byHash[hash] = &models.RefreshToken{
@@ -126,9 +138,12 @@ func TestAuthServiceLogoutRevokesRefreshToken(t *testing.T) {
 	if refresh.byHash[hash].RevokedAt == nil {
 		t.Fatal("expected refresh token to be revoked")
 	}
+	if !audit.hasEvent("logout") {
+		t.Fatal("expected logout audit event")
+	}
 }
 
-func newTestAuthService(t *testing.T) (*AuthService, *fakeUserRepo, *fakeRefreshRepo) {
+func newTestAuthService(t *testing.T) (*AuthService, *fakeUserRepo, *fakeRefreshRepo, *fakeAuditRepo) {
 	t.Helper()
 
 	tokens, err := auth.NewTokenService("01234567890123456789012345678901", "capitalflow", time.Minute, time.Hour)
@@ -138,7 +153,8 @@ func newTestAuthService(t *testing.T) (*AuthService, *fakeUserRepo, *fakeRefresh
 
 	users := &fakeUserRepo{byID: map[string]*models.User{}}
 	refresh := &fakeRefreshRepo{byHash: map[string]*models.RefreshToken{}}
-	service := NewAuthService(users, refresh, tokens)
+	audit := &fakeAuditRepo{}
+	service := NewAuthService(users, refresh, tokens, audit)
 	service.now = func() time.Time {
 		return time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC)
 	}
@@ -149,7 +165,7 @@ func newTestAuthService(t *testing.T) (*AuthService, *fakeUserRepo, *fakeRefresh
 		return encodedHash == "hash:"+password, nil
 	}
 
-	return service, users, refresh
+	return service, users, refresh, audit
 }
 
 type fakeUserRepo struct {
@@ -238,4 +254,22 @@ func (r *fakeRefreshRepo) RevokeByUser(_ context.Context, userID string, revoked
 		}
 	}
 	return nil
+}
+
+type fakeAuditRepo struct {
+	events []models.AuthAuditEvent
+}
+
+func (r *fakeAuditRepo) Create(_ context.Context, event *models.AuthAuditEvent) error {
+	r.events = append(r.events, *event)
+	return nil
+}
+
+func (r *fakeAuditRepo) hasEvent(eventType string) bool {
+	for _, event := range r.events {
+		if event.EventType == eventType {
+			return true
+		}
+	}
+	return false
 }

@@ -66,3 +66,7 @@ type RefreshTokenRepository interface {
 	Revoke(ctx context.Context, id string, revokedAt time.Time) error
 	RevokeByUser(ctx context.Context, userID string, revokedAt time.Time) error
 }
+
+type AuthAuditRepository interface {
+	Create(ctx context.Context, event *models.AuthAuditEvent) error
+}

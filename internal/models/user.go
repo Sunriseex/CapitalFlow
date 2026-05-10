@@ -23,3 +23,13 @@ type RefreshToken struct {
 func (t *RefreshToken) IsActive(now time.Time) bool {
 	return t.RevokedAt == nil && now.Before(t.ExpiresAt)
 }
+
+type AuthAuditEvent struct {
+	ID        string    `json:"id"`
+	UserID    *string   `json:"user_id,omitzero"`
+	EventType string    `json:"event_type"`
+	Email     string    `json:"email"`
+	Success   bool      `json:"success"`
+	Reason    string    `json:"reason"`
+	CreatedAt time.Time `json:"created_at"`
+}

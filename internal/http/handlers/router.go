@@ -21,6 +21,7 @@ type Store interface {
 	InterestAccruals() repository.InterestAccrualRepository
 	Users() repository.UserRepository
 	RefreshTokens() repository.RefreshTokenRepository
+	AuthAuditEvents() repository.AuthAuditRepository
 	Ping(ctx context.Context) error
 }
 

@@ -85,7 +85,7 @@ func (h *Handler) authLogout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) authService() *services.AuthService {
-	return services.NewAuthService(h.store.Users(), h.store.RefreshTokens(), h.tokens)
+	return services.NewAuthService(h.store.Users(), h.store.RefreshTokens(), h.tokens, h.store.AuthAuditEvents())
 }
 
 func authResponse(session *services.AuthSession) dto.AuthResponse {

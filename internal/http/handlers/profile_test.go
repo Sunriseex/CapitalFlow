@@ -173,6 +173,10 @@ func (s *testProfileStore) RefreshTokens() repository.RefreshTokenRepository {
 	return s.refresh
 }
 
+func (s *testProfileStore) AuthAuditEvents() repository.AuthAuditRepository {
+	return nil
+}
+
 func (s *testProfileStore) Ping(context.Context) error {
 	return nil
 }

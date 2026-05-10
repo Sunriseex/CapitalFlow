@@ -164,3 +164,22 @@ func scanRefreshToken(row refreshTokenScanner) (*models.RefreshToken, error) {
 	}
 	return &token, nil
 }
+
+type AuthAuditRepository struct {
+	pool *pgxpool.Pool
+}
+
+func NewAuthAuditRepository(pool *pgxpool.Pool) *AuthAuditRepository {
+	return &AuthAuditRepository{pool: pool}
+}
+
+func (r *AuthAuditRepository) Create(ctx context.Context, event *models.AuthAuditEvent) error {
+	_, err := r.pool.Exec(ctx, `
+		INSERT INTO auth_audit_events (id, user_id, event_type, email, success, reason, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, event.ID, event.UserID, event.EventType, event.Email, event.Success, event.Reason, event.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("create auth audit event: %w", err)
+	}
+	return nil
+}

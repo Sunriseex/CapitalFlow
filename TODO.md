@@ -563,7 +563,7 @@ internal/domain
 
   * [x] rate limit на login/register
   * [x] одинаковые сообщения для неверного email/password
-  * [ ] audit log для auth-событий
+  * [x] audit log для auth-событий
 * [ ] Продумать CSRF модель, если refresh хранится в cookie.
 * [x] Не отдавать чувствительные auth-ошибки в UI.
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/mail"
 	"strings"
 	"time"
@@ -19,16 +20,22 @@ import (
 type AuthService struct {
 	users        repository.UserRepository
 	refresh      repository.RefreshTokenRepository
+	audit        repository.AuthAuditRepository
 	tokens       *auth.TokenService
 	passwordFunc func(string, security.PasswordParams) (string, error)
 	verifyFunc   func(string, string) (bool, error)
 	now          func() time.Time
 }
 
-func NewAuthService(users repository.UserRepository, refresh repository.RefreshTokenRepository, tokens *auth.TokenService) *AuthService {
+func NewAuthService(users repository.UserRepository, refresh repository.RefreshTokenRepository, tokens *auth.TokenService, audit ...repository.AuthAuditRepository) *AuthService {
+	var auditRepo repository.AuthAuditRepository
+	if len(audit) > 0 {
+		auditRepo = audit[0]
+	}
 	return &AuthService{
 		users:        users,
 		refresh:      refresh,
+		audit:        auditRepo,
 		tokens:       tokens,
 		passwordFunc: security.HashPassword,
 		verifyFunc:   security.VerifyPassword,
@@ -63,21 +70,26 @@ func (s *AuthService) Setup(ctx context.Context, req AuthRequest) (*AuthSession,
 		return nil, fmt.Errorf("count users: %w", err)
 	}
 	if count > 0 {
+		s.auditEvent(ctx, "setup_failed", req.Email, nil, false, "setup_complete")
 		return nil, validationError("setup is already complete")
 	}
 
 	user, err := s.buildUser(req)
 	if err != nil {
+		s.auditEvent(ctx, "setup_failed", req.Email, nil, false, "validation_error")
 		return nil, err
 	}
 	if err := s.users.Create(ctx, user); err != nil {
+		s.auditEvent(ctx, "setup_failed", req.Email, nil, false, "save_failed")
 		return nil, fmt.Errorf("save user: %w", err)
 	}
 
 	session, err := s.issueSession(ctx, user)
 	if err != nil {
+		s.auditEvent(ctx, "setup_failed", req.Email, &user.ID, false, "issue_session_failed")
 		return nil, err
 	}
+	s.auditEvent(ctx, "setup_success", user.Email, &user.ID, true, "")
 	return session, nil
 }
 
@@ -91,15 +103,18 @@ func (s *AuthService) Login(ctx context.Context, req AuthRequest) (*AuthSession,
 
 	email, err := normalizeEmail(req.Email)
 	if err != nil {
+		s.auditEvent(ctx, "login_failed", req.Email, nil, false, "validation_error")
 		return nil, err
 	}
 	if strings.TrimSpace(req.Password) == "" {
+		s.auditEvent(ctx, "login_failed", email, nil, false, "invalid_credentials")
 		return nil, validationError("invalid email or password")
 	}
 
 	user, err := s.users.GetByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
+			s.auditEvent(ctx, "login_failed", email, nil, false, "invalid_credentials")
 			return nil, validationError("invalid email or password")
 		}
 		return nil, fmt.Errorf("get user: %w", err)
@@ -110,10 +125,17 @@ func (s *AuthService) Login(ctx context.Context, req AuthRequest) (*AuthSession,
 		return nil, fmt.Errorf("verify password: %w", err)
 	}
 	if !ok {
+		s.auditEvent(ctx, "login_failed", email, &user.ID, false, "invalid_credentials")
 		return nil, validationError("invalid email or password")
 	}
 
-	return s.issueSession(ctx, user)
+	session, err := s.issueSession(ctx, user)
+	if err != nil {
+		s.auditEvent(ctx, "login_failed", email, &user.ID, false, "issue_session_failed")
+		return nil, err
+	}
+	s.auditEvent(ctx, "login_success", email, &user.ID, true, "")
+	return session, nil
 }
 
 func (s *AuthService) Refresh(ctx context.Context, rawRefreshToken string) (*AuthSession, error) {
@@ -126,6 +148,7 @@ func (s *AuthService) Refresh(ctx context.Context, rawRefreshToken string) (*Aut
 
 	rawRefreshToken = strings.TrimSpace(rawRefreshToken)
 	if rawRefreshToken == "" {
+		s.auditEvent(ctx, "refresh_failed", "", nil, false, "missing_refresh_token")
 		return nil, validationError("refresh token is required")
 	}
 
@@ -133,6 +156,7 @@ func (s *AuthService) Refresh(ctx context.Context, rawRefreshToken string) (*Aut
 	token, err := s.refresh.GetByHash(ctx, auth.HashRefreshToken(rawRefreshToken))
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
+			s.auditEvent(ctx, "refresh_failed", "", nil, false, "invalid_refresh_token")
 			return nil, validationError("invalid refresh token")
 		}
 		return nil, fmt.Errorf("get refresh token: %w", err)
@@ -141,6 +165,7 @@ func (s *AuthService) Refresh(ctx context.Context, rawRefreshToken string) (*Aut
 		if token.RevokedAt != nil {
 			_ = s.refresh.RevokeByUser(ctx, token.UserID, now)
 		}
+		s.auditEvent(ctx, "refresh_failed", "", &token.UserID, false, "inactive_refresh_token")
 		return nil, validationError("invalid refresh token")
 	}
 
@@ -153,7 +178,13 @@ func (s *AuthService) Refresh(ctx context.Context, rawRefreshToken string) (*Aut
 		return nil, fmt.Errorf("get user: %w", err)
 	}
 
-	return s.issueSession(ctx, user)
+	session, err := s.issueSession(ctx, user)
+	if err != nil {
+		s.auditEvent(ctx, "refresh_failed", user.Email, &user.ID, false, "issue_session_failed")
+		return nil, err
+	}
+	s.auditEvent(ctx, "refresh_success", user.Email, &user.ID, true, "")
+	return session, nil
 }
 
 func (s *AuthService) Logout(ctx context.Context, rawRefreshToken string) error {
@@ -166,17 +197,23 @@ func (s *AuthService) Logout(ctx context.Context, rawRefreshToken string) error 
 
 	rawRefreshToken = strings.TrimSpace(rawRefreshToken)
 	if rawRefreshToken == "" {
+		s.auditEvent(ctx, "logout", "", nil, true, "missing_refresh_token")
 		return nil
 	}
 
 	token, err := s.refresh.GetByHash(ctx, auth.HashRefreshToken(rawRefreshToken))
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
+			s.auditEvent(ctx, "logout", "", nil, true, "unknown_refresh_token")
 			return nil
 		}
 		return fmt.Errorf("get refresh token: %w", err)
 	}
-	return s.refresh.Revoke(ctx, token.ID, s.now())
+	if err := s.refresh.Revoke(ctx, token.ID, s.now()); err != nil {
+		return err
+	}
+	s.auditEvent(ctx, "logout", "", &token.UserID, true, "")
+	return nil
 }
 
 func (s *AuthService) buildUser(req AuthRequest) (*models.User, error) {
@@ -263,4 +300,22 @@ func validateCurrency(currency string) error {
 		}
 	}
 	return nil
+}
+
+func (s *AuthService) auditEvent(ctx context.Context, eventType, email string, userID *string, success bool, reason string) {
+	if s.audit == nil {
+		return
+	}
+	event := &models.AuthAuditEvent{
+		ID:        uuid.NewString(),
+		UserID:    userID,
+		EventType: eventType,
+		Email:     strings.ToLower(strings.TrimSpace(email)),
+		Success:   success,
+		Reason:    reason,
+		CreatedAt: s.now(),
+	}
+	if err := s.audit.Create(ctx, event); err != nil {
+		slog.Warn("auth audit event was not persisted", "event_type", eventType, "error", err)
+	}
 }
