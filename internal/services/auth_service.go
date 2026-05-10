@@ -87,6 +87,10 @@ func (s *AuthService) Setup(ctx context.Context, req AuthRequest) (*AuthSession,
 		return nil, err
 	}
 	if err := s.users.Create(ctx, user); err != nil {
+		if errors.Is(err, repository.ErrConflict) {
+			s.auditEvent(ctx, "setup_failed", req.Email, nil, false, "setup_complete")
+			return nil, validationError("setup is already complete")
+		}
 		s.auditEvent(ctx, "setup_failed", req.Email, nil, false, "save_failed")
 		return nil, fmt.Errorf("save user: %w", err)
 	}

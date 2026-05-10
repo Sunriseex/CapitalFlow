@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -66,6 +67,26 @@ func TestAuthServiceSetupRejectsSecondUser(t *testing.T) {
 	})
 	if !IsValidationError(err) {
 		t.Fatalf("expected validation error, got %v", err)
+	}
+}
+
+func TestAuthServiceSetupRejectsConcurrentCreateConflict(t *testing.T) {
+	service, users, _, audit := newTestAuthService(t)
+	users.createErr = fmt.Errorf("create user: %w", repository.ErrConflict)
+
+	_, err := service.Setup(t.Context(), AuthRequest{
+		Email:           "user@example.com",
+		Password:        "correct horse battery staple",
+		PrimaryCurrency: "RUB",
+	})
+	if !IsValidationError(err) {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+	if err.Error() != "setup is already complete" {
+		t.Fatalf("error = %q", err.Error())
+	}
+	if !audit.hasEvent("setup_failed") {
+		t.Fatal("expected setup failed audit event")
 	}
 }
 
@@ -206,10 +227,14 @@ func newTestAuthService(t *testing.T) (*AuthService, *fakeUserRepo, *fakeRefresh
 }
 
 type fakeUserRepo struct {
-	byID map[string]*models.User
+	byID      map[string]*models.User
+	createErr error
 }
 
 func (r *fakeUserRepo) Create(_ context.Context, user *models.User) error {
+	if r.createErr != nil {
+		return r.createErr
+	}
 	r.byID[user.ID] = user
 	return nil
 }

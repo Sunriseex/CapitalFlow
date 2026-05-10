@@ -2,10 +2,12 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/sunriseex/capitalflow/internal/models"
@@ -26,6 +28,9 @@ func (r *UserRepository) Create(ctx context.Context, user *models.User) error {
 		VALUES ($1, $2, $3, $4, $5, $6)
 	`, user.ID, user.Email, user.PasswordHash, user.PrimaryCurrency, user.CreatedAt, user.UpdatedAt)
 	if err != nil {
+		if isUniqueViolation(err) {
+			return fmt.Errorf("create user: %w", repository.ErrConflict)
+		}
 		return fmt.Errorf("create user: %w", err)
 	}
 	return nil
@@ -186,4 +191,9 @@ func (r *AuthAuditRepository) Create(ctx context.Context, event *models.AuthAudi
 		return fmt.Errorf("create auth audit event: %w", err)
 	}
 	return nil
+}
+
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }

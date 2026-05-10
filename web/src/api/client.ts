@@ -141,6 +141,8 @@ async function authFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
 	return payload as T;
 }
 
+let refreshSessionPromise: Promise<AuthResponse> | null = null;
+
 type AuthResponse = {
   user: { id: string; email: string; primary_currency: string };
   access_token: string;
@@ -156,19 +158,29 @@ function storeSession(session: AuthResponse) {
 }
 
 async function refreshSession() {
+  if (refreshSessionPromise) {
+    return refreshSessionPromise;
+  }
+
   const refreshToken = getStoredRefreshToken();
   if (!refreshToken) {
     throw new ApiClientError("Login required", 401, "unauthorized");
   }
-  try {
-    return storeSession(await authFetch<AuthResponse>("/auth/refresh", {
-      method: "POST",
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    }));
-  } catch (err) {
-    clearStoredSession();
-    throw err;
-  }
+
+  refreshSessionPromise = authFetch<AuthResponse>("/auth/refresh", {
+    method: "POST",
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  })
+    .then(storeSession)
+    .catch((err) => {
+      clearStoredSession();
+      throw err;
+    })
+    .finally(() => {
+      refreshSessionPromise = null;
+    });
+
+  return refreshSessionPromise;
 }
 
 export const api = {
