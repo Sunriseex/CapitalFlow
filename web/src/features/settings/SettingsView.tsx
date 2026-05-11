@@ -8,18 +8,30 @@ import { Button, Field, Input, Panel, Select } from "../../shared/ui";
 
 export function SettingsView({ profile }: { profile?: Profile }) {
   const queryClient = useQueryClient();
-  const [primaryCurrency, setPrimaryCurrency] = useState(profile?.user.primary_currency ?? "RUB");
+
+  const profileCurrency = profile?.user.primary_currency ?? "RUB";
+  const [draftCurrency, setDraftCurrency] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+
+  const primaryCurrency = draftCurrency ?? profileCurrency;
   const currencies = currencyOptions();
 
   async function save() {
+    if (!profile) {
+      return;
+    }
+
     setError("");
     setSaved(false);
+
     try {
-      await api.updateProfile({ primary_currency: primaryCurrency });
+      const updatedProfile = await api.updateProfile({ primary_currency: primaryCurrency });
+
+      setDraftCurrency(updatedProfile.user.primary_currency);
       await queryClient.invalidateQueries({ queryKey: ["profile"] });
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+
       setSaved(true);
     } catch (err) {
       setError(errorMessage(err));
@@ -29,20 +41,38 @@ export function SettingsView({ profile }: { profile?: Profile }) {
   return (
     <div className="grid settings-grid">
       <Panel title="Profile">
-        <form className="form compact-form" onSubmit={(event) => { event.preventDefault(); void save(); }}>
+        <form
+          className="form compact-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void save();
+          }}
+        >
           <Field label="Email">
             <Input value={profile?.user.email ?? ""} readOnly />
           </Field>
+
           <Field label="Primary currency">
-            <Select value={primaryCurrency} onChange={(event) => { setPrimaryCurrency(event.target.value); setSaved(false); }}>
+            <Select
+              value={primaryCurrency}
+              disabled={!profile}
+              onChange={(event) => {
+                setDraftCurrency(event.target.value);
+                setSaved(false);
+              }}
+            >
               {currencies.map((currency) => (
-                <option key={currency.code} value={currency.code}>{currency.label}</option>
+                <option key={currency.code} value={currency.code}>
+                  {currency.label}
+                </option>
               ))}
             </Select>
           </Field>
+
           {error ? <div className="error">{error}</div> : null}
           {saved ? <div className="success">Saved</div> : null}
-          <Button>Save settings</Button>
+
+          <Button disabled={!profile}>Save settings</Button>
         </form>
       </Panel>
     </div>
