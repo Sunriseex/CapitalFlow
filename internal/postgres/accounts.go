@@ -159,7 +159,16 @@ func insertAccount(ctx context.Context, execer sqlExecer, account *models.Accoun
 		VALUES (
 			$1,
 			$2,
-			COALESCE($3, (SELECT id FROM users LIMIT 1)),
+			COALESCE(
+				$3,
+				(
+					SELECT id
+					FROM users
+					WHERE (SELECT count(*) FROM users) = 1
+					ORDER BY created_at ASC
+					LIMIT 1
+				)
+			),
 			$4,
 			$5,
 			$6,
