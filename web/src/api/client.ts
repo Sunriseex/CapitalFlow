@@ -19,7 +19,7 @@ const apiBaseKey = "capitalflow_api_base";
 const legacyTokenKey = "finance_tracker_api_token";
 const legacyApiBaseKey = "finance_tracker_api_base";
 const legacyDefaultApiBase = "http://localhost:8080/api";
-const defaultApiBase = "/api";
+const defaultApiBase = "/api/v1";
 
 export function getStoredToken() {
   return localStorage.getItem(tokenKey) ?? localStorage.getItem(legacyTokenKey) ?? "";
@@ -44,21 +44,44 @@ export function clearStoredSession() {
 }
 
 export function getStoredApiBase() {
-  const stored = (localStorage.getItem(apiBaseKey) ?? localStorage.getItem(legacyApiBaseKey))?.replace(/\/$/, "");
-  if (!stored || stored === legacyDefaultApiBase) {
-    return defaultApiBase;
-  }
-  return stored;
+  const stored = localStorage.getItem(apiBaseKey) ?? localStorage.getItem(legacyApiBaseKey);
+  return normalizeApiBase(stored ?? "");
 }
 
 export function setStoredApiBase(base: string) {
+  localStorage.setItem(apiBaseKey, normalizeApiBase(base));
+}
+
+function normalizeApiBase(base: string) {
   const normalized = base.trim().replace(/\/$/, "");
-  localStorage.setItem(apiBaseKey, normalized || defaultApiBase);
+
+  if (!normalized || normalized === legacyDefaultApiBase) {
+    return defaultApiBase;
+  }
+
+  if (normalized === "/api") {
+    return defaultApiBase;
+  }
+
+  if (normalized.endsWith("/api")) {
+    return `${normalized.slice(0, -4)}/api/v1`;
+  }
+
+  return normalized;
 }
 
 function getAuthBase() {
   const apiBase = getStoredApiBase();
-  return apiBase.endsWith("/api") ? apiBase.slice(0, -4) : apiBase;
+
+  if (apiBase.endsWith("/api/v1")) {
+    return apiBase.slice(0, -7);
+  }
+
+  if (apiBase.endsWith("/api")) {
+    return apiBase.slice(0, -4);
+  }
+
+  return apiBase;
 }
 
 export class ApiClientError extends Error {
@@ -89,6 +112,9 @@ async function apiFetchWithAuth<T>(path: string, init: RequestInit = {}, allowRe
   if (init.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
+  if (isMutation(init.method) && !headers.has("Idempotency-Key")) {
+    headers.set("Idempotency-Key", newIdempotencyKey());
+  }
 
   let response: Response;
   try {
@@ -111,6 +137,15 @@ async function apiFetchWithAuth<T>(path: string, init: RequestInit = {}, allowRe
   }
 
   return payload as T;
+}
+
+function isMutation(method?: string) {
+  const normalized = (method ?? "GET").toUpperCase();
+  return normalized === "POST" || normalized === "PATCH" || normalized === "DELETE";
+}
+
+function newIdempotencyKey() {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
 }
 
 async function authFetch<T>(path: string, init: RequestInit = {}): Promise<T> {

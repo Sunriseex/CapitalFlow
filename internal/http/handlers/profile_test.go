@@ -18,8 +18,8 @@ func TestProfileRoutesRequireJWT(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new token service: %v", err)
 	}
-	router := NewRouter(newTestProfileStore(), RouterConfig{TokenService: tokens})
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/settings/profile", http.NoBody)
+	router := NewRouter(newTestProfileStore(), &RouterConfig{TokenService: tokens})
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/settings/profile", http.NoBody)
 	rec := httptest.NewRecorder()
 
 	router.ServeHTTP(rec, req)
@@ -40,8 +40,8 @@ func TestProfileRoutesRejectRevokedSessionJWT(t *testing.T) {
 		RevokedAt: new(time.Time),
 		CreatedAt: time.Now(),
 	}
-	router := NewRouter(store, RouterConfig{TokenService: tokens})
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/settings/profile", http.NoBody)
+	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/settings/profile", http.NoBody)
 	req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
 	rec := httptest.NewRecorder()
 
@@ -67,9 +67,9 @@ func TestProfileRoutesGetAndPatchPrimaryCurrency(t *testing.T) {
 		ExpiresAt: time.Now().Add(time.Hour),
 		CreatedAt: time.Now(),
 	}
-	router := NewRouter(store, RouterConfig{TokenService: tokens})
+	router := NewRouter(store, &RouterConfig{TokenService: tokens})
 
-	patchReq := httptest.NewRequestWithContext(t.Context(), http.MethodPatch, "/api/settings/profile", strings.NewReader(`{"primary_currency":"usd"}`))
+	patchReq := httptest.NewRequestWithContext(t.Context(), http.MethodPatch, "/api/v1/settings/profile", strings.NewReader(`{"primary_currency":"usd"}`))
 	patchReq.Header.Set("Authorization", "Bearer "+pair.AccessToken)
 	patchRec := httptest.NewRecorder()
 	router.ServeHTTP(patchRec, patchReq)
@@ -81,7 +81,7 @@ func TestProfileRoutesGetAndPatchPrimaryCurrency(t *testing.T) {
 		t.Fatalf("primary currency = %q, want USD", store.users.byID["user-1"].PrimaryCurrency)
 	}
 
-	getReq := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/settings/profile", http.NoBody)
+	getReq := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/settings/profile", http.NoBody)
 	getReq.Header.Set("Authorization", "Bearer "+pair.AccessToken)
 	getRec := httptest.NewRecorder()
 	router.ServeHTTP(getRec, getReq)
@@ -105,8 +105,8 @@ func TestProfileRoutesRejectInvalidPrimaryCurrency(t *testing.T) {
 		ExpiresAt: time.Now().Add(time.Hour),
 		CreatedAt: time.Now(),
 	}
-	router := NewRouter(store, RouterConfig{TokenService: tokens})
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodPatch, "/api/settings/profile", strings.NewReader(`{"primary_currency":"RU"}`))
+	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPatch, "/api/v1/settings/profile", strings.NewReader(`{"primary_currency":"RU"}`))
 	req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
 	rec := httptest.NewRecorder()
 
@@ -136,12 +136,14 @@ func testProfileTokenPair(t *testing.T) (*auth.TokenService, *auth.TokenPair) {
 type testProfileStore struct {
 	users   *testProfileUserRepo
 	refresh *testProfileRefreshRepo
+	idem    *testIdempotencyRepo
 }
 
 func newTestProfileStore() *testProfileStore {
 	return &testProfileStore{
 		users:   &testProfileUserRepo{byID: map[string]*models.User{}},
 		refresh: &testProfileRefreshRepo{byID: map[string]*models.RefreshToken{}},
+		idem:    newTestIdempotencyRepo(),
 	}
 }
 
@@ -175,6 +177,10 @@ func (s *testProfileStore) RefreshTokens() repository.RefreshTokenRepository {
 
 func (s *testProfileStore) AuthAuditEvents() repository.AuthAuditRepository {
 	return nil
+}
+
+func (s *testProfileStore) Idempotency() repository.IdempotencyRepository {
+	return s.idem
 }
 
 func (s *testProfileStore) Ping(context.Context) error {

@@ -121,6 +121,10 @@ func (r *batchTransactionRepo) CreateMany(_ context.Context, transactions []mode
 	return nil
 }
 
+func (r *batchTransactionRepo) CreateTransfer(ctx context.Context, _, _, _ string, transactions []models.Transaction) error {
+	return r.CreateMany(ctx, transactions)
+}
+
 func (r *batchTransactionRepo) GetByID(context.Context, string) (*models.Transaction, error) {
 	return nil, errNotImplemented
 }

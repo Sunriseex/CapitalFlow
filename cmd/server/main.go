@@ -65,12 +65,16 @@ func run() error {
 
 	server := &http.Server{
 		Addr: *addr,
-		Handler: handlers.NewRouter(store, handlers.RouterConfig{
-			APIAuthToken:       config.AppConfig.APIAuthToken,
-			TokenService:       tokenService,
-			CORSAllowedOrigins: config.AppConfig.CORSAllowedOrigins,
-			RateLimitRequests:  config.AppConfig.RateLimitRequests,
-			RateLimitWindow:    config.AppConfig.RateLimitWindow,
+		Handler: handlers.NewRouter(store, &handlers.RouterConfig{
+			APIAuthToken:              config.AppConfig.APIAuthToken,
+			TokenService:              tokenService,
+			CORSAllowedOrigins:        config.AppConfig.CORSAllowedOrigins,
+			RateLimitRequests:         config.AppConfig.RateLimitRequests,
+			RateLimitWindow:           config.AppConfig.RateLimitWindow,
+			AuthRateLimitRequests:     config.AppConfig.AuthRateLimitRequests,
+			AuthRateLimitWindow:       config.AppConfig.AuthRateLimitWindow,
+			MutationRateLimitRequests: config.AppConfig.MutationRateLimitRequests,
+			MutationRateLimitWindow:   config.AppConfig.MutationRateLimitWindow,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
