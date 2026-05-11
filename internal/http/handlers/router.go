@@ -43,7 +43,11 @@ type RouterConfig struct {
 	MutationRateLimitWindow   time.Duration
 }
 
-func NewRouter(store Store, cfg RouterConfig) http.Handler {
+func NewRouter(store Store, cfg *RouterConfig) http.Handler {
+	if cfg == nil {
+		cfg = &RouterConfig{}
+	}
+
 	h := &Handler{store: store, tokens: cfg.TokenService}
 	r := chi.NewRouter()
 	r.Use(chimiddleware.RequestID)
@@ -61,8 +65,16 @@ func NewRouter(store Store, cfg RouterConfig) http.Handler {
 		},
 		AllowedHeaders: []string{"Authorization", "Content-Type", appmiddleware.IdempotencyKeyHeader},
 	}))
-	authRateLimit := appmiddleware.RateLimitByIP(firstPositive(cfg.AuthRateLimitRequests, cfg.RateLimitRequests), firstPositiveDuration(cfg.AuthRateLimitWindow, cfg.RateLimitWindow))
-	mutationRateLimit := appmiddleware.RateLimitByIP(firstPositive(cfg.MutationRateLimitRequests, cfg.RateLimitRequests), firstPositiveDuration(cfg.MutationRateLimitWindow, cfg.RateLimitWindow))
+
+	authRateLimit := appmiddleware.RateLimitByIP(
+		firstPositive(cfg.AuthRateLimitRequests, cfg.RateLimitRequests),
+		firstPositiveDuration(cfg.AuthRateLimitWindow, cfg.RateLimitWindow),
+	)
+
+	mutationRateLimit := appmiddleware.RateLimitByIP(
+		firstPositive(cfg.MutationRateLimitRequests, cfg.RateLimitRequests),
+		firstPositiveDuration(cfg.MutationRateLimitWindow, cfg.RateLimitWindow),
+	)
 
 	r.Get("/health", h.health)
 	r.Get("/ready", h.ready)
@@ -78,6 +90,7 @@ func NewRouter(store Store, cfg RouterConfig) http.Handler {
 		} else {
 			r.Use(appmiddleware.BearerTokenAuth(cfg.APIAuthToken))
 		}
+
 		r.With(appmiddleware.MutationOnly(mutationRateLimit), appmiddleware.Idempotency(h.idempotency())).Group(func(r chi.Router) {
 			r.Patch("/settings/profile", h.updateProfile)
 			r.Post("/accounts", h.createAccount)

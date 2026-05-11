@@ -13,7 +13,7 @@ import (
 )
 
 func TestRouterUsesAPIV1Only(t *testing.T) {
-	router := NewRouter(nil, RouterConfig{APIAuthToken: "test-token"})
+	router := NewRouter(nil, &RouterConfig{APIAuthToken: "test-token"})
 
 	oldReq := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/categories", http.NoBody)
 	oldReq.Header.Set("Authorization", "Bearer test-token")
@@ -32,7 +32,7 @@ func TestRouterUsesAPIV1Only(t *testing.T) {
 }
 
 func TestRouterLimitsAuthEndpoints(t *testing.T) {
-	router := NewRouter(newTestProfileStore(), RouterConfig{
+	router := NewRouter(newTestProfileStore(), &RouterConfig{
 		APIAuthToken:          "test-token",
 		AuthRateLimitRequests: 1,
 		AuthRateLimitWindow:   time.Minute,
@@ -57,7 +57,7 @@ func TestRouterLimitsAuthEndpoints(t *testing.T) {
 }
 
 func TestRouterLimitsMutationsButNotReads(t *testing.T) {
-	router := NewRouter(nil, RouterConfig{
+	router := NewRouter(nil, &RouterConfig{
 		APIAuthToken:              "test-token",
 		MutationRateLimitRequests: 1,
 		MutationRateLimitWindow:   time.Minute,
@@ -99,7 +99,7 @@ func TestIdempotencyReplaysStoredMutationResponse(t *testing.T) {
 		ExpiresAt: time.Now().Add(time.Hour),
 		CreatedAt: time.Now(),
 	}
-	router := NewRouter(store, RouterConfig{TokenService: tokens})
+	router := NewRouter(store, &RouterConfig{TokenService: tokens})
 
 	for i := range 2 {
 		req := httptest.NewRequestWithContext(t.Context(), http.MethodPatch, "/api/v1/settings/profile", strings.NewReader(`{"primary_currency":"USD"}`))
@@ -135,9 +135,9 @@ func (r *testIdempotencyRepo) Get(_ context.Context, key, userID, method, path s
 	if !ok {
 		return nil, repository.ErrNotFound
 	}
-	copy := *record
-	copy.ResponseBody = append([]byte(nil), record.ResponseBody...)
-	return &copy, nil
+	recordCopy := *record
+	recordCopy.ResponseBody = append([]byte(nil), record.ResponseBody...)
+	return &recordCopy, nil
 }
 
 func (r *testIdempotencyRepo) CreatePending(_ context.Context, record *models.IdempotencyRecord) (bool, error) {
@@ -145,8 +145,8 @@ func (r *testIdempotencyRepo) CreatePending(_ context.Context, record *models.Id
 	if _, ok := r.records[key]; ok {
 		return false, nil
 	}
-	copy := *record
-	r.records[key] = &copy
+	recordCopy := *record
+	r.records[key] = &recordCopy
 	return true, nil
 }
 

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -129,7 +130,13 @@ func (w *captureResponseWriter) WriteHeader(status int) {
 
 func (w *captureResponseWriter) Write(body []byte) (int, error) {
 	w.body.Write(body)
-	return w.ResponseWriter.Write(body)
+
+	n, err := w.ResponseWriter.Write(body)
+	if err != nil {
+		return n, fmt.Errorf("write captured response: %w", err)
+	}
+
+	return n, nil
 }
 
 func (w *captureResponseWriter) statusCode() int {

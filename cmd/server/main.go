@@ -65,7 +65,7 @@ func run() error {
 
 	server := &http.Server{
 		Addr: *addr,
-		Handler: handlers.NewRouter(store, handlers.RouterConfig{
+		Handler: handlers.NewRouter(store, &handlers.RouterConfig{
 			APIAuthToken:              config.AppConfig.APIAuthToken,
 			TokenService:              tokenService,
 			CORSAllowedOrigins:        config.AppConfig.CORSAllowedOrigins,
