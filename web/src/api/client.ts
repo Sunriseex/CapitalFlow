@@ -44,21 +44,44 @@ export function clearStoredSession() {
 }
 
 export function getStoredApiBase() {
-  const stored = (localStorage.getItem(apiBaseKey) ?? localStorage.getItem(legacyApiBaseKey))?.replace(/\/$/, "");
-  if (!stored || stored === legacyDefaultApiBase) {
-    return defaultApiBase;
-  }
-  return stored;
+  const stored = localStorage.getItem(apiBaseKey) ?? localStorage.getItem(legacyApiBaseKey);
+  return normalizeApiBase(stored ?? "");
 }
 
 export function setStoredApiBase(base: string) {
+  localStorage.setItem(apiBaseKey, normalizeApiBase(base));
+}
+
+function normalizeApiBase(base: string) {
   const normalized = base.trim().replace(/\/$/, "");
-  localStorage.setItem(apiBaseKey, normalized || defaultApiBase);
+
+  if (!normalized || normalized === legacyDefaultApiBase) {
+    return defaultApiBase;
+  }
+
+  if (normalized === "/api") {
+    return defaultApiBase;
+  }
+
+  if (normalized.endsWith("/api")) {
+    return `${normalized.slice(0, -4)}/api/v1`;
+  }
+
+  return normalized;
 }
 
 function getAuthBase() {
   const apiBase = getStoredApiBase();
-  return apiBase.endsWith("/api/v1") ? apiBase.slice(0, -7) : apiBase;
+
+  if (apiBase.endsWith("/api/v1")) {
+    return apiBase.slice(0, -7);
+  }
+
+  if (apiBase.endsWith("/api")) {
+    return apiBase.slice(0, -4);
+  }
+
+  return apiBase;
 }
 
 export class ApiClientError extends Error {
