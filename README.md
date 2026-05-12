@@ -353,6 +353,8 @@ Authorization: Bearer <API_AUTH_TOKEN>
 
 Do not commit real secrets. Keep local secrets in `configs/.env` and commit only `configs/example.env`.
 
+Current WebUI sessions do not use cookies for refresh authentication. The refresh token is stored client-side and sent only as an explicit JSON body value to `/auth/refresh` and `/auth/logout`; API mutations use the Bearer access token in the `Authorization` header. Because no ambient refresh cookie is sent by the browser, the current refresh flow does not need cookie CSRF protection. If refresh tokens move to httpOnly cookies later, add `SameSite`, `Secure`, and CSRF token checks before enabling that mode.
+
 Public routes:
 
 ```text
