@@ -622,7 +622,7 @@ internal/domain
   * [x] `HttpOnly`
   * [x] `SameSite`
   * [x] `Path`
-* [ ] Middleware JWT -> `userID` в context
+* [x] Middleware JWT -> `userID` в context
 * [ ] Unit + handler + security tests (включая reuse)
 * [ ] Observability:
   * [ ] метрики для auth
