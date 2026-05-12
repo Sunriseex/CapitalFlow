@@ -1,0 +1,48 @@
+name: Sync GitHub Wiki
+
+on:
+    push:
+        branches:
+            - master
+        paths:
+            - "docs/wiki/**"
+            - ".github/workflows/sync-wiki.yml"
+
+permissions:
+    contents: write
+
+jobs:
+    sync-wiki:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Clone wiki repository
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  set -euo pipefail
+
+                  git clone "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" wiki
+
+            - name: Sync docs/wiki to GitHub Wiki
+              run: |
+                  set -euo pipefail
+
+                  rsync -a --delete docs/wiki/ wiki/
+
+                  cd wiki
+
+                  git config user.name "github-actions[bot]"
+                  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+                  if git diff --quiet && git diff --cached --quiet; then
+                    echo "No wiki changes"
+                    exit 0
+                  fi
+
+                  git add -A
+                  git commit -m "docs: sync wiki"
+                  git push
