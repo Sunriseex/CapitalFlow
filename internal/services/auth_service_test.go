@@ -406,7 +406,7 @@ func TestAuthServiceChangePasswordRejectsWrongCurrentPassword(t *testing.T) {
 }
 
 func TestAuthServiceListSessionsMarksCurrentAndActive(t *testing.T) {
-	service, _, refresh, _ := newTestAuthService(t)
+	service, _, refresh, audit := newTestAuthService(t)
 	expiredAt := service.now().Add(-time.Hour)
 	revokedAt := service.now().Add(-time.Minute)
 	refresh.byHash["active"] = &models.RefreshToken{
@@ -455,6 +455,9 @@ func TestAuthServiceListSessionsMarksCurrentAndActive(t *testing.T) {
 	if sessions[2].Active {
 		t.Fatalf("expired session = %+v, want inactive", sessions[2])
 	}
+	if !audit.hasEvent("sessions_listed") {
+		t.Fatal("expected sessions listed audit event")
+	}
 }
 
 func TestAuthServiceRevokeSessionScopesByUser(t *testing.T) {
@@ -472,6 +475,9 @@ func TestAuthServiceRevokeSessionScopesByUser(t *testing.T) {
 	}
 	if refresh.byHash["active"].RevokedAt != nil {
 		t.Fatal("session was revoked for wrong user")
+	}
+	if !audit.hasEventReason("session_revoke_failed", "session_not_found") {
+		t.Fatal("expected failed session revoke audit event")
 	}
 
 	if err := service.RevokeSession(t.Context(), "user-1", "session-1"); err != nil {

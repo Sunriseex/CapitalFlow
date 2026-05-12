@@ -616,7 +616,7 @@ internal/domain
 * [x] Смена пароля + выход со всех устройств
 * [x] Управление сессиями (список, отзыв)
 * [x] Подготовка email-поля и верификации (схема)
-* [ ] Audit log таблица и запись всех событий
+* [x] Audit log таблица и запись всех событий
 * [x] Secure cookie:
   * [x] `Secure`
   * [x] `HttpOnly`
@@ -638,7 +638,7 @@ internal/domain
 * [x] Password policy блокирует слабые и компрометированные пароли
 * [x] Suspicious login attempts приводят к progressive lockout
 * [x] Пользователь может завершить все активные сессии
-* [ ] Все auth-события попадают в audit log
+* [x] Все auth-события попадают в audit log
 * [ ] Auth security покрыт тестами и метриками
 * [ ] Есть документация для эксплуатации и incident response
 

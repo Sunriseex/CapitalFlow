@@ -366,6 +366,7 @@ func (s *AuthService) ListSessions(ctx context.Context, userID, currentRefreshTo
 
 	tokens, err := s.refresh.ListByUser(ctx, userID)
 	if err != nil {
+		s.auditEvent(ctx, "sessions_list_failed", "", &userID, false, "list_failed")
 		return nil, fmt.Errorf("list refresh tokens: %w", err)
 	}
 
@@ -381,6 +382,7 @@ func (s *AuthService) ListSessions(ctx context.Context, userID, currentRefreshTo
 			Current:   token.ID == currentRefreshTokenID,
 		})
 	}
+	s.auditEvent(ctx, "sessions_listed", "", &userID, true, "")
 	return sessions, nil
 }
 
@@ -398,10 +400,16 @@ func (s *AuthService) RevokeSession(ctx context.Context, userID, sessionID strin
 		return validationError("user is required")
 	}
 	if sessionID == "" {
+		s.auditEvent(ctx, "session_revoke_failed", "", &userID, false, "validation_error")
 		return validationError("session is required")
 	}
 
 	if err := s.refresh.RevokeByUserSession(ctx, userID, sessionID, s.now()); err != nil {
+		reason := "revoke_failed"
+		if errors.Is(err, repository.ErrNotFound) {
+			reason = "session_not_found"
+		}
+		s.auditEvent(ctx, "session_revoke_failed", "", &userID, false, reason)
 		return fmt.Errorf("revoke session: %w", err)
 	}
 	s.auditEvent(ctx, "session_revoked", "", &userID, true, "")
