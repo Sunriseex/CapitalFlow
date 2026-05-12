@@ -559,12 +559,12 @@ internal/domain
 * [x] Использовать refresh token с rotation и server-side revocation.
 * [x] Хранить refresh token безопасно: httpOnly cookie или hashed token в БД.
 * [x] Добавить logout с отзывом refresh token.
-* [ ] Добавить защиту от brute force:
+* [x] Добавить защиту от brute force:
 
   * [x] rate limit на login/register
   * [x] одинаковые сообщения для неверного email/password
   * [x] audit log для auth-событий
-* [ ] Продумать CSRF модель, если refresh хранится в cookie.
+* [x] Продумать CSRF модель, если refresh хранится в cookie.
 * [x] Не отдавать чувствительные auth-ошибки в UI.
 
 ## Backend
