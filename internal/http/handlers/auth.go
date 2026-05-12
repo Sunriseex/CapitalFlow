@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/sunriseex/capitalflow/internal/http/dto"
 	"github.com/sunriseex/capitalflow/internal/models"
@@ -34,6 +35,7 @@ func (h *Handler) authSetup(w http.ResponseWriter, r *http.Request) {
 		writeValidationOrServiceError(w, err)
 		return
 	}
+	setRefreshCookie(w, session)
 	writeJSON(w, http.StatusCreated, authResponse(session))
 }
 
@@ -52,21 +54,24 @@ func (h *Handler) authLogin(w http.ResponseWriter, r *http.Request) {
 		writeValidationOrServiceError(w, err)
 		return
 	}
+	setRefreshCookie(w, session)
 	writeJSON(w, http.StatusOK, authResponse(session))
 }
 
 func (h *Handler) authRefresh(w http.ResponseWriter, r *http.Request) {
 	var req dto.RefreshRequest
-	if err := decodeJSON(r, &req); err != nil {
+	if err := decodeOptionalJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
 		return
 	}
+	req.RefreshToken = refreshTokenFromRequest(r, req.RefreshToken)
 
 	session, err := h.authService().Refresh(r.Context(), req.RefreshToken)
 	if err != nil {
 		writeValidationOrServiceError(w, err)
 		return
 	}
+	setRefreshCookie(w, session)
 	writeJSON(w, http.StatusOK, authResponse(session))
 }
 
@@ -76,11 +81,13 @@ func (h *Handler) authLogout(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
 		return
 	}
+	req.RefreshToken = refreshTokenFromRequest(r, req.RefreshToken)
 
 	if err := h.authService().Logout(r.Context(), req.RefreshToken); err != nil {
 		writeValidationOrServiceError(w, err)
 		return
 	}
+	clearRefreshCookie(w)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -109,4 +116,43 @@ func authUser(user *models.User) dto.AuthUser {
 		Email:           user.Email,
 		PrimaryCurrency: user.PrimaryCurrency,
 	}
+}
+
+const refreshCookieName = "__Secure-capitalflow_refresh"
+
+func setRefreshCookie(w http.ResponseWriter, session *services.AuthSession) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     refreshCookieName,
+		Value:    session.RefreshToken,
+		Path:     "/auth",
+		Expires:  session.RefreshExpiresAt,
+		MaxAge:   max(1, int(time.Until(session.RefreshExpiresAt).Seconds())),
+		Secure:   true,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	})
+}
+
+func clearRefreshCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     refreshCookieName,
+		Value:    "",
+		Path:     "/auth",
+		Expires:  time.Unix(0, 0).UTC(),
+		MaxAge:   -1,
+		Secure:   true,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	})
+}
+
+func refreshTokenFromRequest(r *http.Request, bodyToken string) string {
+	if bodyToken != "" {
+		return bodyToken
+	}
+	cookie, err := r.Cookie(refreshCookieName)
+	if err != nil {
+		return ""
+	}
+	return cookie.Value
 }

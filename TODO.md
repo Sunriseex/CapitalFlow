@@ -617,11 +617,11 @@ internal/domain
 * [ ] Управление сессиями (список, отзыв)
 * [ ] Подготовка email-поля и верификации (схема)
 * [ ] Audit log таблица и запись всех событий
-* [ ] Secure cookie:
-  * [ ] `Secure`
-  * [ ] `HttpOnly`
-  * [ ] `SameSite`
-  * [ ] `Path`
+* [x] Secure cookie:
+  * [x] `Secure`
+  * [x] `HttpOnly`
+  * [x] `SameSite`
+  * [x] `Path`
 * [ ] Middleware JWT -> `userID` в context
 * [ ] Unit + handler + security tests (включая reuse)
 * [ ] Observability:

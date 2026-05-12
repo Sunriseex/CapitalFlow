@@ -353,6 +353,8 @@ Authorization: Bearer <API_AUTH_TOKEN>
 
 Do not commit real secrets. Keep local secrets in `configs/.env` and commit only `configs/example.env`.
 
+Auth responses issue the refresh token in the JSON body for existing WebUI compatibility and also set a `__Secure-capitalflow_refresh` cookie. The cookie is scoped to `/auth` and uses `Secure`, `HttpOnly`, and `SameSite=Strict`. `/auth/refresh` and `/auth/logout` accept the JSON body token first, then fall back to the refresh cookie.
+
 Public routes:
 
 ```text
