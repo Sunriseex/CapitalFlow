@@ -24,9 +24,13 @@ func NewUserRepository(pool *pgxpool.Pool) *UserRepository {
 
 func (r *UserRepository) Create(ctx context.Context, user *models.User) error {
 	_, err := r.pool.Exec(ctx, `
-		INSERT INTO users (id, email, password_hash, primary_currency, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
-	`, user.ID, user.Email, user.PasswordHash, user.PrimaryCurrency, user.CreatedAt, user.UpdatedAt)
+		INSERT INTO users (
+			id, email, password_hash, primary_currency,
+			email_verified_at, email_verification_token_hash, email_verification_sent_at,
+			created_at, updated_at
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	`, user.ID, user.Email, user.PasswordHash, user.PrimaryCurrency, user.EmailVerifiedAt, user.EmailVerificationTokenHash, user.EmailVerificationSentAt, user.CreatedAt, user.UpdatedAt)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return fmt.Errorf("create user: %w", repository.ErrConflict)
@@ -46,7 +50,9 @@ func (r *UserRepository) Count(ctx context.Context) (int64, error) {
 
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.User, error) {
 	return r.get(ctx, `
-		SELECT id, email, password_hash, primary_currency, created_at, updated_at
+		SELECT id, email, password_hash, primary_currency,
+			email_verified_at, email_verification_token_hash, email_verification_sent_at,
+			created_at, updated_at
 		FROM users
 		WHERE lower(email) = lower($1)
 	`, strings.TrimSpace(email))
@@ -54,7 +60,9 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.
 
 func (r *UserRepository) GetByID(ctx context.Context, id string) (*models.User, error) {
 	return r.get(ctx, `
-		SELECT id, email, password_hash, primary_currency, created_at, updated_at
+		SELECT id, email, password_hash, primary_currency,
+			email_verified_at, email_verification_token_hash, email_verification_sent_at,
+			created_at, updated_at
 		FROM users
 		WHERE id = $1
 	`, id)
@@ -156,7 +164,17 @@ type userScanner interface {
 
 func scanUser(row userScanner) (*models.User, error) {
 	var user models.User
-	if err := row.Scan(&user.ID, &user.Email, &user.PasswordHash, &user.PrimaryCurrency, &user.CreatedAt, &user.UpdatedAt); err != nil {
+	if err := row.Scan(
+		&user.ID,
+		&user.Email,
+		&user.PasswordHash,
+		&user.PrimaryCurrency,
+		&user.EmailVerifiedAt,
+		&user.EmailVerificationTokenHash,
+		&user.EmailVerificationSentAt,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	); err != nil {
 		return nil, fmt.Errorf("scan user: %w", mapNotFound(err))
 	}
 	return &user, nil

@@ -3,12 +3,15 @@ package models
 import "time"
 
 type User struct {
-	ID              string    `json:"id"`
-	Email           string    `json:"email"`
-	PasswordHash    string    `json:"-"`
-	PrimaryCurrency string    `json:"primary_currency"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	ID                         string     `json:"id"`
+	Email                      string     `json:"email"`
+	PasswordHash               string     `json:"-"`
+	PrimaryCurrency            string     `json:"primary_currency"`
+	EmailVerifiedAt            *time.Time `json:"email_verified_at,omitzero"`
+	EmailVerificationTokenHash *string    `json:"-"`
+	EmailVerificationSentAt    *time.Time `json:"email_verification_sent_at,omitzero"`
+	CreatedAt                  time.Time  `json:"created_at"`
+	UpdatedAt                  time.Time  `json:"updated_at"`
 }
 
 type RefreshToken struct {
