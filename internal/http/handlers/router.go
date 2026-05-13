@@ -63,7 +63,8 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 			http.MethodDelete,
 			http.MethodOptions,
 		},
-		AllowedHeaders: []string{"Authorization", "Content-Type", appmiddleware.IdempotencyKeyHeader},
+		AllowedHeaders:   []string{"Authorization", "Content-Type", appmiddleware.IdempotencyKeyHeader},
+		AllowCredentials: true,
 	}))
 
 	authRateLimit := appmiddleware.RateLimitByIP(

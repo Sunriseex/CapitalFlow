@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sunriseex/capitalflow/internal/auth"
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/repository"
 )
@@ -46,6 +47,35 @@ func TestMetricsEndpointExposesAuthCounters(t *testing.T) {
 	}
 	if strings.Contains(rec.Body.String(), "cmdline") {
 		t.Fatalf("metrics response leaked expvar cmdline: %s", rec.Body.String())
+	}
+}
+
+func TestRouterCORSAllowsCredentialsForConfiguredOrigin(t *testing.T) {
+	tokens, err := auth.NewTokenService(testJWTSecret, "capitalflow", time.Minute, time.Hour)
+	if err != nil {
+		t.Fatalf("new token service: %v", err)
+	}
+
+	router := NewRouter(newTestProfileStore(), &RouterConfig{
+		TokenService:       tokens,
+		CORSAllowedOrigins: []string{"http://localhost:5173"},
+	})
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodOptions, "/auth/login", http.NoBody)
+	req.Header.Set("Origin", "http://localhost:5173")
+	req.Header.Set("Access-Control-Request-Method", http.MethodPost)
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNoContent)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Credentials"); got != "true" {
+		t.Fatalf("Access-Control-Allow-Credentials = %q, want true", got)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:5173" {
+		t.Fatalf("Access-Control-Allow-Origin = %q, want http://localhost:5173", got)
 	}
 }
 
