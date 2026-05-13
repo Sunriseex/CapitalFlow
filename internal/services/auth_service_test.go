@@ -1,10 +1,12 @@
 package services
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"expvar"
 	"fmt"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -261,13 +263,15 @@ func TestAuthServiceRefreshDetectsReuseAndRevokesUserTokens(t *testing.T) {
 
 	oldRaw := "old-refresh-token"
 	oldHash := auth.HashRefreshToken(oldRaw)
+	revokedReason := refreshRevokedReasonRotated
 	refresh.byHash[oldHash] = &models.RefreshToken{
-		ID:        "token-1",
-		UserID:    "user-1",
-		TokenHash: oldHash,
-		ExpiresAt: service.now().Add(time.Hour),
-		RevokedAt: &revokedAt,
-		CreatedAt: service.now().Add(-time.Hour),
+		ID:            "token-1",
+		UserID:        "user-1",
+		TokenHash:     oldHash,
+		ExpiresAt:     service.now().Add(time.Hour),
+		RevokedAt:     &revokedAt,
+		RevokedReason: &revokedReason,
+		CreatedAt:     service.now().Add(-time.Hour),
 	}
 
 	activeHash := auth.HashRefreshToken("active-refresh-token")
@@ -288,6 +292,45 @@ func TestAuthServiceRefreshDetectsReuseAndRevokesUserTokens(t *testing.T) {
 	}
 	if !audit.hasEvent("refresh_reuse_detected") {
 		t.Fatal("expected refresh reuse audit event")
+	}
+}
+
+func TestAuthServiceRefreshDoesNotTreatManualRevocationAsReuse(t *testing.T) {
+	service, users, refresh, audit := newTestAuthService(t)
+	users.byID["user-1"] = &models.User{ID: "user-1", Email: "user@example.com"}
+	revokedAt := service.now().Add(-time.Minute)
+	revokedReason := refreshRevokedReasonManual
+
+	oldRaw := "old-refresh-token"
+	oldHash := auth.HashRefreshToken(oldRaw)
+	refresh.byHash[oldHash] = &models.RefreshToken{
+		ID:            "token-1",
+		UserID:        "user-1",
+		TokenHash:     oldHash,
+		ExpiresAt:     service.now().Add(time.Hour),
+		RevokedAt:     &revokedAt,
+		RevokedReason: &revokedReason,
+		CreatedAt:     service.now().Add(-time.Hour),
+	}
+
+	activeHash := auth.HashRefreshToken("active-refresh-token")
+	refresh.byHash[activeHash] = &models.RefreshToken{
+		ID:        "token-2",
+		UserID:    "user-1",
+		TokenHash: activeHash,
+		ExpiresAt: service.now().Add(time.Hour),
+		CreatedAt: service.now(),
+	}
+
+	_, err := service.Refresh(t.Context(), oldRaw)
+	if !IsValidationError(err) {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+	if refresh.byHash[activeHash].RevokedAt != nil {
+		t.Fatal("manual revoked token reuse must not revoke active sessions")
+	}
+	if audit.hasEvent("refresh_reuse_detected") {
+		t.Fatal("manual revoked token must not emit reuse audit event")
 	}
 }
 
@@ -565,15 +608,17 @@ func (r *fakeUserRepo) GetByID(_ context.Context, id string) (*models.User, erro
 	return user, nil
 }
 
-func (r *fakeUserRepo) RecordLoginFailure(_ context.Context, id string, attempts int, lockedUntil *time.Time, updatedAt time.Time) error {
+func (r *fakeUserRepo) RecordLoginFailure(_ context.Context, id string, threshold int, delays []time.Duration, updatedAt time.Time) (int, *time.Time, error) {
 	user, ok := r.byID[id]
 	if !ok {
-		return repository.ErrNotFound
+		return 0, nil, repository.ErrNotFound
 	}
+	attempts := user.FailedLoginAttempts + 1
+	lockedUntil := loginLockoutUntil(updatedAt, attempts)
 	user.FailedLoginAttempts = attempts
 	user.LockedUntil = lockedUntil
 	user.UpdatedAt = updatedAt
-	return nil
+	return attempts, lockedUntil, nil
 }
 
 func (r *fakeUserRepo) ClearLoginFailures(_ context.Context, id string, updatedAt time.Time) error {
@@ -646,36 +691,45 @@ func (r *fakeRefreshRepo) ListByUser(_ context.Context, userID string) ([]models
 			tokens = append(tokens, *token)
 		}
 	}
+	slices.SortFunc(tokens, func(a, b models.RefreshToken) int {
+		return cmp.Compare(b.CreatedAt.UnixNano(), a.CreatedAt.UnixNano())
+	})
 	return tokens, nil
 }
 
-func (r *fakeRefreshRepo) Revoke(_ context.Context, id string, revokedAt time.Time) error {
+func (r *fakeRefreshRepo) Revoke(_ context.Context, id string, revokedAt time.Time, reason string) error {
 	if r.revokeErr != nil {
 		return r.revokeErr
 	}
 	for _, token := range r.byHash {
 		if token.ID == id {
 			token.RevokedAt = &revokedAt
+			token.RevokedReason = &reason
 			return nil
 		}
 	}
 	return repository.ErrNotFound
 }
 
-func (r *fakeRefreshRepo) RevokeByUserSession(_ context.Context, userID, id string, revokedAt time.Time) error {
+func (r *fakeRefreshRepo) RevokeByUserSession(_ context.Context, userID, id string, revokedAt time.Time, reason string) error {
 	for _, token := range r.byHash {
 		if token.UserID == userID && token.ID == id && token.RevokedAt == nil {
 			token.RevokedAt = &revokedAt
+			token.RevokedReason = &reason
 			return nil
 		}
 	}
 	return repository.ErrNotFound
 }
 
-func (r *fakeRefreshRepo) RevokeByUser(_ context.Context, userID string, revokedAt time.Time) error {
+func (r *fakeRefreshRepo) RevokeByUser(_ context.Context, userID string, revokedAt time.Time, reason string) error {
+	if r.revokeErr != nil {
+		return r.revokeErr
+	}
 	for _, token := range r.byHash {
 		if token.UserID == userID && token.RevokedAt == nil {
 			token.RevokedAt = &revokedAt
+			token.RevokedReason = &reason
 		}
 	}
 	return nil

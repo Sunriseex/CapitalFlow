@@ -144,14 +144,14 @@ func (r *testRefreshRepo) ListByUser(context.Context, string) ([]models.RefreshT
 	return nil, nil
 }
 
-func (r *testRefreshRepo) Revoke(context.Context, string, time.Time) error {
+func (r *testRefreshRepo) Revoke(context.Context, string, time.Time, string) error {
 	return nil
 }
 
-func (r *testRefreshRepo) RevokeByUserSession(context.Context, string, string, time.Time) error {
+func (r *testRefreshRepo) RevokeByUserSession(context.Context, string, string, time.Time, string) error {
 	return nil
 }
 
-func (r *testRefreshRepo) RevokeByUser(context.Context, string, time.Time) error {
+func (r *testRefreshRepo) RevokeByUser(context.Context, string, time.Time, string) error {
 	return nil
 }

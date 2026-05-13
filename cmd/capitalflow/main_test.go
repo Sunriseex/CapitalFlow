@@ -144,15 +144,21 @@ func (r *fakeCLIUserRepo) GetByID(_ context.Context, id string) (*models.User, e
 	return user, nil
 }
 
-func (r *fakeCLIUserRepo) RecordLoginFailure(_ context.Context, id string, attempts int, lockedUntil *time.Time, updatedAt time.Time) error {
+func (r *fakeCLIUserRepo) RecordLoginFailure(_ context.Context, id string, threshold int, delays []time.Duration, updatedAt time.Time) (int, *time.Time, error) {
 	user, ok := r.byID[id]
 	if !ok {
-		return repository.ErrNotFound
+		return 0, nil, repository.ErrNotFound
+	}
+	attempts := user.FailedLoginAttempts + 1
+	var lockedUntil *time.Time
+	if attempts >= threshold && len(delays) > 0 {
+		delayIndex := min(attempts-threshold, len(delays)-1)
+		lockedUntil = new(updatedAt.Add(delays[delayIndex]))
 	}
 	user.FailedLoginAttempts = attempts
 	user.LockedUntil = lockedUntil
 	user.UpdatedAt = updatedAt
-	return nil
+	return attempts, lockedUntil, nil
 }
 
 func (r *fakeCLIUserRepo) ClearLoginFailures(_ context.Context, id string, updatedAt time.Time) error {

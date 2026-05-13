@@ -217,15 +217,25 @@ func (r *testProfileUserRepo) GetByID(_ context.Context, id string) (*models.Use
 	return user, nil
 }
 
-func (r *testProfileUserRepo) RecordLoginFailure(_ context.Context, id string, attempts int, lockedUntil *time.Time, updatedAt time.Time) error {
+func (r *testProfileUserRepo) RecordLoginFailure(_ context.Context, id string, threshold int, delays []time.Duration, updatedAt time.Time) (int, *time.Time, error) {
 	user, ok := r.byID[id]
 	if !ok {
-		return repository.ErrNotFound
+		return 0, nil, repository.ErrNotFound
 	}
+	attempts := user.FailedLoginAttempts + 1
+	lockedUntil := testProfileLoginLockoutUntil(updatedAt, attempts, threshold, delays)
 	user.FailedLoginAttempts = attempts
 	user.LockedUntil = lockedUntil
 	user.UpdatedAt = updatedAt
-	return nil
+	return attempts, lockedUntil, nil
+}
+
+func testProfileLoginLockoutUntil(now time.Time, attempts, threshold int, delays []time.Duration) *time.Time {
+	if attempts < threshold || len(delays) == 0 {
+		return nil
+	}
+	delayIndex := min(attempts-threshold, len(delays)-1)
+	return new(now.Add(delays[delayIndex]))
 }
 
 func (r *testProfileUserRepo) ClearLoginFailures(_ context.Context, id string, updatedAt time.Time) error {
@@ -297,28 +307,31 @@ func (r *testProfileRefreshRepo) ListByUser(_ context.Context, userID string) ([
 	return tokens, nil
 }
 
-func (r *testProfileRefreshRepo) Revoke(_ context.Context, id string, revokedAt time.Time) error {
+func (r *testProfileRefreshRepo) Revoke(_ context.Context, id string, revokedAt time.Time, reason string) error {
 	token, ok := r.byID[id]
 	if !ok {
 		return repository.ErrNotFound
 	}
 	token.RevokedAt = &revokedAt
+	token.RevokedReason = &reason
 	return nil
 }
 
-func (r *testProfileRefreshRepo) RevokeByUserSession(_ context.Context, userID, id string, revokedAt time.Time) error {
+func (r *testProfileRefreshRepo) RevokeByUserSession(_ context.Context, userID, id string, revokedAt time.Time, reason string) error {
 	token, ok := r.byID[id]
 	if !ok || token.UserID != userID || token.RevokedAt != nil {
 		return repository.ErrNotFound
 	}
 	token.RevokedAt = &revokedAt
+	token.RevokedReason = &reason
 	return nil
 }
 
-func (r *testProfileRefreshRepo) RevokeByUser(_ context.Context, userID string, revokedAt time.Time) error {
+func (r *testProfileRefreshRepo) RevokeByUser(_ context.Context, userID string, revokedAt time.Time, reason string) error {
 	for _, token := range r.byID {
 		if token.UserID == userID {
 			token.RevokedAt = &revokedAt
+			token.RevokedReason = &reason
 		}
 	}
 	return nil

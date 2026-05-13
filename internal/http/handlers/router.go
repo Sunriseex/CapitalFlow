@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"expvar"
 	"net/http"
 	"time"
 
@@ -79,7 +78,7 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 
 	r.Get("/health", h.health)
 	r.Get("/ready", h.ready)
-	r.Get("/metrics", expvar.Handler().ServeHTTP)
+	r.Get("/metrics", h.metrics)
 	r.Get("/auth/status", h.authStatus)
 	r.With(authRateLimit).Post("/auth/setup", h.authSetup)
 	r.With(authRateLimit).Post("/auth/login", h.authLogin)

@@ -44,6 +44,9 @@ func TestMetricsEndpointExposesAuthCounters(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), "capitalflow_auth_events_total") {
 		t.Fatalf("response body = %s", rec.Body.String())
 	}
+	if strings.Contains(rec.Body.String(), "cmdline") {
+		t.Fatalf("metrics response leaked expvar cmdline: %s", rec.Body.String())
+	}
 }
 
 func TestRouterLimitsAuthEndpoints(t *testing.T) {

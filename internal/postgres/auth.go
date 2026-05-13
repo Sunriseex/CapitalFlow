@@ -82,16 +82,36 @@ func (r *UserRepository) UpdatePrimaryCurrency(ctx context.Context, id, primaryC
 	return nil
 }
 
-func (r *UserRepository) RecordLoginFailure(ctx context.Context, id string, attempts int, lockedUntil *time.Time, updatedAt time.Time) error {
-	_, err := r.pool.Exec(ctx, `
+func (r *UserRepository) RecordLoginFailure(ctx context.Context, id string, threshold int, delays []time.Duration, updatedAt time.Time) (int, *time.Time, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return 0, nil, fmt.Errorf("begin record login failure: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var attempts int
+	if err := tx.QueryRow(ctx, `
+		SELECT failed_login_attempts + 1
+		FROM users
+		WHERE id = $1
+		FOR UPDATE
+	`, id).Scan(&attempts); err != nil {
+		return 0, nil, fmt.Errorf("read login failures: %w", mapNotFound(err))
+	}
+
+	lockedUntil := loginLockoutUntil(updatedAt, attempts, threshold, delays)
+	_, err = tx.Exec(ctx, `
 		UPDATE users
 		SET failed_login_attempts = $2, locked_until = $3, updated_at = $4
 		WHERE id = $1
 	`, id, attempts, lockedUntil, updatedAt)
 	if err != nil {
-		return fmt.Errorf("record login failure: %w", err)
+		return 0, nil, fmt.Errorf("record login failure: %w", err)
 	}
-	return nil
+	if err := tx.Commit(ctx); err != nil {
+		return 0, nil, fmt.Errorf("commit record login failure: %w", err)
+	}
+	return attempts, lockedUntil, nil
 }
 
 func (r *UserRepository) ClearLoginFailures(ctx context.Context, id string, updatedAt time.Time) error {
@@ -136,9 +156,9 @@ func NewRefreshTokenRepository(pool *pgxpool.Pool) *RefreshTokenRepository {
 
 func (r *RefreshTokenRepository) Create(ctx context.Context, token *models.RefreshToken) error {
 	_, err := r.pool.Exec(ctx, `
-		INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, revoked_at, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
-	`, token.ID, token.UserID, token.TokenHash, token.ExpiresAt, token.RevokedAt, token.CreatedAt)
+		INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, revoked_at, revoked_reason, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, token.ID, token.UserID, token.TokenHash, token.ExpiresAt, token.RevokedAt, token.RevokedReason, token.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("create refresh token: %w", err)
 	}
@@ -147,7 +167,7 @@ func (r *RefreshTokenRepository) Create(ctx context.Context, token *models.Refre
 
 func (r *RefreshTokenRepository) GetByID(ctx context.Context, id string) (*models.RefreshToken, error) {
 	token, err := scanRefreshToken(r.pool.QueryRow(ctx, `
-		SELECT id, user_id, token_hash, expires_at, revoked_at, created_at
+		SELECT id, user_id, token_hash, expires_at, revoked_at, revoked_reason, created_at
 		FROM refresh_tokens
 		WHERE id = $1
 	`, id))
@@ -159,7 +179,7 @@ func (r *RefreshTokenRepository) GetByID(ctx context.Context, id string) (*model
 
 func (r *RefreshTokenRepository) GetByHash(ctx context.Context, tokenHash string) (*models.RefreshToken, error) {
 	token, err := scanRefreshToken(r.pool.QueryRow(ctx, `
-		SELECT id, user_id, token_hash, expires_at, revoked_at, created_at
+		SELECT id, user_id, token_hash, expires_at, revoked_at, revoked_reason, created_at
 		FROM refresh_tokens
 		WHERE token_hash = $1
 	`, tokenHash))
@@ -171,7 +191,7 @@ func (r *RefreshTokenRepository) GetByHash(ctx context.Context, tokenHash string
 
 func (r *RefreshTokenRepository) ListByUser(ctx context.Context, userID string) ([]models.RefreshToken, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, user_id, token_hash, expires_at, revoked_at, created_at
+		SELECT id, user_id, token_hash, expires_at, revoked_at, revoked_reason, created_at
 		FROM refresh_tokens
 		WHERE user_id = $1
 		ORDER BY created_at DESC
@@ -195,12 +215,12 @@ func (r *RefreshTokenRepository) ListByUser(ctx context.Context, userID string) 
 	return tokens, nil
 }
 
-func (r *RefreshTokenRepository) Revoke(ctx context.Context, id string, revokedAt time.Time) error {
+func (r *RefreshTokenRepository) Revoke(ctx context.Context, id string, revokedAt time.Time, reason string) error {
 	tag, err := r.pool.Exec(ctx, `
 		UPDATE refresh_tokens
-		SET revoked_at = $2
+		SET revoked_at = $2, revoked_reason = $3
 		WHERE id = $1 AND revoked_at IS NULL
-	`, id, revokedAt)
+	`, id, revokedAt, reason)
 	if err != nil {
 		return fmt.Errorf("revoke refresh token: %w", err)
 	}
@@ -210,12 +230,12 @@ func (r *RefreshTokenRepository) Revoke(ctx context.Context, id string, revokedA
 	return nil
 }
 
-func (r *RefreshTokenRepository) RevokeByUserSession(ctx context.Context, userID, id string, revokedAt time.Time) error {
+func (r *RefreshTokenRepository) RevokeByUserSession(ctx context.Context, userID, id string, revokedAt time.Time, reason string) error {
 	tag, err := r.pool.Exec(ctx, `
 		UPDATE refresh_tokens
-		SET revoked_at = $3
+		SET revoked_at = $3, revoked_reason = $4
 		WHERE user_id = $1 AND id = $2 AND revoked_at IS NULL
-	`, userID, id, revokedAt)
+	`, userID, id, revokedAt, reason)
 	if err != nil {
 		return fmt.Errorf("revoke user refresh token: %w", err)
 	}
@@ -225,12 +245,12 @@ func (r *RefreshTokenRepository) RevokeByUserSession(ctx context.Context, userID
 	return nil
 }
 
-func (r *RefreshTokenRepository) RevokeByUser(ctx context.Context, userID string, revokedAt time.Time) error {
+func (r *RefreshTokenRepository) RevokeByUser(ctx context.Context, userID string, revokedAt time.Time, reason string) error {
 	_, err := r.pool.Exec(ctx, `
 		UPDATE refresh_tokens
-		SET revoked_at = $2
+		SET revoked_at = $2, revoked_reason = $3
 		WHERE user_id = $1 AND revoked_at IS NULL
-	`, userID, revokedAt)
+	`, userID, revokedAt, reason)
 	if err != nil {
 		return fmt.Errorf("revoke user refresh tokens: %w", err)
 	}
@@ -267,10 +287,18 @@ type refreshTokenScanner interface {
 
 func scanRefreshToken(row refreshTokenScanner) (*models.RefreshToken, error) {
 	var token models.RefreshToken
-	if err := row.Scan(&token.ID, &token.UserID, &token.TokenHash, &token.ExpiresAt, &token.RevokedAt, &token.CreatedAt); err != nil {
+	if err := row.Scan(&token.ID, &token.UserID, &token.TokenHash, &token.ExpiresAt, &token.RevokedAt, &token.RevokedReason, &token.CreatedAt); err != nil {
 		return nil, fmt.Errorf("scan refresh token: %w", mapNotFound(err))
 	}
 	return &token, nil
+}
+
+func loginLockoutUntil(now time.Time, attempts, threshold int, delays []time.Duration) *time.Time {
+	if attempts < threshold || len(delays) == 0 {
+		return nil
+	}
+	delayIndex := min(attempts-threshold, len(delays)-1)
+	return new(now.Add(delays[delayIndex]))
 }
 
 type AuthAuditRepository struct {

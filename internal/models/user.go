@@ -17,12 +17,13 @@ type User struct {
 }
 
 type RefreshToken struct {
-	ID        string     `json:"id"`
-	UserID    string     `json:"user_id"`
-	TokenHash string     `json:"token_hash"`
-	ExpiresAt time.Time  `json:"expires_at"`
-	RevokedAt *time.Time `json:"revoked_at,omitzero"`
-	CreatedAt time.Time  `json:"created_at"`
+	ID            string     `json:"id"`
+	UserID        string     `json:"user_id"`
+	TokenHash     string     `json:"token_hash"`
+	ExpiresAt     time.Time  `json:"expires_at"`
+	RevokedAt     *time.Time `json:"revoked_at,omitzero"`
+	RevokedReason *string    `json:"-"`
+	CreatedAt     time.Time  `json:"created_at"`
 }
 
 func (t *RefreshToken) IsActive(now time.Time) bool {

@@ -20,6 +20,14 @@ import (
 
 const loginLockoutThreshold = 5
 
+const (
+	refreshRevokedReasonLogout         = "logout"
+	refreshRevokedReasonManual         = "manual"
+	refreshRevokedReasonPasswordChange = "password_change"
+	refreshRevokedReasonReuseDetected  = "reuse_detected"
+	refreshRevokedReasonRotated        = "rotated"
+)
+
 var loginLockoutDelays = []time.Duration{
 	5 * time.Minute,
 	15 * time.Minute,
@@ -175,9 +183,8 @@ func (s *AuthService) Login(ctx context.Context, req AuthRequest) (*AuthSession,
 		return nil, fmt.Errorf("verify password: %w", err)
 	}
 	if !ok {
-		attempts := user.FailedLoginAttempts + 1
-		lockedUntil := loginLockoutUntil(now, attempts)
-		if err := s.users.RecordLoginFailure(ctx, user.ID, attempts, lockedUntil, now); err != nil {
+		_, lockedUntil, err := s.users.RecordLoginFailure(ctx, user.ID, loginLockoutThreshold, loginLockoutDelays, now)
+		if err != nil {
 			return nil, fmt.Errorf("record login failure: %w", err)
 		}
 		reason := "invalid_credentials"
@@ -230,8 +237,8 @@ func (s *AuthService) Refresh(ctx context.Context, rawRefreshToken string) (*Aut
 		return nil, fmt.Errorf("get refresh token: %w", err)
 	}
 	if !token.IsActive(now) {
-		if token.RevokedAt != nil {
-			if err := s.refresh.RevokeByUser(ctx, token.UserID, now); err != nil {
+		if token.RevokedAt != nil && token.RevokedReason != nil && *token.RevokedReason == refreshRevokedReasonRotated {
+			if err := s.refresh.RevokeByUser(ctx, token.UserID, now, refreshRevokedReasonReuseDetected); err != nil {
 				return nil, fmt.Errorf("revoke refresh token family: %w", err)
 			}
 			s.auditEvent(ctx, "refresh_reuse_detected", "", &token.UserID, false, "revoked_refresh_token_reused")
@@ -241,7 +248,7 @@ func (s *AuthService) Refresh(ctx context.Context, rawRefreshToken string) (*Aut
 		return nil, validationError("invalid refresh token")
 	}
 
-	if err := s.refresh.Revoke(ctx, token.ID, now); err != nil {
+	if err := s.refresh.Revoke(ctx, token.ID, now, refreshRevokedReasonRotated); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			s.auditEvent(ctx, "refresh_failed", "", &token.UserID, false, "refresh_token_already_rotated")
 			return nil, validationError("invalid refresh token")
@@ -285,7 +292,7 @@ func (s *AuthService) Logout(ctx context.Context, rawRefreshToken string) error 
 		}
 		return fmt.Errorf("get refresh token: %w", err)
 	}
-	if err := s.refresh.Revoke(ctx, token.ID, s.now()); err != nil {
+	if err := s.refresh.Revoke(ctx, token.ID, s.now(), refreshRevokedReasonLogout); err != nil {
 		return fmt.Errorf("revoke refresh token: %w", err)
 	}
 	s.auditEvent(ctx, "logout", "", &token.UserID, true, "")
@@ -339,13 +346,13 @@ func (s *AuthService) ChangePassword(ctx context.Context, req ChangePasswordRequ
 		return fmt.Errorf("hash password: %w", err)
 	}
 	now := s.now()
+	if err := s.refresh.RevokeByUser(ctx, user.ID, now, refreshRevokedReasonPasswordChange); err != nil {
+		s.auditEvent(ctx, "change_password_failed", user.Email, &user.ID, false, "revoke_sessions_failed")
+		return fmt.Errorf("revoke user refresh tokens: %w", err)
+	}
 	if err := s.users.UpdatePassword(ctx, user.ID, hash, now); err != nil {
 		s.auditEvent(ctx, "change_password_failed", user.Email, &user.ID, false, "save_failed")
 		return fmt.Errorf("update password: %w", err)
-	}
-	if err := s.refresh.RevokeByUser(ctx, user.ID, now); err != nil {
-		s.auditEvent(ctx, "change_password_failed", user.Email, &user.ID, false, "revoke_sessions_failed")
-		return fmt.Errorf("revoke user refresh tokens: %w", err)
 	}
 	s.auditEvent(ctx, "change_password_success", user.Email, &user.ID, true, "")
 	return nil
@@ -404,7 +411,7 @@ func (s *AuthService) RevokeSession(ctx context.Context, userID, sessionID strin
 		return validationError("session is required")
 	}
 
-	if err := s.refresh.RevokeByUserSession(ctx, userID, sessionID, s.now()); err != nil {
+	if err := s.refresh.RevokeByUserSession(ctx, userID, sessionID, s.now(), refreshRevokedReasonManual); err != nil {
 		reason := "revoke_failed"
 		if errors.Is(err, repository.ErrNotFound) {
 			reason = "session_not_found"
