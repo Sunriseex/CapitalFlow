@@ -86,11 +86,13 @@ func (h *Handler) authLogout(w http.ResponseWriter, r *http.Request) {
 	}
 	req.RefreshToken = refreshTokenFromRequest(r, req.RefreshToken)
 
+	clearRefreshCookie(w)
+
 	if err := h.authService().Logout(r.Context(), req.RefreshToken); err != nil {
 		writeValidationOrServiceError(w, err)
 		return
 	}
-	clearRefreshCookie(w)
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -135,17 +137,22 @@ func (h *Handler) listSessions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) revokeSession(w http.ResponseWriter, r *http.Request) {
-	userID, ok := appmiddleware.UserIDFromContext(r.Context())
+	claims, ok := appmiddleware.ClaimsFromContext(r.Context())
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "unauthorized", "Unauthorized", nil)
 		return
 	}
 
 	sessionID := chi.URLParam(r, "id")
-	if err := h.authService().RevokeSession(r.Context(), userID, sessionID); err != nil {
+	if err := h.authService().RevokeSession(r.Context(), claims.UserID, sessionID); err != nil {
 		writeValidationOrServiceError(w, err)
 		return
 	}
+
+	if sessionID == claims.SessionID {
+		clearRefreshCookie(w)
+	}
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
