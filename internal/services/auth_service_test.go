@@ -228,6 +228,7 @@ func TestAuthServiceLoginClearsFailuresOnSuccess(t *testing.T) {
 func TestAuthServiceRefreshRotatesToken(t *testing.T) {
 	service, users, refresh, audit := newTestAuthService(t)
 	users.byID["user-1"] = &models.User{ID: "user-1", Email: "user@example.com"}
+
 	oldRaw := "old-refresh-token"
 	oldHash := auth.HashRefreshToken(oldRaw)
 	refresh.byHash[oldHash] = &models.RefreshToken{
@@ -248,6 +249,9 @@ func TestAuthServiceRefreshRotatesToken(t *testing.T) {
 	if refresh.byHash[oldHash].RevokedAt == nil {
 		t.Fatal("expected old refresh token to be revoked")
 	}
+	if refresh.byHash[oldHash].RevokedReason == nil || *refresh.byHash[oldHash].RevokedReason != refreshRevokedReasonRotated {
+		t.Fatalf("revoked reason = %v, want %q", refresh.byHash[oldHash].RevokedReason, refreshRevokedReasonRotated)
+	}
 	if len(refresh.byHash) != 2 {
 		t.Fatalf("refresh token count = %d, want 2", len(refresh.byHash))
 	}
@@ -259,11 +263,12 @@ func TestAuthServiceRefreshRotatesToken(t *testing.T) {
 func TestAuthServiceRefreshDetectsReuseAndRevokesUserTokens(t *testing.T) {
 	service, users, refresh, audit := newTestAuthService(t)
 	users.byID["user-1"] = &models.User{ID: "user-1", Email: "user@example.com"}
+
 	revokedAt := service.now().Add(-time.Minute)
+	revokedReason := refreshRevokedReasonRotated
 
 	oldRaw := "old-refresh-token"
 	oldHash := auth.HashRefreshToken(oldRaw)
-	revokedReason := refreshRevokedReasonRotated
 	refresh.byHash[oldHash] = &models.RefreshToken{
 		ID:            "token-1",
 		UserID:        "user-1",
@@ -290,6 +295,60 @@ func TestAuthServiceRefreshDetectsReuseAndRevokesUserTokens(t *testing.T) {
 	if refresh.byHash[activeHash].RevokedAt == nil {
 		t.Fatal("expected active user refresh token to be revoked")
 	}
+	if refresh.byHash[activeHash].RevokedReason == nil || *refresh.byHash[activeHash].RevokedReason != refreshRevokedReasonReuseDetected {
+		t.Fatalf("active token revoked reason = %v, want %q", refresh.byHash[activeHash].RevokedReason, refreshRevokedReasonReuseDetected)
+	}
+	if refresh.revokeByUserCalls != 1 {
+		t.Fatalf("revoke by user calls = %d, want 1", refresh.revokeByUserCalls)
+	}
+	if refresh.lastRevokeByUserReason != refreshRevokedReasonReuseDetected {
+		t.Fatalf("last revoke by user reason = %q, want %q", refresh.lastRevokeByUserReason, refreshRevokedReasonReuseDetected)
+	}
+	if !audit.hasEvent("refresh_reuse_detected") {
+		t.Fatal("expected refresh reuse audit event")
+	}
+}
+
+func TestAuthServiceRefreshLegacyRevokedTokenRevokesUserTokens(t *testing.T) {
+	service, users, refresh, audit := newTestAuthService(t)
+	users.byID["user-1"] = &models.User{ID: "user-1", Email: "user@example.com"}
+
+	revokedAt := service.now().Add(-time.Minute)
+
+	oldRaw := "legacy-refresh-token"
+	oldHash := auth.HashRefreshToken(oldRaw)
+	refresh.byHash[oldHash] = &models.RefreshToken{
+		ID:            "token-1",
+		UserID:        "user-1",
+		TokenHash:     oldHash,
+		ExpiresAt:     service.now().Add(time.Hour),
+		RevokedAt:     &revokedAt,
+		RevokedReason: nil,
+		CreatedAt:     service.now().Add(-time.Hour),
+	}
+
+	activeHash := auth.HashRefreshToken("active-refresh-token")
+	refresh.byHash[activeHash] = &models.RefreshToken{
+		ID:        "token-2",
+		UserID:    "user-1",
+		TokenHash: activeHash,
+		ExpiresAt: service.now().Add(time.Hour),
+		CreatedAt: service.now(),
+	}
+
+	_, err := service.Refresh(t.Context(), oldRaw)
+	if !IsValidationError(err) {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+	if refresh.byHash[activeHash].RevokedAt == nil {
+		t.Fatal("expected active user refresh token to be revoked for legacy revoked token")
+	}
+	if refresh.revokeByUserCalls != 1 {
+		t.Fatalf("revoke by user calls = %d, want 1", refresh.revokeByUserCalls)
+	}
+	if refresh.lastRevokeByUserReason != refreshRevokedReasonReuseDetected {
+		t.Fatalf("reason = %q, want %q", refresh.lastRevokeByUserReason, refreshRevokedReasonReuseDetected)
+	}
 	if !audit.hasEvent("refresh_reuse_detected") {
 		t.Fatal("expected refresh reuse audit event")
 	}
@@ -298,6 +357,7 @@ func TestAuthServiceRefreshDetectsReuseAndRevokesUserTokens(t *testing.T) {
 func TestAuthServiceRefreshDoesNotTreatManualRevocationAsReuse(t *testing.T) {
 	service, users, refresh, audit := newTestAuthService(t)
 	users.byID["user-1"] = &models.User{ID: "user-1", Email: "user@example.com"}
+
 	revokedAt := service.now().Add(-time.Minute)
 	revokedReason := refreshRevokedReasonManual
 
@@ -329,14 +389,72 @@ func TestAuthServiceRefreshDoesNotTreatManualRevocationAsReuse(t *testing.T) {
 	if refresh.byHash[activeHash].RevokedAt != nil {
 		t.Fatal("manual revoked token reuse must not revoke active sessions")
 	}
+	if refresh.revokeByUserCalls != 0 {
+		t.Fatalf("revoke by user calls = %d, want 0", refresh.revokeByUserCalls)
+	}
 	if audit.hasEvent("refresh_reuse_detected") {
 		t.Fatal("manual revoked token must not emit reuse audit event")
+	}
+}
+
+func TestAuthServiceRefreshExpectedRevokedReasonsDoNotRevokeUserTokens(t *testing.T) {
+	reasons := []string{
+		refreshRevokedReasonLogout,
+		refreshRevokedReasonManual,
+		refreshRevokedReasonPasswordChange,
+		refreshRevokedReasonReuseDetected,
+	}
+
+	for _, reason := range reasons {
+		t.Run(reason, func(t *testing.T) {
+			service, users, refresh, audit := newTestAuthService(t)
+			users.byID["user-1"] = &models.User{ID: "user-1", Email: "user@example.com"}
+
+			revokedAt := service.now().Add(-time.Minute)
+			currentReason := reason
+
+			oldRaw := "old-refresh-token"
+			oldHash := auth.HashRefreshToken(oldRaw)
+			refresh.byHash[oldHash] = &models.RefreshToken{
+				ID:            "token-1",
+				UserID:        "user-1",
+				TokenHash:     oldHash,
+				ExpiresAt:     service.now().Add(time.Hour),
+				RevokedAt:     &revokedAt,
+				RevokedReason: &currentReason,
+				CreatedAt:     service.now().Add(-time.Hour),
+			}
+
+			activeHash := auth.HashRefreshToken("active-refresh-token")
+			refresh.byHash[activeHash] = &models.RefreshToken{
+				ID:        "token-2",
+				UserID:    "user-1",
+				TokenHash: activeHash,
+				ExpiresAt: service.now().Add(time.Hour),
+				CreatedAt: service.now(),
+			}
+
+			_, err := service.Refresh(t.Context(), oldRaw)
+			if !IsValidationError(err) {
+				t.Fatalf("expected validation error, got %v", err)
+			}
+			if refresh.byHash[activeHash].RevokedAt != nil {
+				t.Fatalf("%s revoked token must not revoke active sessions", reason)
+			}
+			if refresh.revokeByUserCalls != 0 {
+				t.Fatalf("revoke by user calls = %d, want 0", refresh.revokeByUserCalls)
+			}
+			if audit.hasEvent("refresh_reuse_detected") {
+				t.Fatalf("%s revoked token must not emit reuse audit event", reason)
+			}
+		})
 	}
 }
 
 func TestAuthServiceRefreshHandlesConcurrentRevokeRace(t *testing.T) {
 	service, users, refresh, audit := newTestAuthService(t)
 	users.byID["user-1"] = &models.User{ID: "user-1", Email: "user@example.com"}
+
 	oldRaw := "old-refresh-token"
 	oldHash := auth.HashRefreshToken(oldRaw)
 	refresh.byHash[oldHash] = &models.RefreshToken{
@@ -359,6 +477,7 @@ func TestAuthServiceRefreshHandlesConcurrentRevokeRace(t *testing.T) {
 
 func TestAuthServiceLogoutRevokesRefreshToken(t *testing.T) {
 	service, _, refresh, audit := newTestAuthService(t)
+
 	raw := "refresh-token"
 	hash := auth.HashRefreshToken(raw)
 	refresh.byHash[hash] = &models.RefreshToken{
@@ -374,6 +493,9 @@ func TestAuthServiceLogoutRevokesRefreshToken(t *testing.T) {
 	}
 	if refresh.byHash[hash].RevokedAt == nil {
 		t.Fatal("expected refresh token to be revoked")
+	}
+	if refresh.byHash[hash].RevokedReason == nil || *refresh.byHash[hash].RevokedReason != refreshRevokedReasonLogout {
+		t.Fatalf("revoked reason = %v, want %q", refresh.byHash[hash].RevokedReason, refreshRevokedReasonLogout)
 	}
 	if !audit.hasEvent("logout") {
 		t.Fatal("expected logout audit event")
@@ -417,6 +539,9 @@ func TestAuthServiceChangePasswordRevokesUserSessions(t *testing.T) {
 		if token.RevokedAt == nil {
 			t.Fatalf("token %s was not revoked", hash)
 		}
+		if token.RevokedReason == nil || *token.RevokedReason != refreshRevokedReasonPasswordChange {
+			t.Fatalf("token %s revoked reason = %v, want %q", hash, token.RevokedReason, refreshRevokedReasonPasswordChange)
+		}
 	}
 	if !audit.hasEvent("change_password_success") {
 		t.Fatal("expected password change audit event")
@@ -452,8 +577,10 @@ func TestAuthServiceChangePasswordRejectsWrongCurrentPassword(t *testing.T) {
 
 func TestAuthServiceListSessionsMarksCurrentAndActive(t *testing.T) {
 	service, _, refresh, audit := newTestAuthService(t)
+
 	expiredAt := service.now().Add(-time.Hour)
 	revokedAt := service.now().Add(-time.Minute)
+
 	refresh.byHash["active"] = &models.RefreshToken{
 		ID:        "session-1",
 		UserID:    "user-1",
@@ -531,6 +658,9 @@ func TestAuthServiceRevokeSessionScopesByUser(t *testing.T) {
 	if refresh.byHash["active"].RevokedAt == nil {
 		t.Fatal("expected session to be revoked")
 	}
+	if refresh.byHash["active"].RevokedReason == nil || *refresh.byHash["active"].RevokedReason != refreshRevokedReasonManual {
+		t.Fatalf("revoked reason = %v, want %q", refresh.byHash["active"].RevokedReason, refreshRevokedReasonManual)
+	}
 	if !audit.hasEvent("session_revoked") {
 		t.Fatal("expected session revoked audit event")
 	}
@@ -560,6 +690,7 @@ func newTestAuthService(t *testing.T) (*AuthService, *fakeUserRepo, *fakeRefresh
 	users := &fakeUserRepo{byID: map[string]*models.User{}}
 	refresh := &fakeRefreshRepo{byHash: map[string]*models.RefreshToken{}}
 	audit := &fakeAuditRepo{}
+
 	service := NewAuthService(users, refresh, tokens, audit)
 	service.now = func() time.Time {
 		return time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC)
@@ -608,16 +739,19 @@ func (r *fakeUserRepo) GetByID(_ context.Context, id string) (*models.User, erro
 	return user, nil
 }
 
-func (r *fakeUserRepo) RecordLoginFailure(_ context.Context, id string, threshold int, delays []time.Duration, updatedAt time.Time) (int, *time.Time, error) {
+func (r *fakeUserRepo) RecordLoginFailure(_ context.Context, id string, _ int, _ []time.Duration, updatedAt time.Time) (int, *time.Time, error) {
 	user, ok := r.byID[id]
 	if !ok {
 		return 0, nil, repository.ErrNotFound
 	}
+
 	attempts := user.FailedLoginAttempts + 1
 	lockedUntil := loginLockoutUntil(updatedAt, attempts)
+
 	user.FailedLoginAttempts = attempts
 	user.LockedUntil = lockedUntil
 	user.UpdatedAt = updatedAt
+
 	return attempts, lockedUntil, nil
 }
 
@@ -655,8 +789,12 @@ func (r *fakeUserRepo) UpdatePrimaryCurrency(_ context.Context, id, primaryCurre
 }
 
 type fakeRefreshRepo struct {
-	byHash    map[string]*models.RefreshToken
-	revokeErr error
+	byHash                   map[string]*models.RefreshToken
+	revokeErr                error
+	revokeByUserCalls        int
+	lastRevokeByUserReason   string
+	revokeByUserSessionCalls int
+	lastRevokeSessionReason  string
 }
 
 func (r *fakeRefreshRepo) Create(_ context.Context, token *models.RefreshToken) error {
@@ -701,17 +839,22 @@ func (r *fakeRefreshRepo) Revoke(_ context.Context, id string, revokedAt time.Ti
 	if r.revokeErr != nil {
 		return r.revokeErr
 	}
+
 	for _, token := range r.byHash {
-		if token.ID == id {
+		if token.ID == id && token.RevokedAt == nil {
 			token.RevokedAt = &revokedAt
 			token.RevokedReason = &reason
 			return nil
 		}
 	}
+
 	return repository.ErrNotFound
 }
 
 func (r *fakeRefreshRepo) RevokeByUserSession(_ context.Context, userID, id string, revokedAt time.Time, reason string) error {
+	r.revokeByUserSessionCalls++
+	r.lastRevokeSessionReason = reason
+
 	for _, token := range r.byHash {
 		if token.UserID == userID && token.ID == id && token.RevokedAt == nil {
 			token.RevokedAt = &revokedAt
@@ -719,19 +862,25 @@ func (r *fakeRefreshRepo) RevokeByUserSession(_ context.Context, userID, id stri
 			return nil
 		}
 	}
+
 	return repository.ErrNotFound
 }
 
 func (r *fakeRefreshRepo) RevokeByUser(_ context.Context, userID string, revokedAt time.Time, reason string) error {
+	r.revokeByUserCalls++
+	r.lastRevokeByUserReason = reason
+
 	if r.revokeErr != nil {
 		return r.revokeErr
 	}
+
 	for _, token := range r.byHash {
 		if token.UserID == userID && token.RevokedAt == nil {
 			token.RevokedAt = &revokedAt
 			token.RevokedReason = &reason
 		}
 	}
+
 	return nil
 }
 
@@ -769,13 +918,16 @@ func authMetricValue(t *testing.T, key string) int64 {
 	if !ok {
 		t.Fatal("missing auth metrics map")
 	}
+
 	value := metrics.Get(key)
 	if value == nil {
 		return 0
 	}
+
 	count, err := strconv.ParseInt(value.String(), 10, 64)
 	if err != nil {
 		t.Fatalf("parse metric value %q: %v", value.String(), err)
 	}
+
 	return count
 }

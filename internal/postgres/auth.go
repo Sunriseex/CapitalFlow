@@ -87,7 +87,10 @@ func (r *UserRepository) RecordLoginFailure(ctx context.Context, id string, thre
 	if err != nil {
 		return 0, nil, fmt.Errorf("begin record login failure: %w", err)
 	}
-	defer tx.Rollback(ctx)
+
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
 
 	var attempts int
 	if err := tx.QueryRow(ctx, `

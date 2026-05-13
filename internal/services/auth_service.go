@@ -237,13 +237,15 @@ func (s *AuthService) Refresh(ctx context.Context, rawRefreshToken string) (*Aut
 		return nil, fmt.Errorf("get refresh token: %w", err)
 	}
 	if !token.IsActive(now) {
-		if token.RevokedAt != nil && token.RevokedReason != nil && *token.RevokedReason == refreshRevokedReasonRotated {
+		if isRefreshTokenReuseCandidate(token) {
 			if err := s.refresh.RevokeByUser(ctx, token.UserID, now, refreshRevokedReasonReuseDetected); err != nil {
 				return nil, fmt.Errorf("revoke refresh token family: %w", err)
 			}
+
 			s.auditEvent(ctx, "refresh_reuse_detected", "", &token.UserID, false, "revoked_refresh_token_reused")
 			return nil, validationError("invalid refresh token")
 		}
+
 		s.auditEvent(ctx, "refresh_failed", "", &token.UserID, false, "inactive_refresh_token")
 		return nil, validationError("invalid refresh token")
 	}
@@ -558,4 +560,16 @@ func (s *AuthService) auditEvent(ctx context.Context, eventType, email string, u
 	if err := s.audit.Create(ctx, event); err != nil {
 		slog.Warn("auth audit event was not persisted", "event_type", eventType, "error", err)
 	}
+}
+
+func isRefreshTokenReuseCandidate(token *models.RefreshToken) bool {
+	if token == nil || token.RevokedAt == nil {
+		return false
+	}
+
+	if token.RevokedReason == nil {
+		return true
+	}
+
+	return *token.RevokedReason == refreshRevokedReasonRotated
 }
