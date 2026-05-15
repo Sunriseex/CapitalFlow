@@ -171,6 +171,10 @@ func (r failingTransactionRepo) ListByAccountForUser(_ context.Context, _, _ str
 	return nil, r.err
 }
 
+func (r failingTransactionRepo) GetBalanceByAccountForUser(context.Context, string, string) (balanceMinor, transactionCount int64, err error) {
+	return 0, 0, r.err
+}
+
 func (r failingTransactionRepo) Delete(_ context.Context, _ string) error {
 	return r.err
 }

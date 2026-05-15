@@ -141,6 +141,28 @@ func (r *TransactionRepository) ListByAccountForUser(ctx context.Context, accoun
 	`, accountID, userID)
 }
 
+func (r *TransactionRepository) GetBalanceByAccountForUser(ctx context.Context, accountID, userID string) (balanceMinor, transactionCount int64, err error) {
+	var balance int64
+	var count int64
+	if err := r.pool.QueryRow(ctx, `
+		SELECT
+			COALESCE(SUM(CASE
+				WHEN t.type IN ('initial_balance', 'income', 'transfer_in', 'interest_income', 'adjustment') THEN t.amount_minor
+				WHEN t.type IN ('expense', 'transfer_out') THEN -t.amount_minor
+				ELSE 0
+			END), 0),
+			COUNT(t.id)
+		FROM transactions t
+		WHERE t.account_id = $1
+			AND EXISTS (
+				SELECT 1 FROM accounts a WHERE a.id = t.account_id AND a.owner_user_id = $2
+			)
+	`, accountID, userID).Scan(&balance, &count); err != nil {
+		return 0, 0, fmt.Errorf("get account balance: %w", err)
+	}
+	return balance, count, nil
+}
+
 func (r *TransactionRepository) Delete(ctx context.Context, id string) error {
 	tag, err := r.pool.Exec(ctx, `DELETE FROM transactions WHERE id = $1`, id)
 	if err != nil {

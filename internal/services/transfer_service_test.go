@@ -149,6 +149,10 @@ func (r *batchTransactionRepo) ListByAccountForUser(context.Context, string, str
 	return nil, nil
 }
 
+func (r *batchTransactionRepo) GetBalanceByAccountForUser(context.Context, string, string) (balanceMinor, transactionCount int64, err error) {
+	return 0, 0, nil
+}
+
 func (r *batchTransactionRepo) Delete(context.Context, string) error {
 	return nil
 }
