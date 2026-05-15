@@ -107,6 +107,7 @@ func TestRevokeCurrentSessionClearsRefreshCookie(t *testing.T) {
 		t.Fatalf("clear cookie Expires = %s, want past", clearCookie.Expires)
 	}
 }
+
 func TestAuthSetupSetsSecureRefreshCookie(t *testing.T) {
 	router := newTestAuthRouter(t)
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/setup", strings.NewReader(`{

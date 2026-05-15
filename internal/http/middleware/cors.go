@@ -34,10 +34,10 @@ func CORS(cfg *CORSConfig) func(http.Handler) http.Handler {
 				w.Header().Set("Access-Control-Allow-Headers", allowedHeaders)
 				w.Header().Set("Access-Control-Allow-Methods", allowedMethods)
 				w.Header().Set("Access-Control-Max-Age", strconv.Itoa(maxAgeSeconds))
-			}
 
-			if cfg.AllowCredentials {
-				w.Header().Set("Access-Control-Allow-Credentials", "true")
+				if cfg.AllowCredentials {
+					w.Header().Set("Access-Control-Allow-Credentials", "true")
+				}
 			}
 
 			if r.Method == http.MethodOptions {

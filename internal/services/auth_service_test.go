@@ -910,7 +910,7 @@ func (r *fakeAuditRepo) hasEventReason(eventType, reason string) bool {
 	}
 	return false
 }
-
+	
 func authMetricValue(t *testing.T, key string) int64 {
 	t.Helper()
 
