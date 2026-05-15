@@ -88,11 +88,7 @@ export class ApiClientError extends Error {
   status: number;
   code?: string;
 
-  constructor(
-    message: string,
-    status: number,
-    code?: string,
-  ) {
+  constructor(message: string, status: number, code?: string) {
     super(message);
     this.status = status;
     this.code = code;
@@ -106,12 +102,15 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
 async function apiFetchWithAuth<T>(path: string, init: RequestInit = {}, allowRefresh: boolean): Promise<T> {
   const headers = new Headers(init.headers);
   const token = getStoredToken();
+
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
   }
+
   if (init.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
+
   if (isMutation(init.method) && !headers.has("Idempotency-Key")) {
     headers.set("Idempotency-Key", newIdempotencyKey());
   }
@@ -122,15 +121,18 @@ async function apiFetchWithAuth<T>(path: string, init: RequestInit = {}, allowRe
   } catch (err) {
     throw new ApiClientError(err instanceof Error ? err.message : "API request failed", 0, "network_error");
   }
+
   if (response.status === 204) {
     return undefined as T;
   }
 
   const payload = await response.json().catch(() => null);
-  if (response.status === 401 && allowRefresh && getStoredRefreshToken()) {
+
+  if (response.status === 401 && allowRefresh) {
     await refreshSession();
     return apiFetchWithAuth<T>(path, init, false);
   }
+
   if (!response.ok) {
     const err = payload?.error;
     throw new ApiClientError(err?.message ?? response.statusText, response.status, err?.code);
@@ -149,31 +151,40 @@ function newIdempotencyKey() {
 }
 
 async function authFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
-	const headers = new Headers(init.headers);
-	if (init.body && !headers.has("Content-Type")) {
-		headers.set("Content-Type", "application/json");
+  const headers = new Headers(init.headers);
+
+  if (init.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
   }
 
   let response: Response;
   try {
-    response = await fetch(`${getAuthBase()}${path}`, { ...init, headers });
+    response = await fetch(`${getAuthBase()}${path}`, {
+      ...init,
+      headers,
+      credentials: "include",
+    });
   } catch (err) {
     throw new ApiClientError(err instanceof Error ? err.message : "API request failed", 0, "network_error");
   }
-	if (response.status === 204) {
-		return undefined as T;
-	}
 
-	const contentType = response.headers.get("Content-Type") ?? "";
-	const payload = contentType.includes("application/json") ? await response.json().catch(() => null) : null;
-	if (!response.ok) {
-		const err = payload?.error;
-		throw new ApiClientError(err?.message ?? response.statusText, response.status, err?.code);
-	}
-	if (payload == null) {
-		throw new ApiClientError("Invalid API response", response.status, "invalid_response");
-	}
-	return payload as T;
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  const contentType = response.headers.get("Content-Type") ?? "";
+  const payload = contentType.includes("application/json") ? await response.json().catch(() => null) : null;
+
+  if (!response.ok) {
+    const err = payload?.error;
+    throw new ApiClientError(err?.message ?? response.statusText, response.status, err?.code);
+  }
+
+  if (payload == null) {
+    throw new ApiClientError("Invalid API response", response.status, "invalid_response");
+  }
+
+  return payload as T;
 }
 
 let refreshSessionPromise: Promise<AuthResponse> | null = null;
@@ -198,13 +209,10 @@ async function refreshSession() {
   }
 
   const refreshToken = getStoredRefreshToken();
-  if (!refreshToken) {
-    throw new ApiClientError("Login required", 401, "unauthorized");
-  }
 
   refreshSessionPromise = authFetch<AuthResponse>("/auth/refresh", {
     method: "POST",
-    body: JSON.stringify({ refresh_token: refreshToken }),
+    body: refreshToken ? JSON.stringify({ refresh_token: refreshToken }) : undefined,
   })
     .then(storeSession)
     .catch((err) => {
@@ -225,37 +233,58 @@ async function refreshSession() {
 
 export const api = {
   authStatus: () => authFetch<{ setup_required: boolean }>("/auth/status"),
+
   setup: async (input: { email: string; password: string; primary_currency: string }) =>
     storeSession(await authFetch<AuthResponse>("/auth/setup", { method: "POST", body: JSON.stringify(input) })),
+
   login: async (input: { email: string; password: string }) =>
     storeSession(await authFetch<AuthResponse>("/auth/login", { method: "POST", body: JSON.stringify(input) })),
+
   logout: async () => {
     const refreshToken = getStoredRefreshToken();
-    await authFetch<void>("/auth/logout", { method: "POST", body: JSON.stringify({ refresh_token: refreshToken }) }).catch(() => undefined);
+    await authFetch<void>("/auth/logout", {
+      method: "POST",
+      body: refreshToken ? JSON.stringify({ refresh_token: refreshToken }) : undefined,
+    }).catch(() => undefined);
     clearStoredSession();
   },
+
   profile: () => apiFetch<Profile>("/settings/profile"),
+
   updateProfile: (input: { primary_currency: string }) =>
     apiFetch<Profile>("/settings/profile", { method: "PATCH", body: JSON.stringify(input) }),
+
   dashboardSummary: () => apiFetch<DashboardSummary>("/dashboard/summary"),
+
   dashboardCashflow: () => apiFetch<DashboardCashflow>("/dashboard/cashflow?months=6"),
+
   dashboardInterestIncome: () => apiFetch<DashboardInterestIncome>("/dashboard/interest-income?months=6"),
+
   currencyRates: (base = "RUB") => apiFetch<CurrencyRateTable>(`/currency-rates?base=${encodeURIComponent(base)}`),
+
   accounts: () => apiFetch<Account[]>("/accounts"),
+
   account: (id: string) => apiFetch<Account>(`/accounts/${id}`),
+
   accountBalance: (id: string) => apiFetch<AccountBalance>(`/accounts/${id}/balance`),
+
   transactions: (accountId?: string) =>
     apiFetch<Transaction[]>(accountId ? `/transactions?account_id=${accountId}` : "/transactions"),
+
   categories: () => apiFetch<Category[]>("/categories"),
+
   interestRules: (accountId: string) => apiFetch<InterestRule[]>(`/accounts/${accountId}/interest-rules`),
+
   createAccount: (input: { name: string; bank: string; type: AccountType; currency: string; opened_at: string }) =>
     apiFetch<Account>("/accounts", { method: "POST", body: JSON.stringify(input) }),
+
   updateAccount: (
     id: string,
     input: { name: string; bank: string; type: AccountType; currency: string; opened_at: string; is_active: boolean },
   ) => apiFetch<Account>(`/accounts/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
-  archiveAccount: (id: string) =>
-    apiFetch<void>(`/accounts/${id}/archive`, { method: "POST" }),
+
+  archiveAccount: (id: string) => apiFetch<void>(`/accounts/${id}/archive`, { method: "POST" }),
+
   createTransaction: (input: {
     account_id: string;
     type: TransactionType;
@@ -264,10 +293,15 @@ export const api = {
     description: string;
     occurred_at: string;
   }) => apiFetch<Transaction>("/transactions", { method: "POST", body: JSON.stringify(input) }),
-  deleteTransaction: (id: string) =>
-    apiFetch<void>(`/transactions/${id}`, { method: "DELETE" }),
+
+  deleteTransaction: (id: string) => apiFetch<void>(`/transactions/${id}`, { method: "DELETE" }),
+
   createTransfer: (input: { from_account_id: string; to_account_id: string; amount_minor: number; description: string }) =>
-    apiFetch<{ out: Transaction; in: Transaction; exchange_rate: string }>("/transfers", { method: "POST", body: JSON.stringify(input) }),
+    apiFetch<{ out: Transaction; in: Transaction; exchange_rate: string }>("/transfers", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
   createInterestRule: (
     accountId: string,
     input: {
@@ -281,6 +315,7 @@ export const api = {
       end_date?: string | null;
     },
   ) => apiFetch<InterestRule>(`/accounts/${accountId}/interest-rules`, { method: "POST", body: JSON.stringify(input) }),
+
   accrueInterest: (accountId: string, date: string) =>
     apiFetch<unknown>(`/accounts/${accountId}/accrue-interest`, {
       method: "POST",

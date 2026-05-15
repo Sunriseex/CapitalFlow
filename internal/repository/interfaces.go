@@ -66,6 +66,9 @@ type UserRepository interface {
 	Count(ctx context.Context) (int64, error)
 	GetByEmail(ctx context.Context, email string) (*models.User, error)
 	GetByID(ctx context.Context, id string) (*models.User, error)
+	RecordLoginFailure(ctx context.Context, id string, threshold int, delays []time.Duration, updatedAt time.Time) (int, *time.Time, error)
+	ClearLoginFailures(ctx context.Context, id string, updatedAt time.Time) error
+	UpdatePassword(ctx context.Context, id, passwordHash string, updatedAt time.Time) error
 	UpdatePrimaryCurrency(ctx context.Context, id, primaryCurrency string, updatedAt time.Time) error
 }
 
@@ -73,8 +76,10 @@ type RefreshTokenRepository interface {
 	Create(ctx context.Context, token *models.RefreshToken) error
 	GetByID(ctx context.Context, id string) (*models.RefreshToken, error)
 	GetByHash(ctx context.Context, tokenHash string) (*models.RefreshToken, error)
-	Revoke(ctx context.Context, id string, revokedAt time.Time) error
-	RevokeByUser(ctx context.Context, userID string, revokedAt time.Time) error
+	ListByUser(ctx context.Context, userID string) ([]models.RefreshToken, error)
+	Revoke(ctx context.Context, id string, revokedAt time.Time, reason string) error
+	RevokeByUserSession(ctx context.Context, userID, id string, revokedAt time.Time, reason string) error
+	RevokeByUser(ctx context.Context, userID string, revokedAt time.Time, reason string) error
 }
 
 type AuthAuditRepository interface {

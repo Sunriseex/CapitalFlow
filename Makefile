@@ -1,16 +1,22 @@
 SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
 
-.PHONY: help test race lint check check-race db-up db-down db-migrate db-rollback
+.PHONY: help test race lint check check-race check-all web-lint web-test web-build web-check db-up db-down db-migrate db-rollback
 
 help:
 	@echo "Targets:"
-	@echo "  test   - run Go tests"
-	@echo "  lint   - run golangci-lint"
-	@echo "  check  - run tests and lint"
-	@echo "  db-up  - start local PostgreSQL"
-	@echo "  db-down - stop local PostgreSQL"
-	@echo "  db-migrate - run PostgreSQL migrations"
+	@echo "  test        - run Go tests"
+	@echo "  lint        - run golangci-lint"
+	@echo "  check       - run Go tests and Go lint"
+	@echo "  check-all   - run Go checks and WebUI checks"
+	@echo "  check-race  - run Go tests, lint, and race tests"
+	@echo "  web-lint    - run WebUI lint"
+	@echo "  web-test    - run WebUI tests"
+	@echo "  web-build   - build WebUI"
+	@echo "  web-check   - run WebUI lint, tests, and build"
+	@echo "  db-up       - start local PostgreSQL"
+	@echo "  db-down     - stop local PostgreSQL"
+	@echo "  db-migrate  - run PostgreSQL migrations"
 	@echo "  db-rollback - rollback one PostgreSQL migration"
 
 test:
@@ -19,12 +25,25 @@ test:
 lint:
 	@golangci-lint run ./...
 
-race: 
+race:
 	@go test ./... -race
 
 check-race: test lint race
 
 check: test lint
+
+check-all: check web-check
+
+web-lint:
+	@cd web && npm run lint
+
+web-test:
+	@cd web && npm test
+
+web-build:
+	@cd web && npm run build
+
+web-check: web-lint web-test web-build
 
 db-up:
 	@docker compose up -d postgres

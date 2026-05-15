@@ -144,6 +144,46 @@ func (r *fakeCLIUserRepo) GetByID(_ context.Context, id string) (*models.User, e
 	return user, nil
 }
 
+func (r *fakeCLIUserRepo) RecordLoginFailure(_ context.Context, id string, threshold int, delays []time.Duration, updatedAt time.Time) (int, *time.Time, error) {
+	user, ok := r.byID[id]
+	if !ok {
+		return 0, nil, repository.ErrNotFound
+	}
+	attempts := user.FailedLoginAttempts + 1
+	var lockedUntil *time.Time
+	if attempts >= threshold && len(delays) > 0 {
+		delayIndex := min(attempts-threshold, len(delays)-1)
+		lockedUntil = new(updatedAt.Add(delays[delayIndex]))
+	}
+	user.FailedLoginAttempts = attempts
+	user.LockedUntil = lockedUntil
+	user.UpdatedAt = updatedAt
+	return attempts, lockedUntil, nil
+}
+
+func (r *fakeCLIUserRepo) ClearLoginFailures(_ context.Context, id string, updatedAt time.Time) error {
+	user, ok := r.byID[id]
+	if !ok {
+		return repository.ErrNotFound
+	}
+	user.FailedLoginAttempts = 0
+	user.LockedUntil = nil
+	user.UpdatedAt = updatedAt
+	return nil
+}
+
+func (r *fakeCLIUserRepo) UpdatePassword(_ context.Context, id, passwordHash string, updatedAt time.Time) error {
+	user, ok := r.byID[id]
+	if !ok {
+		return repository.ErrNotFound
+	}
+	user.PasswordHash = passwordHash
+	user.FailedLoginAttempts = 0
+	user.LockedUntil = nil
+	user.UpdatedAt = updatedAt
+	return nil
+}
+
 func (r *fakeCLIUserRepo) UpdatePrimaryCurrency(_ context.Context, id, primaryCurrency string, updatedAt time.Time) error {
 	user, ok := r.byID[id]
 	if !ok {

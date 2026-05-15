@@ -82,6 +82,14 @@ func ClaimsFromContext(ctx context.Context) (*auth.Claims, bool) {
 	return claims, ok
 }
 
+func UserIDFromContext(ctx context.Context) (string, bool) {
+	claims, ok := ClaimsFromContext(ctx)
+	if !ok || claims.UserID == "" {
+		return "", false
+	}
+	return claims.UserID, true
+}
+
 func bearerToken(r *http.Request) (string, bool) {
 	authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
 	const prefix = "Bearer "

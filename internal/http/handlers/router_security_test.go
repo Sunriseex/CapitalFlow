@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sunriseex/capitalflow/internal/auth"
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/repository"
 )
@@ -28,6 +29,53 @@ func TestRouterUsesAPIV1Only(t *testing.T) {
 	router.ServeHTTP(newRec, newReq)
 	if newRec.Code != http.StatusUnauthorized {
 		t.Fatalf("new api status = %d, want %d", newRec.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestMetricsEndpointExposesAuthCounters(t *testing.T) {
+	router := NewRouter(newTestProfileStore(), &RouterConfig{})
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/metrics", http.NoBody)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if !strings.Contains(rec.Body.String(), "capitalflow_auth_events_total") {
+		t.Fatalf("response body = %s", rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "cmdline") {
+		t.Fatalf("metrics response leaked expvar cmdline: %s", rec.Body.String())
+	}
+}
+
+func TestRouterCORSAllowsCredentialsForConfiguredOrigin(t *testing.T) {
+	tokens, err := auth.NewTokenService(testJWTSecret, "capitalflow", time.Minute, time.Hour)
+	if err != nil {
+		t.Fatalf("new token service: %v", err)
+	}
+
+	router := NewRouter(newTestProfileStore(), &RouterConfig{
+		TokenService:       tokens,
+		CORSAllowedOrigins: []string{"http://localhost:5173"},
+	})
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodOptions, "/auth/login", http.NoBody)
+	req.Header.Set("Origin", "http://localhost:5173")
+	req.Header.Set("Access-Control-Request-Method", http.MethodPost)
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNoContent)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Credentials"); got != "true" {
+		t.Fatalf("Access-Control-Allow-Credentials = %q, want true", got)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:5173" {
+		t.Fatalf("Access-Control-Allow-Origin = %q, want http://localhost:5173", got)
 	}
 }
 

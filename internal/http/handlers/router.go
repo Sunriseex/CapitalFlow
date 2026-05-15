@@ -63,7 +63,8 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 			http.MethodDelete,
 			http.MethodOptions,
 		},
-		AllowedHeaders: []string{"Authorization", "Content-Type", appmiddleware.IdempotencyKeyHeader},
+		AllowedHeaders:   []string{"Authorization", "Content-Type", appmiddleware.IdempotencyKeyHeader},
+		AllowCredentials: true,
 	}))
 
 	authRateLimit := appmiddleware.RateLimitByIP(
@@ -78,6 +79,7 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 
 	r.Get("/health", h.health)
 	r.Get("/ready", h.ready)
+	r.Get("/metrics", h.metrics)
 	r.Get("/auth/status", h.authStatus)
 	r.With(authRateLimit).Post("/auth/setup", h.authSetup)
 	r.With(authRateLimit).Post("/auth/login", h.authLogin)
@@ -92,6 +94,8 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 		}
 
 		r.With(appmiddleware.MutationOnly(mutationRateLimit), appmiddleware.Idempotency(h.idempotency())).Group(func(r chi.Router) {
+			r.Post("/auth/password", h.changePassword)
+			r.Delete("/auth/sessions/{id}", h.revokeSession)
 			r.Patch("/settings/profile", h.updateProfile)
 			r.Post("/accounts", h.createAccount)
 			r.Patch("/accounts/{id}", h.updateAccount)
@@ -106,6 +110,7 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 		})
 
 		r.Get("/categories", h.listCategories)
+		r.Get("/auth/sessions", h.listSessions)
 		r.Get("/currency-rates", h.getCurrencyRates)
 		r.Get("/settings/profile", h.getProfile)
 

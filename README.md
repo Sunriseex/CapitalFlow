@@ -38,6 +38,9 @@ The project is intended as a practical backend learning project with production-
 │   └── server/              # HTTP API entrypoint
 ├── configs/
 │   └── example.env          # Example local configuration
+├── docs/
+│   ├── openapi.yaml         # OpenAPI contract
+│   └── wiki/                # Canonical GitHub Wiki source
 ├── internal/
 │   ├── config/              # Application configuration
 │   ├── http/
@@ -52,6 +55,18 @@ The project is intended as a practical backend learning project with production-
 ├── migrations/              # PostgreSQL migrations
 └── .github/workflows/       # CI configuration
 ```
+
+## Documentation
+
+The documentation portal source lives in [docs/wiki/Home.md](docs/wiki/Home.md). Mirror these pages to the GitHub Wiki when publishing user-facing docs.
+
+Key docs:
+
+* [API contract](docs/openapi.yaml)
+* [Auth Security Model](docs/wiki/Auth-Security-Model.md)
+* [Operations Runbook](docs/wiki/Operations-Runbook.md)
+* [Auth Incident Response](docs/wiki/Auth-Incident-Response.md)
+* [Auth Security ADR](docs/wiki/ADR-0001-Auth-Security-Hardening.md)
 
 ## Requirements
 
@@ -353,7 +368,7 @@ Authorization: Bearer <API_AUTH_TOKEN>
 
 Do not commit real secrets. Keep local secrets in `configs/.env` and commit only `configs/example.env`.
 
-Current WebUI sessions do not use cookies for refresh authentication. The refresh token is stored client-side and sent only as an explicit JSON body value to `/auth/refresh` and `/auth/logout`; API mutations use the Bearer access token in the `Authorization` header. Because no ambient refresh cookie is sent by the browser, the current refresh flow does not need cookie CSRF protection. If refresh tokens move to httpOnly cookies later, add `SameSite`, `Secure`, and CSRF token checks before enabling that mode.
+Auth responses issue the refresh token in the JSON body for existing WebUI compatibility and also set a `__Secure-capitalflow_refresh` cookie. The cookie is scoped to `/auth` and uses `Secure`, `HttpOnly`, and `SameSite=Strict`. `/auth/refresh` and `/auth/logout` accept the JSON body token first, then fall back to the refresh cookie.
 
 Public routes:
 

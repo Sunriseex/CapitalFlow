@@ -611,36 +611,36 @@ internal/domain
 ## Security Hardening
 
 * [x] Reuse Detection для refresh token
-* [ ] Политика сложности пароля (`zxcvbn`)
-* [ ] Account lockout с нарастающей задержкой
-* [ ] Смена пароля + выход со всех устройств
-* [ ] Управление сессиями (список, отзыв)
-* [ ] Подготовка email-поля и верификации (схема)
-* [ ] Audit log таблица и запись всех событий
-* [ ] Secure cookie:
-  * [ ] `Secure`
-  * [ ] `HttpOnly`
-  * [ ] `SameSite`
-  * [ ] `Path`
-* [ ] Middleware JWT -> `userID` в context
-* [ ] Unit + handler + security tests (включая reuse)
+* [x] Политика сложности пароля (`zxcvbn`)
+* [x] Account lockout с нарастающей задержкой
+* [x] Смена пароля + выход со всех устройств
+* [x] Управление сессиями (список, отзыв)
+* [x] Подготовка email-поля и верификации (схема)
+* [x] Audit log таблица и запись всех событий
+* [x] Secure cookie:
+  * [x] `Secure`
+  * [x] `HttpOnly`
+  * [x] `SameSite`
+  * [x] `Path`
+* [x] Middleware JWT -> `userID` в context
+* [x] Unit + handler + security tests (включая reuse)
 * [ ] Observability:
-  * [ ] метрики для auth
-  * [ ] алерты для auth incidents
-* [ ] Документация:
-  * [ ] Security Model
-  * [ ] Runbook
-  * [ ] ADR
+  * [x] метрики для auth
+  * [x] алерты для auth incidents
+* [x] Документация:
+  * [x] Security Model
+  * [x] Runbook
+  * [x] ADR
 
 ## Acceptance Criteria
 
 * [x] Reused refresh token немедленно инвалидирует session family
-* [ ] Password policy блокирует слабые и компрометированные пароли
-* [ ] Suspicious login attempts приводят к progressive lockout
-* [ ] Пользователь может завершить все активные сессии
-* [ ] Все auth-события попадают в audit log
-* [ ] Auth security покрыт тестами и метриками
-* [ ] Есть документация для эксплуатации и incident response
+* [x] Password policy блокирует слабые и компрометированные пароли
+* [x] Suspicious login attempts приводят к progressive lockout
+* [x] Пользователь может завершить все активные сессии
+* [x] Все auth-события попадают в audit log
+* [x] Auth security покрыт тестами и метриками
+* [x] Есть документация для эксплуатации и incident response
 
 ---
 
