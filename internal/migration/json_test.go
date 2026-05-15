@@ -3,12 +3,14 @@ package migration
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/repository"
+	"github.com/sunriseex/capitalflow/internal/services"
 )
 
 func newTestJSONMigrator() (
@@ -680,6 +682,21 @@ func (r *fakeTransactionRepo) ListByAccount(_ context.Context, accountID string)
 
 func (r *fakeTransactionRepo) ListByAccountForUser(ctx context.Context, accountID, _ string) ([]models.Transaction, error) {
 	return r.ListByAccount(ctx, accountID)
+}
+
+func (r *fakeTransactionRepo) GetBalanceByAccountForUser(ctx context.Context, accountID, _ string) (balanceMinor, transactionCount int64, err error) {
+	transactions, err := r.ListByAccount(ctx, accountID)
+	if err != nil {
+		return 0, 0, fmt.Errorf("calculate fake account balance: %w", err)
+	}
+	balance, err := services.NewBalanceService().Calculate(ctx, services.CalculateBalanceRequest{
+		AccountID:    accountID,
+		Transactions: transactions,
+	})
+	if err != nil {
+		return 0, 0, fmt.Errorf("calculate fake account balance: %w", err)
+	}
+	return balance.BalanceMinor, int64(balance.Count), nil
 }
 
 func (r *fakeTransactionRepo) Delete(_ context.Context, id string) error {

@@ -118,10 +118,10 @@ func TestDecodeJSONRejectsUnknownFields(t *testing.T) {
 	}
 }
 
-func TestWriteValidationOrServiceErrorWritesValidationError(t *testing.T) {
+func TestWriteServiceErrorWritesValidationError(t *testing.T) {
 	rec := httptest.NewRecorder()
 
-	writeValidationOrServiceError(rec, services.ValidationError("amount must be non-zero"))
+	writeServiceError(rec, services.ValidationError("amount must be non-zero"))
 
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
@@ -137,10 +137,10 @@ func TestWriteValidationOrServiceErrorWritesValidationError(t *testing.T) {
 	}
 }
 
-func TestWriteValidationOrServiceErrorWritesInternalErrorForRegularError(t *testing.T) {
+func TestWriteServiceErrorWritesInternalErrorForRegularError(t *testing.T) {
 	rec := httptest.NewRecorder()
 
-	writeValidationOrServiceError(rec, errors.New("database failed"))
+	writeServiceError(rec, errors.New("database failed"))
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusInternalServerError)

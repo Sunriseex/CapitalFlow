@@ -35,6 +35,7 @@ type TransactionRepository interface {
 	ListByUser(ctx context.Context, userID string) ([]models.Transaction, error)
 	ListByAccount(ctx context.Context, accountID string) ([]models.Transaction, error)
 	ListByAccountForUser(ctx context.Context, accountID, userID string) ([]models.Transaction, error)
+	GetBalanceByAccountForUser(ctx context.Context, accountID, userID string) (balanceMinor, transactionCount int64, err error)
 	Delete(ctx context.Context, id string) error
 	DeleteForUser(ctx context.Context, id, userID string) error
 }

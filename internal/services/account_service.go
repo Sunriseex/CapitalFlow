@@ -47,7 +47,7 @@ func (s *AccountService) Create(ctx context.Context, req *CreateAccountRequest) 
 	if name == "" {
 		return nil, validationError("account name is required")
 	}
-	if !validAccountType(req.Type) {
+	if !ValidAccountType(req.Type) {
 		return nil, validationError(fmt.Sprintf("invalid account type: %s", req.Type))
 	}
 
@@ -56,7 +56,7 @@ func (s *AccountService) Create(ctx context.Context, req *CreateAccountRequest) 
 		currency = "RUB"
 	}
 	currency = strings.ToUpper(currency)
-	if !validCurrency(currency) {
+	if !ValidCurrency(currency) {
 		return nil, validationError(fmt.Sprintf("invalid currency: %s", currency))
 	}
 
@@ -96,7 +96,7 @@ func ownerUserID(id string) *string {
 	return &id
 }
 
-func validCurrency(currency string) bool {
+func ValidCurrency(currency string) bool {
 	if len(currency) != 3 {
 		return false
 	}
@@ -108,7 +108,7 @@ func validCurrency(currency string) bool {
 	return true
 }
 
-func validAccountType(accountType models.AccountType) bool {
+func ValidAccountType(accountType models.AccountType) bool {
 	switch accountType {
 	case models.AccountTypeCash,
 		models.AccountTypeCard,

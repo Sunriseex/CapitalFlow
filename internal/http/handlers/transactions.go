@@ -230,7 +230,7 @@ func (h *Handler) createTransaction(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	transaction, err := services.NewTransactionService(h.store.Transactions()).Create(r.Context(), &services.CreateTransactionRequest{
+	transaction, err := h.transactions.Create(r.Context(), &services.CreateTransactionRequest{
 		AccountID:        accountID,
 		RelatedAccountID: relatedAccountID,
 		Type:             req.Type,
@@ -240,7 +240,7 @@ func (h *Handler) createTransaction(w http.ResponseWriter, r *http.Request) {
 		OccurredAt:       occurredAt,
 	})
 	if err != nil {
-		writeValidationOrServiceError(w, err)
+		writeServiceError(w, err)
 		return
 	}
 

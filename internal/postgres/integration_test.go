@@ -442,6 +442,13 @@ func TestTransactionCreateTransferLocksAccountsAndRollsBack(t *testing.T) {
 	if len(got) != 4 {
 		t.Fatalf("transaction count = %d, want 4", len(got))
 	}
+	fromBalance, fromCount, err := transactions.GetBalanceByAccountForUser(ctx, from.ID, userID)
+	if err != nil {
+		t.Fatalf("get from balance: %v", err)
+	}
+	if fromBalance != 0 || fromCount != 2 {
+		t.Fatalf("from balance/count = %d/%d, want 0/2", fromBalance, fromCount)
+	}
 
 	otherUserID := uuid.NewString()
 	if err := store.Users().Create(ctx, &models.User{

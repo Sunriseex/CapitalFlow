@@ -40,7 +40,7 @@ func (h *Handler) createTransfer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := services.NewTransferService(
-		services.NewTransactionService(h.store.Transactions()),
+		h.transactions,
 	).Create(r.Context(), &services.CreateTransferRequest{
 		UserID:        userID,
 		FromAccountID: fromAccountID,
@@ -51,7 +51,7 @@ func (h *Handler) createTransfer(w http.ResponseWriter, r *http.Request) {
 		Description:   req.Description,
 	})
 	if err != nil {
-		writeValidationOrServiceError(w, err)
+		writeServiceError(w, err)
 		return
 	}
 

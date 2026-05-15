@@ -41,7 +41,7 @@ func (h *Handler) updateProfile(w http.ResponseWriter, r *http.Request) {
 		PrimaryCurrency: req.PrimaryCurrency,
 	})
 	if err != nil {
-		writeValidationOrServiceError(w, err)
+		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, dto.ProfileResponse{User: authUser(user)})
