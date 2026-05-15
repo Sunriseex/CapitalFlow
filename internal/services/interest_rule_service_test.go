@@ -821,6 +821,100 @@ func TestInterestRuleServiceRecalculateDoesNotUsePriorAccrualsWhenCapitalization
 	}
 }
 
+func TestInterestRuleServiceAccrueExcludesUncapitalizedPriorAccruals(t *testing.T) {
+	rule := models.InterestRule{
+		ID:                      "rule-1",
+		AccountID:               "account-1",
+		AnnualRateBps:           1_200,
+		AccrualFrequency:        models.AccrualFrequencyDaily,
+		CapitalizationFrequency: models.CapitalizationFrequencyMonthly,
+		DayCountConvention:      models.DayCountConventionActual365,
+		IsActive:                true,
+		StartDate:               time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+	}
+
+	priorInterestDate := time.Date(2026, 5, 2, 0, 0, 0, 0, time.UTC)
+
+	got, err := NewInterestRuleService(nil).Accrue(t.Context(), &AccrueRuleInterestRequest{
+		Rule:        rule,
+		AccrualDate: time.Date(2026, 5, 3, 0, 0, 0, 0, time.UTC),
+		Transactions: []models.Transaction{
+			{
+				ID:          "initial",
+				AccountID:   rule.AccountID,
+				Type:        models.TransactionTypeInitialBalance,
+				AmountMinor: 100_000_00,
+				OccurredAt:  rule.StartDate,
+			},
+			{
+				ID:          "prior-interest",
+				AccountID:   rule.AccountID,
+				Type:        models.TransactionTypeInterestIncome,
+				AmountMinor: 3_288,
+				OccurredAt:  priorInterestDate,
+			},
+		},
+		ExistingAccruals: []models.InterestAccrual{
+			{
+				AccountID:     rule.AccountID,
+				RuleID:        rule.ID,
+				TransactionID: "prior-interest",
+				AccrualDate:   priorInterestDate,
+				AmountMinor:   3_288,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("accrue interest: %v", err)
+	}
+
+	if got.Transaction.AmountMinor != 3_288 {
+		t.Fatalf("amount = %d, want 3288 without early capitalization", got.Transaction.AmountMinor)
+	}
+}
+
+func TestInterestRuleServiceForecastProjectedBalanceIgnoresTransactionsAfterHorizon(t *testing.T) {
+	rule := models.InterestRule{
+		ID:                      "rule-1",
+		AccountID:               "account-1",
+		AnnualRateBps:           1_200,
+		AccrualFrequency:        models.AccrualFrequencyDaily,
+		CapitalizationFrequency: models.CapitalizationFrequencyNone,
+		DayCountConvention:      models.DayCountConventionActual365,
+		IsActive:                true,
+		StartDate:               time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+	}
+
+	got, err := NewInterestRuleService(nil).Forecast(t.Context(), &ForecastRuleInterestRequest{
+		Rule:     rule,
+		FromDate: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+		Days:     30,
+		Transactions: []models.Transaction{
+			{
+				ID:          "initial",
+				AccountID:   rule.AccountID,
+				Type:        models.TransactionTypeInitialBalance,
+				AmountMinor: 100_000_00,
+				OccurredAt:  time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+			},
+			{
+				ID:          "future-expense",
+				AccountID:   rule.AccountID,
+				Type:        models.TransactionTypeExpense,
+				AmountMinor: 50_000_00,
+				OccurredAt:  time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("forecast interest: %v", err)
+	}
+
+	if got.ProjectedBalance <= 50_000_00 {
+		t.Fatalf("projected balance = %d, future expense after horizon was included", got.ProjectedBalance)
+	}
+}
+
 func TestInterestRuleServiceRecalculateCompoundsWhenCapitalizationDaily(t *testing.T) {
 	rule := validAccrualTestRule()
 	rule.CapitalizationFrequency = models.CapitalizationFrequencyDaily
