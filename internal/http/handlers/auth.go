@@ -35,7 +35,7 @@ func (h *Handler) authSetup(w http.ResponseWriter, r *http.Request) {
 		PrimaryCurrency: req.PrimaryCurrency,
 	})
 	if err != nil {
-		writeValidationOrServiceError(w, err)
+		writeServiceError(w, err)
 		return
 	}
 	setRefreshCookie(w, session)
@@ -54,7 +54,7 @@ func (h *Handler) authLogin(w http.ResponseWriter, r *http.Request) {
 		Password: req.Password,
 	})
 	if err != nil {
-		writeValidationOrServiceError(w, err)
+		writeServiceError(w, err)
 		return
 	}
 	setRefreshCookie(w, session)
@@ -71,7 +71,7 @@ func (h *Handler) authRefresh(w http.ResponseWriter, r *http.Request) {
 
 	session, err := h.authService().Refresh(r.Context(), req.RefreshToken)
 	if err != nil {
-		writeValidationOrServiceError(w, err)
+		writeServiceError(w, err)
 		return
 	}
 	setRefreshCookie(w, session)
@@ -89,7 +89,7 @@ func (h *Handler) authLogout(w http.ResponseWriter, r *http.Request) {
 	clearRefreshCookie(w)
 
 	if err := h.authService().Logout(r.Context(), req.RefreshToken); err != nil {
-		writeValidationOrServiceError(w, err)
+		writeServiceError(w, err)
 		return
 	}
 
@@ -114,7 +114,7 @@ func (h *Handler) changePassword(w http.ResponseWriter, r *http.Request) {
 		CurrentPassword: req.CurrentPassword,
 		NewPassword:     req.NewPassword,
 	}); err != nil {
-		writeValidationOrServiceError(w, err)
+		writeServiceError(w, err)
 		return
 	}
 	clearRefreshCookie(w)
@@ -130,7 +130,7 @@ func (h *Handler) listSessions(w http.ResponseWriter, r *http.Request) {
 
 	sessions, err := h.authService().ListSessions(r.Context(), claims.UserID, claims.SessionID)
 	if err != nil {
-		writeValidationOrServiceError(w, err)
+		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, authSessionsResponse(sessions))
@@ -145,7 +145,7 @@ func (h *Handler) revokeSession(w http.ResponseWriter, r *http.Request) {
 
 	sessionID := chi.URLParam(r, "id")
 	if err := h.authService().RevokeSession(r.Context(), claims.UserID, sessionID); err != nil {
-		writeValidationOrServiceError(w, err)
+		writeServiceError(w, err)
 		return
 	}
 

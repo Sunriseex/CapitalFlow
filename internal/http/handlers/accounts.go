@@ -42,7 +42,7 @@ func (h *Handler) createAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	account, err := services.NewAccountService(h.store.Accounts()).Create(r.Context(), &services.CreateAccountRequest{
+	account, err := h.accounts.Create(r.Context(), &services.CreateAccountRequest{
 		OwnerUserID: userID,
 		Name:        req.Name,
 		Bank:        req.Bank,
@@ -51,7 +51,7 @@ func (h *Handler) createAccount(w http.ResponseWriter, r *http.Request) {
 		OpenedAt:    openedAt,
 	})
 	if err != nil {
-		writeValidationOrServiceError(w, err)
+		writeServiceError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, dto.AccountFromModel(account))
@@ -160,41 +160,13 @@ func validateAccount(account *models.Account) error {
 	if strings.TrimSpace(account.Name) == "" {
 		return errValidation("account name is required")
 	}
-	if !validAccountType(account.Type) {
+	if !services.ValidAccountType(account.Type) {
 		return errValidation("invalid account type: " + string(account.Type))
 	}
-	if !validCurrency(account.Currency) {
+	if !services.ValidCurrency(account.Currency) {
 		return errValidation("invalid currency: " + account.Currency)
 	}
 	return nil
-}
-
-func validAccountType(accountType models.AccountType) bool {
-	switch accountType {
-	case models.AccountTypeCash,
-		models.AccountTypeCard,
-		models.AccountTypeSavings,
-		models.AccountTypeTermDeposit,
-		models.AccountTypeBroker,
-		models.AccountTypeOther:
-		return true
-	default:
-		return false
-	}
-}
-
-func validCurrency(currency string) bool {
-	if len(currency) != 3 {
-		return false
-	}
-
-	for _, r := range currency {
-		if r < 'A' || r > 'Z' {
-			return false
-		}
-	}
-
-	return true
 }
 
 func (h *Handler) ensureAccountExists(w http.ResponseWriter, r *http.Request, accountID string) bool {

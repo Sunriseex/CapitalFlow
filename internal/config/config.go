@@ -37,14 +37,9 @@ type Config struct {
 var AppConfig *Config
 
 func Init() error {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return errors.NewConfigurationError("не удалось получить домашнюю директорию", err)
-	}
-
-	envPaths := []string{
-		filepath.Join(home, "nixos", "scripts", "capitalflow", "configs", ".env"),
-		"./configs/.env",
+	envPaths := []string{"./configs/.env"}
+	if envFile := strings.TrimSpace(os.Getenv("CAPITALFLOW_ENV_FILE")); envFile != "" {
+		envPaths = append([]string{envFile}, envPaths...)
 	}
 
 	var loaded bool

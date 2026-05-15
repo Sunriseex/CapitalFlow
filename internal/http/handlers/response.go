@@ -71,10 +71,6 @@ func decodeOptionalJSON(r *http.Request, dst any) error {
 	return fmt.Errorf("decode optional json body: %w", err)
 }
 
-func writeValidationOrServiceError(w http.ResponseWriter, err error) {
-	writeServiceError(w, err)
-}
-
 type errorResponse struct {
 	status  int
 	code    string
@@ -96,6 +92,14 @@ func errorResponseFromError(err error) errorResponse {
 			status:  http.StatusNotFound,
 			code:    "not_found",
 			message: "Resource not found",
+		}
+	}
+
+	if errors.Is(err, repository.ErrConflict) {
+		return errorResponse{
+			status:  http.StatusConflict,
+			code:    "conflict",
+			message: "Resource conflict",
 		}
 	}
 

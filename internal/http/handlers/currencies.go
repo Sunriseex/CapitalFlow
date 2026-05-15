@@ -15,14 +15,14 @@ func (h *Handler) getCurrencyRates(w http.ResponseWriter, r *http.Request) {
 	if base == "" {
 		base = "RUB"
 	}
-	if !validCurrency(base) {
+	if !services.ValidCurrency(base) {
 		writeError(w, http.StatusBadRequest, "validation_error", "invalid base currency: "+base, nil)
 		return
 	}
 
 	rates, err := services.NewCurrencyService(nil).Latest(r.Context(), base)
 	if err != nil {
-		writeValidationOrServiceError(w, err)
+		writeServiceError(w, err)
 		return
 	}
 

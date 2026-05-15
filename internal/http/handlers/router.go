@@ -11,6 +11,7 @@ import (
 	"github.com/sunriseex/capitalflow/internal/auth"
 	appmiddleware "github.com/sunriseex/capitalflow/internal/http/middleware"
 	"github.com/sunriseex/capitalflow/internal/repository"
+	"github.com/sunriseex/capitalflow/internal/services"
 )
 
 type Store interface {
@@ -27,8 +28,11 @@ type Store interface {
 }
 
 type Handler struct {
-	store  Store
-	tokens *auth.TokenService
+	store         Store
+	tokens        *auth.TokenService
+	accounts      *services.AccountService
+	transactions  *services.TransactionService
+	interestRules *services.InterestRuleService
 }
 
 type RouterConfig struct {
@@ -48,7 +52,29 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 		cfg = &RouterConfig{}
 	}
 
-	h := &Handler{store: store, tokens: cfg.TokenService}
+	var accountRepo repository.AccountRepository
+	var transactionRepo repository.TransactionRepository
+	var interestRuleRepo repository.InterestRuleRepository
+	var interestAccrualRepo repository.InterestAccrualRepository
+	if store != nil {
+		accountRepo = store.Accounts()
+		transactionRepo = store.Transactions()
+		interestRuleRepo = store.InterestRules()
+		interestAccrualRepo = store.InterestAccruals()
+	}
+
+	transactionService := services.NewTransactionService(transactionRepo)
+	h := &Handler{
+		store:        store,
+		tokens:       cfg.TokenService,
+		accounts:     services.NewAccountService(accountRepo),
+		transactions: transactionService,
+		interestRules: services.NewInterestRuleService(
+			transactionService,
+			services.WithInterestRuleRepository(interestRuleRepo),
+			services.WithInterestAccrualRepository(interestAccrualRepo),
+		),
+	}
 	r := chi.NewRouter()
 	r.Use(chimiddleware.RequestID)
 	r.Use(chimiddleware.RealIP)

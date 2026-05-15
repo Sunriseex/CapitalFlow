@@ -746,7 +746,11 @@ func (r *fakeUserRepo) RecordLoginFailure(_ context.Context, id string, _ int, _
 	}
 
 	attempts := user.FailedLoginAttempts + 1
-	lockedUntil := loginLockoutUntil(updatedAt, attempts)
+	var lockedUntil *time.Time
+	if attempts >= loginLockoutThreshold {
+		delayIndex := min(attempts-loginLockoutThreshold, len(loginLockoutDelays)-1)
+		lockedUntil = new(updatedAt.Add(loginLockoutDelays[delayIndex]))
+	}
 
 	user.FailedLoginAttempts = attempts
 	user.LockedUntil = lockedUntil
@@ -910,7 +914,7 @@ func (r *fakeAuditRepo) hasEventReason(eventType, reason string) bool {
 	}
 	return false
 }
-	
+
 func authMetricValue(t *testing.T, key string) int64 {
 	t.Helper()
 

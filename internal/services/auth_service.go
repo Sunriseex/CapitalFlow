@@ -533,14 +533,6 @@ func passwordUserInputs(email string) []string {
 	return inputs
 }
 
-func loginLockoutUntil(now time.Time, attempts int) *time.Time {
-	if attempts < loginLockoutThreshold {
-		return nil
-	}
-	delayIndex := min(attempts-loginLockoutThreshold, len(loginLockoutDelays)-1)
-	return new(now.Add(loginLockoutDelays[delayIndex]))
-}
-
 func (s *AuthService) auditEvent(ctx context.Context, eventType, email string, userID *string, success bool, reason string) {
 	recordAuthEventMetric(eventType, success, reason)
 
