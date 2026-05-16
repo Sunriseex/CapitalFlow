@@ -19,9 +19,6 @@ func TestUpdateAccountRejectsCurrencyChangeWithTransactions(t *testing.T) {
 	store.accounts = &testAccountRepo{byID: map[string]*models.Account{
 		"11111111-1111-1111-1111-111111111111": testAccount("11111111-1111-1111-1111-111111111111", "user-1", "RUB"),
 	}}
-	store.transactions = &testTransactionRepo{transactionCountByAccount: map[string]int64{
-		"11111111-1111-1111-1111-111111111111": 1,
-	}}
 	store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
 
 	router := NewRouter(store, &RouterConfig{TokenService: tokens})
@@ -43,6 +40,9 @@ func TestUpdateAccountRejectsCurrencyChangeWithTransactions(t *testing.T) {
 	if store.accounts.(*testAccountRepo).updateCalls != 0 {
 		t.Fatalf("update calls = %d, want 0", store.accounts.(*testAccountRepo).updateCalls)
 	}
+	if store.accounts.(*testAccountRepo).updateEnforcingInvariantCalls != 1 {
+		t.Fatalf("update enforcing invariant calls = %d, want 1", store.accounts.(*testAccountRepo).updateEnforcingInvariantCalls)
+	}
 }
 
 func TestUpdateAccountAllowsCurrencyChangeWithoutTransactions(t *testing.T) {
@@ -50,8 +50,7 @@ func TestUpdateAccountAllowsCurrencyChangeWithoutTransactions(t *testing.T) {
 	store := newTestProfileStore()
 	store.accounts = &testAccountRepo{byID: map[string]*models.Account{
 		"11111111-1111-1111-1111-111111111111": testAccount("11111111-1111-1111-1111-111111111111", "user-1", "RUB"),
-	}}
-	store.transactions = &testTransactionRepo{transactionCountByAccount: map[string]int64{}}
+	}, allowCurrencyChange: true}
 	store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
 
 	router := NewRouter(store, &RouterConfig{TokenService: tokens})
@@ -98,8 +97,10 @@ func activeTestRefreshToken(pair *auth.TokenPair, userID string) *models.Refresh
 }
 
 type testAccountRepo struct {
-	byID        map[string]*models.Account
-	updateCalls int
+	byID                          map[string]*models.Account
+	allowCurrencyChange           bool
+	updateCalls                   int
+	updateEnforcingInvariantCalls int
 }
 
 func (r *testAccountRepo) Create(_ context.Context, account *models.Account) error {
@@ -147,6 +148,21 @@ func (r *testAccountRepo) UpdateForUser(_ context.Context, account *models.Accou
 	stored, ok := r.byID[account.ID]
 	if !ok || stored.OwnerUserID == nil || *stored.OwnerUserID != userID {
 		return repository.ErrNotFound
+	}
+	accountCopy := *account
+	r.byID[account.ID] = &accountCopy
+	r.updateCalls++
+	return nil
+}
+
+func (r *testAccountRepo) UpdateForUserEnforcingCurrencyInvariant(_ context.Context, account *models.Account, userID string) error {
+	r.updateEnforcingInvariantCalls++
+	stored, ok := r.byID[account.ID]
+	if !ok || stored.OwnerUserID == nil || *stored.OwnerUserID != userID {
+		return repository.ErrNotFound
+	}
+	if stored.Currency != account.Currency && !r.allowCurrencyChange {
+		return repository.ErrAccountCurrencyInvariant
 	}
 	accountCopy := *account
 	r.byID[account.ID] = &accountCopy

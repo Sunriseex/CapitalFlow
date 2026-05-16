@@ -142,9 +142,10 @@ type testProfileStore struct {
 }
 
 func newTestProfileStore() *testProfileStore {
+	refresh := &testProfileRefreshRepo{byID: map[string]*models.RefreshToken{}}
 	return &testProfileStore{
-		users:   &testProfileUserRepo{byID: map[string]*models.User{}},
-		refresh: &testProfileRefreshRepo{byID: map[string]*models.RefreshToken{}},
+		users:   &testProfileUserRepo{byID: map[string]*models.User{}, refresh: refresh},
+		refresh: refresh,
 		idem:    newTestIdempotencyRepo(),
 	}
 }
@@ -190,7 +191,8 @@ func (s *testProfileStore) Ping(context.Context) error {
 }
 
 type testProfileUserRepo struct {
-	byID map[string]*models.User
+	byID    map[string]*models.User
+	refresh *testProfileRefreshRepo
 }
 
 func (r *testProfileUserRepo) Create(_ context.Context, user *models.User) error {
@@ -260,6 +262,21 @@ func (r *testProfileUserRepo) UpdatePassword(_ context.Context, id, passwordHash
 	user.FailedLoginAttempts = 0
 	user.LockedUntil = nil
 	user.UpdatedAt = updatedAt
+	return nil
+}
+
+func (r *testProfileUserRepo) ChangePasswordAndRevokeSessions(ctx context.Context, id, passwordHash string, updatedAt time.Time, revokedReason string) error {
+	if err := r.UpdatePassword(ctx, id, passwordHash, updatedAt); err != nil {
+		return err
+	}
+	if r.refresh != nil {
+		for _, token := range r.refresh.byID {
+			if token.UserID == id && token.RevokedAt == nil {
+				token.RevokedAt = &updatedAt
+				token.RevokedReason = &revokedReason
+			}
+		}
+	}
 	return nil
 }
 

@@ -668,9 +668,6 @@ func TestAuthServiceChangePasswordDoesNotRevokeSessionsWhenPasswordUpdateFails(t
 	if refresh.byHash["token-1"].RevokedAt != nil {
 		t.Fatal("refresh token was revoked before password update succeeded")
 	}
-	if refresh.revokeByUserCalls != 0 {
-		t.Fatalf("revoke by user calls = %d, want 0", refresh.revokeByUserCalls)
-	}
 	if !audit.hasEventReason("change_password_failed", "save_failed") {
 		t.Fatal("expected save failure audit event")
 	}
@@ -788,8 +785,8 @@ func newTestAuthService(t *testing.T) (*AuthService, *fakeUserRepo, *fakeRefresh
 		t.Fatalf("new token service: %v", err)
 	}
 
-	users := &fakeUserRepo{byID: map[string]*models.User{}}
 	refresh := &fakeRefreshRepo{byHash: map[string]*models.RefreshToken{}}
+	users := &fakeUserRepo{byID: map[string]*models.User{}, refresh: refresh}
 	audit := &fakeAuditRepo{}
 
 	service := NewAuthService(users, refresh, tokens, audit)
@@ -808,6 +805,7 @@ func newTestAuthService(t *testing.T) (*AuthService, *fakeUserRepo, *fakeRefresh
 
 type fakeUserRepo struct {
 	byID              map[string]*models.User
+	refresh           *fakeRefreshRepo
 	createErr         error
 	updatePasswordErr error
 }
@@ -884,6 +882,30 @@ func (r *fakeUserRepo) UpdatePassword(_ context.Context, id, passwordHash string
 	user.FailedLoginAttempts = 0
 	user.LockedUntil = nil
 	user.UpdatedAt = updatedAt
+	return nil
+}
+
+func (r *fakeUserRepo) ChangePasswordAndRevokeSessions(_ context.Context, id, passwordHash string, updatedAt time.Time, revokedReason string) error {
+	if r.updatePasswordErr != nil {
+		return r.updatePasswordErr
+	}
+	user, ok := r.byID[id]
+	if !ok {
+		return repository.ErrNotFound
+	}
+	user.PasswordHash = passwordHash
+	user.FailedLoginAttempts = 0
+	user.LockedUntil = nil
+	user.UpdatedAt = updatedAt
+	if r.refresh == nil {
+		return nil
+	}
+	for _, token := range r.refresh.byHash {
+		if token.UserID == id && token.RevokedAt == nil {
+			token.RevokedAt = &updatedAt
+			token.RevokedReason = &revokedReason
+		}
+	}
 	return nil
 }
 

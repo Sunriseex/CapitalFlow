@@ -328,7 +328,7 @@ func (s *AuthService) ChangePassword(ctx context.Context, req ChangePasswordRequ
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("change password: %w", err)
 	}
-	if s.users == nil || s.refresh == nil {
+	if s.users == nil {
 		return fmt.Errorf("auth service is not configured")
 	}
 
@@ -371,13 +371,9 @@ func (s *AuthService) ChangePassword(ctx context.Context, req ChangePasswordRequ
 		return fmt.Errorf("hash password: %w", err)
 	}
 	now := s.now()
-	if err := s.users.UpdatePassword(ctx, user.ID, hash, now); err != nil {
+	if err := s.users.ChangePasswordAndRevokeSessions(ctx, user.ID, hash, now, refreshRevokedReasonPasswordChange); err != nil {
 		s.auditEvent(ctx, "change_password_failed", user.Email, &user.ID, false, "save_failed")
-		return fmt.Errorf("update password: %w", err)
-	}
-	if err := s.refresh.RevokeByUser(ctx, user.ID, now, refreshRevokedReasonPasswordChange); err != nil {
-		s.auditEvent(ctx, "change_password_failed", user.Email, &user.ID, false, "revoke_sessions_failed")
-		return fmt.Errorf("revoke user refresh tokens: %w", err)
+		return fmt.Errorf("change password and revoke sessions: %w", err)
 	}
 	s.auditEvent(ctx, "change_password_success", user.Email, &user.ID, true, "")
 	return nil

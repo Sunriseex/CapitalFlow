@@ -99,21 +99,6 @@ func (h *Handler) updateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Currency != nil {
-		currency := strings.ToUpper(strings.TrimSpace(*req.Currency))
-		if currency != account.Currency {
-			_, transactionCount, err := h.store.Transactions().GetBalanceByAccountForUser(r.Context(), account.ID, userID)
-			if err != nil {
-				writeServiceError(w, err)
-				return
-			}
-			if transactionCount > 0 {
-				writeError(w, http.StatusBadRequest, "validation_error", "account currency cannot be changed after transactions exist", nil)
-				return
-			}
-		}
-	}
-
 	if req.Name != nil {
 		account.Name = strings.TrimSpace(*req.Name)
 	}
@@ -146,7 +131,7 @@ func (h *Handler) updateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	account.UpdatedAt = time.Now()
-	if err := h.store.Accounts().UpdateForUser(r.Context(), account, userID); err != nil {
+	if err := h.store.Accounts().UpdateForUserEnforcingCurrencyInvariant(r.Context(), account, userID); err != nil {
 		writeServiceError(w, err)
 		return
 	}

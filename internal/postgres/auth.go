@@ -159,6 +159,42 @@ func (r *UserRepository) UpdatePassword(ctx context.Context, id, passwordHash st
 	return nil
 }
 
+func (r *UserRepository) ChangePasswordAndRevokeSessions(ctx context.Context, id, passwordHash string, updatedAt time.Time, revokedReason string) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin change password: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	tag, err := tx.Exec(ctx, `
+		UPDATE users
+		SET password_hash = $2, failed_login_attempts = 0, locked_until = NULL, updated_at = $3
+		WHERE id = $1
+	`, id, passwordHash, updatedAt)
+	if err != nil {
+		return fmt.Errorf("update user password: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("update user password: %w", repository.ErrNotFound)
+	}
+
+	_, err = tx.Exec(ctx, `
+		UPDATE refresh_tokens
+		SET revoked_at = $2, revoked_reason = $3
+		WHERE user_id = $1 AND revoked_at IS NULL
+	`, id, updatedAt, revokedReason)
+	if err != nil {
+		return fmt.Errorf("revoke user refresh tokens: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit change password: %w", err)
+	}
+	return nil
+}
+
 func (r *UserRepository) get(ctx context.Context, query string, args ...any) (*models.User, error) {
 	user, err := scanUser(r.pool.QueryRow(ctx, query, args...))
 	if err != nil {

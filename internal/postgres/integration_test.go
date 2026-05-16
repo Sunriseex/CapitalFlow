@@ -274,6 +274,86 @@ func TestUserRepositorySetupRollsBackOnRefreshTokenFailure(t *testing.T) {
 	}
 }
 
+func TestUserRepositoryChangePasswordAndRevokeSessions(t *testing.T) {
+	store := newTestStore(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+
+	userID := uuid.NewString()
+	lockedUntil := now.Add(time.Hour)
+	if err := store.Users().Create(ctx, &models.User{
+		ID:                  userID,
+		Email:               "change-password@example.com",
+		PasswordHash:        "old-hash",
+		PrimaryCurrency:     "RUB",
+		FailedLoginAttempts: 3,
+		LockedUntil:         &lockedUntil,
+		CreatedAt:           now,
+		UpdatedAt:           now,
+	}); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	otherUserID := uuid.NewString()
+	if err := store.Users().Create(ctx, &models.User{
+		ID:              otherUserID,
+		Email:           "other-change-password@example.com",
+		PasswordHash:    "other-hash",
+		PrimaryCurrency: "RUB",
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}); err != nil {
+		t.Fatalf("create other user: %v", err)
+	}
+
+	activeToken := &models.RefreshToken{
+		ID:        uuid.NewString(),
+		UserID:    userID,
+		TokenHash: "active-change-password-token",
+		ExpiresAt: now.Add(time.Hour),
+		CreatedAt: now,
+	}
+	otherToken := &models.RefreshToken{
+		ID:        uuid.NewString(),
+		UserID:    otherUserID,
+		TokenHash: "other-change-password-token",
+		ExpiresAt: now.Add(time.Hour),
+		CreatedAt: now,
+	}
+	if err := store.RefreshTokens().Create(ctx, activeToken); err != nil {
+		t.Fatalf("create active token: %v", err)
+	}
+	if err := store.RefreshTokens().Create(ctx, otherToken); err != nil {
+		t.Fatalf("create other token: %v", err)
+	}
+
+	changedAt := now.Add(time.Minute)
+	if err := store.Users().ChangePasswordAndRevokeSessions(ctx, userID, "new-hash", changedAt, "password_change"); err != nil {
+		t.Fatalf("change password and revoke sessions: %v", err)
+	}
+
+	user, err := store.Users().GetByID(ctx, userID)
+	if err != nil {
+		t.Fatalf("get changed user: %v", err)
+	}
+	if user.PasswordHash != "new-hash" || user.FailedLoginAttempts != 0 || user.LockedUntil != nil {
+		t.Fatalf("changed user = %+v, want new hash and cleared lockout", user)
+	}
+	gotActiveToken, err := store.RefreshTokens().GetByID(ctx, activeToken.ID)
+	if err != nil {
+		t.Fatalf("get active token: %v", err)
+	}
+	if gotActiveToken.RevokedAt == nil || gotActiveToken.RevokedReason == nil || *gotActiveToken.RevokedReason != "password_change" {
+		t.Fatalf("active token revoke state = %+v", gotActiveToken)
+	}
+	gotOtherToken, err := store.RefreshTokens().GetByID(ctx, otherToken.ID)
+	if err != nil {
+		t.Fatalf("get other token: %v", err)
+	}
+	if gotOtherToken.RevokedAt != nil {
+		t.Fatal("other user token was revoked")
+	}
+}
+
 func TestAccountCreateClaimsSingleExistingUser(t *testing.T) {
 	databaseURL := os.Getenv("TEST_DATABASE_URL")
 	if databaseURL == "" {
@@ -327,6 +407,69 @@ func TestAccountCreateClaimsSingleExistingUser(t *testing.T) {
 	}
 	if got.OwnerUserID == nil || *got.OwnerUserID != userID {
 		t.Fatalf("owner_user_id = %v, want %s", got.OwnerUserID, userID)
+	}
+}
+
+func TestAccountRepositoryUpdateForUserEnforcesCurrencyInvariant(t *testing.T) {
+	store := newTestStore(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+
+	userID := uuid.NewString()
+	if err := store.Users().Create(ctx, &models.User{
+		ID:              userID,
+		Email:           "account-currency@example.com",
+		PasswordHash:    "hash",
+		PrimaryCurrency: "RUB",
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	account := &models.Account{
+		ID:          uuid.NewString(),
+		OwnerUserID: &userID,
+		Name:        "Currency invariant",
+		Type:        models.AccountTypeSavings,
+		Currency:    "RUB",
+		IsActive:    true,
+		OpenedAt:    now,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	if err := store.Accounts().Create(ctx, account); err != nil {
+		t.Fatalf("create account: %v", err)
+	}
+	if err := store.Transactions().Create(ctx, &models.Transaction{
+		ID:          uuid.NewString(),
+		AccountID:   account.ID,
+		Type:        models.TransactionTypeInitialBalance,
+		AmountMinor: 100,
+		OccurredAt:  now,
+		CreatedAt:   now,
+	}); err != nil {
+		t.Fatalf("create transaction: %v", err)
+	}
+
+	account.Currency = "USD"
+	account.UpdatedAt = now.Add(time.Minute)
+	err := store.Accounts().UpdateForUserEnforcingCurrencyInvariant(ctx, account, userID)
+	if !errors.Is(err, repository.ErrAccountCurrencyInvariant) {
+		t.Fatalf("currency change err = %v, want ErrAccountCurrencyInvariant", err)
+	}
+	got, err := store.Accounts().GetByIDForUser(ctx, account.ID, userID)
+	if err != nil {
+		t.Fatalf("get account: %v", err)
+	}
+	if got.Currency != "RUB" {
+		t.Fatalf("currency = %s, want RUB", got.Currency)
+	}
+
+	got.Name = "Renamed with same currency"
+	got.UpdatedAt = now.Add(2 * time.Minute)
+	if err := store.Accounts().UpdateForUserEnforcingCurrencyInvariant(ctx, got, userID); err != nil {
+		t.Fatalf("update same currency: %v", err)
 	}
 }
 

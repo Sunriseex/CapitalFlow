@@ -96,6 +96,38 @@ func (r *AccountRepository) UpdateForUser(ctx context.Context, account *models.A
 	return nil
 }
 
+func (r *AccountRepository) UpdateForUserEnforcingCurrencyInvariant(ctx context.Context, account *models.Account, userID string) error {
+	tag, err := r.pool.Exec(ctx, `
+		UPDATE accounts
+		SET name = $3, bank = $4, type = $5, currency = $6, is_active = $7, opened_at = $8, updated_at = $9
+		WHERE id = $1
+			AND owner_user_id = $2
+			AND (
+				currency = $6
+				OR NOT EXISTS (
+					SELECT 1
+					FROM transactions
+					WHERE account_id = accounts.id
+				)
+			)
+	`, account.ID, userID, account.Name, account.Bank, account.Type, account.Currency, account.IsActive, account.OpenedAt, account.UpdatedAt)
+	if err != nil {
+		return fmt.Errorf("update account enforcing currency invariant: %w", err)
+	}
+	if tag.RowsAffected() > 0 {
+		return nil
+	}
+
+	current, getErr := r.GetByIDForUser(ctx, account.ID, userID)
+	if getErr != nil {
+		return fmt.Errorf("update account enforcing currency invariant: %w", getErr)
+	}
+	if current.Currency != account.Currency {
+		return fmt.Errorf("update account enforcing currency invariant: %w", repository.ErrAccountCurrencyInvariant)
+	}
+	return fmt.Errorf("update account enforcing currency invariant: %w", repository.ErrNotFound)
+}
+
 func (r *AccountRepository) Archive(ctx context.Context, id string) error {
 	tag, err := r.pool.Exec(ctx, `UPDATE accounts SET is_active = false, updated_at = now() WHERE id = $1`, id)
 	if err != nil {

@@ -606,6 +606,10 @@ func (r *fakeAccountRepo) UpdateForUser(ctx context.Context, account *models.Acc
 	return r.Update(ctx, account)
 }
 
+func (r *fakeAccountRepo) UpdateForUserEnforcingCurrencyInvariant(ctx context.Context, account *models.Account, _ string) error {
+	return r.Update(ctx, account)
+}
+
 func (r *fakeAccountRepo) Archive(_ context.Context, id string) error {
 	account, ok := r.byID[id]
 	if !ok {
