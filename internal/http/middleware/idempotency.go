@@ -2,10 +2,10 @@ package middleware
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -111,9 +111,12 @@ func Idempotency(repo repository.IdempotencyRepository) func(http.Handler) http.
 			rec := newCaptureResponseWriter(w)
 			next.ServeHTTP(rec, r)
 
-			if err := repo.Complete(r.Context(), key, claims.UserID, r.Method, r.URL.Path, rec.statusCode(), rec.body.Bytes()); err != nil {
+			completeCtx := context.WithoutCancel(r.Context())
+			if err := repo.Complete(completeCtx, key, claims.UserID, r.Method, r.URL.Path, rec.statusCode(), rec.body.Bytes()); err != nil {
+				http.Error(w, "idempotency completion failed", http.StatusInternalServerError)
 				return
 			}
+			rec.flushTo(w)
 		})
 	}
 }
@@ -124,28 +127,31 @@ func hashRequestBody(body []byte) string {
 }
 
 type captureResponseWriter struct {
-	http.ResponseWriter
 	status int
+	header http.Header
 	body   bytes.Buffer
 }
 
 func newCaptureResponseWriter(w http.ResponseWriter) *captureResponseWriter {
-	return &captureResponseWriter{ResponseWriter: w}
+	return &captureResponseWriter{header: w.Header().Clone()}
+}
+
+func (w *captureResponseWriter) Header() http.Header {
+	return w.header
 }
 
 func (w *captureResponseWriter) WriteHeader(status int) {
+	if w.status != 0 {
+		return
+	}
 	w.status = status
-	w.ResponseWriter.WriteHeader(status)
 }
 
 func (w *captureResponseWriter) Write(body []byte) (int, error) {
-	w.body.Write(body)
-
-	n, err := w.ResponseWriter.Write(body)
-	if err != nil {
-		return n, fmt.Errorf("write captured response: %w", err)
+	if w.status == 0 {
+		w.status = http.StatusOK
 	}
-
+	n, _ := w.body.Write(body)
 	return n, nil
 }
 
@@ -154,4 +160,19 @@ func (w *captureResponseWriter) statusCode() int {
 		return http.StatusOK
 	}
 	return w.status
+}
+
+func (w *captureResponseWriter) flushTo(dst http.ResponseWriter) {
+	copyHeaders(dst.Header(), w.header)
+	dst.WriteHeader(w.statusCode())
+	_, _ = dst.Write(w.body.Bytes())
+}
+
+func copyHeaders(dst, src http.Header) {
+	for key, values := range src {
+		dst.Del(key)
+		for _, value := range values {
+			dst.Add(key, value)
+		}
+	}
 }
