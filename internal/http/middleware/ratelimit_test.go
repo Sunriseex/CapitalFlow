@@ -34,6 +34,34 @@ func TestRateLimitByIPRejectsAfterLimit(t *testing.T) {
 	}
 }
 
+func TestRateLimitByIPIgnoresSpoofedForwardedHeaders(t *testing.T) {
+	now := time.Date(2026, 5, 9, 12, 0, 0, 0, time.UTC)
+	var mu sync.Mutex
+	buckets := make(map[string]rateLimitBucket)
+	handler := rateLimitByIP(2, time.Minute, func() time.Time { return now }, &mu, buckets)(
+		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}),
+	)
+
+	for i, forwardedFor := range []string{"198.51.100.1", "198.51.100.2", "198.51.100.3"} {
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/login", http.NoBody)
+		req.RemoteAddr = "192.0.2.1:1234"
+		req.Header.Set("X-Forwarded-For", forwardedFor)
+		req.Header.Set("X-Real-IP", forwardedFor)
+		rec := httptest.NewRecorder()
+
+		handler.ServeHTTP(rec, req)
+
+		if i < 2 && rec.Code != http.StatusOK {
+			t.Fatalf("request %d status = %d, want %d", i+1, rec.Code, http.StatusOK)
+		}
+		if i == 2 && rec.Code != http.StatusTooManyRequests {
+			t.Fatalf("request %d status = %d, want %d", i+1, rec.Code, http.StatusTooManyRequests)
+		}
+	}
+}
+
 func TestRateLimitByIPResetsAfterWindow(t *testing.T) {
 	now := time.Date(2026, 5, 9, 12, 0, 0, 0, time.UTC)
 	var mu sync.Mutex

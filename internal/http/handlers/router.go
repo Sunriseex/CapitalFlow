@@ -77,7 +77,6 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 	}
 	r := chi.NewRouter()
 	r.Use(chimiddleware.RequestID)
-	r.Use(chimiddleware.RealIP)
 	r.Use(appmiddleware.RequestLogger)
 	r.Use(chimiddleware.Recoverer)
 	r.Use(appmiddleware.CORS(&appmiddleware.CORSConfig{

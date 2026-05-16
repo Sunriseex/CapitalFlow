@@ -4,7 +4,6 @@ import (
 	"net"
 	"net/http"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -64,15 +63,6 @@ func rateLimitByIP(limit int, window time.Duration, now func() time.Time, mu *sy
 }
 
 func clientIP(r *http.Request) string {
-	if forwardedFor := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); forwardedFor != "" {
-		ip, _, _ := strings.Cut(forwardedFor, ",")
-		if ip = strings.TrimSpace(ip); ip != "" {
-			return ip
-		}
-	}
-	if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); realIP != "" {
-		return realIP
-	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err == nil && host != "" {
 		return host
