@@ -231,6 +231,49 @@ func TestPostgresRepositoriesIntegration(t *testing.T) {
 	}
 }
 
+func TestUserRepositorySetupRollsBackOnRefreshTokenFailure(t *testing.T) {
+	store := newTestStore(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+
+	account := seedAccount(ctx, t, store)
+	user := &models.User{
+		ID:              uuid.NewString(),
+		Email:           "setup@example.com",
+		PasswordHash:    "hash",
+		PrimaryCurrency: "RUB",
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}
+	refreshToken := &models.RefreshToken{
+		ID:        uuid.NewString(),
+		UserID:    uuid.NewString(),
+		TokenHash: "setup-refresh-hash",
+		ExpiresAt: now.Add(time.Hour),
+		CreatedAt: now,
+	}
+
+	setupRepo := store.Users().(repository.AuthSetupRepository)
+	err := setupRepo.Setup(ctx, user, refreshToken, nil)
+	if err == nil {
+		t.Fatal("expected setup refresh token failure")
+	}
+
+	if _, err := store.Users().GetByID(ctx, user.ID); !errors.Is(err, repository.ErrNotFound) {
+		t.Fatalf("setup user err = %v, want not found", err)
+	}
+	gotAccount, err := store.Accounts().GetByID(ctx, account.ID)
+	if err != nil {
+		t.Fatalf("get account: %v", err)
+	}
+	if gotAccount.OwnerUserID != nil {
+		t.Fatalf("account owner = %v, want nil after rollback", *gotAccount.OwnerUserID)
+	}
+	if _, err := store.RefreshTokens().GetByID(ctx, refreshToken.ID); !errors.Is(err, repository.ErrNotFound) {
+		t.Fatalf("setup refresh token err = %v, want not found", err)
+	}
+}
+
 func TestAccountCreateClaimsSingleExistingUser(t *testing.T) {
 	databaseURL := os.Getenv("TEST_DATABASE_URL")
 	if databaseURL == "" {

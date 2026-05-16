@@ -113,6 +113,68 @@ func TestAuthServiceSetupRejectsConcurrentCreateConflict(t *testing.T) {
 	}
 }
 
+func TestAuthServiceSetupUsesTransactionalRepository(t *testing.T) {
+	service, users, refresh, audit := newTestAuthService(t)
+	setupUsers := &fakeSetupUserRepo{
+		fakeUserRepo: users,
+		refresh:      refresh,
+		audit:        audit,
+	}
+	service.users = setupUsers
+
+	session, err := service.Setup(t.Context(), AuthRequest{
+		Email:           "user@example.com",
+		Password:        "correct horse battery staple",
+		PrimaryCurrency: "RUB",
+	})
+	if err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+	if !setupUsers.called {
+		t.Fatal("expected transactional setup repository to be used")
+	}
+	if session.RefreshToken == "" {
+		t.Fatal("expected refresh token")
+	}
+	if len(users.byID) != 1 || len(refresh.byHash) != 1 {
+		t.Fatalf("persisted users=%d refresh=%d, want 1 each", len(users.byID), len(refresh.byHash))
+	}
+	if !audit.hasEvent("setup_success") {
+		t.Fatal("expected setup success audit event")
+	}
+}
+
+func TestAuthServiceSetupTransactionalRepositoryRollsBackOnFailure(t *testing.T) {
+	service, users, refresh, audit := newTestAuthService(t)
+	service.users = &fakeSetupUserRepo{
+		fakeUserRepo: users,
+		refresh:      refresh,
+		audit:        audit,
+		err:          errors.New("claim unowned accounts failed"),
+	}
+
+	_, err := service.Setup(t.Context(), AuthRequest{
+		Email:           "user@example.com",
+		Password:        "correct horse battery staple",
+		PrimaryCurrency: "RUB",
+	})
+	if err == nil {
+		t.Fatal("expected setup error")
+	}
+	if len(users.byID) != 0 {
+		t.Fatalf("users persisted after failed setup = %d, want 0", len(users.byID))
+	}
+	if len(refresh.byHash) != 0 {
+		t.Fatalf("refresh tokens persisted after failed setup = %d, want 0", len(refresh.byHash))
+	}
+	if audit.hasEvent("setup_success") {
+		t.Fatal("setup_success audit must not persist after failed setup transaction")
+	}
+	if !audit.hasEventReason("setup_failed", "setup_transaction_failed") {
+		t.Fatal("expected setup transaction failure audit event")
+	}
+}
+
 func TestAuthServiceLoginRejectsWrongPasswordWithSafeMessage(t *testing.T) {
 	service, users, _, audit := newTestAuthService(t)
 	users.byID["user-1"] = &models.User{
@@ -832,6 +894,27 @@ func (r *fakeUserRepo) UpdatePrimaryCurrency(_ context.Context, id, primaryCurre
 	}
 	user.PrimaryCurrency = primaryCurrency
 	user.UpdatedAt = updatedAt
+	return nil
+}
+
+type fakeSetupUserRepo struct {
+	*fakeUserRepo
+	refresh *fakeRefreshRepo
+	audit   *fakeAuditRepo
+	err     error
+	called  bool
+}
+
+func (r *fakeSetupUserRepo) Setup(_ context.Context, user *models.User, token *models.RefreshToken, event *models.AuthAuditEvent) error {
+	r.called = true
+	if r.err != nil {
+		return r.err
+	}
+	r.byID[user.ID] = user
+	r.refresh.byHash[token.TokenHash] = token
+	if event != nil {
+		r.audit.events = append(r.audit.events, *event)
+	}
 	return nil
 }
 

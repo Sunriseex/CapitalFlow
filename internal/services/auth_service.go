@@ -120,6 +120,29 @@ func (s *AuthService) Setup(ctx context.Context, req AuthRequest) (*AuthSession,
 		s.auditEvent(ctx, "setup_failed", req.Email, nil, false, "validation_error")
 		return nil, err
 	}
+	if setupRepo, ok := s.users.(repository.AuthSetupRepository); ok {
+		session, refreshToken, err := s.buildSession(user)
+		if err != nil {
+			s.auditEvent(ctx, "setup_failed", req.Email, &user.ID, false, "issue_session_failed")
+			return nil, err
+		}
+
+		var auditEvent *models.AuthAuditEvent
+		if s.audit != nil {
+			auditEvent = s.newAuditEvent("setup_success", user.Email, &user.ID, true, "")
+		}
+		if err := setupRepo.Setup(ctx, user, refreshToken, auditEvent); err != nil {
+			if errors.Is(err, repository.ErrConflict) {
+				s.auditEvent(ctx, "setup_failed", req.Email, nil, false, "setup_complete")
+				return nil, validationError("setup is already complete")
+			}
+			s.auditEvent(ctx, "setup_failed", req.Email, &user.ID, false, "setup_transaction_failed")
+			return nil, fmt.Errorf("setup auth transaction: %w", err)
+		}
+		recordAuthEventMetric("setup_success", true, "")
+		return session, nil
+	}
+
 	if err := s.users.Create(ctx, user); err != nil {
 		if errors.Is(err, repository.ErrConflict) {
 			s.auditEvent(ctx, "setup_failed", req.Email, nil, false, "setup_complete")
@@ -455,10 +478,21 @@ func (s *AuthService) buildUser(req AuthRequest) (*models.User, error) {
 }
 
 func (s *AuthService) issueSession(ctx context.Context, user *models.User) (*AuthSession, error) {
+	session, refreshToken, err := s.buildSession(user)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.refresh.Create(ctx, refreshToken); err != nil {
+		return nil, fmt.Errorf("save refresh token: %w", err)
+	}
+	return session, nil
+}
+
+func (s *AuthService) buildSession(user *models.User) (*AuthSession, *models.RefreshToken, error) {
 	now := s.now()
 	pair, err := s.tokens.IssuePair(user.ID, user.Email, now)
 	if err != nil {
-		return nil, fmt.Errorf("issue tokens: %w", err)
+		return nil, nil, fmt.Errorf("issue tokens: %w", err)
 	}
 
 	refreshToken := &models.RefreshToken{
@@ -468,9 +502,6 @@ func (s *AuthService) issueSession(ctx context.Context, user *models.User) (*Aut
 		ExpiresAt: pair.RefreshExpiresAt,
 		CreatedAt: now,
 	}
-	if err := s.refresh.Create(ctx, refreshToken); err != nil {
-		return nil, fmt.Errorf("save refresh token: %w", err)
-	}
 
 	return &AuthSession{
 		User:             user,
@@ -478,7 +509,7 @@ func (s *AuthService) issueSession(ctx context.Context, user *models.User) (*Aut
 		AccessExpiresAt:  pair.AccessExpiresAt,
 		RefreshToken:     pair.RefreshToken,
 		RefreshExpiresAt: pair.RefreshExpiresAt,
-	}, nil
+	}, refreshToken, nil
 }
 
 func normalizeEmail(email string) (string, error) {
@@ -540,7 +571,14 @@ func (s *AuthService) auditEvent(ctx context.Context, eventType, email string, u
 		return
 	}
 
-	event := &models.AuthAuditEvent{
+	event := s.newAuditEvent(eventType, email, userID, success, reason)
+	if err := s.audit.Create(ctx, event); err != nil {
+		slog.Warn("auth audit event was not persisted", "event_type", eventType, "error", err)
+	}
+}
+
+func (s *AuthService) newAuditEvent(eventType, email string, userID *string, success bool, reason string) *models.AuthAuditEvent {
+	return &models.AuthAuditEvent{
 		ID:        uuid.NewString(),
 		UserID:    userID,
 		EventType: eventType,
@@ -548,9 +586,6 @@ func (s *AuthService) auditEvent(ctx context.Context, eventType, email string, u
 		Success:   success,
 		Reason:    reason,
 		CreatedAt: s.now(),
-	}
-	if err := s.audit.Create(ctx, event); err != nil {
-		slog.Warn("auth audit event was not persisted", "event_type", eventType, "error", err)
 	}
 }
 

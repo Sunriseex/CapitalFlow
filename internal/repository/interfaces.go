@@ -73,6 +73,10 @@ type UserRepository interface {
 	UpdatePrimaryCurrency(ctx context.Context, id, primaryCurrency string, updatedAt time.Time) error
 }
 
+type AuthSetupRepository interface {
+	Setup(ctx context.Context, user *models.User, refreshToken *models.RefreshToken, auditEvent *models.AuthAuditEvent) error
+}
+
 type RefreshTokenRepository interface {
 	Create(ctx context.Context, token *models.RefreshToken) error
 	GetByID(ctx context.Context, id string) (*models.RefreshToken, error)
