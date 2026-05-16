@@ -134,9 +134,11 @@ func testProfileTokenPair(t *testing.T) (*auth.TokenService, *auth.TokenPair) {
 }
 
 type testProfileStore struct {
-	users   *testProfileUserRepo
-	refresh *testProfileRefreshRepo
-	idem    *testIdempotencyRepo
+	accounts     repository.AccountRepository
+	transactions repository.TransactionRepository
+	users        *testProfileUserRepo
+	refresh      *testProfileRefreshRepo
+	idem         *testIdempotencyRepo
 }
 
 func newTestProfileStore() *testProfileStore {
@@ -148,11 +150,11 @@ func newTestProfileStore() *testProfileStore {
 }
 
 func (s *testProfileStore) Accounts() repository.AccountRepository {
-	return nil
+	return s.accounts
 }
 
 func (s *testProfileStore) Transactions() repository.TransactionRepository {
-	return nil
+	return s.transactions
 }
 
 func (s *testProfileStore) Categories() repository.CategoryRepository {
