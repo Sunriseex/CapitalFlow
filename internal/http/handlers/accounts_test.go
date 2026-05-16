@@ -185,10 +185,25 @@ func (r *testAccountRepo) ClaimUnowned(context.Context, string) error {
 type testTransactionRepo struct {
 	transactionCountByAccount map[string]int64
 	createCalls               int
+	oldCreateCalls            int
+	createForUserCalls        int
+	createForUserUserID       string
+	createForUserErr          error
 }
 
 func (r *testTransactionRepo) Create(context.Context, *models.Transaction) error {
 	r.createCalls++
+	r.oldCreateCalls++
+	return nil
+}
+
+func (r *testTransactionRepo) CreateForUser(_ context.Context, userID string, _ *models.Transaction) error {
+	r.createForUserCalls++
+	r.createCalls++
+	r.createForUserUserID = userID
+	if r.createForUserErr != nil {
+		return r.createForUserErr
+	}
 	return nil
 }
 

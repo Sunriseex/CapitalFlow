@@ -116,6 +116,10 @@ func (r *batchTransactionRepo) Create(context.Context, *models.Transaction) erro
 	return nil
 }
 
+func (r *batchTransactionRepo) CreateForUser(context.Context, string, *models.Transaction) error {
+	return errors.New("unexpected user-scoped create")
+}
+
 func (r *batchTransactionRepo) CreateMany(_ context.Context, transactions []models.Transaction) error {
 	r.batches = append(r.batches, append([]models.Transaction(nil), transactions...))
 	return nil

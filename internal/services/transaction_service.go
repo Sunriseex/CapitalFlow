@@ -51,6 +51,21 @@ func (s *TransactionService) Create(ctx context.Context, req *CreateTransactionR
 	return transaction, nil
 }
 
+func (s *TransactionService) CreateForUser(ctx context.Context, userID string, req *CreateTransactionRequest) (*models.Transaction, error) {
+	transaction, err := buildTransaction(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.repo != nil {
+		if err := s.repo.CreateForUser(ctx, strings.TrimSpace(userID), transaction); err != nil {
+			return nil, fmt.Errorf("save transaction: %w", err)
+		}
+	}
+
+	return transaction, nil
+}
+
 func (s *TransactionService) CreateMany(ctx context.Context, reqs ...*CreateTransactionRequest) ([]models.Transaction, error) {
 	transactions := make([]models.Transaction, 0, len(reqs))
 	for _, req := range reqs {

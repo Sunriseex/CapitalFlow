@@ -26,6 +26,34 @@ func (r *TransactionRepository) Create(ctx context.Context, transaction *models.
 	return nil
 }
 
+func (r *TransactionRepository) CreateForUser(ctx context.Context, userID string, transaction *models.Transaction) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin create user transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	var accountID string
+	if err := tx.QueryRow(ctx, `
+		SELECT id
+		FROM accounts
+		WHERE id = $1 AND owner_user_id = $2
+		FOR UPDATE
+	`, transaction.AccountID, userID).Scan(&accountID); err != nil {
+		return fmt.Errorf("lock transaction account: %w", mapNotFound(err))
+	}
+
+	if err := insertTransaction(ctx, tx, transaction); err != nil {
+		return fmt.Errorf("create user transaction: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit create user transaction: %w", err)
+	}
+	return nil
+}
+
 func (r *TransactionRepository) CreateMany(ctx context.Context, transactions []models.Transaction) error {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {

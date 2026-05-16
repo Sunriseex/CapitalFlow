@@ -28,6 +28,7 @@ type DepositMigrationRepository interface {
 
 type TransactionRepository interface {
 	Create(ctx context.Context, transaction *models.Transaction) error
+	CreateForUser(ctx context.Context, userID string, transaction *models.Transaction) error
 	CreateMany(ctx context.Context, transactions []models.Transaction) error
 	CreateTransfer(ctx context.Context, userID, fromAccountID, toAccountID string, transactions []models.Transaction) error
 	GetByID(ctx context.Context, id string) (*models.Transaction, error)

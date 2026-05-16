@@ -642,6 +642,10 @@ func (r *fakeTransactionRepo) Create(_ context.Context, transaction *models.Tran
 	return nil
 }
 
+func (r *fakeTransactionRepo) CreateForUser(ctx context.Context, _ string, transaction *models.Transaction) error {
+	return r.Create(ctx, transaction)
+}
+
 func (r *fakeTransactionRepo) CreateMany(ctx context.Context, transactions []models.Transaction) error {
 	for i := range transactions {
 		if err := r.Create(ctx, &transactions[i]); err != nil {
