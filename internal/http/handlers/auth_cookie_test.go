@@ -211,7 +211,8 @@ func TestAuthResponsesDoNotExposeRefreshTokenJSON(t *testing.T) {
 		router := newTestAuthRouter(t)
 		rec := httptest.NewRecorder()
 		var req *http.Request
-		if tc.name == "refresh" {
+		switch tc.name {
+		case "refresh":
 			setupRec := httptest.NewRecorder()
 			setupReq := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/setup", strings.NewReader(`{
 				"email":"refresh@example.com",
@@ -223,7 +224,7 @@ func TestAuthResponsesDoNotExposeRefreshTokenJSON(t *testing.T) {
 				t.Fatalf("setup for refresh status = %d, want %d: %s", setupRec.Code, http.StatusCreated, setupRec.Body.String())
 			}
 			req = tc.request(requireRefreshCookie(t, setupRec.Result().Cookies()))
-		} else if tc.name == "login" {
+		case "login":
 			setupRec := httptest.NewRecorder()
 			setupReq := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/setup", strings.NewReader(`{
 				"email":"login@example.com",
@@ -235,7 +236,7 @@ func TestAuthResponsesDoNotExposeRefreshTokenJSON(t *testing.T) {
 				t.Fatalf("setup for login status = %d, want %d: %s", setupRec.Code, http.StatusCreated, setupRec.Body.String())
 			}
 			req = tc.request(nil)
-		} else {
+		default:
 			req = tc.request(nil)
 		}
 

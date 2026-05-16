@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"math"
 	"testing"
 
 	"github.com/sunriseex/capitalflow/internal/models"
@@ -83,5 +84,45 @@ func TestBalanceServiceCalculateCancellation(t *testing.T) {
 	})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("err = %v, want context.Canceled", err)
+	}
+}
+
+func TestBalanceServiceCalculateRejectsOverflow(t *testing.T) {
+	tests := []struct {
+		name         string
+		transactions []models.Transaction
+	}{
+		{
+			name: "positive overflow",
+			transactions: []models.Transaction{
+				{AccountID: "account-1", Type: models.TransactionTypeIncome, AmountMinor: math.MaxInt64},
+				{AccountID: "account-1", Type: models.TransactionTypeIncome, AmountMinor: 1},
+			},
+		},
+		{
+			name: "negative overflow",
+			transactions: []models.Transaction{
+				{AccountID: "account-1", Type: models.TransactionTypeAdjustment, AmountMinor: math.MinInt64 + 1},
+				{AccountID: "account-1", Type: models.TransactionTypeExpense, AmountMinor: 2},
+			},
+		},
+		{
+			name: "expense min int delta",
+			transactions: []models.Transaction{
+				{AccountID: "account-1", Type: models.TransactionTypeExpense, AmountMinor: math.MinInt64},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewBalanceService().Calculate(t.Context(), CalculateBalanceRequest{
+				AccountID:    "account-1",
+				Transactions: tt.transactions,
+			})
+			if err == nil {
+				t.Fatal("expected error")
+			}
+		})
 	}
 }

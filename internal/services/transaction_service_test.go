@@ -77,6 +77,43 @@ func TestTransactionServiceCreateAllowsNegativeAdjustments(t *testing.T) {
 		t.Fatalf("amount = %d, want -1000", tx.AmountMinor)
 	}
 }
+
+func TestTransactionServiceCreateValidatesAmountBounds(t *testing.T) {
+	tests := []struct {
+		name        string
+		transaction models.TransactionType
+		amount      int64
+		wantErr     bool
+	}{
+		{name: "allows positive boundary", transaction: models.TransactionTypeIncome, amount: maxTransactionAmountMinor},
+		{name: "rejects positive above boundary", transaction: models.TransactionTypeIncome, amount: maxTransactionAmountMinor + 1, wantErr: true},
+		{name: "allows negative adjustment boundary", transaction: models.TransactionTypeAdjustment, amount: -maxTransactionAmountMinor},
+		{name: "rejects negative adjustment below boundary", transaction: models.TransactionTypeAdjustment, amount: -maxTransactionAmountMinor - 1, wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewTransactionService().Create(t.Context(), &CreateTransactionRequest{
+				AccountID:   "account-1",
+				Type:        tt.transaction,
+				AmountMinor: tt.amount,
+			})
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				if !IsValidationError(err) {
+					t.Fatalf("expected validation error, got %T: %v", err, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("create transaction: %v", err)
+			}
+		})
+	}
+}
+
 func TestTransactionServiceCreateReturnsValidationError(t *testing.T) {
 	tests := []struct {
 		name string

@@ -16,6 +16,8 @@ type TransactionService struct {
 	repo repository.TransactionRepository
 }
 
+const maxTransactionAmountMinor int64 = 100_000_000_000_000
+
 func NewTransactionService(repos ...repository.TransactionRepository) *TransactionService {
 	var repo repository.TransactionRepository
 	if len(repos) > 0 {
@@ -105,6 +107,9 @@ func buildTransaction(ctx context.Context, req *CreateTransactionRequest) (*mode
 	}
 	if req.AmountMinor == 0 {
 		return nil, validationError("amount must be non-zero")
+	}
+	if req.AmountMinor < -maxTransactionAmountMinor || req.AmountMinor > maxTransactionAmountMinor {
+		return nil, validationError(fmt.Sprintf("amount must be between %d and %d minor units", -maxTransactionAmountMinor, maxTransactionAmountMinor))
 	}
 	if req.Type != models.TransactionTypeAdjustment && req.AmountMinor < 0 {
 		return nil, validationError(fmt.Sprintf("amount must be positive for %s transactions", req.Type))
