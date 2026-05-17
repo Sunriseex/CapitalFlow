@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -792,6 +793,50 @@ func TestInterestAccrualReplaceRangeWaitsForCurrencyUpdate(t *testing.T) {
 	}
 	if _, err := store.Transactions().GetByIDForUser(ctx, interestTx.ID, userID); err != nil {
 		t.Fatalf("get replaced interest transaction: %v", err)
+	}
+}
+
+func TestInterestCalculationSnapshotBlocksConcurrentTransactionInsert(t *testing.T) {
+	store := newTestStore(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+	userID, account, _ := seedInterestLockTestData(ctx, t, store, "snapshot-lock@example.com", "snapshot-lock")
+
+	snapshotReady := make(chan struct{})
+	releaseSnapshot := make(chan struct{})
+	snapshotErrs := make(chan error, 1)
+	go func() {
+		snapshotErrs <- store.InterestAccruals().(repository.InterestAccrualTransactionalRepository).WithAccountInterestLock(ctx, account.ID, userID, func(ctx context.Context, snapshot repository.InterestCalculationRepository) error {
+			if _, err := snapshot.ListTransactionsByAccountForUser(ctx, account.ID, userID); err != nil {
+				return fmt.Errorf("list snapshot transactions: %w", err)
+			}
+			close(snapshotReady)
+			<-releaseSnapshot
+			return nil
+		})
+	}()
+
+	<-snapshotReady
+	created := &models.Transaction{
+		ID:          uuid.NewString(),
+		AccountID:   account.ID,
+		Type:        models.TransactionTypeIncome,
+		AmountMinor: 1_000,
+		OccurredAt:  now,
+		CreatedAt:   now,
+	}
+	insertErrs := make(chan error, 1)
+	go func() {
+		insertErrs <- store.Transactions().CreateForUser(ctx, userID, created)
+	}()
+
+	assertStillWaiting(t, insertErrs, "transaction insert during interest calculation snapshot")
+	close(releaseSnapshot)
+	if err := <-snapshotErrs; err != nil {
+		t.Fatalf("interest calculation snapshot: %v", err)
+	}
+	if err := <-insertErrs; err != nil {
+		t.Fatalf("create transaction after interest snapshot: %v", err)
 	}
 }
 
