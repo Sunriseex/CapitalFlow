@@ -104,6 +104,28 @@ func TestRouterLimitsAuthEndpoints(t *testing.T) {
 	}
 }
 
+func TestRouterRateLimitUsesTrustedProxyConfig(t *testing.T) {
+	router := NewRouter(newTestProfileStore(), &RouterConfig{
+		APIAuthToken:          "test-token",
+		AuthRateLimitRequests: 1,
+		AuthRateLimitWindow:   time.Minute,
+		TrustedProxies:        []string{"192.0.2.10"},
+	})
+
+	for _, forwardedFor := range []string{"198.51.100.1", "198.51.100.2"} {
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/login", strings.NewReader(`{}`))
+		req.RemoteAddr = "192.0.2.10:1234"
+		req.Header.Set("X-Forwarded-For", forwardedFor)
+		rec := httptest.NewRecorder()
+
+		router.ServeHTTP(rec, req)
+
+		if rec.Code == http.StatusTooManyRequests {
+			t.Fatalf("request from forwarded client %s was rate limited", forwardedFor)
+		}
+	}
+}
+
 func TestRouterLimitsMutationsButNotReads(t *testing.T) {
 	router := NewRouter(nil, &RouterConfig{
 		APIAuthToken:              "test-token",

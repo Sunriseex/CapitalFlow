@@ -31,6 +31,7 @@ type Config struct {
 	AuthRateLimitWindow       time.Duration
 	MutationRateLimitRequests int
 	MutationRateLimitWindow   time.Duration
+	TrustedProxies            []string
 	LogLevel                  slog.Level
 }
 
@@ -100,6 +101,7 @@ func Init() error {
 		AuthRateLimitWindow:       getEnvDuration("AUTH_RATE_LIMIT_WINDOW", time.Minute),
 		MutationRateLimitRequests: getEnvInt("MUTATION_RATE_LIMIT_REQUESTS", 60),
 		MutationRateLimitWindow:   getEnvDuration("MUTATION_RATE_LIMIT_WINDOW", time.Minute),
+		TrustedProxies:            getEnvList("TRUSTED_PROXIES", nil),
 	}
 
 	initLogger(logLevel)

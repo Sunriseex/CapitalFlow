@@ -45,6 +45,7 @@ type RouterConfig struct {
 	AuthRateLimitWindow       time.Duration
 	MutationRateLimitRequests int
 	MutationRateLimitWindow   time.Duration
+	TrustedProxies            []string
 }
 
 func NewRouter(store Store, cfg *RouterConfig) http.Handler {
@@ -92,14 +93,16 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 		AllowCredentials: true,
 	}))
 
-	authRateLimit := appmiddleware.RateLimitByIP(
+	authRateLimit := appmiddleware.RateLimitByIPWithTrustedProxies(
 		firstPositive(cfg.AuthRateLimitRequests, cfg.RateLimitRequests),
 		firstPositiveDuration(cfg.AuthRateLimitWindow, cfg.RateLimitWindow),
+		cfg.TrustedProxies,
 	)
 
-	mutationRateLimit := appmiddleware.RateLimitByIP(
+	mutationRateLimit := appmiddleware.RateLimitByIPWithTrustedProxies(
 		firstPositive(cfg.MutationRateLimitRequests, cfg.RateLimitRequests),
 		firstPositiveDuration(cfg.MutationRateLimitWindow, cfg.RateLimitWindow),
+		cfg.TrustedProxies,
 	)
 
 	r.Get("/health", h.health)
