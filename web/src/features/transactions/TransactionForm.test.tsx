@@ -1,7 +1,8 @@
+import type { ComponentProps } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Account } from "../../api/types";
 import { TransactionForm } from "./TransactionForm";
 
@@ -16,34 +17,75 @@ vi.mock("../../api/client", () => ({
   },
 }));
 
+const account: Account = {
+  id: "account-1",
+  name: "Card",
+  type: "card",
+  currency: "RUB",
+  is_active: true,
+  opened_at: "2026-05-17",
+  created_at: "2026-05-17T00:00:00Z",
+  updated_at: "2026-05-17T00:00:00Z",
+};
+
+function renderTransactionForm(props: Partial<ComponentProps<typeof TransactionForm>> = {}) {
+  const onDone = vi.fn();
+
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <TransactionForm
+        accounts={[account]}
+        categories={[]}
+        onDone={onDone}
+        {...props}
+      />
+    </QueryClientProvider>,
+  );
+
+  return { onDone };
+}
+
 describe("TransactionForm", () => {
+  beforeEach(() => {
+    mocks.createTransaction.mockReset();
+    mocks.createTransaction.mockResolvedValue({});
+  });
+
   it("does not call the API when amount is invalid", async () => {
     const user = userEvent.setup();
-    const account: Account = {
-      id: "account-1",
-      name: "Card",
-      type: "card",
-      currency: "RUB",
-      is_active: true,
-      opened_at: "2026-05-17",
-      created_at: "2026-05-17T00:00:00Z",
-      updated_at: "2026-05-17T00:00:00Z",
-    };
 
-    render(
-      <QueryClientProvider client={new QueryClient()}>
-        <TransactionForm
-          accounts={[account]}
-          categories={[]}
-          onDone={vi.fn()}
-        />
-      </QueryClientProvider>,
-    );
+    renderTransactionForm();
 
     await user.type(screen.getByLabelText("Amount"), "abc");
     await user.click(screen.getByRole("button", { name: "Create" }));
 
     await screen.findByText("Amount must be a number with up to 2 decimal places");
+    await waitFor(() => expect(mocks.createTransaction).not.toHaveBeenCalled());
+  });
+
+  it("allows negative adjustment amounts", async () => {
+    const user = userEvent.setup();
+    const { onDone } = renderTransactionForm({ fixedType: "adjustment" });
+
+    await user.type(screen.getByLabelText("Amount"), "-10");
+    await user.click(screen.getByRole("button", { name: "Create" }));
+
+    await waitFor(() => expect(mocks.createTransaction).toHaveBeenCalledWith(expect.objectContaining({
+      account_id: "account-1",
+      type: "adjustment",
+      amount_minor: -1000,
+    })));
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
+  });
+
+  it("rejects negative non-adjustment amounts", async () => {
+    const user = userEvent.setup();
+    renderTransactionForm();
+
+    await user.type(screen.getByLabelText("Amount"), "-10");
+    await user.click(screen.getByRole("button", { name: "Create" }));
+
+    await screen.findByText("Amount must be non-negative");
     await waitFor(() => expect(mocks.createTransaction).not.toHaveBeenCalled());
   });
 });

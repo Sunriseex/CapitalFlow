@@ -20,14 +20,19 @@ export function TransactionForm({ accounts, categories, fixedType, onDone }: { a
   });
   const mutation = useMutation({
     mutationFn: () => {
-      const amount = parseMoneyToMinorResult(form.amount, { required: true, positive: true });
+      const transactionType = form.type as TransactionType;
+      const amount = parseMoneyToMinorResult(form.amount, {
+        required: true,
+        positive: transactionType !== "adjustment",
+        allowNegative: transactionType === "adjustment",
+      });
       if (!amount.ok) {
         throw new Error(amount.error);
       }
 
       return api.createTransaction({
         account_id: form.account_id,
-        type: form.type as TransactionType,
+        type: transactionType,
         amount_minor: amount.value,
         category_id: form.category_id || null,
         description: form.description,
