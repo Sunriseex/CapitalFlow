@@ -1,7 +1,7 @@
 SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
 
-.PHONY: help test race lint check check-race check-all web-lint web-test web-build web-check db-up db-down db-migrate db-rollback
+.PHONY: help test race lint check check-race check-all web-api-types web-lint web-test web-build web-check db-up db-down db-migrate db-rollback
 
 help:
 	@echo "Targets:"
@@ -10,6 +10,7 @@ help:
 	@echo "  check       - run Go tests and Go lint"
 	@echo "  check-all   - run Go checks and WebUI checks"
 	@echo "  check-race  - run Go tests, lint, and race tests"
+	@echo "  web-api-types - check generated WebUI API types"
 	@echo "  web-lint    - run WebUI lint"
 	@echo "  web-test    - run WebUI tests"
 	@echo "  web-build   - build WebUI"
@@ -34,6 +35,9 @@ check: test lint
 
 check-all: check web-check
 
+web-api-types:
+	@cd web && npm run check:api-types
+
 web-lint:
 	@cd web && npm run lint
 
@@ -43,7 +47,7 @@ web-test:
 web-build:
 	@cd web && npm run build
 
-web-check: web-lint web-test web-build
+web-check: web-api-types web-lint web-test web-build
 
 db-up:
 	@docker compose up -d postgres
