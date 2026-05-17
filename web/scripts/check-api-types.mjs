@@ -9,7 +9,9 @@ const document = YAML.parse(readFileSync(openapiPath, "utf8"));
 const expected = generateApiTypes(document);
 const actual = readFileSync(outputPath, "utf8");
 
-if (actual !== expected) {
+const normalizeLineEndings = (value) => value.replace(/\r\n/g, "\n");
+
+if (normalizeLineEndings(actual) !== normalizeLineEndings(expected)) {
   console.error("src/api/generated.ts is out of date. Run npm run generate:api-types.");
   process.exit(1);
 }

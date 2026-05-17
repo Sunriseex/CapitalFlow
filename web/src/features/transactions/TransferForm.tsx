@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { formatMoney, parseMoneyToMinor } from "../../api/money";
+import { formatMoney, parseMoneyToMinorResult } from "../../api/money";
 import type { Account } from "../../api/types";
 import { errorMessage, invalidateMoney } from "../../shared/api/query";
 import { Button, Empty, Field, FormShell, Input, Select } from "../../shared/ui";
@@ -17,7 +17,8 @@ export function TransferForm({ accounts, onDone }: { accounts: Account[]; onDone
   });
   const fromAccount = accounts.find((account) => account.id === form.from_account_id);
   const toAccount = accounts.find((account) => account.id === form.to_account_id);
-  const amountMinor = parseMoneyToMinor(form.amount);
+  const previewAmount = parseMoneyToMinorResult(form.amount);
+  const amountMinor = previewAmount.ok ? previewAmount.value : 0;
   const rates = useQuery({
     queryKey: ["currency-rates", fromAccount?.currency],
     queryFn: () => api.currencyRates(fromAccount?.currency ?? "RUB"),
@@ -29,12 +30,19 @@ export function TransferForm({ accounts, onDone }: { accounts: Account[]; onDone
   const convertedMinor = amountMinor > 0 && rate ? Math.round(amountMinor * rate) : 0;
   const cannotConvert = needsConversion && (!rate || rates.isLoading || Boolean(rates.error));
   const mutation = useMutation({
-    mutationFn: () => api.createTransfer({
-      from_account_id: form.from_account_id,
-      to_account_id: form.to_account_id,
-      amount_minor: parseMoneyToMinor(form.amount),
-      description: form.description,
-    }),
+    mutationFn: () => {
+      const amount = parseMoneyToMinorResult(form.amount, { required: true, positive: true });
+      if (!amount.ok) {
+        throw new Error(amount.error);
+      }
+
+      return api.createTransfer({
+        from_account_id: form.from_account_id,
+        to_account_id: form.to_account_id,
+        amount_minor: amount.value,
+        description: form.description,
+      });
+    },
     onSuccess: () => {
       invalidateMoney(queryClient);
       onDone();

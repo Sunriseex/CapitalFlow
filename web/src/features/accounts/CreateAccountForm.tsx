@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { parseMoneyToMinor } from "../../api/money";
+import { parseMoneyToMinorResult } from "../../api/money";
 import type { AccountType } from "../../api/types";
 import { errorMessage, invalidateMoney } from "../../shared/api/query";
 import { currencyOptions } from "../../shared/currencies";
@@ -25,7 +25,11 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
   });
   const mutation = useMutation({
     mutationFn: async () => {
-      const initial = parseMoneyToMinor(form.initial);
+      const initial = parseMoneyToMinorResult(form.initial);
+      if (!initial.ok) {
+        throw new Error(initial.error);
+      }
+
       const rate = Number(form.rate.replace(",", "."));
       const promoRate = Number(form.promoRate.replace(",", "."));
 
@@ -53,11 +57,11 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
         opened_at: form.opened_at,
       });
 
-      if (initial > 0) {
+      if (initial.value > 0) {
         await api.createTransaction({
           account_id: account.id,
           type: "initial_balance",
-          amount_minor: initial,
+          amount_minor: initial.value,
           description: "Initial balance",
           occurred_at: form.opened_at,
         });
