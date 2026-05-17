@@ -131,7 +131,7 @@ describe("TransferForm", () => {
         amount_minor: 12345,
         description: "",
       });
+      expect(onDone).toHaveBeenCalled();
     });
-    expect(onDone).toHaveBeenCalled();
-  });
 });
+})
