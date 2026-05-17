@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -15,6 +16,8 @@ import (
 )
 
 const IdempotencyKeyHeader = "Idempotency-Key"
+
+const idempotencyCompletionUnknownMessage = "The operation may have completed, but idempotency state could not be persisted. Retry later with the same Idempotency-Key. Do not retry with a new key."
 
 func RequireIdempotencyKey(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -113,12 +116,38 @@ func Idempotency(repo repository.IdempotencyRepository) func(http.Handler) http.
 
 			completeCtx := context.WithoutCancel(r.Context())
 			if err := repo.Complete(completeCtx, key, claims.UserID, r.Method, r.URL.Path, rec.statusCode(), rec.body.Bytes()); err != nil {
+				if rec.statusCode() >= http.StatusOK && rec.statusCode() < http.StatusMultipleChoices {
+					writeIdempotencyCompletionUnknown(w)
+					return
+				}
 				http.Error(w, "idempotency completion failed", http.StatusInternalServerError)
 				return
 			}
 			rec.flushTo(w)
 		})
 	}
+}
+
+func writeIdempotencyCompletionUnknown(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusConflict)
+	_ = json.NewEncoder(w).Encode(struct {
+		Error struct {
+			Code    string         `json:"code"`
+			Message string         `json:"message"`
+			Details map[string]any `json:"details"`
+		} `json:"error"`
+	}{
+		Error: struct {
+			Code    string         `json:"code"`
+			Message string         `json:"message"`
+			Details map[string]any `json:"details"`
+		}{
+			Code:    "idempotency_completion_unknown",
+			Message: idempotencyCompletionUnknownMessage,
+			Details: nil,
+		},
+	})
 }
 
 func hashRequestBody(body []byte) string {

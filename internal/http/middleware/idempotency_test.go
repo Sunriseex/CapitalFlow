@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -39,7 +40,7 @@ func TestIdempotencyFlushesResponseAfterComplete(t *testing.T) {
 	}
 }
 
-func TestIdempotencyDoesNotFlushHandlerResponseWhenCompleteFails(t *testing.T) {
+func TestIdempotencyReturnsCompletionUnknownWhenCompleteFailsAfterSuccess(t *testing.T) {
 	repo := newTestIdempotencyRepo()
 	repo.completeErr = errors.New("database unavailable")
 	handler := Idempotency(repo)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -52,11 +53,33 @@ func TestIdempotencyDoesNotFlushHandlerResponseWhenCompleteFails(t *testing.T) {
 
 	handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusConflict)
+	}
+	if got := rec.Header().Get("Content-Type"); got != "application/json" {
+		t.Fatalf("content type = %q, want application/json", got)
 	}
 	if strings.Contains(rec.Body.String(), "created") {
 		t.Fatalf("handler response was flushed after failed Complete: %s", rec.Body.String())
+	}
+	var body struct {
+		Error struct {
+			Code    string         `json:"code"`
+			Message string         `json:"message"`
+			Details map[string]any `json:"details"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body.Error.Code != "idempotency_completion_unknown" {
+		t.Fatalf("code = %q, want idempotency_completion_unknown", body.Error.Code)
+	}
+	if body.Error.Message != idempotencyCompletionUnknownMessage {
+		t.Fatalf("message = %q", body.Error.Message)
+	}
+	if body.Error.Details != nil {
+		t.Fatalf("details = %#v, want nil", body.Error.Details)
 	}
 	record := repo.records["create-transaction\x00user-1\x00POST\x00/api/v1/transactions"]
 	if record == nil {
