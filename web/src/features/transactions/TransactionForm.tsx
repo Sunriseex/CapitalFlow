@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { parseMoneyToMinor } from "../../api/money";
+import { parseMoneyToMinorResult } from "../../api/money";
 import type { Account, Category, TransactionType } from "../../api/types";
 import { errorMessage, invalidateMoney } from "../../shared/api/query";
 import { today, transactionTypes } from "../../shared/constants";
@@ -19,14 +19,26 @@ export function TransactionForm({ accounts, categories, fixedType, onDone }: { a
     occurred_at: today,
   });
   const mutation = useMutation({
-    mutationFn: () => api.createTransaction({
-      account_id: form.account_id,
-      type: form.type as TransactionType,
-      amount_minor: parseMoneyToMinor(form.amount),
-      category_id: form.category_id || null,
-      description: form.description,
-      occurred_at: form.occurred_at,
-    }),
+    mutationFn: () => {
+      const transactionType = form.type as TransactionType;
+      const amount = parseMoneyToMinorResult(form.amount, {
+        required: true,
+        positive: transactionType !== "adjustment",
+        allowNegative: transactionType === "adjustment",
+      });
+      if (!amount.ok) {
+        throw new Error(amount.error);
+      }
+
+      return api.createTransaction({
+        account_id: form.account_id,
+        type: transactionType,
+        amount_minor: amount.value,
+        category_id: form.category_id || null,
+        description: form.description,
+        occurred_at: form.occurred_at,
+      });
+    },
     onSuccess: () => {
       invalidateMoney(queryClient);
       onDone();

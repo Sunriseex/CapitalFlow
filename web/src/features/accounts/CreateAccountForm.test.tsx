@@ -1,22 +1,29 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CreateAccountForm } from "./CreateAccountForm";
 
 const mocks = vi.hoisted(() => ({
   createAccount: vi.fn(),
+  createTransaction: vi.fn(),
+  createInterestRule: vi.fn(),
 }));
 
 vi.mock("../../api/client", () => ({
+  ApiClientError: class ApiClientError extends Error {},
   api: {
     createAccount: mocks.createAccount,
-    createTransaction: vi.fn(),
-    createInterestRule: vi.fn(),
+    createTransaction: mocks.createTransaction,
+    createInterestRule: mocks.createInterestRule,
   },
 }));
 
 describe("CreateAccountForm", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("creates an account through the API client", async () => {
     const user = userEvent.setup();
     const onDone = vi.fn();
@@ -39,5 +46,26 @@ describe("CreateAccountForm", () => {
       currency: "RUB",
     })));
     expect(onDone).toHaveBeenCalled();
+  });
+
+  it("does not call the API when initial balance is invalid", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <CreateAccountForm onDone={vi.fn()} />
+      </QueryClientProvider>,
+    );
+
+    await user.type(screen.getByLabelText("Name"), "Daily card");
+    await user.type(screen.getByLabelText("Initial balance"), "Infinity");
+    await user.click(screen.getByRole("button", { name: "Create" }));
+
+    await screen.findByText("Amount must be a number with up to 2 decimal places");
+    await waitFor(() => {
+      expect(mocks.createAccount).not.toHaveBeenCalled();
+      expect(mocks.createTransaction).not.toHaveBeenCalled();
+      expect(mocks.createInterestRule).not.toHaveBeenCalled();
+    });
   });
 });

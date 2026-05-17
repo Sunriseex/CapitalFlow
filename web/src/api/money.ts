@@ -4,12 +4,54 @@ export function formatMoney(minor: number, currency = "RUB") {
   return new Intl.NumberFormat("ru-RU", { style: "currency", currency }).format(minor / 100);
 }
 
-export function parseMoneyToMinor(value: string) {
+type MoneyParseOptions = {
+  required?: boolean;
+  positive?: boolean;
+  allowNegative?: boolean;
+};
+
+export type MoneyParseResult = { ok: true; value: number } | { ok: false; error: string };
+
+export function parseMoneyToMinorResult(value: string, options: MoneyParseOptions = {}): MoneyParseResult {
   const normalized = value.trim().replace(",", ".");
-  if (!normalized) {
-    return 0;
+  if (normalized === "") {
+    if (options.required) {
+      return { ok: false, error: "Amount is required" };
+    }
+    return { ok: true, value: 0 };
   }
-  return Math.round(Number(normalized) * 100);
+
+  if (!/^-?\d+(?:\.\d{1,2})?$/.test(normalized)) {
+    return { ok: false, error: "Amount must be a number with up to 2 decimal places" };
+  }
+
+  const isNegative = normalized.startsWith("-");
+  if (isNegative && options.allowNegative !== true) {
+    return { ok: false, error: "Amount must be non-negative" };
+  }
+
+  const unsigned = isNegative ? normalized.slice(1) : normalized;
+  const [whole, fraction = ""] = unsigned.split(".");
+  const minor = (Number(whole) * 100) + Number(fraction.padEnd(2, "0"));
+  const signedMinor = isNegative ? -minor : minor;
+
+  if (!Number.isSafeInteger(signedMinor)) {
+    return { ok: false, error: "Amount is too large" };
+  }
+
+  if (options.positive && signedMinor <= 0) {
+    return { ok: false, error: "Amount must be greater than zero" };
+  }
+
+  return { ok: true, value: signedMinor };
+}
+
+export function parseMoneyToMinor(value: string) {
+  const parsed = parseMoneyToMinorResult(value);
+  if (!parsed.ok) {
+    throw new Error(parsed.error);
+  }
+  return parsed.value;
 }
 
 export function amountFor(amounts: Amount[] | null | undefined, currency = "RUB") {
