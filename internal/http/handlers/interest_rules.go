@@ -298,17 +298,16 @@ func (h *Handler) accrueInterestForAccount(r *http.Request, accountID, userID, r
 			}
 			if !calculated.Skipped {
 				if err := snapshot.CreateInterestAccrualWithTransaction(ctx, calculated.Transaction, calculated.Accrual); err != nil {
-					if errors.Is(err, repository.ErrConflict) {
-						calculated = &services.AccrueRuleInterestResponse{Skipped: true}
-					} else {
-						return fmt.Errorf("create interest accrual in locked snapshot: %w", err)
-					}
+					return fmt.Errorf("create interest accrual in locked snapshot: %w", err)
 				}
 			}
 			result = calculated
 			return nil
 		})
 		if err != nil {
+			if errors.Is(err, repository.ErrConflict) {
+				return &services.AccrueRuleInterestResponse{Skipped: true}, nil
+			}
 			return nil, fmt.Errorf("run account interest accrual transaction: %w", err)
 		}
 		return result, nil
@@ -326,7 +325,20 @@ func (h *Handler) accrueInterestForAccount(r *http.Request, accountID, userID, r
 	if err != nil {
 		return nil, fmt.Errorf("list account accruals for interest accrual: %w", err)
 	}
-	return accrueInterestFromData(r.Context(), rule, accountID, accrualDate, transactions, accruals)
+	result, err := accrueInterestFromData(r.Context(), rule, accountID, accrualDate, transactions, accruals)
+	if err != nil {
+		return nil, err
+	}
+	if result.Skipped {
+		return result, nil
+	}
+	if err := h.store.InterestAccruals().CreateWithTransaction(r.Context(), result.Transaction, result.Accrual); err != nil {
+		if errors.Is(err, repository.ErrConflict) {
+			return &services.AccrueRuleInterestResponse{Skipped: true}, nil
+		}
+		return nil, fmt.Errorf("create interest accrual: %w", err)
+	}
+	return result, nil
 }
 
 func (h *Handler) recalculateInterestForAccount(r *http.Request, accountID, userID, ruleID string, ruleDate, fromDate, toDate time.Time) (*services.RecalculateRuleInterestResponse, error) {
