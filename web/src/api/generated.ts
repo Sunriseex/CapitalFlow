@@ -8,6 +8,59 @@ export type ErrorResponse = {
 };
 };
 
+export type AuthUser = {
+  "id": string;
+  "email": string;
+  "primary_currency": string;
+};
+
+export type AuthSetupRequest = {
+  "email": string;
+  "password": string;
+  "primary_currency": string;
+};
+
+export type AuthLoginRequest = {
+  "email": string;
+  "password": string;
+};
+
+export type AuthResponse = {
+  "user": AuthUser;
+  "access_token": string;
+  "access_expires_at": string;
+};
+
+export type AuthStatusResponse = {
+  "setup_required": boolean;
+};
+
+export type ChangePasswordRequest = {
+  "current_password": string;
+  "new_password": string;
+};
+
+export type AuthSessionInfo = {
+  "id": string;
+  "expires_at": string;
+  "revoked_at"?: string | null;
+  "created_at": string;
+  "active": boolean;
+  "current": boolean;
+};
+
+export type AuthSessionsResponse = {
+  "sessions": AuthSessionInfo[];
+};
+
+export type Profile = {
+  "user": AuthUser;
+};
+
+export type UpdateProfileRequest = {
+  "primary_currency": string;
+};
+
 export type AccountType = "cash" | "card" | "savings" | "term_deposit" | "broker" | "other";
 
 export type TransactionType = "initial_balance" | "income" | "expense" | "transfer_in" | "transfer_out" | "interest_income" | "adjustment";

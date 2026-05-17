@@ -7,6 +7,8 @@ servers:
 security:
   - bearerAuth: []
 tags:
+  - name: Auth
+  - name: Profile
   - name: Categories
   - name: Currencies
   - name: Accounts
@@ -15,6 +17,184 @@ tags:
   - name: Interest Rules
   - name: Dashboard
 paths:
+  /auth/status:
+    servers:
+      - url: http://localhost:8080
+    get:
+      tags: [Auth]
+      summary: Check whether initial setup is required
+      security: []
+      responses:
+        "200":
+          description: Auth setup status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthStatusResponse"
+        default:
+          $ref: "#/components/responses/APIError"
+  /auth/setup:
+    servers:
+      - url: http://localhost:8080
+    post:
+      tags: [Auth]
+      summary: Create the first user and start a session
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthSetupRequest"
+      responses:
+        "201":
+          description: Created session
+          headers:
+            Set-Cookie:
+              description: HttpOnly refresh-token cookie.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        default:
+          $ref: "#/components/responses/APIError"
+  /auth/login:
+    servers:
+      - url: http://localhost:8080
+    post:
+      tags: [Auth]
+      summary: Start a session
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthLoginRequest"
+      responses:
+        "200":
+          description: Started session
+          headers:
+            Set-Cookie:
+              description: HttpOnly refresh-token cookie.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        default:
+          $ref: "#/components/responses/APIError"
+  /auth/refresh:
+    servers:
+      - url: http://localhost:8080
+    post:
+      tags: [Auth]
+      summary: Refresh access token using the HttpOnly refresh cookie
+      security: []
+      responses:
+        "200":
+          description: Refreshed session
+          headers:
+            Set-Cookie:
+              description: Rotated HttpOnly refresh-token cookie.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        default:
+          $ref: "#/components/responses/APIError"
+  /auth/logout:
+    servers:
+      - url: http://localhost:8080
+    post:
+      tags: [Auth]
+      summary: Revoke the current refresh-token cookie session
+      security: []
+      responses:
+        "204":
+          description: Logged out
+          headers:
+            Set-Cookie:
+              description: Expired refresh-token cookie.
+              schema:
+                type: string
+        default:
+          $ref: "#/components/responses/APIError"
+  /settings/profile:
+    get:
+      tags: [Profile]
+      summary: Get current user profile
+      responses:
+        "200":
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        default:
+          $ref: "#/components/responses/APIError"
+    patch:
+      tags: [Profile]
+      summary: Update current user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
+      responses:
+        "200":
+          description: Updated user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        default:
+          $ref: "#/components/responses/APIError"
+  /auth/password:
+    post:
+      tags: [Auth]
+      summary: Change current user password and revoke existing sessions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "204":
+          description: Password changed
+        default:
+          $ref: "#/components/responses/APIError"
+  /auth/sessions:
+    get:
+      tags: [Auth]
+      summary: List current user sessions
+      responses:
+        "200":
+          description: User sessions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSessionsResponse"
+        default:
+          $ref: "#/components/responses/APIError"
+  /auth/sessions/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ID"
+    delete:
+      tags: [Auth]
+      summary: Revoke a user session
+      responses:
+        "204":
+          description: Session revoked
+        default:
+          $ref: "#/components/responses/APIError"
   /categories:
     get:
       tags: [Categories]
@@ -480,6 +660,114 @@ components:
             details:
               type: object
               additionalProperties: true
+    AuthUser:
+      type: object
+      required: [id, email, primary_currency]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        primary_currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+    AuthSetupRequest:
+      type: object
+      required: [email, password, primary_currency]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 1
+        primary_currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+    AuthLoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 1
+    AuthResponse:
+      type: object
+      required: [user, access_token, access_expires_at]
+      properties:
+        user:
+          $ref: "#/components/schemas/AuthUser"
+        access_token:
+          type: string
+        access_expires_at:
+          type: string
+          format: date-time
+    AuthStatusResponse:
+      type: object
+      required: [setup_required]
+      properties:
+        setup_required:
+          type: boolean
+    ChangePasswordRequest:
+      type: object
+      required: [current_password, new_password]
+      properties:
+        current_password:
+          type: string
+          minLength: 1
+        new_password:
+          type: string
+          minLength: 1
+    AuthSessionInfo:
+      type: object
+      required: [id, expires_at, created_at, active, current]
+      properties:
+        id:
+          type: string
+          format: uuid
+        expires_at:
+          type: string
+          format: date-time
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        active:
+          type: boolean
+        current:
+          type: boolean
+    AuthSessionsResponse:
+      type: object
+      required: [sessions]
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuthSessionInfo"
+    Profile:
+      type: object
+      required: [user]
+      properties:
+        user:
+          $ref: "#/components/schemas/AuthUser"
+    UpdateProfileRequest:
+      type: object
+      required: [primary_currency]
+      properties:
+        primary_currency:
+          type: string
+          minLength: 3
+          maxLength: 3
     AccountType:
       type: string
       enum: [cash, card, savings, term_deposit, broker, other]

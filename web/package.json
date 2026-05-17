@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "generate:api-types": "node scripts/generate-api-types.mjs",
+    "check:api-types": "node scripts/check-api-types.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
