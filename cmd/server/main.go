@@ -75,6 +75,7 @@ func run() error {
 			AuthRateLimitWindow:       config.AppConfig.AuthRateLimitWindow,
 			MutationRateLimitRequests: config.AppConfig.MutationRateLimitRequests,
 			MutationRateLimitWindow:   config.AppConfig.MutationRateLimitWindow,
+			TrustedProxies:            config.AppConfig.TrustedProxies,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 	}

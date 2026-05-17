@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"math"
 
 	"github.com/sunriseex/capitalflow/internal/models"
 )
@@ -47,7 +48,11 @@ func (s *BalanceService) Calculate(ctx context.Context, req CalculateBalanceRequ
 		if err != nil {
 			return nil, err
 		}
-		balance += delta
+		next, err := checkedAddMinor(balance, delta)
+		if err != nil {
+			return nil, err
+		}
+		balance = next
 		count++
 	}
 
@@ -68,8 +73,27 @@ func transactionDelta(tx *models.Transaction) (int64, error) {
 		return tx.AmountMinor, nil
 	case models.TransactionTypeExpense,
 		models.TransactionTypeTransferOut:
+		if tx.AmountMinor == math.MinInt64 {
+			return 0, fmt.Errorf("transaction amount overflows balance delta")
+		}
 		return -tx.AmountMinor, nil
 	default:
 		return 0, fmt.Errorf("unknown transaction type: %s", tx.Type)
 	}
+}
+
+func checkedAddMinor(left, right int64) (int64, error) {
+	if right > 0 && left > math.MaxInt64-right {
+		return 0, fmt.Errorf("balance calculation overflows int64")
+	}
+	if right == math.MinInt64 {
+		if left < 0 {
+			return 0, fmt.Errorf("balance calculation overflows int64")
+		}
+		return left + right, nil
+	}
+	if right < 0 && left < math.MinInt64-right {
+		return 0, fmt.Errorf("balance calculation overflows int64")
+	}
+	return left + right, nil
 }

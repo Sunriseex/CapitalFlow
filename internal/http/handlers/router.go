@@ -45,6 +45,7 @@ type RouterConfig struct {
 	AuthRateLimitWindow       time.Duration
 	MutationRateLimitRequests int
 	MutationRateLimitWindow   time.Duration
+	TrustedProxies            []string
 }
 
 func NewRouter(store Store, cfg *RouterConfig) http.Handler {
@@ -77,7 +78,6 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 	}
 	r := chi.NewRouter()
 	r.Use(chimiddleware.RequestID)
-	r.Use(chimiddleware.RealIP)
 	r.Use(appmiddleware.RequestLogger)
 	r.Use(chimiddleware.Recoverer)
 	r.Use(appmiddleware.CORS(&appmiddleware.CORSConfig{
@@ -93,14 +93,16 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 		AllowCredentials: true,
 	}))
 
-	authRateLimit := appmiddleware.RateLimitByIP(
+	authRateLimit := appmiddleware.RateLimitByIPWithTrustedProxies(
 		firstPositive(cfg.AuthRateLimitRequests, cfg.RateLimitRequests),
 		firstPositiveDuration(cfg.AuthRateLimitWindow, cfg.RateLimitWindow),
+		cfg.TrustedProxies,
 	)
 
-	mutationRateLimit := appmiddleware.RateLimitByIP(
+	mutationRateLimit := appmiddleware.RateLimitByIPWithTrustedProxies(
 		firstPositive(cfg.MutationRateLimitRequests, cfg.RateLimitRequests),
 		firstPositiveDuration(cfg.MutationRateLimitWindow, cfg.RateLimitWindow),
+		cfg.TrustedProxies,
 	)
 
 	r.Get("/health", h.health)
@@ -126,13 +128,13 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 			r.Post("/accounts", h.createAccount)
 			r.Patch("/accounts/{id}", h.updateAccount)
 			r.Post("/accounts/{id}/archive", h.archiveAccount)
-			r.Post("/transactions", h.createTransaction)
+			r.With(appmiddleware.RequireIdempotencyKey).Post("/transactions", h.createTransaction)
 			r.Delete("/transactions/{id}", h.deleteTransaction)
-			r.Post("/transfers", h.createTransfer)
+			r.With(appmiddleware.RequireIdempotencyKey).Post("/transfers", h.createTransfer)
 			r.Post("/accounts/{id}/interest-rules", h.createInterestRule)
 			r.Patch("/interest-rules/{id}", h.updateInterestRule)
-			r.Post("/accounts/{id}/accrue-interest", h.accrueInterest)
-			r.Post("/accounts/{id}/recalculate-interest", h.recalculateInterest)
+			r.With(appmiddleware.RequireIdempotencyKey).Post("/accounts/{id}/accrue-interest", h.accrueInterest)
+			r.With(appmiddleware.RequireIdempotencyKey).Post("/accounts/{id}/recalculate-interest", h.recalculateInterest)
 		})
 
 		r.Get("/categories", h.listCategories)

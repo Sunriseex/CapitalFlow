@@ -96,6 +96,58 @@ func (r *AccountRepository) UpdateForUser(ctx context.Context, account *models.A
 	return nil
 }
 
+func (r *AccountRepository) UpdateForUserEnforcingCurrencyInvariant(ctx context.Context, account *models.Account, userID string) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin update account enforcing currency invariant: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	var currentCurrency string
+	if err := tx.QueryRow(ctx, `
+		SELECT currency
+		FROM accounts
+		WHERE id = $1 AND owner_user_id = $2
+		FOR UPDATE
+	`, account.ID, userID).Scan(&currentCurrency); err != nil {
+		return fmt.Errorf("lock account enforcing currency invariant: %w", mapNotFound(err))
+	}
+
+	if currentCurrency != account.Currency {
+		var hasTransactions bool
+		if err := tx.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1
+				FROM transactions
+				WHERE account_id = $1
+			)
+		`, account.ID).Scan(&hasTransactions); err != nil {
+			return fmt.Errorf("check account transactions: %w", err)
+		}
+		if hasTransactions {
+			return fmt.Errorf("update account enforcing currency invariant: %w", repository.ErrAccountCurrencyInvariant)
+		}
+	}
+
+	tag, err := tx.Exec(ctx, `
+		UPDATE accounts
+		SET name = $3, bank = $4, type = $5, currency = $6, is_active = $7, opened_at = $8, updated_at = $9
+		WHERE id = $1 AND owner_user_id = $2
+	`, account.ID, userID, account.Name, account.Bank, account.Type, account.Currency, account.IsActive, account.OpenedAt, account.UpdatedAt)
+	if err != nil {
+		return fmt.Errorf("update account enforcing currency invariant: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("update account enforcing currency invariant: %w", repository.ErrNotFound)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit update account enforcing currency invariant: %w", err)
+	}
+	return nil
+}
+
 func (r *AccountRepository) Archive(ctx context.Context, id string) error {
 	tag, err := r.pool.Exec(ctx, `UPDATE accounts SET is_active = false, updated_at = now() WHERE id = $1`, id)
 	if err != nil {
@@ -119,7 +171,15 @@ func (r *AccountRepository) ArchiveForUser(ctx context.Context, id, userID strin
 }
 
 func (r *AccountRepository) ClaimUnowned(ctx context.Context, userID string) error {
-	_, err := r.pool.Exec(ctx, `
+	if err := claimUnownedAccounts(ctx, r.pool, userID); err != nil {
+		return fmt.Errorf("claim unowned accounts: %w", err)
+	}
+
+	return nil
+}
+
+func claimUnownedAccounts(ctx context.Context, execer sqlExecer, userID string) error {
+	_, err := execer.Exec(ctx, `
 		UPDATE accounts
 		SET owner_user_id = $1, updated_at = now()
 		WHERE owner_user_id IS NULL
@@ -127,7 +187,6 @@ func (r *AccountRepository) ClaimUnowned(ctx context.Context, userID string) err
 	if err != nil {
 		return fmt.Errorf("claim unowned accounts: %w", err)
 	}
-
 	return nil
 }
 

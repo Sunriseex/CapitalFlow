@@ -16,6 +16,7 @@ type AccountRepository interface {
 	ListByUser(ctx context.Context, userID string) ([]models.Account, error)
 	Update(ctx context.Context, account *models.Account) error
 	UpdateForUser(ctx context.Context, account *models.Account, userID string) error
+	UpdateForUserEnforcingCurrencyInvariant(ctx context.Context, account *models.Account, userID string) error
 	Archive(ctx context.Context, id string) error
 	ArchiveForUser(ctx context.Context, id, userID string) error
 	ClaimUnowned(ctx context.Context, userID string) error
@@ -27,8 +28,9 @@ type DepositMigrationRepository interface {
 
 type TransactionRepository interface {
 	Create(ctx context.Context, transaction *models.Transaction) error
+	CreateForUser(ctx context.Context, userID string, transaction *models.Transaction) error
 	CreateMany(ctx context.Context, transactions []models.Transaction) error
-	CreateTransfer(ctx context.Context, userID, fromAccountID, toAccountID string, transactions []models.Transaction) error
+	CreateTransfer(ctx context.Context, userID, fromAccountID, toAccountID, fromCurrency, toCurrency string, transactions []models.Transaction) error
 	GetByID(ctx context.Context, id string) (*models.Transaction, error)
 	GetByIDForUser(ctx context.Context, id, userID string) (*models.Transaction, error)
 	List(ctx context.Context) ([]models.Transaction, error)
@@ -70,7 +72,12 @@ type UserRepository interface {
 	RecordLoginFailure(ctx context.Context, id string, threshold int, delays []time.Duration, updatedAt time.Time) (int, *time.Time, error)
 	ClearLoginFailures(ctx context.Context, id string, updatedAt time.Time) error
 	UpdatePassword(ctx context.Context, id, passwordHash string, updatedAt time.Time) error
+	ChangePasswordAndRevokeSessions(ctx context.Context, id, passwordHash string, updatedAt time.Time, revokedReason string) error
 	UpdatePrimaryCurrency(ctx context.Context, id, primaryCurrency string, updatedAt time.Time) error
+}
+
+type AuthSetupRepository interface {
+	Setup(ctx context.Context, user *models.User, refreshToken *models.RefreshToken, auditEvent *models.AuthAuditEvent) error
 }
 
 type RefreshTokenRepository interface {

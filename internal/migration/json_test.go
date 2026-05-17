@@ -606,6 +606,10 @@ func (r *fakeAccountRepo) UpdateForUser(ctx context.Context, account *models.Acc
 	return r.Update(ctx, account)
 }
 
+func (r *fakeAccountRepo) UpdateForUserEnforcingCurrencyInvariant(ctx context.Context, account *models.Account, _ string) error {
+	return r.Update(ctx, account)
+}
+
 func (r *fakeAccountRepo) Archive(_ context.Context, id string) error {
 	account, ok := r.byID[id]
 	if !ok {
@@ -638,6 +642,10 @@ func (r *fakeTransactionRepo) Create(_ context.Context, transaction *models.Tran
 	return nil
 }
 
+func (r *fakeTransactionRepo) CreateForUser(ctx context.Context, _ string, transaction *models.Transaction) error {
+	return r.Create(ctx, transaction)
+}
+
 func (r *fakeTransactionRepo) CreateMany(ctx context.Context, transactions []models.Transaction) error {
 	for i := range transactions {
 		if err := r.Create(ctx, &transactions[i]); err != nil {
@@ -647,7 +655,7 @@ func (r *fakeTransactionRepo) CreateMany(ctx context.Context, transactions []mod
 	return nil
 }
 
-func (r *fakeTransactionRepo) CreateTransfer(ctx context.Context, _, _, _ string, transactions []models.Transaction) error {
+func (r *fakeTransactionRepo) CreateTransfer(ctx context.Context, _, _, _, _, _ string, transactions []models.Transaction) error {
 	return r.CreateMany(ctx, transactions)
 }
 

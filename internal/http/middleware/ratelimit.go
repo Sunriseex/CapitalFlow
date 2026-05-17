@@ -1,8 +1,11 @@
 package middleware
 
 import (
+	"encoding/json"
+	"log/slog"
 	"net"
 	"net/http"
+	"net/netip"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,16 +18,21 @@ type rateLimitBucket struct {
 }
 
 func RateLimitByIP(limit int, window time.Duration) func(http.Handler) http.Handler {
+	return RateLimitByIPWithTrustedProxies(limit, window, nil)
+}
+
+func RateLimitByIPWithTrustedProxies(limit int, window time.Duration, trustedProxies []string) func(http.Handler) http.Handler {
 	var (
 		mu      sync.Mutex
 		buckets = make(map[string]rateLimitBucket)
 		now     = time.Now
+		proxies = parseTrustedProxies(trustedProxies)
 	)
 
-	return rateLimitByIP(limit, window, now, &mu, buckets)
+	return rateLimitByIP(limit, window, now, &mu, buckets, proxies)
 }
 
-func rateLimitByIP(limit int, window time.Duration, now func() time.Time, mu *sync.Mutex, buckets map[string]rateLimitBucket) func(http.Handler) http.Handler {
+func rateLimitByIP(limit int, window time.Duration, now func() time.Time, mu *sync.Mutex, buckets map[string]rateLimitBucket, trusted trustedProxySet) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if limit <= 0 || window <= 0 {
@@ -32,7 +40,7 @@ func rateLimitByIP(limit int, window time.Duration, now func() time.Time, mu *sy
 				return
 			}
 
-			key := clientIP(r)
+			key := clientIP(r, trusted)
 			current := now()
 
 			mu.Lock()
@@ -54,7 +62,7 @@ func rateLimitByIP(limit int, window time.Duration, now func() time.Time, mu *sy
 
 			if !allowed {
 				w.Header().Set("Retry-After", strconv.Itoa(max(1, int(window.Seconds()))))
-				http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
+				writeRateLimitError(w)
 				return
 			}
 
@@ -63,19 +71,85 @@ func rateLimitByIP(limit int, window time.Duration, now func() time.Time, mu *sy
 	}
 }
 
-func clientIP(r *http.Request) string {
-	if forwardedFor := strings.TrimSpace(r.Header.Get("X-Forwarded-For")); forwardedFor != "" {
-		ip, _, _ := strings.Cut(forwardedFor, ",")
-		if ip = strings.TrimSpace(ip); ip != "" {
-			return ip
+type trustedProxySet struct {
+	prefixes []netip.Prefix
+}
+
+func parseTrustedProxies(values []string) trustedProxySet {
+	trusted := trustedProxySet{}
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if prefix, err := netip.ParsePrefix(value); err == nil {
+			trusted.prefixes = append(trusted.prefixes, prefix)
+			continue
+		}
+		if addr, err := netip.ParseAddr(value); err == nil {
+			trusted.prefixes = append(trusted.prefixes, netip.PrefixFrom(addr, addr.BitLen()))
+			continue
+		}
+		slog.Warn("invalid trusted proxy ignored", "trusted_proxy", value)
+	}
+	return trusted
+}
+
+func (s trustedProxySet) contains(addr netip.Addr) bool {
+	for _, prefix := range s.prefixes {
+		if prefix.Contains(addr) {
+			return true
 		}
 	}
-	if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); realIP != "" {
-		return realIP
-	}
+	return false
+}
+
+func clientIP(r *http.Request, trusted trustedProxySet) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err == nil && host != "" {
+		if remoteAddr, parseErr := netip.ParseAddr(host); parseErr == nil && trusted.contains(remoteAddr) {
+			if forwarded := forwardedClientIP(r); forwarded != "" {
+				return forwarded
+			}
+		}
 		return host
 	}
 	return r.RemoteAddr
+}
+
+func forwardedClientIP(r *http.Request) string {
+	for part := range strings.SplitSeq(r.Header.Get("X-Forwarded-For"), ",") {
+		part = strings.TrimSpace(part)
+		if addr, err := netip.ParseAddr(part); err == nil {
+			return addr.String()
+		}
+	}
+
+	realIP := strings.TrimSpace(r.Header.Get("X-Real-IP"))
+	if addr, err := netip.ParseAddr(realIP); err == nil {
+		return addr.String()
+	}
+	return ""
+}
+
+func writeRateLimitError(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusTooManyRequests)
+	_ = json.NewEncoder(w).Encode(struct {
+		Error struct {
+			Code    string         `json:"code"`
+			Message string         `json:"message"`
+			Details map[string]any `json:"details"`
+		} `json:"error"`
+	}{
+		Error: struct {
+			Code    string         `json:"code"`
+			Message string         `json:"message"`
+			Details map[string]any `json:"details"`
+		}{
+			Code:    "rate_limited",
+			Message: "Rate limit exceeded",
+			Details: nil,
+		},
+	})
 }

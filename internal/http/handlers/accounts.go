@@ -131,7 +131,7 @@ func (h *Handler) updateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	account.UpdatedAt = time.Now()
-	if err := h.store.Accounts().UpdateForUser(r.Context(), account, userID); err != nil {
+	if err := h.store.Accounts().UpdateForUserEnforcingCurrencyInvariant(r.Context(), account, userID); err != nil {
 		writeServiceError(w, err)
 		return
 	}

@@ -16,6 +16,8 @@ type TransactionService struct {
 	repo repository.TransactionRepository
 }
 
+const maxTransactionAmountMinor int64 = 100_000_000_000_000
+
 func NewTransactionService(repos ...repository.TransactionRepository) *TransactionService {
 	var repo repository.TransactionRepository
 	if len(repos) > 0 {
@@ -49,6 +51,21 @@ func (s *TransactionService) Create(ctx context.Context, req *CreateTransactionR
 	return transaction, nil
 }
 
+func (s *TransactionService) CreateForUser(ctx context.Context, userID string, req *CreateTransactionRequest) (*models.Transaction, error) {
+	transaction, err := buildTransaction(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.repo != nil {
+		if err := s.repo.CreateForUser(ctx, strings.TrimSpace(userID), transaction); err != nil {
+			return nil, fmt.Errorf("save transaction: %w", err)
+		}
+	}
+
+	return transaction, nil
+}
+
 func (s *TransactionService) CreateMany(ctx context.Context, reqs ...*CreateTransactionRequest) ([]models.Transaction, error) {
 	transactions := make([]models.Transaction, 0, len(reqs))
 	for _, req := range reqs {
@@ -68,7 +85,7 @@ func (s *TransactionService) CreateMany(ctx context.Context, reqs ...*CreateTran
 	return transactions, nil
 }
 
-func (s *TransactionService) CreateTransfer(ctx context.Context, userID, fromAccountID, toAccountID string, reqs ...*CreateTransactionRequest) ([]models.Transaction, error) {
+func (s *TransactionService) CreateTransfer(ctx context.Context, userID, fromAccountID, toAccountID, fromCurrency, toCurrency string, reqs ...*CreateTransactionRequest) ([]models.Transaction, error) {
 	transactions := make([]models.Transaction, 0, len(reqs))
 	for _, req := range reqs {
 		transaction, err := buildTransaction(ctx, req)
@@ -79,7 +96,7 @@ func (s *TransactionService) CreateTransfer(ctx context.Context, userID, fromAcc
 	}
 
 	if s.repo != nil {
-		if err := s.repo.CreateTransfer(ctx, userID, fromAccountID, toAccountID, transactions); err != nil {
+		if err := s.repo.CreateTransfer(ctx, userID, fromAccountID, toAccountID, fromCurrency, toCurrency, transactions); err != nil {
 			return nil, fmt.Errorf("save transfer transactions: %w", err)
 		}
 	}
@@ -105,6 +122,9 @@ func buildTransaction(ctx context.Context, req *CreateTransactionRequest) (*mode
 	}
 	if req.AmountMinor == 0 {
 		return nil, validationError("amount must be non-zero")
+	}
+	if req.AmountMinor < -maxTransactionAmountMinor || req.AmountMinor > maxTransactionAmountMinor {
+		return nil, validationError(fmt.Sprintf("amount must be between %d and %d minor units", -maxTransactionAmountMinor, maxTransactionAmountMinor))
 	}
 	if req.Type != models.TransactionTypeAdjustment && req.AmountMinor < 0 {
 		return nil, validationError(fmt.Sprintf("amount must be positive for %s transactions", req.Type))

@@ -599,11 +599,15 @@ func (r *recordingTransactionRepo) Create(context.Context, *models.Transaction) 
 	return nil
 }
 
+func (r *recordingTransactionRepo) CreateForUser(context.Context, string, *models.Transaction) error {
+	return errNotImplemented
+}
+
 func (r *recordingTransactionRepo) CreateMany(context.Context, []models.Transaction) error {
 	return nil
 }
 
-func (r *recordingTransactionRepo) CreateTransfer(context.Context, string, string, string, []models.Transaction) error {
+func (r *recordingTransactionRepo) CreateTransfer(context.Context, string, string, string, string, string, []models.Transaction) error {
 	return nil
 }
 

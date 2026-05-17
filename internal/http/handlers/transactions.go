@@ -168,7 +168,8 @@ func applyTransactionListFilter(transactions []models.Transaction, filter *trans
 }
 
 func (h *Handler) createTransaction(w http.ResponseWriter, r *http.Request) {
-	if _, ok := currentUserID(w, r); !ok {
+	userID, ok := currentUserID(w, r)
+	if !ok {
 		return
 	}
 
@@ -224,13 +225,7 @@ func (h *Handler) createTransaction(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if accountID != "" {
-		if !h.ensureAccountExists(w, r, accountID) {
-			return
-		}
-	}
-
-	transaction, err := h.transactions.Create(r.Context(), &services.CreateTransactionRequest{
+	transaction, err := h.transactions.CreateForUser(r.Context(), userID, &services.CreateTransactionRequest{
 		AccountID:        accountID,
 		RelatedAccountID: relatedAccountID,
 		Type:             req.Type,

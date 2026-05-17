@@ -23,19 +23,37 @@ func NewUserRepository(pool *pgxpool.Pool) *UserRepository {
 }
 
 func (r *UserRepository) Create(ctx context.Context, user *models.User) error {
-	_, err := r.pool.Exec(ctx, `
-		INSERT INTO users (
-			id, email, password_hash, primary_currency,
-			email_verified_at, email_verification_token_hash, email_verification_sent_at,
-			failed_login_attempts, locked_until, created_at, updated_at
-		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-	`, user.ID, user.Email, user.PasswordHash, user.PrimaryCurrency, user.EmailVerifiedAt, user.EmailVerificationTokenHash, user.EmailVerificationSentAt, user.FailedLoginAttempts, user.LockedUntil, user.CreatedAt, user.UpdatedAt)
-	if err != nil {
-		if isUniqueViolation(err) {
-			return fmt.Errorf("create user: %w", repository.ErrConflict)
-		}
+	if err := insertUser(ctx, r.pool, user); err != nil {
 		return fmt.Errorf("create user: %w", err)
+	}
+	return nil
+}
+
+func (r *UserRepository) Setup(ctx context.Context, user *models.User, refreshToken *models.RefreshToken, auditEvent *models.AuthAuditEvent) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin auth setup: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	if err := insertUser(ctx, tx, user); err != nil {
+		return fmt.Errorf("create setup user: %w", err)
+	}
+	if err := claimUnownedAccounts(ctx, tx, user.ID); err != nil {
+		return fmt.Errorf("claim setup accounts: %w", err)
+	}
+	if err := insertRefreshToken(ctx, tx, refreshToken); err != nil {
+		return fmt.Errorf("create setup refresh token: %w", err)
+	}
+	if auditEvent != nil {
+		if err := insertAuthAuditEvent(ctx, tx, auditEvent); err != nil {
+			return fmt.Errorf("create setup audit event: %w", err)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit auth setup: %w", err)
 	}
 	return nil
 }
@@ -141,6 +159,42 @@ func (r *UserRepository) UpdatePassword(ctx context.Context, id, passwordHash st
 	return nil
 }
 
+func (r *UserRepository) ChangePasswordAndRevokeSessions(ctx context.Context, id, passwordHash string, updatedAt time.Time, revokedReason string) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin change password: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	tag, err := tx.Exec(ctx, `
+		UPDATE users
+		SET password_hash = $2, failed_login_attempts = 0, locked_until = NULL, updated_at = $3
+		WHERE id = $1
+	`, id, passwordHash, updatedAt)
+	if err != nil {
+		return fmt.Errorf("update user password: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("update user password: %w", repository.ErrNotFound)
+	}
+
+	_, err = tx.Exec(ctx, `
+		UPDATE refresh_tokens
+		SET revoked_at = $2, revoked_reason = $3
+		WHERE user_id = $1 AND revoked_at IS NULL
+	`, id, updatedAt, revokedReason)
+	if err != nil {
+		return fmt.Errorf("revoke user refresh tokens: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit change password: %w", err)
+	}
+	return nil
+}
+
 func (r *UserRepository) get(ctx context.Context, query string, args ...any) (*models.User, error) {
 	user, err := scanUser(r.pool.QueryRow(ctx, query, args...))
 	if err != nil {
@@ -158,11 +212,7 @@ func NewRefreshTokenRepository(pool *pgxpool.Pool) *RefreshTokenRepository {
 }
 
 func (r *RefreshTokenRepository) Create(ctx context.Context, token *models.RefreshToken) error {
-	_, err := r.pool.Exec(ctx, `
-		INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, revoked_at, revoked_reason, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-	`, token.ID, token.UserID, token.TokenHash, token.ExpiresAt, token.RevokedAt, token.RevokedReason, token.CreatedAt)
-	if err != nil {
+	if err := insertRefreshToken(ctx, r.pool, token); err != nil {
 		return fmt.Errorf("create refresh token: %w", err)
 	}
 	return nil
@@ -313,12 +363,48 @@ func NewAuthAuditRepository(pool *pgxpool.Pool) *AuthAuditRepository {
 }
 
 func (r *AuthAuditRepository) Create(ctx context.Context, event *models.AuthAuditEvent) error {
-	_, err := r.pool.Exec(ctx, `
+	if err := insertAuthAuditEvent(ctx, r.pool, event); err != nil {
+		return fmt.Errorf("create auth audit event: %w", err)
+	}
+	return nil
+}
+
+func insertUser(ctx context.Context, execer sqlExecer, user *models.User) error {
+	_, err := execer.Exec(ctx, `
+		INSERT INTO users (
+			id, email, password_hash, primary_currency,
+			email_verified_at, email_verification_token_hash, email_verification_sent_at,
+			failed_login_attempts, locked_until, created_at, updated_at
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	`, user.ID, user.Email, user.PasswordHash, user.PrimaryCurrency, user.EmailVerifiedAt, user.EmailVerificationTokenHash, user.EmailVerificationSentAt, user.FailedLoginAttempts, user.LockedUntil, user.CreatedAt, user.UpdatedAt)
+	if err != nil {
+		if isUniqueViolation(err) {
+			return repository.ErrConflict
+		}
+		return fmt.Errorf("insert user: %w", err)
+	}
+	return nil
+}
+
+func insertRefreshToken(ctx context.Context, execer sqlExecer, token *models.RefreshToken) error {
+	_, err := execer.Exec(ctx, `
+		INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, revoked_at, revoked_reason, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`, token.ID, token.UserID, token.TokenHash, token.ExpiresAt, token.RevokedAt, token.RevokedReason, token.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("insert refresh token: %w", err)
+	}
+	return nil
+}
+
+func insertAuthAuditEvent(ctx context.Context, execer sqlExecer, event *models.AuthAuditEvent) error {
+	_, err := execer.Exec(ctx, `
 		INSERT INTO auth_audit_events (id, user_id, event_type, email, success, reason, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`, event.ID, event.UserID, event.EventType, event.Email, event.Success, event.Reason, event.CreatedAt)
 	if err != nil {
-		return fmt.Errorf("create auth audit event: %w", err)
+		return fmt.Errorf("insert auth audit event: %w", err)
 	}
 	return nil
 }

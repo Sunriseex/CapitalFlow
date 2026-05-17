@@ -153,7 +153,8 @@ func (r *fakeCLIUserRepo) RecordLoginFailure(_ context.Context, id string, thres
 	var lockedUntil *time.Time
 	if attempts >= threshold && len(delays) > 0 {
 		delayIndex := min(attempts-threshold, len(delays)-1)
-		lockedUntil = new(updatedAt.Add(delays[delayIndex]))
+		lockoutUntil := updatedAt.Add(delays[delayIndex])
+		lockedUntil = &lockoutUntil
 	}
 	user.FailedLoginAttempts = attempts
 	user.LockedUntil = lockedUntil
@@ -182,6 +183,10 @@ func (r *fakeCLIUserRepo) UpdatePassword(_ context.Context, id, passwordHash str
 	user.LockedUntil = nil
 	user.UpdatedAt = updatedAt
 	return nil
+}
+
+func (r *fakeCLIUserRepo) ChangePasswordAndRevokeSessions(ctx context.Context, id, passwordHash string, updatedAt time.Time, _ string) error {
+	return r.UpdatePassword(ctx, id, passwordHash, updatedAt)
 }
 
 func (r *fakeCLIUserRepo) UpdatePrimaryCurrency(_ context.Context, id, primaryCurrency string, updatedAt time.Time) error {

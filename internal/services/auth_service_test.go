@@ -113,6 +113,68 @@ func TestAuthServiceSetupRejectsConcurrentCreateConflict(t *testing.T) {
 	}
 }
 
+func TestAuthServiceSetupUsesTransactionalRepository(t *testing.T) {
+	service, users, refresh, audit := newTestAuthService(t)
+	setupUsers := &fakeSetupUserRepo{
+		fakeUserRepo: users,
+		refresh:      refresh,
+		audit:        audit,
+	}
+	service.users = setupUsers
+
+	session, err := service.Setup(t.Context(), AuthRequest{
+		Email:           "user@example.com",
+		Password:        "correct horse battery staple",
+		PrimaryCurrency: "RUB",
+	})
+	if err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+	if !setupUsers.called {
+		t.Fatal("expected transactional setup repository to be used")
+	}
+	if session.RefreshToken == "" {
+		t.Fatal("expected refresh token")
+	}
+	if len(users.byID) != 1 || len(refresh.byHash) != 1 {
+		t.Fatalf("persisted users=%d refresh=%d, want 1 each", len(users.byID), len(refresh.byHash))
+	}
+	if !audit.hasEvent("setup_success") {
+		t.Fatal("expected setup success audit event")
+	}
+}
+
+func TestAuthServiceSetupTransactionalRepositoryRollsBackOnFailure(t *testing.T) {
+	service, users, refresh, audit := newTestAuthService(t)
+	service.users = &fakeSetupUserRepo{
+		fakeUserRepo: users,
+		refresh:      refresh,
+		audit:        audit,
+		err:          errors.New("claim unowned accounts failed"),
+	}
+
+	_, err := service.Setup(t.Context(), AuthRequest{
+		Email:           "user@example.com",
+		Password:        "correct horse battery staple",
+		PrimaryCurrency: "RUB",
+	})
+	if err == nil {
+		t.Fatal("expected setup error")
+	}
+	if len(users.byID) != 0 {
+		t.Fatalf("users persisted after failed setup = %d, want 0", len(users.byID))
+	}
+	if len(refresh.byHash) != 0 {
+		t.Fatalf("refresh tokens persisted after failed setup = %d, want 0", len(refresh.byHash))
+	}
+	if audit.hasEvent("setup_success") {
+		t.Fatal("setup_success audit must not persist after failed setup transaction")
+	}
+	if !audit.hasEventReason("setup_failed", "setup_transaction_failed") {
+		t.Fatal("expected setup transaction failure audit event")
+	}
+}
+
 func TestAuthServiceLoginRejectsWrongPasswordWithSafeMessage(t *testing.T) {
 	service, users, _, audit := newTestAuthService(t)
 	users.byID["user-1"] = &models.User{
@@ -575,6 +637,42 @@ func TestAuthServiceChangePasswordRejectsWrongCurrentPassword(t *testing.T) {
 	}
 }
 
+func TestAuthServiceChangePasswordDoesNotRevokeSessionsWhenPasswordUpdateFails(t *testing.T) {
+	service, users, refresh, audit := newTestAuthService(t)
+	users.updatePasswordErr = errors.New("database failed")
+	users.byID["user-1"] = &models.User{
+		ID:           "user-1",
+		Email:        "user@example.com",
+		PasswordHash: "hash:correct horse battery staple",
+	}
+	refresh.byHash["token-1"] = &models.RefreshToken{
+		ID:        "refresh-1",
+		UserID:    "user-1",
+		TokenHash: "token-1",
+		ExpiresAt: service.now().Add(time.Hour),
+		CreatedAt: service.now(),
+	}
+
+	err := service.ChangePassword(t.Context(), ChangePasswordRequest{
+		UserID:          "user-1",
+		CurrentPassword: "correct horse battery staple",
+		NewPassword:     "fresh correct horse battery staple 2026!",
+	})
+
+	if err == nil {
+		t.Fatal("expected password update error")
+	}
+	if users.byID["user-1"].PasswordHash != "hash:correct horse battery staple" {
+		t.Fatal("password hash changed")
+	}
+	if refresh.byHash["token-1"].RevokedAt != nil {
+		t.Fatal("refresh token was revoked before password update succeeded")
+	}
+	if !audit.hasEventReason("change_password_failed", "save_failed") {
+		t.Fatal("expected save failure audit event")
+	}
+}
+
 func TestAuthServiceListSessionsMarksCurrentAndActive(t *testing.T) {
 	service, _, refresh, audit := newTestAuthService(t)
 
@@ -687,8 +785,8 @@ func newTestAuthService(t *testing.T) (*AuthService, *fakeUserRepo, *fakeRefresh
 		t.Fatalf("new token service: %v", err)
 	}
 
-	users := &fakeUserRepo{byID: map[string]*models.User{}}
 	refresh := &fakeRefreshRepo{byHash: map[string]*models.RefreshToken{}}
+	users := &fakeUserRepo{byID: map[string]*models.User{}, refresh: refresh}
 	audit := &fakeAuditRepo{}
 
 	service := NewAuthService(users, refresh, tokens, audit)
@@ -706,8 +804,10 @@ func newTestAuthService(t *testing.T) (*AuthService, *fakeUserRepo, *fakeRefresh
 }
 
 type fakeUserRepo struct {
-	byID      map[string]*models.User
-	createErr error
+	byID              map[string]*models.User
+	refresh           *fakeRefreshRepo
+	createErr         error
+	updatePasswordErr error
 }
 
 func (r *fakeUserRepo) Create(_ context.Context, user *models.User) error {
@@ -771,6 +871,9 @@ func (r *fakeUserRepo) ClearLoginFailures(_ context.Context, id string, updatedA
 }
 
 func (r *fakeUserRepo) UpdatePassword(_ context.Context, id, passwordHash string, updatedAt time.Time) error {
+	if r.updatePasswordErr != nil {
+		return r.updatePasswordErr
+	}
 	user, ok := r.byID[id]
 	if !ok {
 		return repository.ErrNotFound
@@ -782,6 +885,30 @@ func (r *fakeUserRepo) UpdatePassword(_ context.Context, id, passwordHash string
 	return nil
 }
 
+func (r *fakeUserRepo) ChangePasswordAndRevokeSessions(_ context.Context, id, passwordHash string, updatedAt time.Time, revokedReason string) error {
+	if r.updatePasswordErr != nil {
+		return r.updatePasswordErr
+	}
+	user, ok := r.byID[id]
+	if !ok {
+		return repository.ErrNotFound
+	}
+	user.PasswordHash = passwordHash
+	user.FailedLoginAttempts = 0
+	user.LockedUntil = nil
+	user.UpdatedAt = updatedAt
+	if r.refresh == nil {
+		return nil
+	}
+	for _, token := range r.refresh.byHash {
+		if token.UserID == id && token.RevokedAt == nil {
+			token.RevokedAt = &updatedAt
+			token.RevokedReason = &revokedReason
+		}
+	}
+	return nil
+}
+
 func (r *fakeUserRepo) UpdatePrimaryCurrency(_ context.Context, id, primaryCurrency string, updatedAt time.Time) error {
 	user, ok := r.byID[id]
 	if !ok {
@@ -789,6 +916,27 @@ func (r *fakeUserRepo) UpdatePrimaryCurrency(_ context.Context, id, primaryCurre
 	}
 	user.PrimaryCurrency = primaryCurrency
 	user.UpdatedAt = updatedAt
+	return nil
+}
+
+type fakeSetupUserRepo struct {
+	*fakeUserRepo
+	refresh *fakeRefreshRepo
+	audit   *fakeAuditRepo
+	err     error
+	called  bool
+}
+
+func (r *fakeSetupUserRepo) Setup(_ context.Context, user *models.User, token *models.RefreshToken, event *models.AuthAuditEvent) error {
+	r.called = true
+	if r.err != nil {
+		return r.err
+	}
+	r.byID[user.ID] = user
+	r.refresh.byHash[token.TokenHash] = token
+	if event != nil {
+		r.audit.events = append(r.audit.events, *event)
+	}
 	return nil
 }
 

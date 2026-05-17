@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/sunriseex/capitalflow/internal/models"
+	"github.com/sunriseex/capitalflow/internal/repository"
 )
 
 func TestIsTransferTransaction(t *testing.T) {
@@ -185,6 +186,59 @@ func TestRejectDirectTransferTransaction(t *testing.T) {
 				t.Fatalf("status = %d, want %d", rec.Code, tt.wantStatus)
 			}
 		})
+	}
+}
+
+func TestCreateTransactionUsesUserScopedCreate(t *testing.T) {
+	tokens, pair := testProfileTokenPair(t)
+	store := newTestProfileStore()
+	transactions := &testTransactionRepo{}
+	store.transactions = transactions
+	store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
+
+	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/transactions", strings.NewReader(`{
+		"account_id":"11111111-1111-1111-1111-111111111111",
+		"type":"income",
+		"amount_minor":100
+	}`))
+	req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
+	req.Header.Set("Idempotency-Key", "create-transaction-user-scoped")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+	if transactions.oldCreateCalls != 0 {
+		t.Fatalf("old Create calls = %d, want 0", transactions.oldCreateCalls)
+	}
+	if transactions.createForUserCalls != 1 {
+		t.Fatalf("CreateForUser calls = %d, want 1", transactions.createForUserCalls)
+	}
+}
+
+func TestCreateTransactionForOtherUsersAccountReturnsNotFound(t *testing.T) {
+	tokens, pair := testProfileTokenPair(t)
+	store := newTestProfileStore()
+	store.transactions = &testTransactionRepo{createForUserErr: repository.ErrNotFound}
+	store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
+
+	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/transactions", strings.NewReader(`{
+		"account_id":"22222222-2222-2222-2222-222222222222",
+		"type":"income",
+		"amount_minor":100
+	}`))
+	req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
+	req.Header.Set("Idempotency-Key", "create-transaction-other-account")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusNotFound, rec.Body.String())
 	}
 }
 
