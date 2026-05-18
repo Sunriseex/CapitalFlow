@@ -46,6 +46,18 @@ func (r *TransactionRepository) CreateForUser(ctx context.Context, userID string
 		return fmt.Errorf("lock transaction account: %w", mapNotFound(err))
 	}
 
+	if transaction.RelatedAccountID != nil {
+		var relatedAccountID string
+		if err := tx.QueryRow(ctx, `
+			SELECT id
+			FROM accounts
+			WHERE id = $1 AND owner_user_id = $2
+			FOR UPDATE
+		`, *transaction.RelatedAccountID, userID).Scan(&relatedAccountID); err != nil {
+			return fmt.Errorf("lock related transaction account: %w", mapNotFound(err))
+		}
+	}
+
 	if err := insertTransaction(ctx, tx, transaction); err != nil {
 		return fmt.Errorf("create user transaction: %w", err)
 	}

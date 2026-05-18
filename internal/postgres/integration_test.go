@@ -652,6 +652,7 @@ func TestTransactionRepositoryCreateForUserScopesByOwner(t *testing.T) {
 	}
 
 	account := transferTestAccount(t, store, userID, "owned")
+	relatedAccount := transferTestAccount(t, store, userID, "owned-related")
 	tx := &models.Transaction{
 		ID:          uuid.NewString(),
 		AccountID:   account.ID,
@@ -667,6 +668,19 @@ func TestTransactionRepositoryCreateForUserScopesByOwner(t *testing.T) {
 		t.Fatalf("get transaction for owner: %v", err)
 	}
 
+	relatedTx := &models.Transaction{
+		ID:               uuid.NewString(),
+		AccountID:        account.ID,
+		RelatedAccountID: &relatedAccount.ID,
+		Type:             models.TransactionTypeIncome,
+		AmountMinor:      100,
+		OccurredAt:       now,
+		CreatedAt:        now,
+	}
+	if err := store.Transactions().CreateForUser(ctx, userID, relatedTx); err != nil {
+		t.Fatalf("create transaction with owned related account: %v", err)
+	}
+
 	otherTx := &models.Transaction{
 		ID:          uuid.NewString(),
 		AccountID:   account.ID,
@@ -677,6 +691,20 @@ func TestTransactionRepositoryCreateForUserScopesByOwner(t *testing.T) {
 	}
 	if err := store.Transactions().CreateForUser(ctx, otherUserID, otherTx); !errors.Is(err, repository.ErrNotFound) {
 		t.Fatalf("wrong owner err = %v, want ErrNotFound", err)
+	}
+
+	otherAccount := transferTestAccount(t, store, otherUserID, "foreign-related")
+	foreignRelatedTx := &models.Transaction{
+		ID:               uuid.NewString(),
+		AccountID:        account.ID,
+		RelatedAccountID: &otherAccount.ID,
+		Type:             models.TransactionTypeIncome,
+		AmountMinor:      100,
+		OccurredAt:       now,
+		CreatedAt:        now,
+	}
+	if err := store.Transactions().CreateForUser(ctx, userID, foreignRelatedTx); !errors.Is(err, repository.ErrNotFound) {
+		t.Fatalf("foreign related account err = %v, want ErrNotFound", err)
 	}
 }
 
