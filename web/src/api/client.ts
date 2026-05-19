@@ -1,16 +1,26 @@
 import type {
   Account,
   AccountBalance,
-  AccountType,
+  AccrueInterestRequest,
+  AuthLoginRequest,
+  AuthResponse,
+  AuthSetupRequest,
+  AuthStatusResponse,
   Category,
+  CreateAccountRequest,
+  CreateInterestRuleRequest,
+  CreateTransactionRequest,
+  CreateTransferRequest,
   DashboardCashflow,
   DashboardInterestIncome,
   DashboardSummary,
   CurrencyRateTable,
   InterestRule,
   Profile,
+  TransferResponse,
   Transaction,
-  TransactionType,
+  UpdateAccountRequest,
+  UpdateProfileRequest,
 } from "./types";
 
 const tokenKey = "capitalflow_api_token";
@@ -181,12 +191,6 @@ async function authFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 let refreshSessionPromise: Promise<AuthResponse> | null = null;
 
-type AuthResponse = {
-  user: { id: string; email: string; primary_currency: string };
-  access_token: string;
-  access_expires_at: string;
-};
-
 function storeSession(session: AuthResponse) {
   setStoredToken(session.access_token);
   localStorage.removeItem(legacyRefreshTokenKey);
@@ -219,12 +223,12 @@ async function refreshSession() {
 }
 
 export const api = {
-  authStatus: () => authFetch<{ setup_required: boolean }>("/auth/status"),
+  authStatus: () => authFetch<AuthStatusResponse>("/auth/status"),
 
-  setup: async (input: { email: string; password: string; primary_currency: string }) =>
+  setup: async (input: AuthSetupRequest) =>
     storeSession(await authFetch<AuthResponse>("/auth/setup", { method: "POST", body: JSON.stringify(input) })),
 
-  login: async (input: { email: string; password: string }) =>
+  login: async (input: AuthLoginRequest) =>
     storeSession(await authFetch<AuthResponse>("/auth/login", { method: "POST", body: JSON.stringify(input) })),
 
   logout: async () => {
@@ -236,7 +240,7 @@ export const api = {
 
   profile: () => apiFetch<Profile>("/settings/profile"),
 
-  updateProfile: (input: { primary_currency: string }) =>
+  updateProfile: (input: UpdateProfileRequest) =>
     apiFetch<Profile>("/settings/profile", { method: "PATCH", body: JSON.stringify(input) }),
 
   dashboardSummary: () => apiFetch<DashboardSummary>("/dashboard/summary"),
@@ -260,50 +264,31 @@ export const api = {
 
   interestRules: (accountId: string) => apiFetch<InterestRule[]>(`/accounts/${accountId}/interest-rules`),
 
-  createAccount: (input: { name: string; bank: string; type: AccountType; currency: string; opened_at: string }) =>
+  createAccount: (input: CreateAccountRequest) =>
     apiFetch<Account>("/accounts", { method: "POST", body: JSON.stringify(input) }),
 
-  updateAccount: (
-    id: string,
-    input: { name: string; bank: string; type: AccountType; currency: string; opened_at: string; is_active: boolean },
-  ) => apiFetch<Account>(`/accounts/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+  updateAccount: (id: string, input: UpdateAccountRequest) =>
+    apiFetch<Account>(`/accounts/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
 
   archiveAccount: (id: string) => apiFetch<void>(`/accounts/${id}/archive`, { method: "POST" }),
 
-  createTransaction: (input: {
-    account_id: string;
-    type: TransactionType;
-    amount_minor: number;
-    category_id?: string | null;
-    description: string;
-    occurred_at: string;
-  }) => apiFetch<Transaction>("/transactions", { method: "POST", body: JSON.stringify(input) }),
+  createTransaction: (input: CreateTransactionRequest) =>
+    apiFetch<Transaction>("/transactions", { method: "POST", body: JSON.stringify(input) }),
 
   deleteTransaction: (id: string) => apiFetch<void>(`/transactions/${id}`, { method: "DELETE" }),
 
-  createTransfer: (input: { from_account_id: string; to_account_id: string; amount_minor: number; description: string }) =>
-    apiFetch<{ out: Transaction; in: Transaction; exchange_rate: string }>("/transfers", {
+  createTransfer: (input: CreateTransferRequest) =>
+    apiFetch<TransferResponse>("/transfers", {
       method: "POST",
       body: JSON.stringify(input),
     }),
 
-  createInterestRule: (
-    accountId: string,
-    input: {
-      annual_rate_bps: number;
-      promo_rate_bps?: number | null;
-      promo_end_date?: string | null;
-      accrual_frequency: "daily";
-      capitalization_frequency: "none" | "daily" | "monthly" | "end_of_term";
-      day_count_convention: "actual_365";
-      start_date: string;
-      end_date?: string | null;
-    },
-  ) => apiFetch<InterestRule>(`/accounts/${accountId}/interest-rules`, { method: "POST", body: JSON.stringify(input) }),
+  createInterestRule: (accountId: string, input: CreateInterestRuleRequest) =>
+    apiFetch<InterestRule>(`/accounts/${accountId}/interest-rules`, { method: "POST", body: JSON.stringify(input) }),
 
   accrueInterest: (accountId: string, date: string) =>
     apiFetch<unknown>(`/accounts/${accountId}/accrue-interest`, {
       method: "POST",
-      body: JSON.stringify({ date }),
+      body: JSON.stringify({ date } satisfies AccrueInterestRequest),
     }),
 };

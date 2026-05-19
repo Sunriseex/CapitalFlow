@@ -741,6 +741,26 @@ tbody tr:hover {
   background: var(--hover);
 }
 
+.table-action-button {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 650;
+  padding: 0;
+  text-align: left;
+}
+
+.table-action-button:hover {
+  color: var(--blue);
+}
+
+.table-action-button:focus-visible {
+  outline: 2px solid rgb(79 185 144 / 0.45);
+  outline-offset: 2px;
+}
+
 .amount {
   text-align: right;
   font-variant-numeric: tabular-nums;

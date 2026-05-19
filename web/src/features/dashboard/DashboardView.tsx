@@ -295,8 +295,23 @@ export function DashboardView({ primaryCurrency, onOpenAccount }: { primaryCurre
           <table>
             <tbody>
               {balances.map((account) => (
-                <tr key={account.account_id} onClick={() => onOpenAccount(account.account_id)}>
-                  <td>{account.name}</td>
+                <tr key={account.account_id}
+                className="clickable-row"
+                onClick={() => onOpenAccount(account.account_id)}
+                > 
+                  <td>
+                    <button
+                      type="button"
+                      className="table-action-button"
+                      onClick={(event) => {
+                      event.stopPropagation();
+                       onOpenAccount(account.account_id);
+                      }}
+                      aria-label={`Open ${account.name} account`}
+                    >
+                      {account.name}
+                    </button>
+                  </td>
                   <td>{account.bank || "-"}</td>
                   <td>{account.type}</td>
                   <td className="amount stacked-amount">
