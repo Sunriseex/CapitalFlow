@@ -4,7 +4,7 @@ import { Plus } from "lucide-react";
 import { api } from "../../api/client";
 import type { Account, Category } from "../../api/types";
 import { transactionTypes } from "../../shared/constants";
-import { Button, Input, Panel, Select } from "../../shared/ui";
+import { Button, Dialog, Input, Panel, Select } from "../../shared/ui";
 import { TransactionForm } from "./TransactionForm";
 import { TransactionsTable } from "./TransactionsTable";
 
@@ -45,11 +45,9 @@ export function TransactionsView({ accounts, categories }: { accounts: Account[]
       </div>
       <TransactionsTable transactions={filtered} accounts={accounts} categories={categories} allowDelete />
       {createOpen ? (
-        <div className="modal-backdrop" onClick={() => setCreateOpen(false)}>
-          <div className="modal" onClick={(event) => event.stopPropagation()}>
-            <TransactionForm accounts={accounts} categories={categories} fixedType="adjustment" onDone={() => setCreateOpen(false)} />
-          </div>
-        </div>
+        <Dialog title="Create adjustment" onClose={() => setCreateOpen(false)}>
+          <TransactionForm accounts={accounts} categories={categories} fixedType="adjustment" onDone={() => setCreateOpen(false)} />
+        </Dialog>
       ) : null}
     </Panel>
   );

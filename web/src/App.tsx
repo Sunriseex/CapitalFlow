@@ -26,7 +26,7 @@ import { TransferForm } from "./features/transactions/TransferForm";
 import type { QuickAction, Theme, View } from "./shared/constants";
 import { themeStorageKey } from "./shared/constants";
 import { currencyOptions } from "./shared/currencies";
-import { Button, Field, IconButton, Input, Select } from "./shared/ui";
+import { Button, Dialog, Field, IconButton, Input, Select } from "./shared/ui";
 
 export function App() {
   const queryClient = useQueryClient();
@@ -186,24 +186,22 @@ export function App() {
       </main>
 
       {quickAction ? (
-        <div className="modal-backdrop" onClick={() => setQuickAction(null)}>
-          <div className="modal" onClick={(event) => event.stopPropagation()}>
-            {quickAction === "account" ? <CreateAccountForm onDone={() => setQuickAction(null)} /> : null}
+        <Dialog title={quickActionTitle(quickAction)} onClose={() => setQuickAction(null)}>
+          {quickAction === "account" ? <CreateAccountForm onDone={() => setQuickAction(null)} /> : null}
 
-            {quickAction === "transfer" ? (
-              <TransferForm accounts={accounts.data ?? []} onDone={() => setQuickAction(null)} />
-            ) : null}
+          {quickAction === "transfer" ? (
+            <TransferForm accounts={accounts.data ?? []} onDone={() => setQuickAction(null)} />
+          ) : null}
 
-            {quickAction === "income" || quickAction === "expense" ? (
-              <TransactionForm
-                accounts={accounts.data ?? []}
-                categories={categories.data ?? []}
-                fixedType={quickAction}
-                onDone={() => setQuickAction(null)}
-              />
-            ) : null}
-          </div>
-        </div>
+          {quickAction === "income" || quickAction === "expense" ? (
+            <TransactionForm
+              accounts={accounts.data ?? []}
+              categories={categories.data ?? []}
+              fixedType={quickAction}
+              onDone={() => setQuickAction(null)}
+            />
+          ) : null}
+        </Dialog>
       ) : null}
     </div>
   );
@@ -407,6 +405,15 @@ function titleForView(view: View) {
     transactions: "Transactions",
     settings: "Settings",
   }[view];
+}
+
+function quickActionTitle(action: NonNullable<QuickAction>) {
+  return {
+    income: "Create income",
+    expense: "Create expense",
+    transfer: "Create transfer",
+    account: "Create account",
+  }[action];
 }
 
 function storedTheme(): Theme {

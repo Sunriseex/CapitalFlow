@@ -862,6 +862,19 @@ tbody tr:hover {
   box-shadow: 0 26px 80px rgb(17 26 31 / 0.28);
 }
 
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px 0;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
 .form {
   display: grid;
   gap: 12px;
