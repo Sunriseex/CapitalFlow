@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DashboardCashflow, DashboardInterestIncome, DashboardSummary } from "../../api/types";
@@ -171,4 +171,59 @@ describe("DashboardView", () => {
     await user.click(action);
     expect(onOpenAccount).toHaveBeenCalledWith("account-1");
   });
+
+  it("opens account details when clicking non-name account balance cells", async () => {
+    const user = userEvent.setup();
+    const onOpenAccount = vi.fn<(id: string) => void>();
+  
+    renderDashboardView({ onOpenAccount });
+  
+    const action = await screen.findByRole("button", { name: "Open Card account" });
+    const row = action.closest("tr");
+  
+    if (!row) {
+      throw new Error("account balance row not found");
+    }
+  
+    await user.click(within(row).getByText("Bank"));
+    expect(onOpenAccount).toHaveBeenCalledWith("account-1");
+  
+    onOpenAccount.mockClear();
+    await user.click(within(row).getByText("card"));
+    expect(onOpenAccount).toHaveBeenCalledWith("account-1");
+  
+    const balanceCell = row.querySelector(".stacked-amount");
+    if (!balanceCell) {
+      throw new Error("account balance cell not found");
+    }
+  
+    onOpenAccount.mockClear();
+    await user.click(balanceCell);
+    expect(onOpenAccount).toHaveBeenCalledWith("account-1");
+  });
+
+it("opens account details when clicking account balance row cells", async () => {
+  const user = userEvent.setup();
+  const onOpenAccount = vi.fn<(id: string) => void>();
+
+  renderDashboardView({ onOpenAccount });
+
+  const nameButton = await screen.findByRole("button", { name: "Open Card account" });
+  const row = nameButton.closest("tr");
+
+  if (!row) {
+    throw new Error("account balance row not found");
+  }
+
+  await user.click(screen.getByText("Bank"));
+  expect(onOpenAccount).toHaveBeenCalledWith("account-1");
+
+  onOpenAccount.mockClear();
+  await user.click(screen.getByText("card"));
+  expect(onOpenAccount).toHaveBeenCalledWith("account-1");
+
+  onOpenAccount.mockClear();
+  await user.click(row);
+  expect(onOpenAccount).toHaveBeenCalledWith("account-1");
+});
 });
