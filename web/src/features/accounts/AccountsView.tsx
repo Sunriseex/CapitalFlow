@@ -2,14 +2,17 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { formatMoney } from "../../api/money";
-import type { Account } from "../../api/types";
+import type { Account, InterestRule } from "../../api/types";
 import { accountTypes } from "../../shared/constants";
+import { errorMessage } from "../../shared/api/query";
 import { Button, Panel, Select } from "../../shared/ui";
 
 export function AccountsView({ accounts, onSelect }: { accounts: Account[]; onSelect: (id: string) => void }) {
   const [type, setType] = useState("");
   const summary = useQuery({ queryKey: ["dashboard", "summary"], queryFn: api.dashboardSummary });
+  const rules = useQuery({ queryKey: ["interest-rules"], queryFn: () => api.interestRules() });
   const balances = new Map((summary.data?.account_balances ?? []).map((account) => [account.account_id, account]));
+  const activeRules = activeRulesByAccount(rules.data ?? []);
   const filtered = accounts.filter((account) => !type || account.type === type);
 
   return (
@@ -34,7 +37,7 @@ export function AccountsView({ accounts, onSelect }: { accounts: Account[]; onSe
                 <td>{account.bank || "-"}</td>
                 <td>{account.type}</td>
                 <td className="amount">{formatMoney(balances.get(account.id)?.balance_minor ?? 0, account.currency)}</td>
-                <td><AccountRate accountId={account.id} /></td>
+                <td><AccountRate rule={activeRules.get(account.id)} isLoading={rules.isLoading} error={rules.error} /></td>
                 <td>{account.is_active ? "active" : "archived"}</td>
                 <td><Button onClick={() => onSelect(account.id)}>Open</Button></td>
               </tr>
@@ -46,12 +49,30 @@ export function AccountsView({ accounts, onSelect }: { accounts: Account[]; onSe
   );
 }
 
-function AccountRate({ accountId }: { accountId: string }) {
-  const rules = useQuery({ queryKey: ["interest-rules", accountId], queryFn: () => api.interestRules(accountId) });
-  const activeRule = rules.data?.find((rule) => rule.is_active);
-  if (!activeRule) {
+function AccountRate({ rule, isLoading, error }: { rule?: InterestRule; isLoading: boolean; error: unknown }) {
+  if (isLoading) {
+    return <span>Loading</span>;
+  }
+  if (error) {
+    return <span className="error-text">{errorMessage(error)}</span>;
+  }
+  if (!rule) {
     return <span>-</span>;
   }
-  return <span>{(activeRule.annual_rate_bps / 100).toFixed(2)}%</span>;
+  return <span>{(rule.annual_rate_bps / 100).toFixed(2)}%</span>;
+}
+
+function activeRulesByAccount(rules: InterestRule[]) {
+  const activeRules = new Map<string, InterestRule>();
+  for (const rule of rules) {
+    if (!rule.is_active) {
+      continue;
+    }
+    const current = activeRules.get(rule.account_id);
+    if (!current || rule.start_date.localeCompare(current.start_date) > 0) {
+      activeRules.set(rule.account_id, rule);
+    }
+  }
+  return activeRules;
 }
 

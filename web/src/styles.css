@@ -888,6 +888,12 @@ tbody tr:hover {
   margin-bottom: 12px;
 }
 
+.error-text {
+  color: #7f1d1d;
+  font-size: 12px;
+  font-weight: 650;
+}
+
 @media (max-width: 860px) {
   .app {
     grid-template-columns: 1fr;
