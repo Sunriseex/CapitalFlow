@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -24,7 +25,7 @@ func (h *Handler) listTransactions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	transactionsRepo := h.store.Transactions()
-	transactions, err := listTransactionsForUser(r.Context(), transactionsRepo, userID, filter)
+	transactions, err := listTransactionsForUser(r.Context(), transactionsRepo, userID, &filter)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -34,12 +35,16 @@ func (h *Handler) listTransactions(w http.ResponseWriter, r *http.Request) {
 }
 
 type filteredTransactionLister interface {
-	ListByUserFiltered(ctx context.Context, userID string, filter repository.TransactionListFilter) ([]models.Transaction, error)
+	ListByUserFiltered(ctx context.Context, userID string, filter *repository.TransactionListFilter) ([]models.Transaction, error)
 }
 
-func listTransactionsForUser(ctx context.Context, transactions repository.TransactionRepository, userID string, filter repository.TransactionListFilter) ([]models.Transaction, error) {
+func listTransactionsForUser(ctx context.Context, transactions repository.TransactionRepository, userID string, filter *repository.TransactionListFilter) ([]models.Transaction, error) {
 	if filtered, ok := transactions.(filteredTransactionLister); ok {
-		return filtered.ListByUserFiltered(ctx, userID, filter)
+		listed, err := filtered.ListByUserFiltered(ctx, userID, filter)
+		if err != nil {
+			return nil, fmt.Errorf("list filtered transactions: %w", err)
+		}
+		return listed, nil
 	}
 
 	var (
@@ -52,9 +57,9 @@ func listTransactionsForUser(ctx context.Context, transactions repository.Transa
 		listed, err = transactions.ListByAccountForUser(ctx, filter.AccountID, userID)
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("list transactions: %w", err)
 	}
-	return applyTransactionListFilter(listed, &filter), nil
+	return applyTransactionListFilter(listed, filter), nil
 }
 
 func parseTransactionListFilter(w http.ResponseWriter, r *http.Request) (repository.TransactionListFilter, bool) {

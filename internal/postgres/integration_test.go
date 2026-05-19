@@ -1715,7 +1715,7 @@ func TestTransactionRepositoryListByUserFilteredAppliesSQLFiltersAndPagination(t
 		t.Fatalf("create foreign transaction: %v", err)
 	}
 
-	got, err := store.Transactions().(*TransactionRepository).ListByUserFiltered(ctx, userID, repository.TransactionListFilter{
+	filter := &repository.TransactionListFilter{
 		AccountID:  account.ID,
 		CategoryID: categoryID,
 		Type:       models.TransactionTypeIncome,
@@ -1724,16 +1724,19 @@ func TestTransactionRepositoryListByUserFilteredAppliesSQLFiltersAndPagination(t
 		Search:     "salary",
 		Limit:      1,
 		Page:       2,
-	})
+	}
+
+	filtered, err := store.Transactions().(*TransactionRepository).ListByUserFiltered(ctx, userID, filter)
 	if err != nil {
 		t.Fatalf("list filtered transactions: %v", err)
 	}
-	if len(got) != 1 {
-		t.Fatalf("filtered count = %d, want 1: %+v", len(got), got)
+	if len(filtered) != 1 {
+		t.Fatalf("filtered count = %d, want 1: %+v", len(filtered), filtered)
 	}
-	if got[0].ID != transactions[2].ID {
-		t.Fatalf("filtered transaction = %s, want %s", got[0].ID, transactions[2].ID)
+	if filtered[0].ID != transactions[2].ID {
+		t.Fatalf("filtered transaction = %s, want %s", filtered[0].ID, transactions[2].ID)
 	}
+
 }
 
 func transferTestAccount(t *testing.T, store *Store, userID, name string) *models.Account {

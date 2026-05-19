@@ -204,7 +204,11 @@ func (r *TransactionRepository) ListByUser(ctx context.Context, userID string) (
 	`, userID)
 }
 
-func (r *TransactionRepository) ListByUserFiltered(ctx context.Context, userID string, filter repository.TransactionListFilter) ([]models.Transaction, error) {
+func (r *TransactionRepository) ListByUserFiltered(ctx context.Context, userID string, filter *repository.TransactionListFilter) ([]models.Transaction, error) {
+	if filter == nil {
+		filter = &repository.TransactionListFilter{}
+	}
+
 	query := transactionSelectSQL + `
 		WHERE EXISTS (
 			SELECT 1 FROM accounts a WHERE a.id = t.account_id AND a.owner_user_id = $1

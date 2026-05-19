@@ -249,10 +249,12 @@ func (r *testTransactionRepo) ListByAccountForUser(context.Context, string, stri
 	return nil, nil
 }
 
-func (r *testTransactionRepo) ListByUserFiltered(_ context.Context, userID string, filter repository.TransactionListFilter) ([]models.Transaction, error) {
+func (r *testTransactionRepo) ListByUserFiltered(_ context.Context, userID string, filter *repository.TransactionListFilter) ([]models.Transaction, error) {
 	r.listFilteredCalls++
 	r.listFilteredUserID = userID
-	r.listFilteredFilter = filter
+	if filter != nil {
+		r.listFilteredFilter = *filter
+	}
 	return r.listFilteredTransactions, nil
 }
 
