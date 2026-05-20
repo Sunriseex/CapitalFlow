@@ -132,6 +132,15 @@ describe("App query states", () => {
     expect(await screen.findByDisplayValue("user@example.com")).toBeInTheDocument();
   });
 
+  it("ignores malformed account route segments", async () => {
+    window.history.pushState({}, "", "/accounts/%");
+
+    expect(() => renderApp()).not.toThrow();
+
+    await waitFor(() => expect(screen.getAllByRole("heading", { name: "Accounts" }).length).toBeGreaterThan(0));
+    expect(screen.queryByRole("button", { name: "Back to accounts" })).not.toBeInTheDocument();
+  });
+
   it("shows transaction dependency errors instead of empty filters", async () => {
     const user = userEvent.setup();
     mocks.categories.mockRejectedValue(new Error("Categories unavailable"));

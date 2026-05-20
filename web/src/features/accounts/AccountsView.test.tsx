@@ -44,7 +44,9 @@ const summary: DashboardSummary = {
 const rules: InterestRule[] = [
   interestRule("rule-old", "account-1", 1_000, "2026-01-01"),
   interestRule("rule-new", "account-1", 1_500, "2026-02-01"),
+  interestRule("rule-future", "account-1", 2_500, "2999-01-01"),
   { ...interestRule("rule-inactive", "account-2", 2_000, "2026-02-01"), is_active: false },
+  { ...interestRule("rule-expired", "account-3", 3_000, "2020-01-01"), end_date: "2021-01-01" },
 ];
 
 function renderAccountsView(inputAccounts = accounts) {
@@ -69,7 +71,7 @@ describe("AccountsView", () => {
     mocks.interestRules.mockResolvedValue(rules);
   });
 
-  it("loads account interest rules once and renders active rates", async () => {
+  it("loads account interest rules once and renders currently effective rates", async () => {
     renderAccountsView();
 
     expect(await screen.findByText("15.00%")).toBeInTheDocument();

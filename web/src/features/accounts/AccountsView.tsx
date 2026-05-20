@@ -77,8 +77,9 @@ function AccountRate({ rule, isLoading, error }: { rule?: InterestRule; isLoadin
 
 function activeRulesByAccount(rules: InterestRule[]) {
   const activeRules = new Map<string, InterestRule>();
+  const today = localDateString(new Date());
   for (const rule of rules) {
-    if (!rule.is_active) {
+    if (!rule.is_active || !isRuleEffective(rule, today)) {
       continue;
     }
     const current = activeRules.get(rule.account_id);
@@ -89,3 +90,13 @@ function activeRulesByAccount(rules: InterestRule[]) {
   return activeRules;
 }
 
+function isRuleEffective(rule: InterestRule, today: string) {
+  return rule.start_date <= today && (!rule.end_date || rule.end_date >= today);
+}
+
+function localDateString(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}

@@ -456,7 +456,7 @@ function currentRoute(): { view: View; accountId: string } {
   const view = segments[0];
 
   if (view === "accounts") {
-    return { view: "accounts", accountId: segments[1] ? decodeURIComponent(segments[1]) : "" };
+    return { view: "accounts", accountId: segments[1] ? safeDecodePathSegment(segments[1]) : "" };
   }
 
   if (view === "transactions" || view === "settings" || view === "dashboard") {
@@ -464,6 +464,14 @@ function currentRoute(): { view: View; accountId: string } {
   }
 
   return { view: "dashboard" as const, accountId: "" };
+}
+
+function safeDecodePathSegment(segment: string) {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return "";
+  }
 }
 
 function pathForRoute(view: View, accountId = "") {
