@@ -60,6 +60,8 @@ func (j *InterestJob) run(ctx context.Context, jobName string, frequency models.
 		return nil, fmt.Errorf("%s: list active rules: %w", jobName, err)
 	}
 
+	targets = selectLatestRulesForAccounts(targets, accrualDate)
+
 	result := &InterestJobRunResult{
 		JobName:     jobName,
 		AccrualDate: accrualDate,
@@ -98,7 +100,14 @@ func (j *InterestJob) run(ctx context.Context, jobName string, frequency models.
 		}
 	}
 
-	j.logger().Info("interest job finished", "job", jobName, "date", accrualDate.Format(time.DateOnly), "scanned", result.Scanned, "posted", result.Posted, "skipped", result.Skipped, "failed", result.Failed)
+	j.logger().Info("interest job finished",
+		"job", jobName,
+		"date", accrualDate.Format(time.DateOnly),
+		"scanned", result.Scanned,
+		"posted", result.Posted,
+		"skipped", result.Skipped,
+		"failed", result.Failed,
+	)
 
 	if len(runErrs) > 0 {
 		return result, fmt.Errorf("%s: %w", jobName, errors.Join(runErrs...))
@@ -107,6 +116,9 @@ func (j *InterestJob) run(ctx context.Context, jobName string, frequency models.
 }
 
 func (j *InterestJob) accrueTarget(ctx context.Context, target *repository.InterestRuleJobTarget, accrualDate time.Time) (bool, error) {
+	if j.Rules == nil {
+		return false, fmt.Errorf("accrueTarget: Rules repository not set")
+	}
 	var posted bool
 	err := j.Accruals.WithAccountInterestLock(ctx, target.Rule.AccountID, target.OwnerUserID, func(ctx context.Context, snapshot repository.InterestCalculationRepository) error {
 		transactions, err := snapshot.ListTransactionsByAccountForUser(ctx, target.Rule.AccountID, target.OwnerUserID)
@@ -118,10 +130,17 @@ func (j *InterestJob) accrueTarget(ctx context.Context, target *repository.Inter
 			return fmt.Errorf("list account accruals: %w", err)
 		}
 
+		for i := range accruals {
+			a := &accruals[i]
+			if a.RuleID == target.Rule.ID && dateOnly(a.AccrualDate).Equal(accrualDate) {
+				return nil
+			}
+		}
+
 		principal := services.PrincipalTransactionsForRuleAt(transactions, accruals, &target.Rule, accrualDate)
 		balance, err := services.NewBalanceService().Calculate(ctx, services.CalculateBalanceRequest{
 			AccountID:    target.Rule.AccountID,
-			Transactions: transactionsUpToDate(principal, accrualDate),
+			Transactions: principal, // убрана повторная фильтрация
 		})
 		if err != nil {
 			return fmt.Errorf("calculate account balance: %w", err)
@@ -136,6 +155,11 @@ func (j *InterestJob) accrueTarget(ctx context.Context, target *repository.Inter
 		})
 		if err != nil {
 			if services.IsValidationError(err) {
+				j.logger().Warn("interest accrual skipped due to validation error",
+					"rule_id", target.Rule.ID,
+					"account_id", target.Rule.AccountID,
+					"error", err,
+				)
 				return nil
 			}
 			return fmt.Errorf("accrue for rule %s account %s: %w", target.Rule.ID, target.Rule.AccountID, err)
@@ -153,6 +177,32 @@ func (j *InterestJob) accrueTarget(ctx context.Context, target *repository.Inter
 		return false, fmt.Errorf("accrue rule %s account %s: %w", target.Rule.ID, target.Rule.AccountID, err)
 	}
 	return posted, nil
+}
+
+func selectLatestRulesForAccounts(targets []repository.InterestRuleJobTarget, accrualDate time.Time) []repository.InterestRuleJobTarget {
+	type key struct {
+		AccountID   string
+		OwnerUserID string
+	}
+	best := make(map[key]*repository.InterestRuleJobTarget)
+
+	for i := range targets {
+		t := &targets[i]
+		if t.Rule.StartDate.After(accrualDate) {
+			continue
+		}
+		k := key{AccountID: t.Rule.AccountID, OwnerUserID: t.OwnerUserID}
+		existing, ok := best[k]
+		if !ok || t.Rule.StartDate.After(existing.Rule.StartDate) {
+			best[k] = t
+		}
+	}
+
+	result := make([]repository.InterestRuleJobTarget, 0, len(best))
+	for _, t := range best {
+		result = append(result, *t)
+	}
+	return result
 }
 
 func (j *InterestJob) today() time.Time {
@@ -195,17 +245,6 @@ func lastActiveDayOfMonth(rule *models.InterestRule, date time.Time) time.Time {
 		return dateOnly(*rule.EndDate)
 	}
 	return monthEnd
-}
-
-func transactionsUpToDate(transactions []models.Transaction, date time.Time) []models.Transaction {
-	date = dateOnly(date)
-	filtered := make([]models.Transaction, 0, len(transactions))
-	for i := range transactions {
-		if !dateOnly(transactions[i].OccurredAt).After(date) {
-			filtered = append(filtered, transactions[i])
-		}
-	}
-	return filtered
 }
 
 func dateOnly(date time.Time) time.Time {
