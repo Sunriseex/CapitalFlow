@@ -207,3 +207,60 @@ func (s *fakeInterestSnapshot) CreateInterestAccrualWithTransaction(_ context.Co
 func (s *fakeInterestSnapshot) ReplaceInterestAccrualRangeWithTransactions(context.Context, string, string, time.Time, time.Time, []models.Transaction, []models.InterestAccrual) (int64, error) {
 	return 0, nil
 }
+
+func TestSelectLatestRulesForAccounts(t *testing.T) {
+	now := time.Date(2026, 5, 21, 0, 0, 0, 0, time.UTC)
+
+	rule1 := models.InterestRule{
+		ID:        "rule1",
+		AccountID: "acc1",
+		StartDate: now.AddDate(0, 0, -5),
+	}
+	rule2 := models.InterestRule{
+		ID:        "rule2",
+		AccountID: "acc1",
+		StartDate: now.AddDate(0, 0, -1),
+	}
+	rule3 := models.InterestRule{
+		ID:        "rule3",
+		AccountID: "acc2",
+		StartDate: now.AddDate(0, 0, -3),
+	}
+	rule4 := models.InterestRule{
+		ID:        "rule4",
+		AccountID: "acc2",
+		StartDate: now.AddDate(0, 0, 1), // завтра
+	}
+
+	targets := []repository.InterestRuleJobTarget{
+		{Rule: rule1, OwnerUserID: "user1"},
+		{Rule: rule2, OwnerUserID: "user1"},
+		{Rule: rule3, OwnerUserID: "user2"},
+		{Rule: rule4, OwnerUserID: "user2"},
+	}
+
+	selected := selectLatestRulesForAccounts(targets, now)
+
+	if len(selected) != 2 {
+		t.Fatalf("expected 2 targets, got %d", len(selected))
+	}
+	acc1Found := false
+	acc2Found := false
+	for _, target := range selected {
+		switch target.Rule.AccountID {
+		case "acc1":
+			acc1Found = true
+			if target.Rule.ID != "rule2" {
+				t.Errorf("for acc1 expected rule2, got %s", target.Rule.ID)
+			}
+		case "acc2":
+			acc2Found = true
+			if target.Rule.ID != "rule3" {
+				t.Errorf("for acc2 expected rule3, got %s", target.Rule.ID)
+			}
+		}
+	}
+	if !acc1Found || !acc2Found {
+		t.Fatalf("missing expected accounts in selection")
+	}
+}

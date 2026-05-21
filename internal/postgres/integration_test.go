@@ -1739,6 +1739,79 @@ func TestTransactionRepositoryListByUserFilteredAppliesSQLFiltersAndPagination(t
 
 }
 
+func TestInterestRuleRepositoryListActiveForAccrual(t *testing.T) {
+	store := newTestStore(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+	userID := seedUser(ctx, t, store, "list-active-accrual@example.com")
+	account := transferTestAccount(t, store, userID, "active-accrual-account")
+
+	rule1 := &models.InterestRule{
+		ID:                      uuid.NewString(),
+		AccountID:               account.ID,
+		AnnualRateBps:           500,
+		AccrualFrequency:        models.AccrualFrequencyDaily,
+		CapitalizationFrequency: models.CapitalizationFrequencyDaily,
+		DayCountConvention:      models.DayCountConventionActual365,
+		IsActive:                true,
+		StartDate:               now.AddDate(0, 0, -5),
+	}
+	rule2 := &models.InterestRule{
+		ID:                      uuid.NewString(),
+		AccountID:               account.ID,
+		AnnualRateBps:           700,
+		AccrualFrequency:        models.AccrualFrequencyDaily,
+		CapitalizationFrequency: models.CapitalizationFrequencyDaily,
+		DayCountConvention:      models.DayCountConventionActual365,
+		IsActive:                true,
+		StartDate:               now.AddDate(0, 0, -1),
+	}
+	rule3 := &models.InterestRule{
+		ID:                      uuid.NewString(),
+		AccountID:               account.ID,
+		AnnualRateBps:           300,
+		AccrualFrequency:        models.AccrualFrequencyDaily,
+		CapitalizationFrequency: models.CapitalizationFrequencyDaily,
+		DayCountConvention:      models.DayCountConventionActual365,
+		IsActive:                false,
+		StartDate:               now.AddDate(0, 0, -3),
+	}
+
+	rules := []*models.InterestRule{rule1, rule2, rule3}
+	for _, r := range rules {
+		if err := store.InterestRules().Create(ctx, r); err != nil {
+			t.Fatalf("create rule %s: %v", r.ID, err)
+		}
+	}
+
+	targets, err := store.InterestRules().(*InterestRuleRepository).ListActiveForAccrual(ctx, models.AccrualFrequencyDaily, now)
+	if err != nil {
+		t.Fatalf("ListActiveForAccrual: %v", err)
+	}
+	if len(targets) != 2 {
+		t.Fatalf("expected 2 active rules, got %d", len(targets))
+	}
+
+	monthlyTargets, err := store.InterestRules().(*InterestRuleRepository).ListActiveForAccrual(ctx, models.AccrualFrequencyMonthly, now)
+	if err != nil {
+		t.Fatalf("ListActiveForAccrual monthly: %v", err)
+	}
+	if len(monthlyTargets) != 0 {
+		t.Fatalf("expected 0 monthly rules, got %d", len(monthlyTargets))
+	}
+
+	pastDate := now.AddDate(0, 0, -10)
+	if _, err := store.InterestRules().(*InterestRuleRepository).ListActiveForAccrual(ctx, models.AccrualFrequencyDaily, pastDate); err != nil {
+		t.Fatalf("ListActiveForAccrual past date: %v", err)
+	}
+
+	for _, target := range targets {
+		if target.OwnerUserID != userID {
+			t.Fatalf("target OwnerUserID = %s, want %s", target.OwnerUserID, userID)
+		}
+	}
+}
+
 func TestInterestRuleRepositoryListByUserScopesRulesToOwnedAccounts(t *testing.T) {
 	ctx := t.Context()
 	store := newTestStore(t)

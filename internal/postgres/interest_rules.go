@@ -49,22 +49,22 @@ func (r *InterestRuleRepository) ListByUser(ctx context.Context, userID string) 
 
 func (r *InterestRuleRepository) ListActiveForAccrual(ctx context.Context, frequency models.AccrualFrequency, accrualDate time.Time) ([]repository.InterestRuleJobTarget, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT interest_rules.id, interest_rules.account_id, interest_rules.annual_rate_bps,
-			interest_rules.promo_rate_bps, interest_rules.promo_end_date,
-			interest_rules.accrual_frequency, interest_rules.capitalization_frequency,
-			interest_rules.day_count_convention, interest_rules.is_active,
-			interest_rules.start_date, interest_rules.end_date,
-		a.owner_user_id
-		FROM interest_rules
-		JOIN accounts a ON a.id = interest_rules.account_id
-		WHERE interest_rules.is_active = true
-			AND a.is_active = true
-			AND a.owner_user_id IS NOT NULL
-			AND interest_rules.accrual_frequency = $1
-			AND interest_rules.start_date <= $2
-			AND (interest_rules.end_date IS NULL OR interest_rules.end_date >= $2)
-		ORDER BY interest_rules.account_id, interest_rules.start_date, interest_rules.id
-	`, frequency, dateOnly(accrualDate))
+    SELECT interest_rules.id, interest_rules.account_id, interest_rules.annual_rate_bps,
+        interest_rules.promo_rate_bps, interest_rules.promo_end_date,
+        interest_rules.accrual_frequency, interest_rules.capitalization_frequency,
+        interest_rules.day_count_convention, interest_rules.is_active,
+        interest_rules.start_date, interest_rules.end_date,
+        a.owner_user_id
+    FROM interest_rules
+    JOIN accounts a ON a.id = interest_rules.account_id
+    WHERE interest_rules.is_active = true
+        AND a.is_active = true
+        AND a.owner_user_id IS NOT NULL
+        AND interest_rules.accrual_frequency = $1
+        AND interest_rules.start_date <= $2
+        AND (interest_rules.end_date IS NULL OR interest_rules.end_date >= $2)
+    ORDER BY interest_rules.account_id, interest_rules.start_date, interest_rules.id
+`, frequency, dateOnly(accrualDate))
 	if err != nil {
 		return nil, fmt.Errorf("list active interest rules for accrual: %w", err)
 	}
