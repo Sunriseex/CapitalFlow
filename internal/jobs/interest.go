@@ -67,7 +67,9 @@ func (j *InterestJob) run(ctx context.Context, jobName string, frequency models.
 	}
 
 	var runErrs []error
-	for _, target := range targets {
+	for i := range targets {
+		target := &targets[i]
+
 		if err := ctx.Err(); err != nil {
 			return result, fmt.Errorf("%s: %w", jobName, err)
 		}
@@ -81,7 +83,12 @@ func (j *InterestJob) run(ctx context.Context, jobName string, frequency models.
 		if err != nil {
 			result.Failed++
 			runErrs = append(runErrs, err)
-			j.logger().Warn("interest job target failed", "job", jobName, "rule_id", target.Rule.ID, "account_id", target.Rule.AccountID, "error", err)
+			j.logger().Warn("interest job target failed",
+				"job", jobName,
+				"rule_id", target.Rule.ID,
+				"account_id", target.Rule.AccountID,
+				"error", err,
+			)
 			continue
 		}
 		if posted {
@@ -99,7 +106,7 @@ func (j *InterestJob) run(ctx context.Context, jobName string, frequency models.
 	return result, nil
 }
 
-func (j *InterestJob) accrueTarget(ctx context.Context, target repository.InterestRuleJobTarget, accrualDate time.Time) (bool, error) {
+func (j *InterestJob) accrueTarget(ctx context.Context, target *repository.InterestRuleJobTarget, accrualDate time.Time) (bool, error) {
 	var posted bool
 	err := j.Accruals.WithAccountInterestLock(ctx, target.Rule.AccountID, target.OwnerUserID, func(ctx context.Context, snapshot repository.InterestCalculationRepository) error {
 		transactions, err := snapshot.ListTransactionsByAccountForUser(ctx, target.Rule.AccountID, target.OwnerUserID)
@@ -131,7 +138,7 @@ func (j *InterestJob) accrueTarget(ctx context.Context, target repository.Intere
 			if services.IsValidationError(err) {
 				return nil
 			}
-			return err
+			return fmt.Errorf("accrue for rule %s account %s: %w", target.Rule.ID, target.Rule.AccountID, err)
 		}
 		if response.Skipped {
 			return nil
