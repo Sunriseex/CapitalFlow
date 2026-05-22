@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/sunriseex/capitalflow/internal/config"
+	"github.com/sunriseex/capitalflow/internal/jobs"
 	"github.com/sunriseex/capitalflow/internal/migration"
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/postgres"
@@ -72,6 +73,11 @@ func main() {
 	case "migrate-json":
 		if err := runMigrateJSON(ctx, os.Args[2:]); err != nil {
 			slog.Error("migrate-json failed", "error", err)
+			os.Exit(1)
+		}
+	case "jobs":
+		if err := runJobs(ctx, os.Args[2:]); err != nil {
+			slog.Error("jobs failed", "error", err)
 			os.Exit(1)
 		}
 	case "version":
@@ -401,6 +407,87 @@ func runMigrateJSON(ctx context.Context, args []string) error {
 		return fmt.Errorf("migration completed with errors or balance mismatch")
 	}
 	return nil
+}
+
+func runJobs(ctx context.Context, args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("jobs subcommand is required: run")
+	}
+	switch args[0] {
+	case "run":
+		return runJobsRun(ctx, args[1:])
+	default:
+		return fmt.Errorf("unknown jobs subcommand: %s", args[0])
+	}
+}
+
+func runJobsRun(ctx context.Context, args []string) error {
+	flags := flag.NewFlagSet("jobs run", flag.ContinueOnError)
+	name := flags.String("name", "", "job name")
+	dateInput := flags.String("date", "", "job date YYYY-MM-DD")
+	databaseURL := flags.String("database-url", config.AppConfig.DatabaseURL, "PostgreSQL connection URL")
+	timeout := flags.Duration("timeout", 5*time.Minute, "job timeout")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+
+	jobName := strings.TrimSpace(*name)
+	if !validInterestJobName(jobName) {
+		return fmt.Errorf("unknown job name: %s", jobName)
+	}
+
+	jobDate, err := parseOptionalDate(*dateInput)
+	if err != nil {
+		return err
+	}
+	if jobDate.IsZero() {
+		jobDate = dateOnly(time.Now())
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, *timeout)
+	defer cancel()
+
+	store, closeStore, err := openStore(ctx, *databaseURL)
+	if err != nil {
+		return err
+	}
+	defer closeStore()
+
+	rules, ok := store.InterestRules().(repository.InterestRuleJobRepository)
+	if !ok {
+		return fmt.Errorf("interest rule repository does not support jobs")
+	}
+	accruals, ok := store.InterestAccruals().(repository.InterestAccrualTransactionalRepository)
+	if !ok {
+		return fmt.Errorf("interest accrual repository does not support transactional jobs")
+	}
+
+	job := &jobs.InterestJob{
+		Rules:    rules,
+		Accruals: accruals,
+		Now:      func() time.Time { return jobDate },
+	}
+
+	var result *jobs.InterestJobRunResult
+	switch jobName {
+	case jobs.DailyInterestAccrualJobName:
+		result, err = job.RunDailyInterestAccrual(ctx)
+	case jobs.MonthlyInterestAccrualJobName:
+		result, err = job.RunMonthlyInterestAccrual(ctx)
+	case jobs.DepositMaturityCheckJobName:
+		result, err = job.RunDepositMaturityCheck(ctx)
+	}
+	if result != nil {
+		fmt.Printf("%s\tdate=%s\tscanned=%d\tposted=%d\tskipped=%d\tfailed=%d\n",
+			result.JobName,
+			result.AccrualDate.Format(time.DateOnly),
+			result.Scanned,
+			result.Posted,
+			result.Skipped,
+			result.Failed,
+		)
+	}
+	return err
 }
 
 func runAccrue(ctx context.Context, args []string) error {
@@ -783,8 +870,20 @@ Commands:
   capitalflow forecast --account id [--rule id] [--days 365] [--from YYYY-MM-DD] [--database-url url]
   capitalflow recalculate --account id [--rule id] --from YYYY-MM-DD [--to YYYY-MM-DD] [--database-url url]
   capitalflow migrate-json [--deposits path] [--owner-user-id user-id] [--database-url url]
+  capitalflow jobs run --name daily_interest_accrual_job [--date YYYY-MM-DD] [--database-url url]
   capitalflow version
   capitalflow help`)
+}
+
+func validInterestJobName(name string) bool {
+	switch name {
+	case jobs.DailyInterestAccrualJobName,
+		jobs.MonthlyInterestAccrualJobName,
+		jobs.DepositMaturityCheckJobName:
+		return true
+	default:
+		return false
+	}
 }
 
 func isTransferTransactionType(transactionType models.TransactionType) bool {

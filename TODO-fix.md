@@ -2,7 +2,7 @@
 
 ## v0.6 Remaining Work
 
-- [ ] Add production background job wrappers for the PostgreSQL interest engine:
+- [x] Add production background job wrappers for the PostgreSQL interest engine:
   - `daily_interest_accrual_job`
   - `monthly_interest_accrual_job`
   - `deposit_maturity_check_job`

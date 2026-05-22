@@ -67,6 +67,15 @@ type InterestRuleRepository interface {
 	Update(ctx context.Context, rule *models.InterestRule) error
 }
 
+type InterestRuleJobTarget struct {
+	Rule        models.InterestRule
+	OwnerUserID string
+}
+
+type InterestRuleJobRepository interface {
+	ListActiveForAccrual(ctx context.Context, frequency models.AccrualFrequency, accrualDate time.Time) ([]InterestRuleJobTarget, error)
+}
+
 type InterestAccrualRepository interface {
 	Create(ctx context.Context, accrual *models.InterestAccrual) error
 	CreateWithTransaction(ctx context.Context, transaction *models.Transaction, accrual *models.InterestAccrual) error
