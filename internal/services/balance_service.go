@@ -3,9 +3,11 @@ package services
 import (
 	"context"
 	"fmt"
-	"math"
+
+	"github.com/shopspring/decimal"
 
 	"github.com/sunriseex/capitalflow/internal/models"
+	"github.com/sunriseex/capitalflow/pkg/money"
 )
 
 type BalanceService struct{}
@@ -21,6 +23,7 @@ type CalculateBalanceRequest struct {
 
 type CalculateBalanceResponse struct {
 	AccountID    string
+	Balance      decimal.Decimal
 	BalanceMinor int64
 	Count        int
 }
@@ -30,7 +33,7 @@ func (s *BalanceService) Calculate(ctx context.Context, req CalculateBalanceRequ
 		return nil, fmt.Errorf("account id is required")
 	}
 
-	var balance int64
+	balance := decimal.Zero
 	var count int
 	for i := range req.Transactions {
 		select {
@@ -48,52 +51,35 @@ func (s *BalanceService) Calculate(ctx context.Context, req CalculateBalanceRequ
 		if err != nil {
 			return nil, err
 		}
-		next, err := checkedAddMinor(balance, delta)
-		if err != nil {
-			return nil, err
-		}
-		balance = next
+		balance = balance.Add(delta)
 		count++
+	}
+	balanceMinor, err := money.DecimalToMinorUnits(balance)
+	if err != nil {
+		return nil, fmt.Errorf("balance cannot be represented as legacy minor units: %w", err)
 	}
 
 	return &CalculateBalanceResponse{
 		AccountID:    req.AccountID,
-		BalanceMinor: balance,
+		Balance:      balance,
+		BalanceMinor: balanceMinor,
 		Count:        count,
 	}, nil
 }
 
-func transactionDelta(tx *models.Transaction) (int64, error) {
+func transactionDelta(tx *models.Transaction) (decimal.Decimal, error) {
+	amount := money.MinorUnitsToDecimal(tx.AmountMinor)
 	switch tx.Type {
 	case models.TransactionTypeInitialBalance,
 		models.TransactionTypeIncome,
 		models.TransactionTypeTransferIn,
 		models.TransactionTypeInterestIncome,
 		models.TransactionTypeAdjustment:
-		return tx.AmountMinor, nil
+		return amount, nil
 	case models.TransactionTypeExpense,
 		models.TransactionTypeTransferOut:
-		if tx.AmountMinor == math.MinInt64 {
-			return 0, fmt.Errorf("transaction amount overflows balance delta")
-		}
-		return -tx.AmountMinor, nil
+		return amount.Neg(), nil
 	default:
-		return 0, fmt.Errorf("unknown transaction type: %s", tx.Type)
+		return decimal.Zero, fmt.Errorf("unknown transaction type: %s", tx.Type)
 	}
-}
-
-func checkedAddMinor(left, right int64) (int64, error) {
-	if right > 0 && left > math.MaxInt64-right {
-		return 0, fmt.Errorf("balance calculation overflows int64")
-	}
-	if right == math.MinInt64 {
-		if left < 0 {
-			return 0, fmt.Errorf("balance calculation overflows int64")
-		}
-		return left + right, nil
-	}
-	if right < 0 && left < math.MinInt64-right {
-		return 0, fmt.Errorf("balance calculation overflows int64")
-	}
-	return left + right, nil
 }

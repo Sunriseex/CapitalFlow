@@ -33,6 +33,29 @@ func TestCurrencyServiceConvertMinor(t *testing.T) {
 	}
 }
 
+func TestCurrencyServiceConvertAmountUsesExplicitMinorUnitRounding(t *testing.T) {
+	service := NewCurrencyService(staticExchangeRateProvider{
+		rates: &ExchangeRates{
+			Base: "USD",
+			Rates: map[string]decimal.Decimal{
+				"USD": decimal.NewFromInt(1),
+				"EUR": decimal.RequireFromString("0.333"),
+			},
+		},
+	})
+
+	amount, rate, err := service.ConvertAmount(t.Context(), decimal.RequireFromString("10"), "usd", "eur")
+	if err != nil {
+		t.Fatalf("convert amount: %v", err)
+	}
+	if !amount.Equal(decimal.NewFromInt(3)) {
+		t.Fatalf("amount = %s, want 3", amount)
+	}
+	if !rate.Equal(decimal.RequireFromString("0.333")) {
+		t.Fatalf("rate = %s, want 0.333", rate)
+	}
+}
+
 func TestCurrencyServiceConvertMinorSameCurrency(t *testing.T) {
 	service := NewCurrencyService(staticExchangeRateProvider{})
 

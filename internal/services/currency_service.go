@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
+
+	"github.com/sunriseex/capitalflow/pkg/money"
 )
 
 const (
@@ -53,27 +55,45 @@ func (s *CurrencyService) Latest(ctx context.Context, base string) (*ExchangeRat
 }
 
 func (s *CurrencyService) ConvertMinor(ctx context.Context, amountMinor int64, from, to string) (int64, decimal.Decimal, error) {
+	converted, rate, err := s.ConvertAmount(ctx, decimal.NewFromInt(amountMinor), from, to)
+	if err != nil {
+		return 0, decimal.Zero, err
+	}
+	convertedMinor, err := money.DecimalToMinorUnits(converted)
+	if err != nil {
+		return 0, decimal.Zero, fmt.Errorf("converted amount exceeds legacy minor-unit range: %w", err)
+	}
+	return convertedMinor, rate, nil
+}
+
+func (s *CurrencyService) ConvertAmount(ctx context.Context, amount decimal.Decimal, from, to string) (decimal.Decimal, decimal.Decimal, error) {
 	from = normalizeCurrency(from)
 	to = normalizeCurrency(to)
 	if from == "" || to == "" {
-		return 0, decimal.Zero, validationError("currency is required")
+		return decimal.Zero, decimal.Zero, validationError("currency is required")
 	}
 	if from == to {
-		return amountMinor, decimal.NewFromInt(1), nil
+		return amount, decimal.NewFromInt(1), nil
 	}
 
 	rates, err := s.Latest(ctx, from)
 	if err != nil {
-		return 0, decimal.Zero, err
+		return decimal.Zero, decimal.Zero, err
 	}
 
 	rate, ok := rates.Rates[to]
 	if !ok || !rate.IsPositive() {
-		return 0, decimal.Zero, validationError("exchange rate not found for " + from + "/" + to)
+		return decimal.Zero, decimal.Zero, validationError("exchange rate not found for " + from + "/" + to)
 	}
 
-	converted := decimal.NewFromInt(amountMinor).Mul(rate).Round(0).IntPart()
+	converted := RoundConvertedMinorUnits(amount.Mul(rate))
 	return converted, rate, nil
+}
+
+func RoundConvertedMinorUnits(amount decimal.Decimal) decimal.Decimal {
+	// Transfers keep the legacy minor-unit API boundary until the public contract migrates.
+	// Round uses decimal half away from zero; amounts are validated positive by callers.
+	return amount.Round(0)
 }
 
 func normalizeCurrency(currency string) string {

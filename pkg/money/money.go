@@ -2,15 +2,23 @@ package money
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/shopspring/decimal"
+)
+
+const (
+	StoragePrecision = 38
+	StorageScale     = 18
 )
 
 var (
 	kopecksPerRub = decimal.NewFromInt(100)
 	maxRubAmount  = decimal.NewFromInt(1_000_000)
 	maxRate       = decimal.NewFromInt(100)
+	maxInt64      = decimal.NewFromInt(math.MaxInt64)
+	minInt64      = decimal.NewFromInt(math.MinInt64)
 )
 
 func ParseRUB(input string) (decimal.Decimal, error) {
@@ -43,6 +51,20 @@ func ParsePositiveRUB(input string) (decimal.Decimal, error) {
 
 func LegacyKopecksToDecimal(kopecks int64) decimal.Decimal {
 	return decimal.NewFromInt(kopecks).Div(kopecksPerRub).Round(2)
+}
+
+func MinorUnitsToDecimal(amountMinor int64) decimal.Decimal {
+	return decimal.NewFromInt(amountMinor)
+}
+
+func DecimalToMinorUnits(amount decimal.Decimal) (int64, error) {
+	if !amount.IsInteger() {
+		return 0, fmt.Errorf("amount cannot be represented as integer minor units: %s", amount.String())
+	}
+	if amount.GreaterThan(maxInt64) || amount.LessThan(minInt64) {
+		return 0, fmt.Errorf("amount exceeds int64 minor-unit compatibility range: %s", amount.String())
+	}
+	return amount.IntPart(), nil
 }
 
 func DecimalToLegacyKopecks(amount decimal.Decimal) (int64, error) {

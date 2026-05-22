@@ -6,6 +6,8 @@ import (
 	"math"
 	"testing"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/sunriseex/capitalflow/internal/models"
 )
 
@@ -65,6 +67,9 @@ func TestBalanceServiceCalculate(t *testing.T) {
 			if got.BalanceMinor != tt.want {
 				t.Fatalf("balance = %d, want %d", got.BalanceMinor, tt.want)
 			}
+			if !got.Balance.Equal(decimal.NewFromInt(tt.want)) {
+				t.Fatalf("decimal balance = %s, want %d", got.Balance, tt.want)
+			}
 			if got.Count != tt.wantCount {
 				t.Fatalf("count = %d, want %d", got.Count, tt.wantCount)
 			}
@@ -107,7 +112,7 @@ func TestBalanceServiceCalculateRejectsOverflow(t *testing.T) {
 			},
 		},
 		{
-			name: "expense min int delta",
+			name: "legacy output overflow",
 			transactions: []models.Transaction{
 				{AccountID: "account-1", Type: models.TransactionTypeExpense, AmountMinor: math.MinInt64},
 			},
