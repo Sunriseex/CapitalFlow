@@ -111,6 +111,14 @@ func errorResponseFromError(err error) errorResponse {
 		}
 	}
 
+	if errors.Is(err, repository.ErrInsufficientFunds) {
+		return errorResponse{
+			status:  http.StatusBadRequest,
+			code:    "insufficient_funds",
+			message: repository.ErrInsufficientFunds.Error(),
+		}
+	}
+
 	if errors.Is(err, context.Canceled) {
 		return errorResponse{
 			status:  499,

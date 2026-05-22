@@ -183,19 +183,20 @@ func (r *testAccountRepo) ClaimUnowned(context.Context, string) error {
 }
 
 type testTransactionRepo struct {
-	transactionCountByAccount  map[string]int64
-	createCalls                int
-	oldCreateCalls             int
-	createForUserCalls         int
-	createForUserUserID        string
-	createForUserErr           error
-	createTransferCalls        int
-	createTransferUserID       string
-	createTransferTransactions []models.Transaction
-	listFilteredCalls          int
-	listFilteredUserID         string
-	listFilteredFilter         repository.TransactionListFilter
-	listFilteredTransactions   []models.Transaction
+	transactionCountByAccount    map[string]int64
+	createCalls                  int
+	oldCreateCalls               int
+	createForUserCalls           int
+	createForUserUserID          string
+	createForUserErr             error
+	createTransferCalls          int
+	createTransferUserID         string
+	createTransferIdempotencyKey string
+	createTransferTransactions   []models.Transaction
+	listFilteredCalls            int
+	listFilteredUserID           string
+	listFilteredFilter           repository.TransactionListFilter
+	listFilteredTransactions     []models.Transaction
 }
 
 func (r *testTransactionRepo) Create(context.Context, *models.Transaction) error {
@@ -221,6 +222,7 @@ func (r *testTransactionRepo) CreateMany(context.Context, []models.Transaction) 
 func (r *testTransactionRepo) CreateTransfer(_ context.Context, transfer *models.Transfer, transactions []models.Transaction) error {
 	r.createTransferCalls++
 	r.createTransferUserID = transfer.UserID
+	r.createTransferIdempotencyKey = transfer.IdempotencyKey
 	r.createTransferTransactions = append(r.createTransferTransactions[:0], transactions...)
 	return nil
 }

@@ -201,10 +201,11 @@ func (s *InterestRuleService) Create(ctx context.Context, req *CreateInterestRul
 		EndDate:                 endDate,
 	}
 
-	if s.rules != nil {
-		if err := s.rules.Create(ctx, rule); err != nil {
-			return nil, fmt.Errorf("save interest rule: %w", err)
-		}
+	if s == nil || s.rules == nil {
+		return nil, fmt.Errorf("interest rule repository is required")
+	}
+	if err := s.rules.Create(ctx, rule); err != nil {
+		return nil, fmt.Errorf("save interest rule: %w", err)
 	}
 
 	return rule, nil

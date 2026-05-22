@@ -10,7 +10,8 @@ import (
 )
 
 func TestTransactionServiceCreate(t *testing.T) {
-	tx, err := NewTransactionService().Create(t.Context(), &CreateTransactionRequest{
+	repo := &recordingCreateForUserRepo{}
+	tx, err := NewTransactionService(repo).Create(t.Context(), &CreateTransactionRequest{
 		AccountID:   "account-1",
 		Type:        models.TransactionTypeIncome,
 		AmountMinor: 10_000,
@@ -27,6 +28,9 @@ func TestTransactionServiceCreate(t *testing.T) {
 	}
 	if tx.OccurredAt.IsZero() {
 		t.Fatal("occurred at is zero")
+	}
+	if repo.createCalls != 1 {
+		t.Fatalf("create calls = %d, want 1", repo.createCalls)
 	}
 }
 
@@ -135,7 +139,7 @@ func TestTransactionServiceCreateRejectsNegativeNonAdjustmentAmounts(t *testing.
 }
 
 func TestTransactionServiceCreateAllowsNegativeAdjustments(t *testing.T) {
-	tx, err := NewTransactionService().Create(t.Context(), &CreateTransactionRequest{
+	tx, err := NewTransactionService(&recordingCreateForUserRepo{}).Create(t.Context(), &CreateTransactionRequest{
 		AccountID:   "account-1",
 		Type:        models.TransactionTypeAdjustment,
 		AmountMinor: -1_000,
@@ -163,7 +167,7 @@ func TestTransactionServiceCreateValidatesAmountBounds(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewTransactionService().Create(t.Context(), &CreateTransactionRequest{
+			_, err := NewTransactionService(&recordingCreateForUserRepo{}).Create(t.Context(), &CreateTransactionRequest{
 				AccountID:   "account-1",
 				Type:        tt.transaction,
 				AmountMinor: tt.amount,
@@ -181,6 +185,20 @@ func TestTransactionServiceCreateValidatesAmountBounds(t *testing.T) {
 				t.Fatalf("create transaction: %v", err)
 			}
 		})
+	}
+}
+
+func TestTransactionServiceCreateRejectsMissingRepository(t *testing.T) {
+	_, err := NewTransactionService().Create(t.Context(), &CreateTransactionRequest{
+		AccountID:   "account-1",
+		Type:        models.TransactionTypeIncome,
+		AmountMinor: 100,
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if IsValidationError(err) {
+		t.Fatalf("expected wiring error, got validation error: %v", err)
 	}
 }
 

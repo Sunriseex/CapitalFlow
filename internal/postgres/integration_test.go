@@ -1305,6 +1305,8 @@ func TestTransactionCreateTransferLocksAccountsAndRollsBack(t *testing.T) {
 
 	from := transferTestAccount(t, store, userID, "from")
 	to := transferTestAccount(t, store, userID, "to")
+	seedTransferFunds(ctx, t, store, userID, from.ID, 100, now)
+	seedTransferFunds(ctx, t, store, userID, to.ID, 100, now)
 	transactions := store.Transactions()
 
 	var wg sync.WaitGroup
@@ -1338,8 +1340,8 @@ func TestTransactionCreateTransferLocksAccountsAndRollsBack(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get from balance: %v", err)
 	}
-	if fromBalance != 0 || fromCount != 2 {
-		t.Fatalf("from balance/count = %d/%d, want 0/2", fromBalance, fromCount)
+	if fromBalance != 100 || fromCount != 3 {
+		t.Fatalf("from balance/count = %d/%d, want 100/3", fromBalance, fromCount)
 	}
 
 	otherUserID := uuid.NewString()
@@ -1424,6 +1426,7 @@ func TestTransactionCreateTransferPersistsAuditRecord(t *testing.T) {
 
 	from := transferTestAccount(t, store, userID, "from-audit")
 	to := transferTestAccount(t, store, userID, "to-audit")
+	seedTransferFunds(ctx, t, store, userID, from.ID, 1_000_000, now)
 	to.Currency = "KRW"
 	to.UpdatedAt = now.Add(time.Minute)
 	if err := store.Accounts().UpdateForUserEnforcingCurrencyInvariant(ctx, to, userID); err != nil {
@@ -1460,6 +1463,68 @@ func TestTransactionCreateTransferPersistsAuditRecord(t *testing.T) {
 		if gotTransactions[i].TransferID == nil || *gotTransactions[i].TransferID != transfer.ID {
 			t.Fatalf("transaction %s transfer_id = %v, want %s", gotTransactions[i].ID, gotTransactions[i].TransferID, transfer.ID)
 		}
+	}
+}
+
+func TestTransactionCreateTransferRejectsDuplicateIdempotencyKey(t *testing.T) {
+	ctx := t.Context()
+	store := newTestStore(t)
+	now := time.Now().UTC()
+	userID := seedUser(ctx, t, store, "duplicate-transfer-idempotency@example.com")
+	from := transferTestAccount(t, store, userID, "from-duplicate-idempotency")
+	to := transferTestAccount(t, store, userID, "to-duplicate-idempotency")
+	seedTransferFunds(ctx, t, store, userID, from.ID, 500, now)
+
+	transfer, transferTransactions := transferTestRows(userID, from.ID, to.ID, "RUB", "RUB", 100, 100, "1", now)
+	transfer.IdempotencyKey = "same-transfer-key"
+	if err := store.Transactions().CreateTransfer(ctx, transfer, transferTransactions); err != nil {
+		t.Fatalf("create first transfer: %v", err)
+	}
+
+	duplicate, duplicateTransactions := transferTestRows(userID, from.ID, to.ID, "RUB", "RUB", 100, 100, "1", now)
+	duplicate.IdempotencyKey = transfer.IdempotencyKey
+	err := store.Transactions().CreateTransfer(ctx, duplicate, duplicateTransactions)
+	if !errors.Is(err, repository.ErrConflict) {
+		t.Fatalf("duplicate idempotency err = %v, want ErrConflict", err)
+	}
+
+	got, err := store.Transactions().ListByUser(ctx, userID)
+	if err != nil {
+		t.Fatalf("list transactions: %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("transactions after duplicate = %d, want initial plus one transfer", len(got))
+	}
+}
+
+func TestTransactionCreateTransferRejectsInsufficientFunds(t *testing.T) {
+	ctx := t.Context()
+	store := newTestStore(t)
+	now := time.Now().UTC()
+	userID := seedUser(ctx, t, store, "insufficient-transfer@example.com")
+	from := transferTestAccount(t, store, userID, "from-insufficient")
+	to := transferTestAccount(t, store, userID, "to-insufficient")
+	seedTransferFunds(ctx, t, store, userID, from.ID, 99, now)
+
+	transfer, transferTransactions := transferTestRows(userID, from.ID, to.ID, "RUB", "RUB", 100, 100, "1", now)
+	err := store.Transactions().CreateTransfer(ctx, transfer, transferTransactions)
+	if !errors.Is(err, repository.ErrInsufficientFunds) {
+		t.Fatalf("insufficient funds err = %v, want ErrInsufficientFunds", err)
+	}
+
+	got, err := store.Transactions().ListByUser(ctx, userID)
+	if err != nil {
+		t.Fatalf("list transactions: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("transactions after insufficient funds = %d, want only initial funding", len(got))
+	}
+	var transferCount int
+	if err := store.pool.QueryRow(ctx, `SELECT COUNT(*) FROM transfers WHERE user_id = $1`, userID).Scan(&transferCount); err != nil {
+		t.Fatalf("count transfers: %v", err)
+	}
+	if transferCount != 0 {
+		t.Fatalf("transfers after insufficient funds = %d, want 0", transferCount)
 	}
 }
 
@@ -1535,6 +1600,7 @@ func TestFinancialSchemaHasExpectedIndexesAndConstraints(t *testing.T) {
 		"transactions_category_id_idx",
 		"interest_accruals_rule_id_idx",
 		"categories_parent_id_idx",
+		"transfers_user_id_idempotency_key_idx",
 	}
 	for _, indexName := range expectedIndexes {
 		var exists bool
@@ -1598,6 +1664,7 @@ func TestTransactionRepositoryGetBalanceByAccountForUserMatchesBalanceService(t 
 	if err := store.Transactions().CreateTransfer(ctx, transferOut, transferOutRows); err != nil {
 		t.Fatalf("create transfer out: %v", err)
 	}
+	seedTransferFunds(ctx, t, store, userID, transferPeer.ID, 10_000, now)
 	transferIn, transferInRows := transferTestRows(userID, transferPeer.ID, account.ID, "RUB", "RUB", 10_000, 10_000, "1", now)
 	if err := store.Transactions().CreateTransfer(ctx, transferIn, transferInRows); err != nil {
 		t.Fatalf("create transfer in: %v", err)
@@ -1970,6 +2037,7 @@ func transferTestRows(userID, fromID, toID, fromCurrency, toCurrency string, fro
 			ExchangeRate:         exchangeRate,
 			ExchangeRateProvider: "test",
 			ExchangeRateDate:     now,
+			IdempotencyKey:       transferID,
 			CreatedAt:            now,
 		}, []models.Transaction{
 			{
@@ -1993,6 +2061,21 @@ func transferTestRows(userID, fromID, toID, fromCurrency, toCurrency string, fro
 				CreatedAt:        now,
 			},
 		}
+}
+
+func seedTransferFunds(ctx context.Context, t *testing.T, store *Store, userID, accountID string, amount int64, now time.Time) {
+	t.Helper()
+	tx := &models.Transaction{
+		ID:          uuid.NewString(),
+		AccountID:   accountID,
+		Type:        models.TransactionTypeInitialBalance,
+		AmountMinor: amount,
+		OccurredAt:  now,
+		CreatedAt:   now,
+	}
+	if err := store.Transactions().CreateForUser(ctx, userID, tx); err != nil {
+		t.Fatalf("seed transfer funds: %v", err)
+	}
 }
 
 func seedInterestLockTestData(ctx context.Context, t *testing.T, store *Store, email, accountName string) (string, *models.Account, *models.InterestRule) {

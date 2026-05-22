@@ -387,4 +387,4 @@ Protected routes:
 
 ## License
 
-No license is currently specified.
+This project is licensed under the MIT License. See [LICENSE](LICENSE).

@@ -6,12 +6,14 @@ import (
 	"time"
 
 	"github.com/sunriseex/capitalflow/internal/models"
+	"github.com/sunriseex/capitalflow/internal/repository"
 )
 
 func TestInterestRuleServiceCreate(t *testing.T) {
 	startDate := time.Date(2026, 5, 1, 12, 0, 0, 0, time.Local)
 
-	rule, err := NewInterestRuleService(nil).Create(t.Context(), &CreateInterestRuleRequest{
+	rules := &recordingInterestRuleRepo{}
+	rule, err := NewInterestRuleService(nil, WithInterestRuleRepository(rules)).Create(t.Context(), &CreateInterestRuleRequest{
 		AccountID:               "account-1",
 		AnnualRateBps:           1_200,
 		AccrualFrequency:        models.AccrualFrequencyDaily,
@@ -34,10 +36,13 @@ func TestInterestRuleServiceCreate(t *testing.T) {
 	if !rule.IsActive {
 		t.Fatal("rule must be active")
 	}
+	if rules.rule == nil || rules.rule.ID != rule.ID {
+		t.Fatal("repo did not receive interest rule")
+	}
 }
 
 func TestInterestRuleServiceCreateDefaults(t *testing.T) {
-	rule, err := NewInterestRuleService(nil).Create(t.Context(), &CreateInterestRuleRequest{
+	rule, err := NewInterestRuleService(nil, WithInterestRuleRepository(&recordingInterestRuleRepo{})).Create(t.Context(), &CreateInterestRuleRequest{
 		AccountID:     "account-1",
 		AnnualRateBps: 1_200,
 	})
@@ -60,7 +65,7 @@ func TestInterestRuleServiceCreateNormalizesDatePointers(t *testing.T) {
 	promoEndDate := time.Date(2026, 5, 31, 23, 59, 59, 0, time.Local)
 	endDate := time.Date(2026, 12, 31, 23, 59, 59, 0, time.Local)
 
-	rule, err := NewInterestRuleService(nil).Create(t.Context(), &CreateInterestRuleRequest{
+	rule, err := NewInterestRuleService(nil, WithInterestRuleRepository(&recordingInterestRuleRepo{})).Create(t.Context(), &CreateInterestRuleRequest{
 		AccountID:     "account-1",
 		AnnualRateBps: 1_200,
 		PromoRateBps:  &promoRate,
@@ -75,6 +80,19 @@ func TestInterestRuleServiceCreateNormalizesDatePointers(t *testing.T) {
 	}
 	if rule.EndDate == nil || rule.EndDate.Format(time.RFC3339) != "2026-12-31T00:00:00Z" {
 		t.Fatalf("end date = %v, want 2026-12-31 UTC date", rule.EndDate)
+	}
+}
+
+func TestInterestRuleServiceCreateRejectsMissingRepository(t *testing.T) {
+	_, err := NewInterestRuleService(nil).Create(t.Context(), &CreateInterestRuleRequest{
+		AccountID:     "account-1",
+		AnnualRateBps: 1_200,
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if IsValidationError(err) {
+		t.Fatalf("expected wiring error, got validation error: %v", err)
 	}
 }
 
@@ -557,6 +575,28 @@ type recordingInterestAccrualRepo struct {
 	replaceDeleted             int64
 	transaction                *models.Transaction
 	accrual                    *models.InterestAccrual
+}
+
+type recordingInterestRuleRepo struct {
+	rule *models.InterestRule
+}
+
+func (r *recordingInterestRuleRepo) Create(_ context.Context, rule *models.InterestRule) error {
+	ruleCopy := *rule
+	r.rule = &ruleCopy
+	return nil
+}
+
+func (r *recordingInterestRuleRepo) GetByID(context.Context, string) (*models.InterestRule, error) {
+	return nil, repository.ErrNotFound
+}
+
+func (r *recordingInterestRuleRepo) ListByAccount(context.Context, string) ([]models.InterestRule, error) {
+	return nil, nil
+}
+
+func (r *recordingInterestRuleRepo) Update(context.Context, *models.InterestRule) error {
+	return nil
 }
 
 func (r *recordingInterestAccrualRepo) Create(context.Context, *models.InterestAccrual) error {

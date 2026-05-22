@@ -32,6 +32,7 @@ type Handler struct {
 	tokens        *auth.TokenService
 	accounts      *services.AccountService
 	transactions  *services.TransactionService
+	transfers     *services.TransferService
 	interestRules *services.InterestRuleService
 }
 
@@ -70,6 +71,7 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 		tokens:       cfg.TokenService,
 		accounts:     services.NewAccountService(accountRepo),
 		transactions: transactionService,
+		transfers:    services.NewTransferService(transactionService),
 		interestRules: services.NewInterestRuleService(
 			transactionService,
 			services.WithInterestRuleRepository(interestRuleRepo),

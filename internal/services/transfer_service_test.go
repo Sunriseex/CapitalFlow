@@ -11,11 +11,12 @@ import (
 )
 
 func TestTransferServiceCreate(t *testing.T) {
-	got, err := NewTransferService(nil).Create(t.Context(), &CreateTransferRequest{
-		FromAccountID: "account-1",
-		ToAccountID:   "account-2",
-		AmountMinor:   25_000,
-		Description:   "Move savings",
+	got, err := NewTransferService(NewTransactionService(&batchTransactionRepo{})).Create(t.Context(), &CreateTransferRequest{
+		FromAccountID:  "account-1",
+		ToAccountID:    "account-2",
+		AmountMinor:    25_000,
+		Description:    "Move savings",
+		IdempotencyKey: "transfer-create",
 	})
 	if err != nil {
 		t.Fatalf("create transfer: %v", err)
@@ -38,23 +39,40 @@ func TestTransferServiceCreate(t *testing.T) {
 }
 
 func TestTransferServiceCreateRejectsSameAccount(t *testing.T) {
-	_, err := NewTransferService(nil).Create(t.Context(), &CreateTransferRequest{
-		FromAccountID: "account-1",
-		ToAccountID:   "account-1",
-		AmountMinor:   25_000,
+	_, err := NewTransferService(NewTransactionService(&batchTransactionRepo{})).Create(t.Context(), &CreateTransferRequest{
+		FromAccountID:  "account-1",
+		ToAccountID:    "account-1",
+		AmountMinor:    25_000,
+		IdempotencyKey: "same-account",
 	})
 	if err == nil {
 		t.Fatal("expected error")
 	}
 }
 
+func TestTransferServiceCreateRejectsMissingTransactionService(t *testing.T) {
+	_, err := NewTransferService(nil).Create(t.Context(), &CreateTransferRequest{
+		FromAccountID:  "account-1",
+		ToAccountID:    "account-2",
+		AmountMinor:    25_000,
+		IdempotencyKey: "missing-transaction-service",
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if IsValidationError(err) {
+		t.Fatalf("expected wiring error, got validation error: %v", err)
+	}
+}
+
 func TestTransferServiceCreatePersistsTransactionsAsBatch(t *testing.T) {
 	repo := &batchTransactionRepo{}
 	got, err := NewTransferService(NewTransactionService(repo)).Create(t.Context(), &CreateTransferRequest{
-		FromAccountID: "account-1",
-		ToAccountID:   "account-2",
-		AmountMinor:   25_000,
-		Description:   "Move savings",
+		FromAccountID:  "account-1",
+		ToAccountID:    "account-2",
+		AmountMinor:    25_000,
+		Description:    "Move savings",
+		IdempotencyKey: "persisted-batch",
 	})
 	if err != nil {
 		t.Fatalf("create transfer: %v", err)
@@ -86,11 +104,12 @@ func TestTransferServiceCreateConvertsCrossCurrencyAmount(t *testing.T) {
 	})
 
 	got, err := service.Create(t.Context(), &CreateTransferRequest{
-		FromAccountID: "rub-account",
-		ToAccountID:   "krw-account",
-		FromCurrency:  "RUB",
-		ToCurrency:    "KRW",
-		AmountMinor:   1_000_000,
+		FromAccountID:  "rub-account",
+		ToAccountID:    "krw-account",
+		FromCurrency:   "RUB",
+		ToCurrency:     "KRW",
+		AmountMinor:    1_000_000,
+		IdempotencyKey: "cross-currency",
 	})
 	if err != nil {
 		t.Fatalf("create transfer: %v", err)
@@ -112,6 +131,9 @@ func TestTransferServiceCreateConvertsCrossCurrencyAmount(t *testing.T) {
 	}
 	if repo.transfer.ExchangeRate != "16.25" || repo.transfer.FromAmountMinor != 1_000_000 || repo.transfer.ToAmountMinor != 16_250_000 {
 		t.Fatalf("transfer audit = rate %s amounts %d/%d, want 16.25 1000000/16250000", repo.transfer.ExchangeRate, repo.transfer.FromAmountMinor, repo.transfer.ToAmountMinor)
+	}
+	if repo.transfer.IdempotencyKey != "cross-currency" {
+		t.Fatalf("transfer idempotency key = %q, want cross-currency", repo.transfer.IdempotencyKey)
 	}
 	if repo.transfer.FromTransactionID == "" || repo.transfer.ToTransactionID == "" {
 		t.Fatalf("transfer audit transaction ids must be set: %+v", repo.transfer)
@@ -193,46 +215,59 @@ func TestTransferServiceCreateReturnsValidationError(t *testing.T) {
 		{
 			name: "missing from account id",
 			req: CreateTransferRequest{
-				ToAccountID: "account-2",
-				AmountMinor: 100,
+				ToAccountID:    "account-2",
+				AmountMinor:    100,
+				IdempotencyKey: "missing-from",
 			},
 		},
 		{
 			name: "missing to account id",
 			req: CreateTransferRequest{
-				FromAccountID: "account-1",
-				AmountMinor:   100,
+				FromAccountID:  "account-1",
+				AmountMinor:    100,
+				IdempotencyKey: "missing-to",
 			},
 		},
 		{
 			name: "same accounts",
 			req: CreateTransferRequest{
-				FromAccountID: "account-1",
-				ToAccountID:   "account-1",
-				AmountMinor:   100,
+				FromAccountID:  "account-1",
+				ToAccountID:    "account-1",
+				AmountMinor:    100,
+				IdempotencyKey: "same-account",
 			},
 		},
 		{
 			name: "zero amount",
 			req: CreateTransferRequest{
-				FromAccountID: "account-1",
-				ToAccountID:   "account-2",
-				AmountMinor:   0,
+				FromAccountID:  "account-1",
+				ToAccountID:    "account-2",
+				AmountMinor:    0,
+				IdempotencyKey: "zero",
 			},
 		},
 		{
 			name: "negative amount",
 			req: CreateTransferRequest{
+				FromAccountID:  "account-1",
+				ToAccountID:    "account-2",
+				AmountMinor:    -100,
+				IdempotencyKey: "negative",
+			},
+		},
+		{
+			name: "missing idempotency key",
+			req: CreateTransferRequest{
 				FromAccountID: "account-1",
 				ToAccountID:   "account-2",
-				AmountMinor:   -100,
+				AmountMinor:   100,
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service := NewTransferService(NewTransactionService())
+			service := NewTransferService(NewTransactionService(&batchTransactionRepo{}))
 
 			_, err := service.Create(context.Background(), &tt.req)
 			if err == nil {
@@ -252,9 +287,10 @@ func TestTransferServiceCreateDoesNotClassifyRepositoryErrorAsValidation(t *test
 	service := NewTransferService(txService)
 
 	_, err := service.Create(context.Background(), &CreateTransferRequest{
-		FromAccountID: "account-1",
-		ToAccountID:   "account-2",
-		AmountMinor:   100,
+		FromAccountID:  "account-1",
+		ToAccountID:    "account-2",
+		AmountMinor:    100,
+		IdempotencyKey: "repo-error",
 	})
 
 	if err == nil {

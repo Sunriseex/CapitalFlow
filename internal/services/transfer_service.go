@@ -17,20 +17,18 @@ type TransferService struct {
 }
 
 func NewTransferService(transactions *TransactionService) *TransferService {
-	if transactions == nil {
-		transactions = NewTransactionService()
-	}
 	return &TransferService{transactions: transactions, currency: NewCurrencyService(nil)}
 }
 
 type CreateTransferRequest struct {
-	UserID        string
-	FromAccountID string
-	ToAccountID   string
-	FromCurrency  string
-	ToCurrency    string
-	AmountMinor   int64
-	Description   string
+	UserID         string
+	FromAccountID  string
+	ToAccountID    string
+	FromCurrency   string
+	ToCurrency     string
+	AmountMinor    int64
+	Description    string
+	IdempotencyKey string
 }
 
 type CreateTransferResponse struct {
@@ -40,6 +38,9 @@ type CreateTransferResponse struct {
 }
 
 func (s *TransferService) Create(ctx context.Context, req *CreateTransferRequest) (*CreateTransferResponse, error) {
+	if s == nil || s.transactions == nil {
+		return nil, fmt.Errorf("transfer service requires transaction service")
+	}
 	if req == nil {
 		return nil, validationError("transfer request is required")
 	}
@@ -57,6 +58,10 @@ func (s *TransferService) Create(ctx context.Context, req *CreateTransferRequest
 	}
 	if req.AmountMinor <= 0 {
 		return nil, validationError("transfer amount must be positive")
+	}
+	idempotencyKey := strings.TrimSpace(req.IdempotencyKey)
+	if idempotencyKey == "" {
+		return nil, validationError("idempotency key is required")
 	}
 
 	inAmountMinor := req.AmountMinor
@@ -85,6 +90,7 @@ func (s *TransferService) Create(ctx context.Context, req *CreateTransferRequest
 		ExchangeRate:         exchangeRate,
 		ExchangeRateProvider: "internal",
 		ExchangeRateDate:     now,
+		IdempotencyKey:       idempotencyKey,
 		CreatedAt:            now,
 	}
 
