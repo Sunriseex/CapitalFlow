@@ -66,7 +66,7 @@ func (s *CurrencyService) ConvertMinor(ctx context.Context, amountMinor int64, f
 	return convertedMinor, rate, nil
 }
 
-func (s *CurrencyService) ConvertAmount(ctx context.Context, amount decimal.Decimal, from, to string) (decimal.Decimal, decimal.Decimal, error) {
+func (s *CurrencyService) ConvertAmount(ctx context.Context, amount decimal.Decimal, from, to string) (converted, rate decimal.Decimal, err error) {
 	from = normalizeCurrency(from)
 	to = normalizeCurrency(to)
 	if from == "" || to == "" {
@@ -86,7 +86,7 @@ func (s *CurrencyService) ConvertAmount(ctx context.Context, amount decimal.Deci
 		return decimal.Zero, decimal.Zero, validationError("exchange rate not found for " + from + "/" + to)
 	}
 
-	converted := RoundConvertedMinorUnits(amount.Mul(rate))
+	converted = RoundConvertedMinorUnits(amount.Mul(rate))
 	return converted, rate, nil
 }
 
