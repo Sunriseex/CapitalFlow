@@ -2,7 +2,9 @@ package repository
 
 import "errors"
 
-var ErrNotFound = errors.New("not found")
-var ErrConflict = errors.New("conflict")
-var ErrAccountCurrencyInvariant = errors.New("account currency cannot be changed after transactions exist")
-var ErrInsufficientFunds = errors.New("insufficient funds")
+var (
+	ErrNotFound                 = errors.New("not found")
+	ErrConflict                 = errors.New("conflict")
+	ErrAccountCurrencyInvariant = errors.New("account currency cannot be changed after transactions exist")
+	ErrInsufficientFunds        = errors.New("insufficient funds")
+)

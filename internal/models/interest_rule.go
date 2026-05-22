@@ -2,9 +2,11 @@ package models
 
 import "time"
 
-type AccrualFrequency string
-type CapitalizationFrequency string
-type DayCountConvention string
+type (
+	AccrualFrequency        string
+	CapitalizationFrequency string
+	DayCountConvention      string
+)
 
 const (
 	AccrualFrequencyDaily     AccrualFrequency = "daily"

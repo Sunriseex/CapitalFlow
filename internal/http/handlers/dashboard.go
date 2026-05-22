@@ -14,8 +14,10 @@ import (
 	"github.com/sunriseex/capitalflow/internal/services"
 )
 
-const dashboardRecentTransactionsLimit = 10
-const defaultDashboardMonths = 6
+const (
+	dashboardRecentTransactionsLimit = 10
+	defaultDashboardMonths           = 6
+)
 
 func (h *Handler) getDashboardSummary(w http.ResponseWriter, r *http.Request) {
 	userID, ok := currentUserID(w, r)

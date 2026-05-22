@@ -14,7 +14,6 @@ import (
 var fileGroup singleflight.Group
 
 func AtomicWriteJSON(data any, path string) error {
-
 	_, err, _ := fileGroup.Do(path, func() (any, error) {
 		return nil, atomicWrite(data, path)
 	})
@@ -26,7 +25,6 @@ func AtomicWriteJSON(data any, path string) error {
 }
 
 func atomicWrite(data any, path string) error {
-
 	dir := filepath.Dir(path)
 
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -75,7 +73,6 @@ func generateRandomSuffix() (string, error) {
 }
 
 func SafeReadJSON(path string, target any) error {
-
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return initializeEmptyFile(path, target)
 	}

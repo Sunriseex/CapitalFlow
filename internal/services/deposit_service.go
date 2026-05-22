@@ -42,7 +42,6 @@ type CreateDepositResponse struct {
 }
 
 func (s *DepositService) Create(req *CreateDepositRequest) (*CreateDepositResponse, error) {
-
 	slog.Debug("Создание вклада",
 		"name", req.Name,
 		"bank", req.Bank,
@@ -155,7 +154,6 @@ type TopUpResponse struct {
 }
 
 func (s *DepositService) TopUp(req *TopUpRequest) (*TopUpResponse, error) {
-
 	slog.Debug("Пополнение вклада",
 		"deposit_id", req.DepositID,
 		"amount", req.Amount)
@@ -251,7 +249,6 @@ type CalculateIncomeResponse struct {
 }
 
 func (s *DepositService) CalculateIncome(req *CalculateIncomeRequest) (*CalculateIncomeResponse, error) {
-
 	slog.Debug("Рассчет дохода по вкладу", "deposit_id", req.DepositID, "days", req.Days)
 
 	if req.Days <= 0 {
@@ -436,7 +433,6 @@ type ListDepositsResponse struct {
 }
 
 func (s *DepositService) List() (*ListDepositsResponse, error) {
-
 	slog.Debug("Загрузка списка вкладов")
 
 	data, err := storage.LoadDeposits(config.AppConfig.DepositsDataPath)
@@ -474,7 +470,6 @@ type GetDepositResponse struct {
 }
 
 func (s *DepositService) Get(req *GetDepositRequest) (*GetDepositResponse, error) {
-
 	slog.Debug("Получение вклада по ID", "deposit_id", req.DepositID)
 
 	deposit, err := storage.GetDepositByID(req.DepositID, config.AppConfig.DepositsDataPath)
@@ -507,7 +502,6 @@ type FindDepositResponse struct {
 }
 
 func (s *DepositService) Find(req *FindDepositRequest) (*FindDepositResponse, error) {
-
 	slog.Debug("Поиск вклада по имени и банку",
 		"name", req.Name,
 		"bank", req.Bank)

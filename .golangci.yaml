@@ -24,13 +24,28 @@ linters:
     - usetesting
     - durationcheck
     - makezero
-
+    - gosec
+    
+      
   settings:
     gocritic:
       enabled-tags:
         - diagnostic
         - performance
         - style
+
+    gosec:
+     excludes:
+        - G701
+        - G702
+        - G703
+        - G704
+        - G705
+        - G706
+        - G707
+        - G708
+        - G709
+        - G710
 
     revive:
       rules:
@@ -98,6 +113,13 @@ issues:
   max-same-issues: 0
 
 formatters:
+  enable:
+    - gofumpt
+
+  settings:
+    gofumpt:
+      extra-rules: true 
+
   exclusions:
     generated: lax
     paths:

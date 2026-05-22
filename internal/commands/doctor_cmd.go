@@ -3,7 +3,6 @@ package commands
 import (
 	"fmt"
 	"log/slog"
-	"os"
 	"strings"
 	"time"
 
@@ -79,21 +78,6 @@ func validatePaymentsFile(path string) error {
 		if strings.TrimSpace(payment.Name) == "" {
 			return fmt.Errorf("payment %s has empty name", payment.ID)
 		}
-	}
-	return nil
-}
-
-func validateWritableDirectory(path string) error {
-	if err := os.MkdirAll(path, 0755); err != nil {
-		return err
-	}
-
-	info, err := os.Stat(path)
-	if err != nil {
-		return err
-	}
-	if !info.IsDir() {
-		return fmt.Errorf("not a directory")
 	}
 	return nil
 }

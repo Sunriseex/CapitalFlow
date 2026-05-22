@@ -105,7 +105,6 @@ func LoadDeposits(dataPath string) (*models.DepositsData, error) {
 }
 
 func SaveDeposit(data models.DepositsData, dataPath string) error {
-
 	slog.Debug("Сохранение вкладов", "count", len(data.Deposits), "path", dataPath)
 
 	expandedPath := ExpandPath(dataPath)
@@ -130,7 +129,6 @@ func saveDepositUnlocked(data models.DepositsData, expandedPath string) error {
 }
 
 func UpdateDepositAmount(depositID string, amount int64, dataPath string) error {
-
 	slog.Debug("Обновление суммы вклада", "deposit_id", depositID, "amount", amount)
 
 	expandedPath := ExpandPath(dataPath)
@@ -251,7 +249,6 @@ func UpdateDeposit(updatedDeposit *models.Deposit, dataPath string) error {
 }
 
 func GetDepositByID(depositID, dataPath string) (*models.Deposit, error) {
-
 	slog.Debug("Поиск вклада по ID", "deposit_id", depositID)
 
 	data, err := LoadDeposits(dataPath)
@@ -282,7 +279,6 @@ func GetDepositByID(depositID, dataPath string) (*models.Deposit, error) {
 }
 
 func FindDepositByNameAndBank(name, bank, dataPath string) (*models.Deposit, error) {
-
 	slog.Debug("Поиск вклада по имени и банку", "name", name, "bank", bank)
 
 	data, err := LoadDeposits(dataPath)

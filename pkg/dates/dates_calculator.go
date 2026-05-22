@@ -32,19 +32,17 @@ func DaysUntil(dateStr string) int {
 		return 999
 	}
 	return int(date.Sub(today) / 24)
-
 }
 
 func CalculateMaturityDate(startDate string, termMonths int) (string, error) {
-
 	date, err := time.Parse("2006-01-02", startDate)
 	if err != nil {
 		return "", fmt.Errorf("parse start date: %w", err)
 	}
 	maturityDate := date.AddDate(0, termMonths, 0)
 	return maturityDate.Format("2006-01-02"), nil
-
 }
+
 func CalculateTopUpEndDate(startDate string) string {
 	date, err := time.Parse("2006-01-02", startDate)
 	if err != nil {
