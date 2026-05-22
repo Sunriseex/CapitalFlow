@@ -18,16 +18,6 @@ import (
 	"github.com/sunriseex/capitalflow/pkg/utils"
 )
 
-func getNearestPayment() *models.Payment {
-	data, err := storage.LoadPayments(config.AppConfig.DataPath)
-	if err != nil {
-		slog.Error("Ошибка загрузки данных платежей", "error", err)
-		return nil
-	}
-
-	return getNearestPaymentFromData(data)
-}
-
 func getNearestPaymentFromData(data *models.PaymentData) *models.Payment {
 	if data == nil || len(data.Payments) == 0 {
 		slog.Debug("Нет данных о платежах или список пуст")
