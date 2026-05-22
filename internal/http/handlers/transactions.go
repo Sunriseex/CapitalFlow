@@ -240,7 +240,7 @@ func (h *Handler) createTransaction(w http.ResponseWriter, r *http.Request) {
 		AccountID:        accountID,
 		RelatedAccountID: relatedAccountID,
 		Type:             req.Type,
-		AmountMinor:      req.AmountMinor,
+		Amount:           req.Amount.Decimal,
 		CategoryID:       categoryID,
 		Description:      req.Description,
 		OccurredAt:       occurredAt,

@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"errors"
-	"math"
 	"testing"
 
 	"github.com/shopspring/decimal"
@@ -16,40 +15,40 @@ func TestBalanceServiceCalculate(t *testing.T) {
 		name         string
 		accountID    string
 		transactions []models.Transaction
-		want         int64
+		want         decimal.Decimal
 		wantCount    int
 	}{
 		{
 			name:      "adds income and subtracts expenses",
 			accountID: "account-1",
 			transactions: []models.Transaction{
-				{AccountID: "account-1", Type: models.TransactionTypeInitialBalance, AmountMinor: 100_000},
-				{AccountID: "account-1", Type: models.TransactionTypeIncome, AmountMinor: 50_000},
-				{AccountID: "account-1", Type: models.TransactionTypeExpense, AmountMinor: 20_000},
+				{AccountID: "account-1", Type: models.TransactionTypeInitialBalance, Amount: decimal.RequireFromString("1000")},
+				{AccountID: "account-1", Type: models.TransactionTypeIncome, Amount: decimal.RequireFromString("500")},
+				{AccountID: "account-1", Type: models.TransactionTypeExpense, Amount: decimal.RequireFromString("200")},
 			},
-			want:      130_000,
+			want:      decimal.RequireFromString("1300"),
 			wantCount: 3,
 		},
 		{
 			name:      "ignores other accounts",
 			accountID: "account-1",
 			transactions: []models.Transaction{
-				{AccountID: "account-1", Type: models.TransactionTypeInitialBalance, AmountMinor: 100_000},
-				{AccountID: "account-2", Type: models.TransactionTypeIncome, AmountMinor: 50_000},
+				{AccountID: "account-1", Type: models.TransactionTypeInitialBalance, Amount: decimal.RequireFromString("1000")},
+				{AccountID: "account-2", Type: models.TransactionTypeIncome, Amount: decimal.RequireFromString("500")},
 			},
-			want:      100_000,
+			want:      decimal.RequireFromString("1000"),
 			wantCount: 1,
 		},
 		{
 			name:      "handles transfer directions and adjustments",
 			accountID: "account-1",
 			transactions: []models.Transaction{
-				{AccountID: "account-1", Type: models.TransactionTypeInitialBalance, AmountMinor: 100_000},
-				{AccountID: "account-1", Type: models.TransactionTypeTransferOut, AmountMinor: 25_000},
-				{AccountID: "account-1", Type: models.TransactionTypeTransferIn, AmountMinor: 10_000},
-				{AccountID: "account-1", Type: models.TransactionTypeAdjustment, AmountMinor: -5_000},
+				{AccountID: "account-1", Type: models.TransactionTypeInitialBalance, Amount: decimal.RequireFromString("1000")},
+				{AccountID: "account-1", Type: models.TransactionTypeTransferOut, Amount: decimal.RequireFromString("250")},
+				{AccountID: "account-1", Type: models.TransactionTypeTransferIn, Amount: decimal.RequireFromString("100")},
+				{AccountID: "account-1", Type: models.TransactionTypeAdjustment, Amount: decimal.RequireFromString("-50")},
 			},
-			want:      80_000,
+			want:      decimal.RequireFromString("800"),
 			wantCount: 4,
 		},
 	}
@@ -64,11 +63,8 @@ func TestBalanceServiceCalculate(t *testing.T) {
 			if err != nil {
 				t.Fatalf("calculate balance: %v", err)
 			}
-			if got.BalanceMinor != tt.want {
-				t.Fatalf("balance = %d, want %d", got.BalanceMinor, tt.want)
-			}
-			if !got.Balance.Equal(decimal.NewFromInt(tt.want)) {
-				t.Fatalf("decimal balance = %s, want %d", got.Balance, tt.want)
+			if !got.Balance.Equal(tt.want) {
+				t.Fatalf("balance = %s, want %s", got.Balance, tt.want)
 			}
 			if got.Count != tt.wantCount {
 				t.Fatalf("count = %d, want %d", got.Count, tt.wantCount)
@@ -84,50 +80,10 @@ func TestBalanceServiceCalculateCancellation(t *testing.T) {
 	_, err := NewBalanceService().Calculate(ctx, CalculateBalanceRequest{
 		AccountID: "account-1",
 		Transactions: []models.Transaction{
-			{AccountID: "account-1", Type: models.TransactionTypeIncome, AmountMinor: 1},
+			{AccountID: "account-1", Type: models.TransactionTypeIncome, Amount: decimal.NewFromInt(1)},
 		},
 	})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("err = %v, want context.Canceled", err)
-	}
-}
-
-func TestBalanceServiceCalculateRejectsOverflow(t *testing.T) {
-	tests := []struct {
-		name         string
-		transactions []models.Transaction
-	}{
-		{
-			name: "positive overflow",
-			transactions: []models.Transaction{
-				{AccountID: "account-1", Type: models.TransactionTypeIncome, AmountMinor: math.MaxInt64},
-				{AccountID: "account-1", Type: models.TransactionTypeIncome, AmountMinor: 1},
-			},
-		},
-		{
-			name: "negative overflow",
-			transactions: []models.Transaction{
-				{AccountID: "account-1", Type: models.TransactionTypeAdjustment, AmountMinor: math.MinInt64 + 1},
-				{AccountID: "account-1", Type: models.TransactionTypeExpense, AmountMinor: 2},
-			},
-		},
-		{
-			name: "legacy output overflow",
-			transactions: []models.Transaction{
-				{AccountID: "account-1", Type: models.TransactionTypeExpense, AmountMinor: math.MinInt64},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewBalanceService().Calculate(t.Context(), CalculateBalanceRequest{
-				AccountID:    "account-1",
-				Transactions: tt.transactions,
-			})
-			if err == nil {
-				t.Fatal("expected error")
-			}
-		})
 	}
 }

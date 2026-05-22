@@ -1,6 +1,7 @@
 package money
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"strings"
@@ -20,6 +21,74 @@ var (
 	maxInt64      = decimal.NewFromInt(math.MaxInt64)
 	minInt64      = decimal.NewFromInt(math.MinInt64)
 )
+
+type JSONDecimal struct {
+	decimal.Decimal
+}
+
+func NewJSONDecimal(amount decimal.Decimal) JSONDecimal {
+	return JSONDecimal{Decimal: amount}
+}
+
+func (d JSONDecimal) MarshalJSON() ([]byte, error) {
+	data, err := json.Marshal(d.String())
+	if err != nil {
+		return nil, fmt.Errorf("marshal money decimal: %w", err)
+	}
+	return data, nil
+}
+
+func (d *JSONDecimal) UnmarshalJSON(data []byte) error {
+	var raw string
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return fmt.Errorf("money value must be a decimal string")
+	}
+	amount, err := ParseDecimalString(raw)
+	if err != nil {
+		return err
+	}
+	d.Decimal = amount
+	return nil
+}
+
+func ParseDecimalString(input string) (decimal.Decimal, error) {
+	value := strings.TrimSpace(strings.ReplaceAll(input, ",", "."))
+	if value == "" {
+		return decimal.Zero, fmt.Errorf("amount is empty")
+	}
+	amount, err := decimal.NewFromString(value)
+	if err != nil {
+		return decimal.Zero, fmt.Errorf("parse amount: %w", err)
+	}
+	if err := ValidateStorageDecimal(amount); err != nil {
+		return decimal.Zero, err
+	}
+	return amount, nil
+}
+
+func ValidateStorageDecimal(amount decimal.Decimal) error {
+	if -amount.Exponent() > StorageScale {
+		return fmt.Errorf("amount scale exceeds %d: %s", StorageScale, amount.String())
+	}
+
+	intDigits := len(amount.Abs().Truncate(0).String())
+	if amount.Abs().LessThan(decimal.NewFromInt(1)) {
+		intDigits = 0
+	}
+	maxIntDigits := StoragePrecision - StorageScale
+	if intDigits > maxIntDigits {
+		return fmt.Errorf("amount precision exceeds NUMERIC(%d,%d): %s", StoragePrecision, StorageScale, amount.String())
+	}
+	return nil
+}
+
+func CurrencyScale(string) int32 {
+	return 2
+}
+
+func RoundForCurrency(amount decimal.Decimal, currency string) decimal.Decimal {
+	return amount.Round(CurrencyScale(currency))
+}
 
 func ParseRUB(input string) (decimal.Decimal, error) {
 	value := strings.TrimSpace(strings.ReplaceAll(input, ",", "."))
@@ -53,10 +122,12 @@ func LegacyKopecksToDecimal(kopecks int64) decimal.Decimal {
 	return decimal.NewFromInt(kopecks).Div(kopecksPerRub).Round(2)
 }
 
-func MinorUnitsToDecimal(amountMinor int64) decimal.Decimal {
-	return decimal.NewFromInt(amountMinor)
+// Deprecated: compatibility helper for legacy integer minor-unit data only.
+func MinorUnitsToDecimal(amount int64) decimal.Decimal {
+	return decimal.NewFromInt(amount)
 }
 
+// Deprecated: compatibility helper for legacy integer minor-unit APIs only.
 func DecimalToMinorUnits(amount decimal.Decimal) (int64, error) {
 	if !amount.IsInteger() {
 		return 0, fmt.Errorf("amount cannot be represented as integer minor units: %s", amount.String())

@@ -63,7 +63,7 @@ func TestApplyTransactionListFilter(t *testing.T) {
 		{
 			ID:          "old-income",
 			Type:        models.TransactionTypeIncome,
-			AmountMinor: 10_000,
+			Amount:      dec("100"),
 			CategoryID:  &categoryID,
 			Description: "Salary May",
 			OccurredAt:  time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC),
@@ -71,14 +71,14 @@ func TestApplyTransactionListFilter(t *testing.T) {
 		{
 			ID:          "expense",
 			Type:        models.TransactionTypeExpense,
-			AmountMinor: 3_000,
+			Amount:      dec("30"),
 			Description: "Food",
 			OccurredAt:  time.Date(2026, 5, 2, 12, 0, 0, 0, time.UTC),
 		},
 		{
 			ID:          "new-income",
 			Type:        models.TransactionTypeIncome,
-			AmountMinor: 20_000,
+			Amount:      dec("200"),
 			CategoryID:  &categoryID,
 			Description: "Salary June",
 			OccurredAt:  time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC),
@@ -141,7 +141,7 @@ func TestListTransactionsUsesRepositoryFiltering(t *testing.T) {
 				ID:          "33333333-3333-3333-3333-333333333333",
 				AccountID:   "11111111-1111-1111-1111-111111111111",
 				Type:        models.TransactionTypeIncome,
-				AmountMinor: 100,
+				Amount:      dec("1"),
 				CategoryID:  &categoryID,
 				Description: "Salary June",
 				OccurredAt:  time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC),
@@ -256,7 +256,7 @@ func TestCreateTransactionUsesUserScopedCreate(t *testing.T) {
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/transactions", strings.NewReader(`{
 		"account_id":"11111111-1111-1111-1111-111111111111",
 		"type":"income",
-		"amount_minor":100
+		"amount":"100"
 	}`))
 	req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
 	req.Header.Set("Idempotency-Key", "create-transaction-user-scoped")
@@ -285,7 +285,7 @@ func TestCreateTransactionForOtherUsersAccountReturnsNotFound(t *testing.T) {
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/transactions", strings.NewReader(`{
 		"account_id":"22222222-2222-2222-2222-222222222222",
 		"type":"income",
-		"amount_minor":100
+		"amount":"100"
 	}`))
 	req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
 	req.Header.Set("Idempotency-Key", "create-transaction-other-account")

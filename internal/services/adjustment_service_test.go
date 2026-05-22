@@ -12,7 +12,7 @@ func TestAdjustmentServiceCreate(t *testing.T) {
 
 	tx, err := NewAdjustmentService(NewTransactionService(&recordingCreateForUserRepo{})).Create(t.Context(), CreateAdjustmentRequest{
 		AccountID:   " account-1 ",
-		AmountMinor: -5_000,
+		Amount:      dec("-50"),
 		Description: " Balance correction ",
 		OccurredAt:  occurredAt,
 	})
@@ -28,8 +28,8 @@ func TestAdjustmentServiceCreate(t *testing.T) {
 	if tx.Type != models.TransactionTypeAdjustment {
 		t.Fatalf("type = %s, want adjustment", tx.Type)
 	}
-	if tx.AmountMinor != -5_000 {
-		t.Fatalf("amount = %d, want -5000", tx.AmountMinor)
+	if !tx.Amount.Equal(dec("-50")) {
+		t.Fatalf("amount = %d, want -5000", tx.Amount)
 	}
 	if tx.Description != "Balance correction" {
 		t.Fatalf("description = %q, want Balance correction", tx.Description)
@@ -41,8 +41,8 @@ func TestAdjustmentServiceCreate(t *testing.T) {
 
 func TestAdjustmentServiceCreateRejectsMissingTransactionService(t *testing.T) {
 	_, err := NewAdjustmentService(nil).Create(t.Context(), CreateAdjustmentRequest{
-		AccountID:   "account-1",
-		AmountMinor: 100,
+		AccountID: "account-1",
+		Amount:    dec("1"),
 	})
 	if err == nil {
 		t.Fatal("expected error")
@@ -51,8 +51,8 @@ func TestAdjustmentServiceCreateRejectsMissingTransactionService(t *testing.T) {
 
 func TestAdjustmentServiceCreateValidatesInput(t *testing.T) {
 	_, err := NewAdjustmentService(nil).Create(t.Context(), CreateAdjustmentRequest{
-		AccountID:   "account-1",
-		AmountMinor: 0,
+		AccountID: "account-1",
+		Amount:    dec("0"),
 	})
 	if err == nil {
 		t.Fatal("expected error")

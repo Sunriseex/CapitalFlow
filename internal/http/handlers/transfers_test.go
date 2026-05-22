@@ -23,7 +23,7 @@ func TestTransferRouteCreatesOwnedTransfer(t *testing.T) {
 	req := newTestTransferRequest(t, token, "create-owned-transfer", `{
 		"from_account_id":"`+testTransferFromAccountID+`",
 		"to_account_id":"`+testTransferToAccountID+`",
-		"amount_minor":12500,
+		"amount":"12500",
 		"description":"Move savings"
 	}`)
 	rec := httptest.NewRecorder()
@@ -56,8 +56,8 @@ func TestTransferRouteCreatesOwnedTransfer(t *testing.T) {
 	if response.In.AccountID != testTransferToAccountID || response.In.Type != models.TransactionTypeTransferIn {
 		t.Fatalf("in transaction = %+v", response.In)
 	}
-	if response.Out.AmountMinor != 12500 || response.In.AmountMinor != 12500 {
-		t.Fatalf("amounts = out %d in %d, want 12500", response.Out.AmountMinor, response.In.AmountMinor)
+	if !response.Out.Amount.Equal(dec("12500")) || !response.In.Amount.Equal(dec("12500")) {
+		t.Fatalf("amounts = out %s in %s, want 12500", response.Out.Amount.Decimal, response.In.Amount.Decimal)
 	}
 }
 
@@ -66,7 +66,7 @@ func TestTransferRouteRejectsForeignAccount(t *testing.T) {
 	req := newTestTransferRequest(t, token, "reject-foreign-transfer", `{
 		"from_account_id":"`+testTransferFromAccountID+`",
 		"to_account_id":"`+testForeignAccountID+`",
-		"amount_minor":12500
+		"amount":"12500"
 	}`)
 	rec := httptest.NewRecorder()
 
@@ -105,7 +105,7 @@ func TestTransferRouteRejectsValidationErrors(t *testing.T) {
 			body: `{
 				"from_account_id":"not-a-uuid",
 				"to_account_id":"` + testTransferToAccountID + `",
-				"amount_minor":12500
+				"amount":"12500"
 			}`,
 		},
 		{
@@ -113,7 +113,7 @@ func TestTransferRouteRejectsValidationErrors(t *testing.T) {
 			body: `{
 				"from_account_id":"` + testTransferFromAccountID + `",
 				"to_account_id":"` + testTransferFromAccountID + `",
-				"amount_minor":12500
+				"amount":"12500"
 			}`,
 		},
 		{
@@ -121,7 +121,7 @@ func TestTransferRouteRejectsValidationErrors(t *testing.T) {
 			body: `{
 				"from_account_id":"` + testTransferFromAccountID + `",
 				"to_account_id":"` + testTransferToAccountID + `",
-				"amount_minor":0
+				"amount":"0"
 			}`,
 		},
 	}
@@ -149,7 +149,7 @@ func TestTransferRouteIdempotentRetryReplaysResponse(t *testing.T) {
 	body := `{
 		"from_account_id":"` + testTransferFromAccountID + `",
 		"to_account_id":"` + testTransferToAccountID + `",
-		"amount_minor":12500,
+		"amount":"12500",
 		"description":"Move savings"
 	}`
 

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/repository"
 )
@@ -14,7 +16,7 @@ func TestTransactionServiceCreate(t *testing.T) {
 	tx, err := NewTransactionService(repo).Create(t.Context(), &CreateTransactionRequest{
 		AccountID:   "account-1",
 		Type:        models.TransactionTypeIncome,
-		AmountMinor: 10_000,
+		Amount:      dec("100"),
 		Description: " Salary ",
 	})
 	if err != nil {
@@ -39,7 +41,7 @@ func TestTransactionServiceCreateForUser(t *testing.T) {
 	tx, err := NewTransactionService(repo).CreateForUser(t.Context(), " user-1 ", &CreateTransactionRequest{
 		AccountID:   "account-1",
 		Type:        models.TransactionTypeIncome,
-		AmountMinor: 10_000,
+		Amount:      dec("100"),
 		Description: " Salary ",
 	})
 	if err != nil {
@@ -91,7 +93,7 @@ func TestTransactionServiceCreateForUserRejectsForeignAccounts(t *testing.T) {
 				AccountID:        tt.accountID,
 				RelatedAccountID: tt.relatedAccountID,
 				Type:             models.TransactionTypeIncome,
-				AmountMinor:      10_000,
+				Amount:           dec("100"),
 			})
 			if !errors.Is(err, repository.ErrNotFound) {
 				t.Fatalf("error = %v, want ErrNotFound", err)
@@ -105,9 +107,9 @@ func TestTransactionServiceCreateForUserRejectsForeignAccounts(t *testing.T) {
 
 func TestTransactionServiceCreateValidatesInput(t *testing.T) {
 	_, err := NewTransactionService().Create(t.Context(), &CreateTransactionRequest{
-		AccountID:   "account-1",
-		Type:        models.TransactionTypeIncome,
-		AmountMinor: 0,
+		AccountID: "account-1",
+		Type:      models.TransactionTypeIncome,
+		Amount:    dec("0"),
 	})
 	if err == nil {
 		t.Fatal("expected error")
@@ -127,9 +129,9 @@ func TestTransactionServiceCreateRejectsNegativeNonAdjustmentAmounts(t *testing.
 	for _, transactionType := range tests {
 		t.Run(string(transactionType), func(t *testing.T) {
 			_, err := NewTransactionService().Create(t.Context(), &CreateTransactionRequest{
-				AccountID:   "account-1",
-				Type:        transactionType,
-				AmountMinor: -1,
+				AccountID: "account-1",
+				Type:      transactionType,
+				Amount:    dec("-0.01"),
 			})
 			if err == nil {
 				t.Fatal("expected error")
@@ -140,15 +142,15 @@ func TestTransactionServiceCreateRejectsNegativeNonAdjustmentAmounts(t *testing.
 
 func TestTransactionServiceCreateAllowsNegativeAdjustments(t *testing.T) {
 	tx, err := NewTransactionService(&recordingCreateForUserRepo{}).Create(t.Context(), &CreateTransactionRequest{
-		AccountID:   "account-1",
-		Type:        models.TransactionTypeAdjustment,
-		AmountMinor: -1_000,
+		AccountID: "account-1",
+		Type:      models.TransactionTypeAdjustment,
+		Amount:    dec("-10"),
 	})
 	if err != nil {
 		t.Fatalf("create adjustment transaction: %v", err)
 	}
-	if tx.AmountMinor != -1_000 {
-		t.Fatalf("amount = %d, want -1000", tx.AmountMinor)
+	if !tx.Amount.Equal(dec("-10")) {
+		t.Fatalf("amount = %d, want -1000", tx.Amount)
 	}
 }
 
@@ -156,21 +158,21 @@ func TestTransactionServiceCreateValidatesAmountBounds(t *testing.T) {
 	tests := []struct {
 		name        string
 		transaction models.TransactionType
-		amount      int64
+		amount      decimal.Decimal
 		wantErr     bool
 	}{
-		{name: "allows positive boundary", transaction: models.TransactionTypeIncome, amount: maxTransactionAmountMinor},
-		{name: "rejects positive above boundary", transaction: models.TransactionTypeIncome, amount: maxTransactionAmountMinor + 1, wantErr: true},
-		{name: "allows negative adjustment boundary", transaction: models.TransactionTypeAdjustment, amount: -maxTransactionAmountMinor},
-		{name: "rejects negative adjustment below boundary", transaction: models.TransactionTypeAdjustment, amount: -maxTransactionAmountMinor - 1, wantErr: true},
+		{name: "allows positive boundary", transaction: models.TransactionTypeIncome, amount: maxTransactionAmount},
+		{name: "rejects positive above boundary", transaction: models.TransactionTypeIncome, amount: maxTransactionAmount.Add(decimal.NewFromInt(1)), wantErr: true},
+		{name: "allows negative adjustment boundary", transaction: models.TransactionTypeAdjustment, amount: maxTransactionAmount.Neg()},
+		{name: "rejects negative adjustment below boundary", transaction: models.TransactionTypeAdjustment, amount: maxTransactionAmount.Neg().Sub(decimal.NewFromInt(1)), wantErr: true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := NewTransactionService(&recordingCreateForUserRepo{}).Create(t.Context(), &CreateTransactionRequest{
-				AccountID:   "account-1",
-				Type:        tt.transaction,
-				AmountMinor: tt.amount,
+				AccountID: "account-1",
+				Type:      tt.transaction,
+				Amount:    tt.amount,
 			})
 			if tt.wantErr {
 				if err == nil {
@@ -190,9 +192,9 @@ func TestTransactionServiceCreateValidatesAmountBounds(t *testing.T) {
 
 func TestTransactionServiceCreateRejectsMissingRepository(t *testing.T) {
 	_, err := NewTransactionService().Create(t.Context(), &CreateTransactionRequest{
-		AccountID:   "account-1",
-		Type:        models.TransactionTypeIncome,
-		AmountMinor: 100,
+		AccountID: "account-1",
+		Type:      models.TransactionTypeIncome,
+		Amount:    dec("1"),
 	})
 	if err == nil {
 		t.Fatal("expected error")
@@ -210,32 +212,32 @@ func TestTransactionServiceCreateReturnsValidationError(t *testing.T) {
 		{
 			name: "missing account id",
 			req: &CreateTransactionRequest{
-				Type:        models.TransactionTypeIncome,
-				AmountMinor: 100,
+				Type:   models.TransactionTypeIncome,
+				Amount: dec("1"),
 			},
 		},
 		{
 			name: "invalid transaction type",
 			req: &CreateTransactionRequest{
-				AccountID:   "account-1",
-				Type:        models.TransactionType("unknown"),
-				AmountMinor: 100,
+				AccountID: "account-1",
+				Type:      models.TransactionType("unknown"),
+				Amount:    dec("1"),
 			},
 		},
 		{
 			name: "zero amount",
 			req: &CreateTransactionRequest{
-				AccountID:   "account-1",
-				Type:        models.TransactionTypeIncome,
-				AmountMinor: 0,
+				AccountID: "account-1",
+				Type:      models.TransactionTypeIncome,
+				Amount:    dec("0"),
 			},
 		},
 		{
 			name: "negative income amount",
 			req: &CreateTransactionRequest{
-				AccountID:   "account-1",
-				Type:        models.TransactionTypeIncome,
-				AmountMinor: -100,
+				AccountID: "account-1",
+				Type:      models.TransactionTypeIncome,
+				Amount:    dec("-1"),
 			},
 		},
 	}
@@ -300,8 +302,8 @@ func (r failingTransactionRepo) ListByAccountForUser(_ context.Context, _, _ str
 	return nil, r.err
 }
 
-func (r failingTransactionRepo) GetBalanceByAccountForUser(context.Context, string, string) (balanceMinor, transactionCount int64, err error) {
-	return 0, 0, r.err
+func (r failingTransactionRepo) GetBalanceByAccountForUser(context.Context, string, string) (balance decimal.Decimal, transactionCount int64, err error) {
+	return decimal.Zero, 0, r.err
 }
 
 func (r failingTransactionRepo) Delete(_ context.Context, _ string) error {
@@ -340,9 +342,9 @@ func TestTransactionServiceCreateDoesNotClassifyRepositoryErrorAsValidation(t *t
 	service := NewTransactionService(failingTransactionRepo{err: repoErr})
 
 	_, err := service.Create(context.Background(), &CreateTransactionRequest{
-		AccountID:   "account-1",
-		Type:        models.TransactionTypeIncome,
-		AmountMinor: 100,
+		AccountID: "account-1",
+		Type:      models.TransactionTypeIncome,
+		Amount:    dec("1"),
 	})
 
 	if err == nil {
@@ -359,9 +361,9 @@ func TestTransactionServiceCreateForUserDoesNotClassifyRepositoryErrorAsValidati
 	service := NewTransactionService(failingTransactionRepo{err: repoErr})
 
 	_, err := service.CreateForUser(context.Background(), "user-1", &CreateTransactionRequest{
-		AccountID:   "account-1",
-		Type:        models.TransactionTypeIncome,
-		AmountMinor: 100,
+		AccountID: "account-1",
+		Type:      models.TransactionTypeIncome,
+		Amount:    dec("1"),
 	})
 
 	if err == nil {

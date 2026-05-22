@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/sunriseex/capitalflow/internal/models"
 )
 
@@ -19,7 +21,7 @@ func NewAdjustmentService(transactions *TransactionService) *AdjustmentService {
 
 type CreateAdjustmentRequest struct {
 	AccountID   string
-	AmountMinor int64
+	Amount      decimal.Decimal
 	Description string
 	OccurredAt  time.Time
 }
@@ -32,14 +34,14 @@ func (s *AdjustmentService) Create(ctx context.Context, req CreateAdjustmentRequ
 	if accountID == "" {
 		return nil, fmt.Errorf("account id is required")
 	}
-	if req.AmountMinor == 0 {
+	if req.Amount.IsZero() {
 		return nil, fmt.Errorf("adjustment amount must be non-zero")
 	}
 
 	tx, err := s.transactions.Create(ctx, &CreateTransactionRequest{
 		AccountID:   accountID,
 		Type:        models.TransactionTypeAdjustment,
-		AmountMinor: req.AmountMinor,
+		Amount:      req.Amount,
 		Description: req.Description,
 		OccurredAt:  req.OccurredAt,
 	})

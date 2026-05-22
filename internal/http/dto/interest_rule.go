@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/sunriseex/capitalflow/internal/models"
+	"github.com/sunriseex/capitalflow/pkg/money"
 )
 
 type InterestRuleResponse struct {
@@ -55,14 +56,14 @@ type RecalculateInterestRequest struct {
 }
 
 type RecalculateInterestResponse struct {
-	AccountID        string    `json:"account_id"`
-	RuleID           string    `json:"rule_id"`
-	FromDate         time.Time `json:"from_date"`
-	ToDate           time.Time `json:"to_date"`
-	DeletedAccruals  int64     `json:"deleted_accruals"`
-	CreatedAccruals  int64     `json:"created_accruals"`
-	SkippedDays      int64     `json:"skipped_days"`
-	TotalAmountMinor int64     `json:"total_amount_minor"`
+	AccountID       string            `json:"account_id"`
+	RuleID          string            `json:"rule_id"`
+	FromDate        time.Time         `json:"from_date"`
+	ToDate          time.Time         `json:"to_date"`
+	DeletedAccruals int64             `json:"deleted_accruals"`
+	CreatedAccruals int64             `json:"created_accruals"`
+	SkippedDays     int64             `json:"skipped_days"`
+	TotalAmount     money.JSONDecimal `json:"total_amount"`
 }
 
 func InterestRuleFromModel(rule *models.InterestRule) InterestRuleResponse {

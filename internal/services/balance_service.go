@@ -7,7 +7,6 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/sunriseex/capitalflow/internal/models"
-	"github.com/sunriseex/capitalflow/pkg/money"
 )
 
 type BalanceService struct{}
@@ -22,10 +21,9 @@ type CalculateBalanceRequest struct {
 }
 
 type CalculateBalanceResponse struct {
-	AccountID    string
-	Balance      decimal.Decimal
-	BalanceMinor int64
-	Count        int
+	AccountID string
+	Balance   decimal.Decimal
+	Count     int
 }
 
 func (s *BalanceService) Calculate(ctx context.Context, req CalculateBalanceRequest) (*CalculateBalanceResponse, error) {
@@ -54,31 +52,24 @@ func (s *BalanceService) Calculate(ctx context.Context, req CalculateBalanceRequ
 		balance = balance.Add(delta)
 		count++
 	}
-	balanceMinor, err := money.DecimalToMinorUnits(balance)
-	if err != nil {
-		return nil, fmt.Errorf("balance cannot be represented as legacy minor units: %w", err)
-	}
-
 	return &CalculateBalanceResponse{
-		AccountID:    req.AccountID,
-		Balance:      balance,
-		BalanceMinor: balanceMinor,
-		Count:        count,
+		AccountID: req.AccountID,
+		Balance:   balance,
+		Count:     count,
 	}, nil
 }
 
 func transactionDelta(tx *models.Transaction) (decimal.Decimal, error) {
-	amount := money.MinorUnitsToDecimal(tx.AmountMinor)
 	switch tx.Type {
 	case models.TransactionTypeInitialBalance,
 		models.TransactionTypeIncome,
 		models.TransactionTypeTransferIn,
 		models.TransactionTypeInterestIncome,
 		models.TransactionTypeAdjustment:
-		return amount, nil
+		return tx.Amount, nil
 	case models.TransactionTypeExpense,
 		models.TransactionTypeTransferOut:
-		return amount.Neg(), nil
+		return tx.Amount.Neg(), nil
 	default:
 		return decimal.Zero, fmt.Errorf("unknown transaction type: %s", tx.Type)
 	}

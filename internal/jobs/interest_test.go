@@ -18,12 +18,12 @@ func TestDailyInterestAccrualJobPostsDueRule(t *testing.T) {
 	snapshot := &fakeInterestSnapshot{
 		transactions: []models.Transaction{
 			{
-				ID:          "tx-initial",
-				AccountID:   rule.AccountID,
-				Type:        models.TransactionTypeInitialBalance,
-				AmountMinor: 100_000_00,
-				OccurredAt:  accrualDate.AddDate(0, 0, -1),
-				CreatedAt:   accrualDate.AddDate(0, 0, -1),
+				ID:         "tx-initial",
+				AccountID:  rule.AccountID,
+				Type:       models.TransactionTypeInitialBalance,
+				Amount:     dec("100000"),
+				OccurredAt: accrualDate.AddDate(0, 0, -1),
+				CreatedAt:  accrualDate.AddDate(0, 0, -1),
 			},
 		},
 	}
@@ -84,12 +84,12 @@ func TestDepositMaturityCheckJobPostsEndOfTermRule(t *testing.T) {
 	snapshot := &fakeInterestSnapshot{
 		transactions: []models.Transaction{
 			{
-				ID:          "tx-initial",
-				AccountID:   rule.AccountID,
-				Type:        models.TransactionTypeInitialBalance,
-				AmountMinor: 50_000_00,
-				OccurredAt:  maturityDate.AddDate(0, 0, -30),
-				CreatedAt:   maturityDate.AddDate(0, 0, -30),
+				ID:         "tx-initial",
+				AccountID:  rule.AccountID,
+				Type:       models.TransactionTypeInitialBalance,
+				Amount:     dec("50000"),
+				OccurredAt: maturityDate.AddDate(0, 0, -30),
+				CreatedAt:  maturityDate.AddDate(0, 0, -30),
 			},
 		},
 	}
@@ -146,12 +146,12 @@ func TestDailyInterestAccrualJobUsesOnlyLatestOverlappingRule(t *testing.T) {
 	snapshot := &fakeInterestSnapshot{
 		transactions: []models.Transaction{
 			{
-				ID:          "tx-initial",
-				AccountID:   latestRule.AccountID,
-				Type:        models.TransactionTypeInitialBalance,
-				AmountMinor: 100_000_00,
-				OccurredAt:  accrualDate.AddDate(0, 0, -30),
-				CreatedAt:   accrualDate.AddDate(0, 0, -30),
+				ID:         "tx-initial",
+				AccountID:  latestRule.AccountID,
+				Type:       models.TransactionTypeInitialBalance,
+				Amount:     dec("100000"),
+				OccurredAt: accrualDate.AddDate(0, 0, -30),
+				CreatedAt:  accrualDate.AddDate(0, 0, -30),
 			},
 		},
 	}

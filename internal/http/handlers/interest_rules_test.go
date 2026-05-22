@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/repository"
 )
@@ -162,12 +164,12 @@ func newTestInterestAccrualStore(accrualDate time.Time) *testInterestAccrualStor
 		rule: rule,
 		transactions: &testInterestTransactionRepo{transactions: []models.Transaction{
 			{
-				ID:          "principal-1",
-				AccountID:   testInterestAccountID,
-				Type:        models.TransactionTypeIncome,
-				AmountMinor: 10000,
-				OccurredAt:  startDate,
-				CreatedAt:   startDate,
+				ID:         "principal-1",
+				AccountID:  testInterestAccountID,
+				Type:       models.TransactionTypeIncome,
+				Amount:     dec("100"),
+				OccurredAt: startDate,
+				CreatedAt:  startDate,
 			},
 		}},
 		rules: &testInterestRuleRepo{rule: rule},
@@ -293,8 +295,8 @@ func (r *testInterestTransactionRepo) ListByAccountForUser(context.Context, stri
 	return r.transactions, nil
 }
 
-func (r *testInterestTransactionRepo) GetBalanceByAccountForUser(context.Context, string, string) (balanceMinor, transactionCount int64, err error) {
-	return 0, 0, nil
+func (r *testInterestTransactionRepo) GetBalanceByAccountForUser(context.Context, string, string) (balance decimal.Decimal, transactionCount int64, err error) {
+	return decimal.Zero, 0, nil
 }
 
 func (r *testInterestTransactionRepo) Delete(context.Context, string) error {

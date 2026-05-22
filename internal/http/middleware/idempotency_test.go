@@ -137,7 +137,7 @@ func (r *testIdempotencyRepo) Complete(_ context.Context, key, userID, method, p
 func newIdempotencyRequest(t *testing.T, key string) *http.Request {
 	t.Helper()
 
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/transactions", strings.NewReader(`{"amount_minor":100}`))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/transactions", strings.NewReader(`{"amount":"100.00"}`))
 	req.Header.Set(IdempotencyKeyHeader, key)
 	ctx := context.WithValue(req.Context(), userClaimsKey, &auth.Claims{
 		UserID:    "user-1",

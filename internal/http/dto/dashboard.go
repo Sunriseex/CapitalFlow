@@ -4,11 +4,12 @@ import (
 	"time"
 
 	"github.com/sunriseex/capitalflow/internal/models"
+	"github.com/sunriseex/capitalflow/pkg/money"
 )
 
 type DashboardAmountResponse struct {
-	Currency    string `json:"currency"`
-	AmountMinor int64  `json:"amount_minor"`
+	Currency string            `json:"currency"`
+	Amount   money.JSONDecimal `json:"amount"`
 }
 
 type DashboardAccountBalanceResponse struct {
@@ -18,7 +19,7 @@ type DashboardAccountBalanceResponse struct {
 	Type             models.AccountType `json:"type"`
 	Currency         string             `json:"currency"`
 	IsActive         bool               `json:"is_active"`
-	BalanceMinor     int64              `json:"balance_minor"`
+	Balance          money.JSONDecimal  `json:"balance"`
 	TransactionCount int                `json:"transaction_count"`
 }
 

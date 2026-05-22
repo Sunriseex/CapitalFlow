@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/repository"
@@ -177,7 +178,7 @@ func TestPostgresRepositoriesIntegration(t *testing.T) {
 		ID:          uuid.NewString(),
 		AccountID:   account.ID,
 		Type:        models.TransactionTypeInitialBalance,
-		AmountMinor: 100_000,
+		Amount:      dec("1000"),
 		CategoryID:  &category.ID,
 		Description: "initial",
 		OccurredAt:  now,
@@ -187,7 +188,7 @@ func TestPostgresRepositoriesIntegration(t *testing.T) {
 		ID:          uuid.NewString(),
 		AccountID:   account.ID,
 		Type:        models.TransactionTypeIncome,
-		AmountMinor: 10_000,
+		Amount:      dec("100"),
 		CategoryID:  &category.ID,
 		Description: "income",
 		OccurredAt:  now.Add(time.Minute),
@@ -225,8 +226,8 @@ func TestPostgresRepositoriesIntegration(t *testing.T) {
 		RuleID:        rule.ID,
 		TransactionID: income.ID,
 		AccrualDate:   accrualDate,
-		AmountMinor:   100,
-		BalanceMinor:  100_000,
+		Amount:        dec("1"),
+		Balance:       dec("1000"),
 		AnnualRateBps: 1_200,
 		CreatedAt:     now,
 	}
@@ -593,12 +594,12 @@ func TestAccountRepositoryUpdateForUserEnforcesCurrencyInvariant(t *testing.T) {
 		t.Fatalf("create account: %v", err)
 	}
 	if err := store.Transactions().Create(ctx, &models.Transaction{
-		ID:          uuid.NewString(),
-		AccountID:   account.ID,
-		Type:        models.TransactionTypeInitialBalance,
-		AmountMinor: 100,
-		OccurredAt:  now,
-		CreatedAt:   now,
+		ID:         uuid.NewString(),
+		AccountID:  account.ID,
+		Type:       models.TransactionTypeInitialBalance,
+		Amount:     dec("1"),
+		OccurredAt: now,
+		CreatedAt:  now,
 	}); err != nil {
 		t.Fatalf("create transaction: %v", err)
 	}
@@ -655,12 +656,12 @@ func TestTransactionRepositoryCreateForUserScopesByOwner(t *testing.T) {
 	account := transferTestAccount(t, store, userID, "owned")
 	relatedAccount := transferTestAccount(t, store, userID, "owned-related")
 	tx := &models.Transaction{
-		ID:          uuid.NewString(),
-		AccountID:   account.ID,
-		Type:        models.TransactionTypeIncome,
-		AmountMinor: 100,
-		OccurredAt:  now,
-		CreatedAt:   now,
+		ID:         uuid.NewString(),
+		AccountID:  account.ID,
+		Type:       models.TransactionTypeIncome,
+		Amount:     dec("1"),
+		OccurredAt: now,
+		CreatedAt:  now,
 	}
 	if err := store.Transactions().CreateForUser(ctx, userID, tx); err != nil {
 		t.Fatalf("create transaction for user: %v", err)
@@ -674,7 +675,7 @@ func TestTransactionRepositoryCreateForUserScopesByOwner(t *testing.T) {
 		AccountID:        account.ID,
 		RelatedAccountID: &relatedAccount.ID,
 		Type:             models.TransactionTypeIncome,
-		AmountMinor:      100,
+		Amount:           dec("1"),
 		OccurredAt:       now,
 		CreatedAt:        now,
 	}
@@ -683,12 +684,12 @@ func TestTransactionRepositoryCreateForUserScopesByOwner(t *testing.T) {
 	}
 
 	otherTx := &models.Transaction{
-		ID:          uuid.NewString(),
-		AccountID:   account.ID,
-		Type:        models.TransactionTypeIncome,
-		AmountMinor: 100,
-		OccurredAt:  now,
-		CreatedAt:   now,
+		ID:         uuid.NewString(),
+		AccountID:  account.ID,
+		Type:       models.TransactionTypeIncome,
+		Amount:     dec("1"),
+		OccurredAt: now,
+		CreatedAt:  now,
 	}
 	if err := store.Transactions().CreateForUser(ctx, otherUserID, otherTx); !errors.Is(err, repository.ErrNotFound) {
 		t.Fatalf("wrong owner err = %v, want ErrNotFound", err)
@@ -700,7 +701,7 @@ func TestTransactionRepositoryCreateForUserScopesByOwner(t *testing.T) {
 		AccountID:        account.ID,
 		RelatedAccountID: &otherAccount.ID,
 		Type:             models.TransactionTypeIncome,
-		AmountMinor:      100,
+		Amount:           dec("1"),
 		OccurredAt:       now,
 		CreatedAt:        now,
 	}
@@ -733,7 +734,7 @@ func TestTransactionRepositoryCreateForUserLocksRelatedAccountsWithoutDeadlock(t
 		AccountID:        accountA.ID,
 		RelatedAccountID: &accountB.ID,
 		Type:             models.TransactionTypeAdjustment,
-		AmountMinor:      100,
+		Amount:           dec("1"),
 		OccurredAt:       now,
 		CreatedAt:        now,
 	}
@@ -742,7 +743,7 @@ func TestTransactionRepositoryCreateForUserLocksRelatedAccountsWithoutDeadlock(t
 		AccountID:        accountB.ID,
 		RelatedAccountID: &accountA.ID,
 		Type:             models.TransactionTypeAdjustment,
-		AmountMinor:      -100,
+		Amount:           dec("-1"),
 		OccurredAt:       now,
 		CreatedAt:        now,
 	}
@@ -820,12 +821,12 @@ func TestAccountCurrencyUpdateWaitsForTransactionCreationAndRejects(t *testing.T
 		t.Fatalf("lock account: %v", err)
 	}
 	created := &models.Transaction{
-		ID:          uuid.NewString(),
-		AccountID:   account.ID,
-		Type:        models.TransactionTypeIncome,
-		AmountMinor: 100,
-		OccurredAt:  now,
-		CreatedAt:   now,
+		ID:         uuid.NewString(),
+		AccountID:  account.ID,
+		Type:       models.TransactionTypeIncome,
+		Amount:     dec("1"),
+		OccurredAt: now,
+		CreatedAt:  now,
 	}
 	if err := insertTransaction(ctx, tx, created); err != nil {
 		t.Fatalf("insert locked transaction: %v", err)
@@ -910,12 +911,12 @@ func TestTransactionCreationWaitsForCurrencyUpdateAndInserts(t *testing.T) {
 	}
 
 	created := &models.Transaction{
-		ID:          uuid.NewString(),
-		AccountID:   account.ID,
-		Type:        models.TransactionTypeIncome,
-		AmountMinor: 100,
-		OccurredAt:  now,
-		CreatedAt:   now,
+		ID:         uuid.NewString(),
+		AccountID:  account.ID,
+		Type:       models.TransactionTypeIncome,
+		Amount:     dec("1"),
+		OccurredAt: now,
+		CreatedAt:  now,
 	}
 	errs := make(chan error, 1)
 	go func() {
@@ -1073,12 +1074,12 @@ func TestInterestCalculationSnapshotBlocksConcurrentTransactionInsert(t *testing
 
 	<-snapshotReady
 	created := &models.Transaction{
-		ID:          uuid.NewString(),
-		AccountID:   account.ID,
-		Type:        models.TransactionTypeIncome,
-		AmountMinor: 1_000,
-		OccurredAt:  now,
-		CreatedAt:   now,
+		ID:         uuid.NewString(),
+		AccountID:  account.ID,
+		Type:       models.TransactionTypeIncome,
+		Amount:     dec("10"),
+		OccurredAt: now,
+		CreatedAt:  now,
 	}
 	insertErrs := make(chan error, 1)
 	go func() {
@@ -1229,12 +1230,12 @@ func TestStoreCreateMigratedDepositRollsBackOnTransactionFailure(t *testing.T) {
 	}
 
 	transaction := &models.Transaction{
-		ID:          uuid.NewString(),
-		AccountID:   "wrong-account-id",
-		Type:        models.TransactionTypeInitialBalance,
-		AmountMinor: 100_000,
-		OccurredAt:  time.Now().UTC(),
-		CreatedAt:   time.Now().UTC(),
+		ID:         uuid.NewString(),
+		AccountID:  "wrong-account-id",
+		Type:       models.TransactionTypeInitialBalance,
+		Amount:     dec("1000"),
+		OccurredAt: time.Now().UTC(),
+		CreatedAt:  time.Now().UTC(),
 	}
 
 	err := store.CreateMigratedDeposit(ctx, account, rule, transaction)
@@ -1258,7 +1259,7 @@ func TestInterestAccrualCreateWithTransactionRollsBackOnAccrualFailure(t *testin
 		ID:          uuid.NewString(),
 		AccountID:   account.ID,
 		Type:        models.TransactionTypeInterestIncome,
-		AmountMinor: 100,
+		Amount:      dec("1"),
 		Description: "test interest",
 		OccurredAt:  time.Now().UTC(),
 		CreatedAt:   time.Now().UTC(),
@@ -1270,8 +1271,8 @@ func TestInterestAccrualCreateWithTransactionRollsBackOnAccrualFailure(t *testin
 		RuleID:        "wrong-rule-id",
 		TransactionID: tx.ID,
 		AccrualDate:   time.Now().UTC(),
-		AmountMinor:   100,
-		BalanceMinor:  100_000,
+		Amount:        dec("1"),
+		Balance:       dec("1000"),
 		AnnualRateBps: 1200,
 		CreatedAt:     time.Now().UTC(),
 	}
@@ -1340,7 +1341,7 @@ func TestTransactionCreateTransferLocksAccountsAndRollsBack(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get from balance: %v", err)
 	}
-	if fromBalance != 100 || fromCount != 3 {
+	if !fromBalance.Equal(dec("100")) || fromCount != 3 {
 		t.Fatalf("from balance/count = %d/%d, want 100/3", fromBalance, fromCount)
 	}
 
@@ -1537,19 +1538,19 @@ func TestTransactionCreateTransferRejectsBrokenTransferInvariants(t *testing.T) 
 	to := transferTestAccount(t, store, userID, "to-broken-transfer")
 
 	standalone := &models.Transaction{
-		ID:          uuid.NewString(),
-		AccountID:   from.ID,
-		Type:        models.TransactionTypeTransferOut,
-		AmountMinor: 100,
-		OccurredAt:  now,
-		CreatedAt:   now,
+		ID:         uuid.NewString(),
+		AccountID:  from.ID,
+		Type:       models.TransactionTypeTransferOut,
+		Amount:     dec("1"),
+		OccurredAt: now,
+		CreatedAt:  now,
 	}
 	if err := store.Transactions().CreateForUser(ctx, userID, standalone); err == nil {
 		t.Fatal("standalone transfer transaction must fail")
 	}
 
 	transfer, transferTransactions := transferTestRows(userID, from.ID, to.ID, "RUB", "RUB", 100, 100, "1", now)
-	transferTransactions[1].AmountMinor = 101
+	transferTransactions[1].Amount = dec("101")
 	tx, err := store.pool.Begin(ctx)
 	if err != nil {
 		t.Fatalf("begin broken transfer: %v", err)
@@ -1648,11 +1649,11 @@ func TestTransactionRepositoryGetBalanceByAccountForUserMatchesBalanceService(t 
 	otherAccount := transferTestAccount(t, store, otherUserID, "balance-other")
 
 	transactions := []models.Transaction{
-		{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeInitialBalance, AmountMinor: 100_000, OccurredAt: now, CreatedAt: now},
-		{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeIncome, AmountMinor: 50_000, OccurredAt: now, CreatedAt: now},
-		{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeExpense, AmountMinor: 20_000, OccurredAt: now, CreatedAt: now},
-		{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeAdjustment, AmountMinor: -5_000, OccurredAt: now, CreatedAt: now},
-		{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeInterestIncome, AmountMinor: 300, OccurredAt: now, CreatedAt: now},
+		{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeInitialBalance, Amount: dec("1000"), OccurredAt: now, CreatedAt: now},
+		{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeIncome, Amount: dec("500"), OccurredAt: now, CreatedAt: now},
+		{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeExpense, Amount: dec("200"), OccurredAt: now, CreatedAt: now},
+		{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeAdjustment, Amount: dec("-50"), OccurredAt: now, CreatedAt: now},
+		{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeInterestIncome, Amount: dec("3"), OccurredAt: now, CreatedAt: now},
 	}
 	for i := range transactions {
 		if err := store.Transactions().CreateForUser(ctx, userID, &transactions[i]); err != nil {
@@ -1670,7 +1671,7 @@ func TestTransactionRepositoryGetBalanceByAccountForUserMatchesBalanceService(t 
 		t.Fatalf("create transfer in: %v", err)
 	}
 
-	otherTransaction := &models.Transaction{ID: uuid.NewString(), AccountID: otherAccount.ID, Type: models.TransactionTypeIncome, AmountMinor: 999_999, OccurredAt: now, CreatedAt: now}
+	otherTransaction := &models.Transaction{ID: uuid.NewString(), AccountID: otherAccount.ID, Type: models.TransactionTypeIncome, Amount: dec("9999.99"), OccurredAt: now, CreatedAt: now}
 	if err := store.Transactions().CreateForUser(ctx, otherUserID, otherTransaction); err != nil {
 		t.Fatalf("create other user transaction: %v", err)
 	}
@@ -1690,15 +1691,15 @@ func TestTransactionRepositoryGetBalanceByAccountForUserMatchesBalanceService(t 
 	if err != nil {
 		t.Fatalf("get SQL balance: %v", err)
 	}
-	if gotBalance != want.BalanceMinor || gotCount != int64(want.Count) {
-		t.Fatalf("SQL balance/count = %d/%d, want %d/%d", gotBalance, gotCount, want.BalanceMinor, want.Count)
+	if gotBalance != want.Balance || gotCount != int64(want.Count) {
+		t.Fatalf("SQL balance/count = %d/%d, want %d/%d", gotBalance, gotCount, want.Balance, want.Count)
 	}
 
 	otherBalance, otherCount, err := store.Transactions().GetBalanceByAccountForUser(ctx, account.ID, otherUserID)
 	if err != nil {
 		t.Fatalf("get other user balance: %v", err)
 	}
-	if otherBalance != 0 || otherCount != 0 {
+	if !otherBalance.IsZero() || otherCount != 0 {
 		t.Fatalf("other user balance/count = %d/%d, want 0/0", otherBalance, otherCount)
 	}
 }
@@ -1727,7 +1728,7 @@ func TestTransactionRepositoryListByUserFilteredAppliesSQLFiltersAndPagination(t
 			ID:          uuid.NewString(),
 			AccountID:   account.ID,
 			Type:        models.TransactionTypeIncome,
-			AmountMinor: 100,
+			Amount:      dec("1"),
 			CategoryID:  &categoryID,
 			Description: "Salary May",
 			OccurredAt:  time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC),
@@ -1737,7 +1738,7 @@ func TestTransactionRepositoryListByUserFilteredAppliesSQLFiltersAndPagination(t
 			ID:          uuid.NewString(),
 			AccountID:   account.ID,
 			Type:        models.TransactionTypeExpense,
-			AmountMinor: 50,
+			Amount:      dec("0.5"),
 			Description: "Salary tagged but expense",
 			OccurredAt:  time.Date(2026, 5, 2, 12, 0, 0, 0, time.UTC),
 			CreatedAt:   time.Date(2026, 5, 2, 12, 0, 0, 0, time.UTC),
@@ -1746,7 +1747,7 @@ func TestTransactionRepositoryListByUserFilteredAppliesSQLFiltersAndPagination(t
 			ID:          uuid.NewString(),
 			AccountID:   account.ID,
 			Type:        models.TransactionTypeIncome,
-			AmountMinor: 200,
+			Amount:      dec("2"),
 			CategoryID:  &categoryID,
 			Description: "Salary June",
 			OccurredAt:  time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC),
@@ -1756,7 +1757,7 @@ func TestTransactionRepositoryListByUserFilteredAppliesSQLFiltersAndPagination(t
 			ID:          uuid.NewString(),
 			AccountID:   otherAccount.ID,
 			Type:        models.TransactionTypeIncome,
-			AmountMinor: 300,
+			Amount:      dec("3"),
 			CategoryID:  &categoryID,
 			Description: "Salary Other Account",
 			OccurredAt:  time.Date(2026, 6, 2, 12, 0, 0, 0, time.UTC),
@@ -1772,7 +1773,7 @@ func TestTransactionRepositoryListByUserFilteredAppliesSQLFiltersAndPagination(t
 		ID:          uuid.NewString(),
 		AccountID:   foreignAccount.ID,
 		Type:        models.TransactionTypeIncome,
-		AmountMinor: 999,
+		Amount:      dec("9.99"),
 		CategoryID:  &categoryID,
 		Description: "Salary Foreign",
 		OccurredAt:  time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC),
@@ -1945,7 +1946,7 @@ func TestTransactionRepositoryListByUserFilteredTreatsSearchAsLiteralSubstring(t
 			ID:          uuid.NewString(),
 			AccountID:   account.ID,
 			Type:        models.TransactionTypeIncome,
-			AmountMinor: 100,
+			Amount:      dec("1"),
 			Description: "Cashback 5%",
 			OccurredAt:  now,
 			CreatedAt:   now,
@@ -1954,7 +1955,7 @@ func TestTransactionRepositoryListByUserFilteredTreatsSearchAsLiteralSubstring(t
 			ID:          uuid.NewString(),
 			AccountID:   account.ID,
 			Type:        models.TransactionTypeIncome,
-			AmountMinor: 200,
+			Amount:      dec("2"),
 			Description: "Cashback normal",
 			OccurredAt:  now.Add(time.Hour),
 			CreatedAt:   now.Add(time.Hour),
@@ -1963,7 +1964,7 @@ func TestTransactionRepositoryListByUserFilteredTreatsSearchAsLiteralSubstring(t
 			ID:          uuid.NewString(),
 			AccountID:   account.ID,
 			Type:        models.TransactionTypeIncome,
-			AmountMinor: 300,
+			Amount:      dec("3"),
 			Description: "fee_code",
 			OccurredAt:  now.Add(2 * time.Hour),
 			CreatedAt:   now.Add(2 * time.Hour),
@@ -2016,12 +2017,14 @@ func transferTestAccount(t *testing.T, store *Store, userID, name string) *model
 	return account
 }
 
-func transferTestRows(userID, fromID, toID, fromCurrency, toCurrency string, fromAmount, toAmount int64, exchangeRate string, now time.Time) (*models.Transfer, []models.Transaction) {
+func transferTestRows(userID, fromID, toID, fromCurrency, toCurrency string, fromCents, toCents int64, exchangeRate string, now time.Time) (*models.Transfer, []models.Transaction) {
 	transferID := uuid.NewString()
 	fromTransactionID := uuid.NewString()
 	toTransactionID := uuid.NewString()
 	relatedTo := toID
 	relatedFrom := fromID
+	fromAmount := decimal.NewFromInt(fromCents).Div(decimal.NewFromInt(100))
+	toAmount := decimal.NewFromInt(toCents).Div(decimal.NewFromInt(100))
 	return &models.Transfer{
 			ID:                   transferID,
 			UserID:               userID,
@@ -2029,8 +2032,8 @@ func transferTestRows(userID, fromID, toID, fromCurrency, toCurrency string, fro
 			ToAccountID:          toID,
 			FromTransactionID:    fromTransactionID,
 			ToTransactionID:      toTransactionID,
-			FromAmountMinor:      fromAmount,
-			ToAmountMinor:        toAmount,
+			FromAmount:           fromAmount,
+			ToAmount:             toAmount,
 			FromCurrency:         fromCurrency,
 			ToCurrency:           toCurrency,
 			ExchangeRate:         exchangeRate,
@@ -2045,7 +2048,7 @@ func transferTestRows(userID, fromID, toID, fromCurrency, toCurrency string, fro
 				RelatedAccountID: &relatedTo,
 				TransferID:       &transferID,
 				Type:             models.TransactionTypeTransferOut,
-				AmountMinor:      fromAmount,
+				Amount:           fromAmount,
 				OccurredAt:       now,
 				CreatedAt:        now,
 			},
@@ -2055,22 +2058,22 @@ func transferTestRows(userID, fromID, toID, fromCurrency, toCurrency string, fro
 				RelatedAccountID: &relatedFrom,
 				TransferID:       &transferID,
 				Type:             models.TransactionTypeTransferIn,
-				AmountMinor:      toAmount,
+				Amount:           toAmount,
 				OccurredAt:       now,
 				CreatedAt:        now,
 			},
 		}
 }
 
-func seedTransferFunds(ctx context.Context, t *testing.T, store *Store, userID, accountID string, amount int64, now time.Time) {
+func seedTransferFunds(ctx context.Context, t *testing.T, store *Store, userID, accountID string, amountMinor int64, now time.Time) {
 	t.Helper()
 	tx := &models.Transaction{
-		ID:          uuid.NewString(),
-		AccountID:   accountID,
-		Type:        models.TransactionTypeInitialBalance,
-		AmountMinor: amount,
-		OccurredAt:  now,
-		CreatedAt:   now,
+		ID:         uuid.NewString(),
+		AccountID:  accountID,
+		Type:       models.TransactionTypeInitialBalance,
+		Amount:     decimal.NewFromInt(amountMinor).Div(decimal.NewFromInt(100)),
+		OccurredAt: now,
+		CreatedAt:  now,
 	}
 	if err := store.Transactions().CreateForUser(ctx, userID, tx); err != nil {
 		t.Fatalf("seed transfer funds: %v", err)
@@ -2112,20 +2115,20 @@ func seedInterestLockTestData(ctx context.Context, t *testing.T, store *Store, e
 func interestLockTransactionAndAccrual(accountID, ruleID string, now time.Time) (*models.Transaction, *models.InterestAccrual) {
 	txID := uuid.NewString()
 	return &models.Transaction{
-			ID:          txID,
-			AccountID:   accountID,
-			Type:        models.TransactionTypeInterestIncome,
-			AmountMinor: 100,
-			OccurredAt:  now,
-			CreatedAt:   now,
+			ID:         txID,
+			AccountID:  accountID,
+			Type:       models.TransactionTypeInterestIncome,
+			Amount:     dec("1"),
+			OccurredAt: now,
+			CreatedAt:  now,
 		}, &models.InterestAccrual{
 			ID:            uuid.NewString(),
 			AccountID:     accountID,
 			RuleID:        ruleID,
 			TransactionID: txID,
 			AccrualDate:   pgDateOnly(now),
-			AmountMinor:   100,
-			BalanceMinor:  10_000,
+			Amount:        dec("1"),
+			Balance:       dec("100"),
 			AnnualRateBps: 1_200,
 			CreatedAt:     now,
 		}

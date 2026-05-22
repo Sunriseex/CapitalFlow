@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/sunriseex/capitalflow/internal/config"
 	"github.com/sunriseex/capitalflow/internal/jobs"
 	"github.com/sunriseex/capitalflow/internal/migration"
@@ -267,7 +269,7 @@ func runTransactionsList(ctx context.Context, args []string) error {
 
 	for i := range transactions {
 		tx := &transactions[i]
-		fmt.Printf("%s\t%s\t%s\t%s\t%s\n", tx.ID, tx.AccountID, tx.Type, money.FormatLegacyKopecks(tx.AmountMinor), tx.Description)
+		fmt.Printf("%s\t%s\t%s\t%s\t%s\n", tx.ID, tx.AccountID, tx.Type, money.FormatRUB(tx.Amount), tx.Description)
 	}
 	return nil
 }
@@ -285,7 +287,7 @@ func runTransactionsCreate(ctx context.Context, args []string) error {
 		return err
 	}
 
-	amountMinor, err := parseAmountMinor(*amount)
+	Amount, err := parseAmount(*amount)
 	if err != nil {
 		return err
 	}
@@ -312,7 +314,7 @@ func runTransactionsCreate(ctx context.Context, args []string) error {
 	transaction, err := service.Create(ctx, &services.CreateTransactionRequest{
 		AccountID:   *accountID,
 		Type:        parsedType,
-		AmountMinor: amountMinor,
+		Amount:      Amount,
 		Description: *description,
 		OccurredAt:  occurredAt,
 	})
@@ -320,7 +322,7 @@ func runTransactionsCreate(ctx context.Context, args []string) error {
 		return err
 	}
 
-	fmt.Printf("%s\t%s\t%s\t%s\n", transaction.ID, transaction.AccountID, transaction.Type, money.FormatLegacyKopecks(transaction.AmountMinor))
+	fmt.Printf("%s\t%s\t%s\t%s\n", transaction.ID, transaction.AccountID, transaction.Type, money.FormatRUB(transaction.Amount))
 	return nil
 }
 
@@ -357,7 +359,7 @@ func runBalance(ctx context.Context, args []string) error {
 		return err
 	}
 
-	fmt.Printf("%s\t%s\t%d transactions\n", balance.AccountID, money.FormatLegacyKopecks(balance.BalanceMinor), balance.Count)
+	fmt.Printf("%s\t%s\t%d transactions\n", balance.AccountID, money.FormatRUB(balance.Balance), balance.Count)
 	return nil
 }
 
@@ -552,7 +554,7 @@ func runAccrue(ctx context.Context, args []string) error {
 	)
 	result, err := service.Accrue(ctx, &services.AccrueRuleInterestRequest{
 		Rule:             *rule,
-		BalanceMinor:     balance.BalanceMinor,
+		Balance:          balance.Balance,
 		AccrualDate:      accrualDate,
 		Transactions:     transactions,
 		ExistingAccruals: accruals,
@@ -564,7 +566,7 @@ func runAccrue(ctx context.Context, args []string) error {
 		fmt.Printf("%s\t%s\tskipped\n", account, rule.ID)
 		return nil
 	}
-	fmt.Printf("%s\t%s\t%s\t%s\n", account, rule.ID, result.Accrual.AccrualDate.Format(time.DateOnly), money.FormatLegacyKopecks(result.Accrual.AmountMinor))
+	fmt.Printf("%s\t%s\t%s\t%s\n", account, rule.ID, result.Accrual.AccrualDate.Format(time.DateOnly), money.FormatRUB(result.Accrual.Amount))
 	return nil
 }
 
@@ -628,8 +630,8 @@ func runForecast(ctx context.Context, args []string) error {
 		result.RuleID,
 		result.FromDate.Format(time.DateOnly),
 		result.ToDate.Format(time.DateOnly),
-		money.FormatLegacyKopecks(result.ProjectedMinor),
-		money.FormatLegacyKopecks(result.ProjectedBalance),
+		money.FormatRUB(result.ProjectedAmount),
+		money.FormatRUB(result.ProjectedBalance),
 	)
 	return nil
 }
@@ -703,7 +705,7 @@ func runRecalculate(ctx context.Context, args []string) error {
 		result.RuleID,
 		result.CreatedAccruals,
 		result.DeletedAccruals,
-		money.FormatLegacyKopecks(result.TotalAmountMinor),
+		money.FormatRUB(result.TotalAmount),
 	)
 	return nil
 }
@@ -720,8 +722,8 @@ func printMigrationReport(report *migration.JSONMigrationReport) {
 	fmt.Printf("  interest rules created: %d\n", report.CreatedInterestRules)
 	fmt.Printf("  transactions created: %d\n", report.CreatedTransactions)
 	fmt.Printf("  skipped existing: %d\n", report.SkippedExisting)
-	fmt.Printf("  source balance minor: %d\n", report.SourceBalanceMinor)
-	fmt.Printf("  migrated balance minor: %d\n", report.MigratedBalanceMinor)
+	fmt.Printf("  source balance minor: %d\n", report.SourceBalance)
+	fmt.Printf("  migrated balance minor: %d\n", report.MigratedBalance)
 	fmt.Printf("  balance matches: %t\n", report.BalanceMatchesSource)
 	if len(report.Errors) > 0 {
 		fmt.Println("  errors:")
@@ -822,13 +824,7 @@ func excludeRuleAccrualTransactions(transactions []models.Transaction, accruals 
 	return filtered
 }
 
-func parseAmountMinor(input string) (int64, error) {
-	amount, err := money.ParseRUB(input)
-	if err != nil {
-		return 0, err
-	}
-	return money.DecimalToLegacyKopecks(amount)
-}
+func parseAmount(input string) (decimal.Decimal, error) { return money.ParseRUB(input) }
 
 func resolveOwnerUserID(ctx context.Context, users repository.UserRepository, ownerUserID string) (string, error) {
 	ownerUserID = strings.TrimSpace(ownerUserID)

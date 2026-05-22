@@ -12,6 +12,7 @@ import (
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/repository"
 	"github.com/sunriseex/capitalflow/internal/services"
+	"github.com/sunriseex/capitalflow/pkg/money"
 )
 
 func (h *Handler) listInterestRules(w http.ResponseWriter, r *http.Request) {
@@ -302,14 +303,14 @@ func (h *Handler) recalculateInterest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, dto.RecalculateInterestResponse{
-		AccountID:        result.AccountID,
-		RuleID:           result.RuleID,
-		FromDate:         result.FromDate,
-		ToDate:           result.ToDate,
-		DeletedAccruals:  result.DeletedAccruals,
-		CreatedAccruals:  result.CreatedAccruals,
-		SkippedDays:      result.SkippedDays,
-		TotalAmountMinor: result.TotalAmountMinor,
+		AccountID:       result.AccountID,
+		RuleID:          result.RuleID,
+		FromDate:        result.FromDate,
+		ToDate:          result.ToDate,
+		DeletedAccruals: result.DeletedAccruals,
+		CreatedAccruals: result.CreatedAccruals,
+		SkippedDays:     result.SkippedDays,
+		TotalAmount:     money.NewJSONDecimal(result.TotalAmount),
 	})
 }
 
@@ -443,7 +444,7 @@ func accrueInterestFromData(ctx context.Context, rule *models.InterestRule, acco
 
 	result, err := services.NewInterestRuleService(nil).Accrue(ctx, &services.AccrueRuleInterestRequest{
 		Rule:             *rule,
-		BalanceMinor:     balance.BalanceMinor,
+		Balance:          balance.Balance,
 		AccrualDate:      accrualDate,
 		Transactions:     transactions,
 		ExistingAccruals: accruals,
