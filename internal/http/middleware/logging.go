@@ -21,7 +21,8 @@ func RequestLogger(next http.Handler) http.Handler {
 		start := time.Now()
 		recorder := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(recorder, r)
-		slog.Info("http request",
+		slog.Info(
+			"http request",
 			"method", r.Method,
 			"path", r.URL.Path,
 			"status", recorder.status,

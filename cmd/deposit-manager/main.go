@@ -218,7 +218,8 @@ func validateAndParseCreateParams(params *struct {
 	rate                                  float64
 	termMonths                            int
 	promoRate                             *float64
-}, amountStr, rateStr, termStr, promoRateStr string) error {
+}, amountStr, rateStr, termStr, promoRateStr string,
+) error {
 	if params.name == "" {
 		return fmt.Errorf("необходимо указать название вклада (--name)")
 	}

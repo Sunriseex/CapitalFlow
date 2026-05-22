@@ -85,7 +85,8 @@ func (j *InterestJob) run(ctx context.Context, jobName string, frequency models.
 		if err != nil {
 			result.Failed++
 			runErrs = append(runErrs, err)
-			j.logger().Warn("interest job target failed",
+			j.logger().Warn(
+				"interest job target failed",
 				"job", jobName,
 				"rule_id", target.Rule.ID,
 				"account_id", target.Rule.AccountID,
@@ -100,7 +101,8 @@ func (j *InterestJob) run(ctx context.Context, jobName string, frequency models.
 		}
 	}
 
-	j.logger().Info("interest job finished",
+	j.logger().Info(
+		"interest job finished",
 		"job", jobName,
 		"date", accrualDate.Format(time.DateOnly),
 		"scanned", result.Scanned,
@@ -155,7 +157,8 @@ func (j *InterestJob) accrueTarget(ctx context.Context, target *repository.Inter
 		})
 		if err != nil {
 			if services.IsValidationError(err) {
-				j.logger().Warn("interest accrual skipped due to validation error",
+				j.logger().Warn(
+					"interest accrual skipped due to validation error",
 					"rule_id", target.Rule.ID,
 					"account_id", target.Rule.AccountID,
 					"error", err,

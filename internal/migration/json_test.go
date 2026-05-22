@@ -762,6 +762,7 @@ func (r *fakeInterestRuleRepo) Update(_ context.Context, rule *models.InterestRu
 	r.byID[rule.ID] = &cp
 	return nil
 }
+
 func TestAccountTypeForDeposit(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -822,6 +823,7 @@ func TestAccountTypeForDeposit(t *testing.T) {
 		})
 	}
 }
+
 func TestJSONMigratorRejectsUnsupportedLegacyDepositType(t *testing.T) {
 	ctx := t.Context()
 	migrator, _, _, _, _ := newTestJSONMigrator()

@@ -19,8 +19,7 @@ func NewInterestService() *InterestService {
 	return &InterestService{}
 }
 
-type AccrueInterestRequest struct {
-}
+type AccrueInterestRequest struct{}
 
 type AccrualResult struct {
 	DepositID   string
@@ -40,7 +39,6 @@ type AccrueInterestResponse struct {
 }
 
 func (s *InterestService) AccrueInterest(_ *AccrueInterestRequest) (*AccrueInterestResponse, error) {
-
 	slog.Info("Начало начисления процентов по вкладам")
 
 	data, err := storage.LoadDeposits(config.AppConfig.DepositsDataPath)

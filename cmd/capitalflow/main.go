@@ -478,7 +478,8 @@ func runJobsRun(ctx context.Context, args []string) error {
 		result, err = job.RunDepositMaturityCheck(ctx)
 	}
 	if result != nil {
-		fmt.Printf("%s\tdate=%s\tscanned=%d\tposted=%d\tskipped=%d\tfailed=%d\n",
+		fmt.Printf(
+			"%s\tdate=%s\tscanned=%d\tposted=%d\tskipped=%d\tfailed=%d\n",
 			result.JobName,
 			result.AccrualDate.Format(time.DateOnly),
 			result.Scanned,
@@ -621,7 +622,8 @@ func runForecast(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%s\t%s\t%s..%s\t%s\tprojected_balance=%s\n",
+	fmt.Printf(
+		"%s\t%s\t%s..%s\t%s\tprojected_balance=%s\n",
 		result.AccountID,
 		result.RuleID,
 		result.FromDate.Format(time.DateOnly),
@@ -695,7 +697,8 @@ func runRecalculate(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%s\t%s\tcreated=%d\tdeleted=%d\ttotal=%s\n",
+	fmt.Printf(
+		"%s\t%s\tcreated=%d\tdeleted=%d\ttotal=%s\n",
 		result.AccountID,
 		result.RuleID,
 		result.CreatedAccruals,

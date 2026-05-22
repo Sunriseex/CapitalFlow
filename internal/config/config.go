@@ -115,7 +115,6 @@ func Init() error {
 }
 
 func initLogger(level slog.Level) {
-
 	opts := &slog.HandlerOptions{
 		Level: level,
 	}
@@ -123,9 +122,7 @@ func initLogger(level slog.Level) {
 	var handler slog.Handler
 
 	if level == slog.LevelDebug {
-
 		handler = slog.NewTextHandler(os.Stderr, opts)
-
 	} else {
 		handler = slog.NewJSONHandler(os.Stderr, opts)
 	}

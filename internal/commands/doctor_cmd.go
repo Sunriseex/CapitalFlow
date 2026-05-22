@@ -84,7 +84,7 @@ func validatePaymentsFile(path string) error {
 }
 
 func validateWritableDirectory(path string) error {
-	if err := os.MkdirAll(path, 0755); err != nil {
+	if err := os.MkdirAll(path, 0o755); err != nil {
 		return err
 	}
 

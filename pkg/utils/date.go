@@ -19,6 +19,7 @@ func DaysUntil(dueDate string) int {
 	}
 	return int(due.Sub(today).Hours() / 24)
 }
+
 func ParseDate(dateStr string) (time.Time, error) {
 	date, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
@@ -29,12 +30,15 @@ func ParseDate(dateStr string) (time.Time, error) {
 	}
 	return date, nil
 }
+
 func FormatDate(date time.Time) string {
 	return date.Format("2006-01-02")
 }
+
 func Today() string {
 	return time.Now().Format("2006-01-02")
 }
+
 func AddDays(dateStr string, days int) (string, error) {
 	date, err := ParseDate(dateStr)
 	if err != nil {
@@ -52,6 +56,7 @@ func AddMonths(dateStr string, months int) (string, error) {
 	}
 	return FormatDate(date.AddDate(0, months, 0)), nil
 }
+
 func AddYears(dateStr string, years int) (string, error) {
 	date, err := ParseDate(dateStr)
 	if err != nil {
@@ -60,6 +65,7 @@ func AddYears(dateStr string, years int) (string, error) {
 	}
 	return FormatDate(date.AddDate(years, 0, 0)), nil
 }
+
 func DaysBetween(dateStr1, dateStr2 string) int {
 	date1, err1 := time.Parse("2006-01-02", dateStr1)
 	date2, err2 := time.Parse("2006-01-02", dateStr2)

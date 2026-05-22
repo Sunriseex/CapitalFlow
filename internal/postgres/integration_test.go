@@ -1803,7 +1803,6 @@ func TestTransactionRepositoryListByUserFilteredAppliesSQLFiltersAndPagination(t
 	if filtered[0].ID != transactions[2].ID {
 		t.Fatalf("filtered transaction = %s, want %s", filtered[0].ID, transactions[2].ID)
 	}
-
 }
 
 func TestInterestRuleRepositoryListActiveForAccrual(t *testing.T) {

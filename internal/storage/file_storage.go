@@ -20,7 +20,6 @@ func ExpandPath(path string) string {
 }
 
 func LoadPayments(dataPath string) (*models.PaymentData, error) {
-
 	slog.Debug("Загрузка платежей из файла", "path", dataPath)
 
 	expandedPath := ExpandPath(dataPath)
@@ -39,7 +38,6 @@ func LoadPayments(dataPath string) (*models.PaymentData, error) {
 }
 
 func SavePayments(data *models.PaymentData, dataPath string) error {
-
 	slog.Debug("Сохранение платежей", "count", len(data.Payments), "path", dataPath)
 
 	expandedPath := ExpandPath(dataPath)

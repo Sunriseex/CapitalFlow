@@ -125,6 +125,7 @@ func MarkPaid() error {
 
 	return nil
 }
+
 func extendPaymentDate(payment models.Payment) string {
 	var baseDate time.Time
 
