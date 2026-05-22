@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/sunriseex/capitalflow/internal/http/dto"
+	appmiddleware "github.com/sunriseex/capitalflow/internal/http/middleware"
 	"github.com/sunriseex/capitalflow/internal/services"
 )
 
@@ -40,13 +41,14 @@ func (h *Handler) createTransfer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := h.transfers.Create(r.Context(), &services.CreateTransferRequest{
-		UserID:        userID,
-		FromAccountID: fromAccountID,
-		ToAccountID:   toAccountID,
-		FromCurrency:  fromAccount.Currency,
-		ToCurrency:    toAccount.Currency,
-		AmountMinor:   req.AmountMinor,
-		Description:   req.Description,
+		UserID:         userID,
+		FromAccountID:  fromAccountID,
+		ToAccountID:    toAccountID,
+		FromCurrency:   fromAccount.Currency,
+		ToCurrency:     toAccount.Currency,
+		AmountMinor:    req.AmountMinor,
+		Description:    req.Description,
+		IdempotencyKey: r.Header.Get(appmiddleware.IdempotencyKeyHeader),
 	})
 	if err != nil {
 		writeServiceError(w, err)

@@ -21,13 +21,14 @@ func NewTransferService(transactions *TransactionService) *TransferService {
 }
 
 type CreateTransferRequest struct {
-	UserID        string
-	FromAccountID string
-	ToAccountID   string
-	FromCurrency  string
-	ToCurrency    string
-	AmountMinor   int64
-	Description   string
+	UserID         string
+	FromAccountID  string
+	ToAccountID    string
+	FromCurrency   string
+	ToCurrency     string
+	AmountMinor    int64
+	Description    string
+	IdempotencyKey string
 }
 
 type CreateTransferResponse struct {
@@ -58,6 +59,10 @@ func (s *TransferService) Create(ctx context.Context, req *CreateTransferRequest
 	if req.AmountMinor <= 0 {
 		return nil, validationError("transfer amount must be positive")
 	}
+	idempotencyKey := strings.TrimSpace(req.IdempotencyKey)
+	if idempotencyKey == "" {
+		return nil, validationError("idempotency key is required")
+	}
 
 	inAmountMinor := req.AmountMinor
 	exchangeRate := "1"
@@ -85,6 +90,7 @@ func (s *TransferService) Create(ctx context.Context, req *CreateTransferRequest
 		ExchangeRate:         exchangeRate,
 		ExchangeRateProvider: "internal",
 		ExchangeRateDate:     now,
+		IdempotencyKey:       idempotencyKey,
 		CreatedAt:            now,
 	}
 

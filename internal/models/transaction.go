@@ -41,5 +41,6 @@ type Transfer struct {
 	ExchangeRate         string    `json:"exchange_rate"`
 	ExchangeRateProvider string    `json:"exchange_rate_provider"`
 	ExchangeRateDate     time.Time `json:"exchange_rate_date"`
+	IdempotencyKey       string    `json:"idempotency_key,omitempty"`
 	CreatedAt            time.Time `json:"created_at"`
 }

@@ -39,6 +39,9 @@ func TestTransferRouteCreatesOwnedTransfer(t *testing.T) {
 	if transactions.createTransferUserID != "user-1" {
 		t.Fatalf("create transfer user id = %q, want user-1", transactions.createTransferUserID)
 	}
+	if transactions.createTransferIdempotencyKey != "create-owned-transfer" {
+		t.Fatalf("create transfer idempotency key = %q, want create-owned-transfer", transactions.createTransferIdempotencyKey)
+	}
 	if len(transactions.createTransferTransactions) != 2 {
 		t.Fatalf("created transactions = %d, want 2", len(transactions.createTransferTransactions))
 	}

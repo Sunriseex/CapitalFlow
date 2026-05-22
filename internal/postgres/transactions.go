@@ -157,6 +157,14 @@ func (r *TransactionRepository) CreateTransfer(ctx context.Context, transfer *mo
 		return fmt.Errorf("lock transfer accounts: %w", repository.ErrConflict)
 	}
 
+	balance, err := transferSourceBalance(ctx, tx, transfer.FromAccountID)
+	if err != nil {
+		return fmt.Errorf("calculate transfer source balance: %w", err)
+	}
+	if balance < transfer.FromAmountMinor {
+		return fmt.Errorf("create transfer: %w", repository.ErrInsufficientFunds)
+	}
+
 	if err := insertTransfer(ctx, tx, transfer); err != nil {
 		return fmt.Errorf("create transfer audit: %w", err)
 	}
@@ -169,6 +177,22 @@ func (r *TransactionRepository) CreateTransfer(ctx context.Context, transfer *mo
 		return fmt.Errorf("commit create transfer: %w", err)
 	}
 	return nil
+}
+
+func transferSourceBalance(ctx context.Context, db queryExecer, accountID string) (int64, error) {
+	var balance int64
+	if err := db.QueryRow(ctx, `
+		SELECT COALESCE(SUM(CASE
+			WHEN type IN ('initial_balance', 'income', 'transfer_in', 'interest_income', 'adjustment') THEN amount_minor
+			WHEN type IN ('expense', 'transfer_out') THEN -amount_minor
+			ELSE 0
+		END), 0)
+		FROM transactions
+		WHERE account_id = $1
+	`, accountID).Scan(&balance); err != nil {
+		return 0, err
+	}
+	return balance, nil
 }
 
 func (r *TransactionRepository) GetByID(ctx context.Context, id string) (*models.Transaction, error) {
@@ -387,11 +411,14 @@ func insertTransfer(ctx context.Context, execer sqlExecer, transfer *models.Tran
 		INSERT INTO transfers (
 			id, user_id, from_account_id, to_account_id, from_transaction_id, to_transaction_id,
 			from_amount_minor, to_amount_minor, from_currency, to_currency, exchange_rate,
-			exchange_rate_provider, exchange_rate_date, created_at
+			exchange_rate_provider, exchange_rate_date, idempotency_key, created_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::numeric, $12, $13, $14)
-	`, transfer.ID, transfer.UserID, transfer.FromAccountID, transfer.ToAccountID, transfer.FromTransactionID, transfer.ToTransactionID, transfer.FromAmountMinor, transfer.ToAmountMinor, transfer.FromCurrency, transfer.ToCurrency, transfer.ExchangeRate, transfer.ExchangeRateProvider, transfer.ExchangeRateDate, transfer.CreatedAt)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::numeric, $12, $13, $14, $15)
+	`, transfer.ID, transfer.UserID, transfer.FromAccountID, transfer.ToAccountID, transfer.FromTransactionID, transfer.ToTransactionID, transfer.FromAmountMinor, transfer.ToAmountMinor, transfer.FromCurrency, transfer.ToCurrency, transfer.ExchangeRate, transfer.ExchangeRateProvider, transfer.ExchangeRateDate, transfer.IdempotencyKey, transfer.CreatedAt)
 	if err != nil {
+		if isUniqueViolation(err) {
+			return fmt.Errorf("insert transfer: %w", repository.ErrConflict)
+		}
 		return fmt.Errorf("insert transfer: %w", err)
 	}
 	return nil
