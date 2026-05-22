@@ -33,7 +33,7 @@ export function TransactionForm({ accounts, categories, fixedType, onDone }: { a
       return api.createTransaction({
         account_id: form.account_id,
         type: transactionType,
-        amount_minor: amount.value,
+        amount: amount.value,
         category_id: form.category_id || null,
         description: form.description,
         occurred_at: form.occurred_at,
@@ -58,4 +58,6 @@ export function TransactionForm({ accounts, categories, fixedType, onDone }: { a
     </FormShell>
   );
 }
+
+
 

@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { api } from "../../api/client";
-import { formatMoney, signedAmount, transactionTypeLabel } from "../../api/money";
+import { compareMoney, formatMoney, signedAmount, transactionTypeLabel } from "../../api/money";
 import type { Account, Category, Transaction } from "../../api/types";
 import { errorMessage, invalidateMoney } from "../../shared/api/query";
 import { dateLabel } from "../../shared/date";
@@ -48,7 +48,7 @@ export function TransactionsTable({
               {compact ? null : <td>{accountNames.get(transaction.account_id) ?? transaction.account_id.slice(0, 8)}</td>}
               {compact ? null : <td>{transaction.category_id ? categoryNames.get(transaction.category_id) ?? transaction.category_id.slice(0, 8) : "-"}</td>}
               <td>{transaction.description || "-"}</td>
-              <td className={signedAmount(transaction) < 0 ? "amount danger" : "amount"}>
+              <td className={compareMoney(signedAmount(transaction), "0") < 0 ? "amount danger" : "amount"}>
                 {formatMoney(signedAmount(transaction), accountCurrencies.get(transaction.account_id) ?? "RUB")}
               </td>
               {allowDelete ? (
@@ -77,3 +77,5 @@ export function TransactionsTable({
 function isTransferTransaction(transaction: Transaction) {
   return transaction.type === "transfer_in" || transaction.type === "transfer_out";
 }
+
+

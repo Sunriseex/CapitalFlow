@@ -43,7 +43,7 @@ const incomeTransaction: Transaction = {
   id: "transaction-1",
   account_id: "account-1",
   type: "income",
-  amount_minor: 100_00,
+  amount: "100.00",
   category_id: "category-1",
   description: "Salary",
   occurred_at: "2026-05-17T00:00:00Z",
@@ -124,3 +124,5 @@ describe("TransactionsTable", () => {
     expect(mocks.deleteTransaction).not.toHaveBeenCalled();
   });
 });
+
+

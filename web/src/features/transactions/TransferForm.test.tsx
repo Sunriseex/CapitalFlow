@@ -128,10 +128,11 @@ describe("TransferForm", () => {
       expect(mocks.createTransfer).toHaveBeenCalledWith({
         from_account_id: "account-1",
         to_account_id: "account-2",
-        amount_minor: 12345,
+        amount: "123.45",
         description: "",
       });
       expect(onDone).toHaveBeenCalled();
     });
 });
 })
+

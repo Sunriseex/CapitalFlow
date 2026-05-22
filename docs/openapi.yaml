@@ -800,15 +800,15 @@ components:
       enum: [actual_365, actual_366, actual_actual]
     Amount:
       type: object
-      required: [currency, amount_minor]
+      required: [currency, amount]
       properties:
         currency:
           type: string
           minLength: 3
           maxLength: 3
-        amount_minor:
-          type: integer
-          format: int64
+        amount:
+          type: string
+          pattern: "^-?\\d+(\\.\\d{1,18})?$"
     Account:
       type: object
       required: [id, name, type, currency, is_active, opened_at, created_at, updated_at]
@@ -871,14 +871,14 @@ components:
           type: boolean
     AccountBalance:
       type: object
-      required: [account_id, balance_minor, transaction_count]
+      required: [account_id, balance, transaction_count]
       properties:
         account_id:
           type: string
           format: uuid
-        balance_minor:
-          type: integer
-          format: int64
+        balance:
+          type: string
+          pattern: "^-?\\d+(\\.\\d{1,18})?$"
         transaction_count:
           type: integer
     Category:
@@ -900,7 +900,7 @@ components:
           format: date-time
     Transaction:
       type: object
-      required: [id, account_id, type, amount_minor, occurred_at, created_at]
+      required: [id, account_id, type, amount, occurred_at, created_at]
       properties:
         id:
           type: string
@@ -918,9 +918,9 @@ components:
           nullable: true
         type:
           $ref: "#/components/schemas/TransactionType"
-        amount_minor:
-          type: integer
-          format: int64
+        amount:
+          type: string
+          pattern: "^-?\\d+(\\.\\d{1,18})?$"
         category_id:
           type: string
           format: uuid
@@ -935,7 +935,7 @@ components:
           format: date-time
     CreateTransactionRequest:
       type: object
-      required: [account_id, type, amount_minor, description, occurred_at]
+      required: [account_id, type, amount, description, occurred_at]
       properties:
         account_id:
           type: string
@@ -946,9 +946,9 @@ components:
           nullable: true
         type:
           $ref: "#/components/schemas/TransactionType"
-        amount_minor:
-          type: integer
-          format: int64
+        amount:
+          type: string
+          pattern: "^-?\\d+(\\.\\d{1,18})?$"
         category_id:
           type: string
           format: uuid
@@ -960,7 +960,7 @@ components:
           format: date
     CreateTransferRequest:
       type: object
-      required: [from_account_id, to_account_id, amount_minor, description]
+      required: [from_account_id, to_account_id, amount, description]
       properties:
         from_account_id:
           type: string
@@ -968,9 +968,9 @@ components:
         to_account_id:
           type: string
           format: uuid
-        amount_minor:
-          type: integer
-          format: int64
+        amount:
+          type: string
+          pattern: "^-?\\d+(\\.\\d{1,18})?$"
         description:
           type: string
     TransferResponse:
@@ -1126,7 +1126,7 @@ components:
           format: date
     RecalculateInterestResponse:
       type: object
-      required: [account_id, rule_id, from_date, to_date, deleted_accruals, created_accruals, skipped_days, total_amount_minor]
+      required: [account_id, rule_id, from_date, to_date, deleted_accruals, created_accruals, skipped_days, total_amount]
       properties:
         account_id:
           type: string
@@ -1149,9 +1149,9 @@ components:
         skipped_days:
           type: integer
           format: int64
-        total_amount_minor:
-          type: integer
-          format: int64
+        total_amount:
+          type: string
+          pattern: "^-?\\d+(\\.\\d{1,18})?$"
     DashboardAccountBalance:
       allOf:
         - $ref: "#/components/schemas/AccountBalance"
@@ -1323,8 +1323,8 @@ components:
        - rule_id
        - transaction_id
        - accrual_date
-       - amount_minor
-       - balance_minor
+       - amount
+       - balance
        - annual_rate_bps
        - created_at
       properties:
@@ -1343,12 +1343,12 @@ components:
         accrual_date:
           type: string
           format: date-time
-        amount_minor:
-          type: integer
-          format: int64
-        balance_minor:
-          type: integer
-          format: int64
+        amount:
+          type: string
+          pattern: "^-?\\d+(\\.\\d{1,18})?$"
+        balance:
+          type: string
+          pattern: "^-?\\d+(\\.\\d{1,18})?$"
         annual_rate_bps:
           type: integer
           format: int64

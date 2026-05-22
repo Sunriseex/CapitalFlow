@@ -78,3 +78,4 @@ export function SettingsView({ profile }: { profile?: Profile }) {
     </div>
   );
 }
+

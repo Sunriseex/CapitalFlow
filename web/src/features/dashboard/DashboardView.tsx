@@ -13,7 +13,7 @@ import {
   YAxis,
 } from "recharts";
 import { api } from "../../api/client";
-import { convertMinor, formatMoney, sumConverted } from "../../api/money";
+import { addMoney, compareMoney, convertMinor, formatMoney, moneyToNumber, sumConverted } from "../../api/money";
 import type { Account } from "../../api/types";
 import { errorMessage } from "../../shared/api/query";
 import { ChartShell, Empty, Panel } from "../../shared/ui";
@@ -44,6 +44,7 @@ export function DashboardView({ primaryCurrency, onOpenAccount }: { primaryCurre
   });
   const rateTable = rates.data?.base === selectedCurrency ? rates.data : undefined;
   const portfolioValue = sumConverted(currencyTotals, selectedCurrency, rateTable);
+  const portfolioValueNumber = moneyToNumber(portfolioValue);
   const conversionStatus = rates.error
     ? errorMessage(rates.error)
     : rateTable
@@ -52,32 +53,33 @@ export function DashboardView({ primaryCurrency, onOpenAccount }: { primaryCurre
 
   const chartData = (cashflow.data?.buckets ?? []).map((bucket) => ({
     period: bucket.period,
-    income: sumConverted(bucket.income, selectedCurrency, rateTable),
-    expense: sumConverted(bucket.expense, selectedCurrency, rateTable),
-    net: sumConverted(bucket.net_cashflow, selectedCurrency, rateTable),
+    income: moneyToNumber(sumConverted(bucket.income, selectedCurrency, rateTable)),
+    expense: moneyToNumber(sumConverted(bucket.expense, selectedCurrency, rateTable)),
+    net: moneyToNumber(sumConverted(bucket.net_cashflow, selectedCurrency, rateTable)),
   }));
 
   const interestData = (interest.data?.buckets ?? []).map((bucket) => ({
     period: bucket.period,
-    interest: sumConverted(bucket.interest_income, selectedCurrency, rateTable),
+    interest: moneyToNumber(sumConverted(bucket.interest_income, selectedCurrency, rateTable)),
   }));
 
   const allocation = balances
-    .filter((account) => account.balance_minor > 0)
+    .filter((account) => compareMoney(account.balance, "0") > 0)
     .map((account) => ({
       ...account,
-      converted_balance_minor: convertMinor(account.balance_minor, account.currency, selectedCurrency, rateTable),
+      converted_balance: convertMinor(account.balance, account.currency, selectedCurrency, rateTable),
     }))
-    .sort((a, b) => b.converted_balance_minor - a.converted_balance_minor)
+    .sort((a, b) => compareMoney(b.converted_balance, a.converted_balance))
     .slice(0, 6)
     .map((account) => ({
       ...account,
-      share: portfolioValue > 0 ? Math.round((account.converted_balance_minor / portfolioValue) * 100) : 0,
+      share: portfolioValueNumber > 0 ? Math.round((moneyToNumber(account.converted_balance) / portfolioValueNumber) * 100) : 0,
     }));
 
-  const monthlyNet =
-    sumConverted(data?.monthly_income, selectedCurrency, rateTable) -
-    sumConverted(data?.monthly_expense, selectedCurrency, rateTable);
+  const monthlyNet = addMoney(
+    sumConverted(data?.monthly_income, selectedCurrency, rateTable),
+    `-${sumConverted(data?.monthly_expense, selectedCurrency, rateTable)}`,
+  );
   const recentAccounts = balances.map((account): Account => ({
     id: account.account_id,
     name: account.name,
@@ -107,11 +109,11 @@ export function DashboardView({ primaryCurrency, onOpenAccount }: { primaryCurre
             <strong>{formatMoney(portfolioValue, selectedCurrency)}</strong>
           </div>
           <span>
-            {data?.active_accounts_count ?? 0} active accounts across {currencies.length || 1} currency
+            {data?.active_accounts_count ?? "0"} active accounts across {currencies.length || 1} currency
           </span>
         </div>
 
-        <div className={monthlyNet < 0 ? "hero-delta negative" : "hero-delta"}>
+        <div className={compareMoney(monthlyNet, "0") < 0 ? "hero-delta negative" : "hero-delta"}>
           <span>Net this month</span>
           <strong>{formatMoney(monthlyNet, selectedCurrency)}</strong>
         </div>
@@ -139,9 +141,9 @@ export function DashboardView({ primaryCurrency, onOpenAccount }: { primaryCurre
         {currencyTotals.map((amount) => (
           <div className="metric" key={amount.currency}>
             <span>Total {amount.currency}</span>
-            <strong>{formatMoney(amount.amount_minor, amount.currency)}</strong>
+            <strong>{formatMoney(amount.amount, amount.currency)}</strong>
             {amount.currency !== selectedCurrency ? (
-              <small>{formatMoney(convertMinor(amount.amount_minor, amount.currency, selectedCurrency, rateTable), selectedCurrency)}</small>
+              <small>{formatMoney(convertMinor(amount.amount, amount.currency, selectedCurrency, rateTable), selectedCurrency)}</small>
             ) : null}
           </div>
         ))}
@@ -149,7 +151,7 @@ export function DashboardView({ primaryCurrency, onOpenAccount }: { primaryCurre
         <div className="metric">
           <span>Accounts</span>
           <strong>
-            {data?.active_accounts_count ?? 0}/{data?.accounts_count ?? 0}
+            {data?.active_accounts_count ?? "0"}/{data?.accounts_count ?? "0"}
           </strong>
         </div>
 
@@ -188,7 +190,7 @@ export function DashboardView({ primaryCurrency, onOpenAccount }: { primaryCurre
                 width={70}
                 tickFormatter={(value) => formatCompactMoney(Number(value))}
               />
-              <Tooltip formatter={(value) => formatMoney(Number(value), selectedCurrency)} />
+              <Tooltip formatter={(value) => formatMoney(String(value), selectedCurrency)} />
               <Legend />
 
               <Area
@@ -227,11 +229,11 @@ export function DashboardView({ primaryCurrency, onOpenAccount }: { primaryCurre
                 </span>
 
                 <span className="allocation-value">
-                  {formatMoney(account.balance_minor, account.currency)}
+                  {formatMoney(account.balance, account.currency)}
                 </span>
                 {account.currency !== selectedCurrency ? (
                   <small className="allocation-converted">
-                    {formatMoney(account.converted_balance_minor, selectedCurrency)}
+                    {formatMoney(account.converted_balance, selectedCurrency)}
                   </small>
                 ) : null}
 
@@ -259,7 +261,7 @@ export function DashboardView({ primaryCurrency, onOpenAccount }: { primaryCurre
               width={70}
               tickFormatter={(value) => formatCompactMoney(Number(value))}
             />
-            <Tooltip formatter={(value) => formatMoney(Number(value), selectedCurrency)} />
+            <Tooltip formatter={(value) => formatMoney(String(value), selectedCurrency)} />
             <Bar dataKey="income" fill="#24735a" radius={[4, 4, 0, 0]} />
             <Bar dataKey="expense" fill="#a23b3b" radius={[4, 4, 0, 0]} />
           </ComposedChart>
@@ -277,7 +279,7 @@ export function DashboardView({ primaryCurrency, onOpenAccount }: { primaryCurre
               width={70}
               tickFormatter={(value) => formatCompactMoney(Number(value))}
             />
-            <Tooltip formatter={(value) => formatMoney(Number(value), selectedCurrency)} />
+            <Tooltip formatter={(value) => formatMoney(String(value), selectedCurrency)} />
             <Line
               type="monotone"
               dataKey="interest"
@@ -315,11 +317,11 @@ export function DashboardView({ primaryCurrency, onOpenAccount }: { primaryCurre
                   <td>{account.bank || "-"}</td>
                   <td>{account.type}</td>
                   <td className="amount stacked-amount">
-                    <strong>{formatMoney(account.balance_minor, account.currency)}</strong>
+                    <strong>{formatMoney(account.balance, account.currency)}</strong>
                     {account.currency !== selectedCurrency ? (
                       <small>
                         {formatMoney(
-                          convertMinor(account.balance_minor, account.currency, selectedCurrency, rateTable),
+                          convertMinor(account.balance, account.currency, selectedCurrency, rateTable),
                           selectedCurrency,
                         )}
                       </small>
@@ -352,3 +354,6 @@ function formatCompactMoney(value: number) {
 
   return `${value}`;
 }
+
+
+

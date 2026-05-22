@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { parseMoneyToMinorResult } from "../../api/money";
+import { isPositiveMoney, parseMoneyToMinorResult } from "../../api/money";
 import type { AccountType } from "../../api/types";
 import { errorMessage, invalidateMoney } from "../../shared/api/query";
 import { currencyOptions } from "../../shared/currencies";
@@ -57,11 +57,11 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
         opened_at: form.opened_at,
       });
 
-      if (initial.value > 0) {
+      if (isPositiveMoney(initial.value)) {
         await api.createTransaction({
           account_id: account.id,
           type: "initial_balance",
-          amount_minor: initial.value,
+          amount: initial.value,
           description: "Initial balance",
           occurred_at: form.opened_at,
         });
@@ -105,3 +105,5 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
     </FormShell>
   );
 }
+
+

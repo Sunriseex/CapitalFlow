@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive, BadgePercent, Pencil } from "lucide-react";
 import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "../../api/client";
-import { formatMoney, signedAmount } from "../../api/money";
+import { addMoney, formatMoney, moneyToNumber, signedAmount } from "../../api/money";
 import type { Account, InterestRule, Transaction } from "../../api/types";
 import { errorMessage, invalidateMoney } from "../../shared/api/query";
 import { today } from "../../shared/constants";
@@ -47,7 +47,7 @@ export function AccountDetails({ account, onBack }: { account: Account; onBack: 
       >
         {actionError ? <div className="error inline-error">{actionError}</div> : null}
         <div className="summary-grid">
-          <div><span>Balance</span><strong>{formatMoney(balance.data?.balance_minor ?? 0, account.currency)}</strong></div>
+          <div><span>Balance</span><strong>{formatMoney(balance.data?.balance ?? "0", account.currency)}</strong></div>
           <div><span>Bank</span><strong>{account.bank || "-"}</strong></div>
           <div><span>Status</span><strong>{account.is_active ? "active" : "archived"}</strong></div>
           <div><span>Opened</span><strong>{dateLabel(account.opened_at)}</strong></div>
@@ -60,7 +60,7 @@ export function AccountDetails({ account, onBack }: { account: Account; onBack: 
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="date" />
             <YAxis />
-            <Tooltip formatter={(value) => formatMoney(Number(value), account.currency)} />
+            <Tooltip formatter={(value) => formatMoney(String(value), account.currency)} />
             <Line type="monotone" dataKey="balance" stroke="#3b6ea8" strokeWidth={2} />
           </LineChart>
         </ChartShell>
@@ -102,12 +102,14 @@ function RuleRow({ rule }: { rule: InterestRule }) {
 }
 
 function runningBalance(transactions: Transaction[]) {
-  let balance = 0;
+  let balance = "0";
   return [...transactions]
     .sort((a, b) => a.occurred_at.localeCompare(b.occurred_at))
     .map((transaction) => {
-      balance += signedAmount(transaction);
-      return { date: transaction.occurred_at.slice(0, 10), balance };
+      balance = addMoney(balance, signedAmount(transaction));
+      return { date: transaction.occurred_at.slice(0, 10), balance: moneyToNumber(balance) };
     });
 }
+
+
 
