@@ -190,7 +190,7 @@ func transferSourceBalance(ctx context.Context, db queryExecer, accountID string
 		FROM transactions
 		WHERE account_id = $1
 	`, accountID).Scan(&balance); err != nil {
-		return 0, err
+		return 0, fmt.Errorf("scan source balance: %w", err)
 	}
 	return balance, nil
 }
