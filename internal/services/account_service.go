@@ -79,10 +79,11 @@ func (s *AccountService) Create(ctx context.Context, req *CreateAccountRequest) 
 		UpdatedAt:   now,
 	}
 
-	if s.repo != nil {
-		if err := s.repo.Create(ctx, account); err != nil {
-			return nil, fmt.Errorf("save account: %w", err)
-		}
+	if s == nil || s.repo == nil {
+		return nil, fmt.Errorf("account repository is required")
+	}
+	if err := s.repo.Create(ctx, account); err != nil {
+		return nil, fmt.Errorf("save account: %w", err)
 	}
 
 	return account, nil

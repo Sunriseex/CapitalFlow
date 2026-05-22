@@ -14,9 +14,6 @@ type AdjustmentService struct {
 }
 
 func NewAdjustmentService(transactions *TransactionService) *AdjustmentService {
-	if transactions == nil {
-		transactions = NewTransactionService()
-	}
 	return &AdjustmentService{transactions: transactions}
 }
 
@@ -28,6 +25,9 @@ type CreateAdjustmentRequest struct {
 }
 
 func (s *AdjustmentService) Create(ctx context.Context, req CreateAdjustmentRequest) (*models.Transaction, error) {
+	if s == nil || s.transactions == nil {
+		return nil, fmt.Errorf("adjustment service requires transaction service")
+	}
 	accountID := strings.TrimSpace(req.AccountID)
 	if accountID == "" {
 		return nil, fmt.Errorf("account id is required")

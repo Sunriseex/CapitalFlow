@@ -39,9 +39,7 @@ func (h *Handler) createTransfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := services.NewTransferService(
-		h.transactions,
-	).Create(r.Context(), &services.CreateTransferRequest{
+	result, err := h.transfers.Create(r.Context(), &services.CreateTransferRequest{
 		UserID:        userID,
 		FromAccountID: fromAccountID,
 		ToAccountID:   toAccountID,

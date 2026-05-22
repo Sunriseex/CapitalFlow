@@ -42,10 +42,11 @@ func (s *TransactionService) Create(ctx context.Context, req *CreateTransactionR
 		return nil, err
 	}
 
-	if s.repo != nil {
-		if err := s.repo.Create(ctx, transaction); err != nil {
-			return nil, fmt.Errorf("save transaction: %w", err)
-		}
+	if s == nil || s.repo == nil {
+		return nil, fmt.Errorf("transaction repository is required")
+	}
+	if err := s.repo.Create(ctx, transaction); err != nil {
+		return nil, fmt.Errorf("save transaction: %w", err)
 	}
 
 	return transaction, nil
@@ -57,10 +58,11 @@ func (s *TransactionService) CreateForUser(ctx context.Context, userID string, r
 		return nil, err
 	}
 
-	if s.repo != nil {
-		if err := s.repo.CreateForUser(ctx, strings.TrimSpace(userID), transaction); err != nil {
-			return nil, fmt.Errorf("save transaction: %w", err)
-		}
+	if s == nil || s.repo == nil {
+		return nil, fmt.Errorf("transaction repository is required")
+	}
+	if err := s.repo.CreateForUser(ctx, strings.TrimSpace(userID), transaction); err != nil {
+		return nil, fmt.Errorf("save transaction: %w", err)
 	}
 
 	return transaction, nil
@@ -76,10 +78,11 @@ func (s *TransactionService) CreateMany(ctx context.Context, reqs ...*CreateTran
 		transactions = append(transactions, *transaction)
 	}
 
-	if s.repo != nil {
-		if err := s.repo.CreateMany(ctx, transactions); err != nil {
-			return nil, fmt.Errorf("save transactions: %w", err)
-		}
+	if s == nil || s.repo == nil {
+		return nil, fmt.Errorf("transaction repository is required")
+	}
+	if err := s.repo.CreateMany(ctx, transactions); err != nil {
+		return nil, fmt.Errorf("save transactions: %w", err)
 	}
 
 	return transactions, nil
@@ -95,21 +98,22 @@ func (s *TransactionService) CreateTransfer(ctx context.Context, transfer *model
 		transactions = append(transactions, *transaction)
 	}
 
-	if s.repo != nil {
-		if transfer == nil {
-			return nil, validationError("transfer audit record is required")
-		}
-		if len(transactions) != 2 {
-			return nil, validationError("transfer requires exactly two transactions")
-		}
-		transfer.FromTransactionID = transactions[0].ID
-		transfer.ToTransactionID = transactions[1].ID
-		for i := range transactions {
-			transactions[i].TransferID = &transfer.ID
-		}
-		if err := s.repo.CreateTransfer(ctx, transfer, transactions); err != nil {
-			return nil, fmt.Errorf("save transfer transactions: %w", err)
-		}
+	if s == nil || s.repo == nil {
+		return nil, fmt.Errorf("transaction repository is required")
+	}
+	if transfer == nil {
+		return nil, validationError("transfer audit record is required")
+	}
+	if len(transactions) != 2 {
+		return nil, validationError("transfer requires exactly two transactions")
+	}
+	transfer.FromTransactionID = transactions[0].ID
+	transfer.ToTransactionID = transactions[1].ID
+	for i := range transactions {
+		transactions[i].TransferID = &transfer.ID
+	}
+	if err := s.repo.CreateTransfer(ctx, transfer, transactions); err != nil {
+		return nil, fmt.Errorf("save transfer transactions: %w", err)
 	}
 
 	return transactions, nil

@@ -10,7 +10,7 @@ import (
 func TestAdjustmentServiceCreate(t *testing.T) {
 	occurredAt := time.Date(2026, 5, 4, 0, 0, 0, 0, time.UTC)
 
-	tx, err := NewAdjustmentService(nil).Create(t.Context(), CreateAdjustmentRequest{
+	tx, err := NewAdjustmentService(NewTransactionService(&recordingCreateForUserRepo{})).Create(t.Context(), CreateAdjustmentRequest{
 		AccountID:   " account-1 ",
 		AmountMinor: -5_000,
 		Description: " Balance correction ",
@@ -36,6 +36,16 @@ func TestAdjustmentServiceCreate(t *testing.T) {
 	}
 	if !tx.OccurredAt.Equal(occurredAt) {
 		t.Fatalf("occurred at = %s, want %s", tx.OccurredAt, occurredAt)
+	}
+}
+
+func TestAdjustmentServiceCreateRejectsMissingTransactionService(t *testing.T) {
+	_, err := NewAdjustmentService(nil).Create(t.Context(), CreateAdjustmentRequest{
+		AccountID:   "account-1",
+		AmountMinor: 100,
+	})
+	if err == nil {
+		t.Fatal("expected error")
 	}
 }
 

@@ -11,7 +11,7 @@ import (
 )
 
 func TestTransferServiceCreate(t *testing.T) {
-	got, err := NewTransferService(nil).Create(t.Context(), &CreateTransferRequest{
+	got, err := NewTransferService(NewTransactionService(&batchTransactionRepo{})).Create(t.Context(), &CreateTransferRequest{
 		FromAccountID: "account-1",
 		ToAccountID:   "account-2",
 		AmountMinor:   25_000,
@@ -38,13 +38,27 @@ func TestTransferServiceCreate(t *testing.T) {
 }
 
 func TestTransferServiceCreateRejectsSameAccount(t *testing.T) {
-	_, err := NewTransferService(nil).Create(t.Context(), &CreateTransferRequest{
+	_, err := NewTransferService(NewTransactionService(&batchTransactionRepo{})).Create(t.Context(), &CreateTransferRequest{
 		FromAccountID: "account-1",
 		ToAccountID:   "account-1",
 		AmountMinor:   25_000,
 	})
 	if err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestTransferServiceCreateRejectsMissingTransactionService(t *testing.T) {
+	_, err := NewTransferService(nil).Create(t.Context(), &CreateTransferRequest{
+		FromAccountID: "account-1",
+		ToAccountID:   "account-2",
+		AmountMinor:   25_000,
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if IsValidationError(err) {
+		t.Fatalf("expected wiring error, got validation error: %v", err)
 	}
 }
 
@@ -232,7 +246,7 @@ func TestTransferServiceCreateReturnsValidationError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service := NewTransferService(NewTransactionService())
+			service := NewTransferService(NewTransactionService(&batchTransactionRepo{}))
 
 			_, err := service.Create(context.Background(), &tt.req)
 			if err == nil {
