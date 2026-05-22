@@ -22,3 +22,12 @@ func TestInitLoadsTrustedProxies(t *testing.T) {
 		t.Fatalf("trusted proxies = %v", AppConfig.TrustedProxies)
 	}
 }
+
+func TestValidateAuthSecretRequiresMinimumLength(t *testing.T) {
+	if err := ValidateAuthSecret("JWT_SECRET", "short"); err == nil {
+		t.Fatal("expected short secret error")
+	}
+	if err := ValidateAuthSecret("JWT_SECRET", "01234567890123456789012345678901"); err != nil {
+		t.Fatalf("valid secret: %v", err)
+	}
+}

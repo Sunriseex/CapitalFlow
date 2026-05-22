@@ -12,13 +12,15 @@ import (
 	"github.com/sunriseex/capitalflow/internal/repository"
 )
 
+const testBearerToken = "01234567890123456789012345678901"
+
 func TestBearerTokenAuthAllowsValidToken(t *testing.T) {
-	handler := BearerTokenAuth("secret-token")(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := BearerTokenAuth(testBearerToken)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/accounts", http.NoBody)
-	req.Header.Set("Authorization", "Bearer secret-token")
+	req.Header.Set("Authorization", "Bearer "+testBearerToken)
 
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
@@ -29,7 +31,7 @@ func TestBearerTokenAuthAllowsValidToken(t *testing.T) {
 }
 
 func TestBearerTokenAuthRejectsMissingToken(t *testing.T) {
-	handler := BearerTokenAuth("secret-token")(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := BearerTokenAuth(testBearerToken)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 
@@ -44,7 +46,7 @@ func TestBearerTokenAuthRejectsMissingToken(t *testing.T) {
 }
 
 func TestBearerTokenAuthRejectsInvalidToken(t *testing.T) {
-	handler := BearerTokenAuth("secret-token")(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := BearerTokenAuth(testBearerToken)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 
@@ -66,6 +68,22 @@ func TestBearerTokenAuthRejectsEmptyConfiguredToken(t *testing.T) {
 
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/accounts", http.NoBody)
 	req.Header.Set("Authorization", "Bearer anything")
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusServiceUnavailable)
+	}
+}
+
+func TestBearerTokenAuthRejectsShortConfiguredToken(t *testing.T) {
+	handler := BearerTokenAuth("short-token")(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/accounts", http.NoBody)
+	req.Header.Set("Authorization", "Bearer short-token")
 
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)

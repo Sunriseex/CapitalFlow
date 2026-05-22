@@ -37,6 +37,8 @@ type Config struct {
 
 var AppConfig *Config
 
+const MinAuthSecretLength = 32
+
 func Init() error {
 	envPaths := []string{"./configs/.env"}
 	if envFile := strings.TrimSpace(os.Getenv("CAPITALFLOW_ENV_FILE")); envFile != "" {
@@ -111,6 +113,13 @@ func Init() error {
 		"deposit_path", depositsDataPath,
 		"log_level", logLevel)
 
+	return nil
+}
+
+func ValidateAuthSecret(name, value string) error {
+	if len(strings.TrimSpace(value)) < MinAuthSecretLength {
+		return errors.NewConfigurationError(name+" must be at least 32 characters", nil)
+	}
 	return nil
 }
 

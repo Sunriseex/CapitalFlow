@@ -16,10 +16,10 @@ import (
 )
 
 func TestRouterUsesAPIV1Only(t *testing.T) {
-	router := NewRouter(nil, &RouterConfig{APIAuthToken: "test-token"})
+	router := NewRouter(nil, &RouterConfig{APIAuthToken: "01234567890123456789012345678901"})
 
 	oldReq := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/categories", http.NoBody)
-	oldReq.Header.Set("Authorization", "Bearer test-token")
+	oldReq.Header.Set("Authorization", "Bearer 01234567890123456789012345678901")
 	oldRec := httptest.NewRecorder()
 	router.ServeHTTP(oldRec, oldReq)
 	if oldRec.Code != http.StatusNotFound {
@@ -84,7 +84,7 @@ func TestRouterCORSAllowsCredentialsForConfiguredOrigin(t *testing.T) {
 
 func TestRouterLimitsAuthEndpoints(t *testing.T) {
 	router := NewRouter(newTestProfileStore(), &RouterConfig{
-		APIAuthToken:          "test-token",
+		APIAuthToken:          "01234567890123456789012345678901",
 		AuthRateLimitRequests: 1,
 		AuthRateLimitWindow:   time.Minute,
 	})
@@ -110,7 +110,7 @@ func TestRouterLimitsAuthEndpoints(t *testing.T) {
 
 func TestRouterRateLimitUsesTrustedProxyConfig(t *testing.T) {
 	router := NewRouter(newTestProfileStore(), &RouterConfig{
-		APIAuthToken:          "test-token",
+		APIAuthToken:          "01234567890123456789012345678901",
 		AuthRateLimitRequests: 1,
 		AuthRateLimitWindow:   time.Minute,
 		TrustedProxies:        []string{"192.0.2.10"},
@@ -132,14 +132,14 @@ func TestRouterRateLimitUsesTrustedProxyConfig(t *testing.T) {
 
 func TestRouterLimitsMutationsButNotReads(t *testing.T) {
 	router := NewRouter(nil, &RouterConfig{
-		APIAuthToken:              "test-token",
+		APIAuthToken:              "01234567890123456789012345678901",
 		MutationRateLimitRequests: 1,
 		MutationRateLimitWindow:   time.Minute,
 	})
 
 	for range 3 {
 		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/accounts", http.NoBody)
-		req.Header.Set("Authorization", "Bearer test-token")
+		req.Header.Set("Authorization", "Bearer 01234567890123456789012345678901")
 		rec := httptest.NewRecorder()
 		router.ServeHTTP(rec, req)
 		if rec.Code == http.StatusTooManyRequests {
@@ -149,7 +149,7 @@ func TestRouterLimitsMutationsButNotReads(t *testing.T) {
 
 	for i := range 2 {
 		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/accounts", strings.NewReader(`{}`))
-		req.Header.Set("Authorization", "Bearer test-token")
+		req.Header.Set("Authorization", "Bearer 01234567890123456789012345678901")
 		rec := httptest.NewRecorder()
 		router.ServeHTTP(rec, req)
 		if i == 1 && rec.Code != http.StatusTooManyRequests {
