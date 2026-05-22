@@ -132,6 +132,55 @@ func TestInterestJobContinuesAfterTargetFailure(t *testing.T) {
 	}
 }
 
+func TestDailyInterestAccrualJobUsesOnlyLatestOverlappingRule(t *testing.T) {
+	t.Parallel()
+
+	accrualDate := time.Date(2026, 5, 21, 0, 0, 0, 0, time.UTC)
+	oldRule := testInterestRule(models.AccrualFrequencyDaily, nil)
+	oldRule.ID = "rule-old"
+	oldRule.StartDate = accrualDate.AddDate(0, 0, -10)
+	latestRule := testInterestRule(models.AccrualFrequencyDaily, nil)
+	latestRule.ID = "rule-latest"
+	latestRule.StartDate = accrualDate.AddDate(0, 0, -1)
+
+	snapshot := &fakeInterestSnapshot{
+		transactions: []models.Transaction{
+			{
+				ID:          "tx-initial",
+				AccountID:   latestRule.AccountID,
+				Type:        models.TransactionTypeInitialBalance,
+				AmountMinor: 100_000_00,
+				OccurredAt:  accrualDate.AddDate(0, 0, -30),
+				CreatedAt:   accrualDate.AddDate(0, 0, -30),
+			},
+		},
+	}
+	job := &InterestJob{
+		Rules: &fakeInterestRuleJobRepo{
+			targets: []repository.InterestRuleJobTarget{
+				{Rule: oldRule, OwnerUserID: "user-1"},
+				{Rule: latestRule, OwnerUserID: "user-1"},
+			},
+		},
+		Accruals: &fakeInterestAccrualTxRepo{snapshot: snapshot},
+		Now:      func() time.Time { return accrualDate },
+	}
+
+	result, err := job.RunDailyInterestAccrual(context.Background())
+	if err != nil {
+		t.Fatalf("RunDailyInterestAccrual() error = %v", err)
+	}
+	if result.Scanned != 1 || result.Posted != 1 || result.Skipped != 0 || result.Failed != 0 {
+		t.Fatalf("result = %+v, want scanned=1 posted=1 skipped=0 failed=0", result)
+	}
+	if len(snapshot.createdAccruals) != 1 {
+		t.Fatalf("created accruals = %d, want 1", len(snapshot.createdAccruals))
+	}
+	if snapshot.createdAccruals[0].RuleID != latestRule.ID {
+		t.Fatalf("created accrual rule = %s, want %s", snapshot.createdAccruals[0].RuleID, latestRule.ID)
+	}
+}
+
 func testInterestRule(frequency models.AccrualFrequency, endDate *time.Time) models.InterestRule {
 	return models.InterestRule{
 		ID:                      "rule-1",
