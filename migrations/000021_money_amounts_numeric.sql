@@ -105,6 +105,18 @@ BEGIN
     IF EXISTS (SELECT 1 FROM balance_snapshots WHERE balance * 100 <> trunc(balance * 100)) THEN
         RAISE EXCEPTION 'cannot downgrade balance_snapshots.balance with fractional minor-unit values';
     END IF;
+    IF EXISTS (SELECT 1 FROM transactions WHERE amount * 100 < -9223372036854775808 OR amount * 100 > 9223372036854775807) THEN
+        RAISE EXCEPTION 'cannot downgrade transactions.amount with out-of-range BIGINT minor-unit values';
+    END IF;
+    IF EXISTS (SELECT 1 FROM transfers WHERE from_amount * 100 < -9223372036854775808 OR from_amount * 100 > 9223372036854775807 OR to_amount * 100 < -9223372036854775808 OR to_amount * 100 > 9223372036854775807) THEN
+        RAISE EXCEPTION 'cannot downgrade transfers money columns with out-of-range BIGINT minor-unit values';
+    END IF;
+    IF EXISTS (SELECT 1 FROM interest_accruals WHERE amount * 100 < -9223372036854775808 OR amount * 100 > 9223372036854775807 OR balance * 100 < -9223372036854775808 OR balance * 100 > 9223372036854775807) THEN
+        RAISE EXCEPTION 'cannot downgrade interest_accruals money columns with out-of-range BIGINT minor-unit values';
+    END IF;
+    IF EXISTS (SELECT 1 FROM balance_snapshots WHERE balance * 100 < -9223372036854775808 OR balance * 100 > 9223372036854775807) THEN
+        RAISE EXCEPTION 'cannot downgrade balance_snapshots.balance with out-of-range BIGINT minor-unit values';
+    END IF;
 END;
 $$;
 -- +goose StatementEnd

@@ -204,6 +204,15 @@ func (h *Handler) createTransaction(w http.ResponseWriter, r *http.Request) {
 	if !validateOptionalUUID(w, accountID, "account_id") {
 		return
 	}
+	currency := "RUB"
+	if accounts := h.store.Accounts(); accounts != nil {
+		account, err := accounts.GetByIDForUser(r.Context(), accountID, userID)
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+		currency = account.Currency
+	}
 
 	var relatedAccountID *string
 	if req.RelatedAccountID != nil {
@@ -241,6 +250,7 @@ func (h *Handler) createTransaction(w http.ResponseWriter, r *http.Request) {
 		RelatedAccountID: relatedAccountID,
 		Type:             req.Type,
 		Amount:           req.Amount.Decimal,
+		Currency:         currency,
 		CategoryID:       categoryID,
 		Description:      req.Description,
 		OccurredAt:       occurredAt,

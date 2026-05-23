@@ -11,6 +11,7 @@ import (
 
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/repository"
+	"github.com/sunriseex/capitalflow/pkg/money"
 )
 
 type TransactionService struct {
@@ -32,6 +33,7 @@ type CreateTransactionRequest struct {
 	RelatedAccountID *string
 	Type             models.TransactionType
 	Amount           decimal.Decimal
+	Currency         string
 	CategoryID       *string
 	Description      string
 	OccurredAt       time.Time
@@ -141,6 +143,13 @@ func buildTransaction(ctx context.Context, req *CreateTransactionRequest) (*mode
 	}
 	if req.Amount.LessThan(maxTransactionAmount.Neg()) || req.Amount.GreaterThan(maxTransactionAmount) {
 		return nil, validationError(fmt.Sprintf("amount must be between %s and %s", maxTransactionAmount.Neg(), maxTransactionAmount))
+	}
+	if rounded := money.RoundForCurrency(req.Amount, req.Currency); !req.Amount.Equal(rounded) {
+		currency := strings.ToUpper(strings.TrimSpace(req.Currency))
+		if currency == "" {
+			currency = "RUB"
+		}
+		return nil, validationError(fmt.Sprintf("amount scale exceeds %s minor units", currency))
 	}
 	if req.Type != models.TransactionTypeAdjustment && req.Amount.IsNegative() {
 		return nil, validationError(fmt.Sprintf("amount must be positive for %s transactions", req.Type))

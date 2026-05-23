@@ -70,8 +70,9 @@ type InterestRuleRepository interface {
 }
 
 type InterestRuleJobTarget struct {
-	Rule        models.InterestRule
-	OwnerUserID string
+	Rule            models.InterestRule
+	OwnerUserID     string
+	AccountCurrency string
 }
 
 type InterestRuleJobRepository interface {

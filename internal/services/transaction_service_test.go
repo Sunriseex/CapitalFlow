@@ -190,6 +190,43 @@ func TestTransactionServiceCreateValidatesAmountBounds(t *testing.T) {
 	}
 }
 
+func TestTransactionServiceCreateValidatesCurrencyScale(t *testing.T) {
+	tests := []struct {
+		name     string
+		amount   decimal.Decimal
+		currency string
+		wantErr  bool
+	}{
+		{name: "rejects rub sub-kopeck", amount: dec("1.234"), currency: "RUB", wantErr: true},
+		{name: "rejects jpy fractional unit", amount: dec("0.5"), currency: "JPY", wantErr: true},
+		{name: "allows kwd three decimals", amount: dec("1.234"), currency: "KWD"},
+		{name: "empty currency keeps rub scale", amount: dec("1.23")},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewTransactionService(&recordingCreateForUserRepo{}).Create(t.Context(), &CreateTransactionRequest{
+				AccountID: "account-1",
+				Type:      models.TransactionTypeIncome,
+				Amount:    tt.amount,
+				Currency:  tt.currency,
+			})
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				if !IsValidationError(err) {
+					t.Fatalf("expected validation error, got %T: %v", err, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("create transaction: %v", err)
+			}
+		})
+	}
+}
+
 func TestTransactionServiceCreateRejectsMissingRepository(t *testing.T) {
 	_, err := NewTransactionService().Create(t.Context(), &CreateTransactionRequest{
 		AccountID: "account-1",

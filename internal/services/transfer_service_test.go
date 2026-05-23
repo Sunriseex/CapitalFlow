@@ -38,6 +38,23 @@ func TestTransferServiceCreate(t *testing.T) {
 	}
 }
 
+func TestTransferServiceCreateRoundsSameCurrencyAmounts(t *testing.T) {
+	got, err := NewTransferService(NewTransactionService(&batchTransactionRepo{})).Create(t.Context(), &CreateTransferRequest{
+		FromAccountID:  "account-1",
+		ToAccountID:    "account-2",
+		FromCurrency:   "RUB",
+		ToCurrency:     "RUB",
+		Amount:         dec("1.234"),
+		IdempotencyKey: "same-currency-rounding",
+	})
+	if err != nil {
+		t.Fatalf("create transfer: %v", err)
+	}
+	if !got.Out.Amount.Equal(dec("1.23")) || !got.In.Amount.Equal(dec("1.23")) {
+		t.Fatalf("amounts = %s/%s, want 1.23/1.23", got.Out.Amount, got.In.Amount)
+	}
+}
+
 func TestTransferServiceCreateRejectsSameAccount(t *testing.T) {
 	_, err := NewTransferService(NewTransactionService(&batchTransactionRepo{})).Create(t.Context(), &CreateTransferRequest{
 		FromAccountID:  "account-1",
@@ -139,6 +156,40 @@ func TestTransferServiceCreateConvertsCrossCurrencyAmount(t *testing.T) {
 	}
 	if repo.transfer.FromTransactionID == "" || repo.transfer.ToTransactionID == "" {
 		t.Fatalf("transfer audit transaction ids must be set: %+v", repo.transfer)
+	}
+}
+
+func TestTransferServiceCreateRoundsSourceBeforeCrossCurrencyConversion(t *testing.T) {
+	repo := &batchTransactionRepo{}
+	service := NewTransferService(NewTransactionService(repo))
+	service.currency = NewCurrencyService(staticExchangeRateProvider{
+		rates: &ExchangeRates{
+			Base: "RUB",
+			Rates: map[string]decimal.Decimal{
+				"KWD": decimal.RequireFromString("0.003333"),
+			},
+		},
+	})
+
+	got, err := service.Create(t.Context(), &CreateTransferRequest{
+		FromAccountID:  "rub-account",
+		ToAccountID:    "kwd-account",
+		FromCurrency:   "RUB",
+		ToCurrency:     "KWD",
+		Amount:         dec("1.234"),
+		IdempotencyKey: "cross-currency-rounding",
+	})
+	if err != nil {
+		t.Fatalf("create transfer: %v", err)
+	}
+	if !got.Out.Amount.Equal(dec("1.23")) {
+		t.Fatalf("out amount = %s, want 1.23", got.Out.Amount)
+	}
+	if !got.In.Amount.Equal(dec("0.004")) {
+		t.Fatalf("in amount = %s, want 0.004", got.In.Amount)
+	}
+	if repo.transfer == nil || !repo.transfer.FromAmount.Equal(dec("1.23")) || !repo.transfer.ToAmount.Equal(dec("0.004")) {
+		t.Fatalf("transfer audit amounts = %v", repo.transfer)
 	}
 }
 

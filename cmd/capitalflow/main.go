@@ -310,11 +310,16 @@ func runTransactionsCreate(ctx context.Context, args []string) error {
 	}
 	defer closeStore()
 
+	account, err := store.Accounts().GetByID(ctx, strings.TrimSpace(*accountID))
+	if err != nil {
+		return err
+	}
 	service := services.NewTransactionService(store.Transactions())
 	transaction, err := service.Create(ctx, &services.CreateTransactionRequest{
 		AccountID:   *accountID,
 		Type:        parsedType,
 		Amount:      Amount,
+		Currency:    account.Currency,
 		Description: *description,
 		OccurredAt:  occurredAt,
 	})
@@ -524,6 +529,10 @@ func runAccrue(ctx context.Context, args []string) error {
 	}
 	defer closeStore()
 
+	accountModel, err := store.Accounts().GetByID(ctx, account)
+	if err != nil {
+		return err
+	}
 	rule, err := selectInterestRule(ctx, store.InterestRules(), account, *ruleID, accrualDate)
 	if err != nil {
 		return err
@@ -554,6 +563,7 @@ func runAccrue(ctx context.Context, args []string) error {
 	)
 	result, err := service.Accrue(ctx, &services.AccrueRuleInterestRequest{
 		Rule:             *rule,
+		Currency:         accountModel.Currency,
 		Balance:          balance.Balance,
 		AccrualDate:      accrualDate,
 		Transactions:     transactions,
@@ -602,6 +612,10 @@ func runForecast(ctx context.Context, args []string) error {
 	}
 	defer closeStore()
 
+	accountModel, err := store.Accounts().GetByID(ctx, account)
+	if err != nil {
+		return err
+	}
 	rule, err := selectInterestRule(ctx, store.InterestRules(), account, *ruleID, fromDate)
 	if err != nil {
 		return err
@@ -616,6 +630,7 @@ func runForecast(ctx context.Context, args []string) error {
 	}
 	result, err := services.NewInterestRuleService(nil).Forecast(ctx, &services.ForecastRuleInterestRequest{
 		Rule:             *rule,
+		Currency:         accountModel.Currency,
 		Transactions:     transactions,
 		ExistingAccruals: accruals,
 		FromDate:         fromDate,
@@ -673,6 +688,10 @@ func runRecalculate(ctx context.Context, args []string) error {
 	}
 	defer closeStore()
 
+	accountModel, err := store.Accounts().GetByID(ctx, account)
+	if err != nil {
+		return err
+	}
 	rule, err := selectInterestRule(ctx, store.InterestRules(), account, *ruleID, ruleDate)
 	if err != nil {
 		return err
@@ -691,6 +710,7 @@ func runRecalculate(ctx context.Context, args []string) error {
 	)
 	result, err := service.Recalculate(ctx, &services.RecalculateRuleInterestRequest{
 		Rule:             *rule,
+		Currency:         accountModel.Currency,
 		Transactions:     transactions,
 		ExistingAccruals: accruals,
 		FromDate:         fromDate,

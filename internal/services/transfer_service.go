@@ -66,12 +66,13 @@ func (s *TransferService) Create(ctx context.Context, req *CreateTransferRequest
 		return nil, validationError("idempotency key is required")
 	}
 
-	inAmount := req.Amount
-	exchangeRate := "1"
 	fromCurrency := strings.TrimSpace(req.FromCurrency)
 	toCurrency := strings.TrimSpace(req.ToCurrency)
+	fromAmount := money.RoundForCurrency(req.Amount, fromCurrency)
+	inAmount := fromAmount
+	exchangeRate := "1"
 	if fromCurrency != "" || toCurrency != "" {
-		convertedAmount, rate, err := s.currency.ConvertDecimalAmount(ctx, req.Amount, fromCurrency, toCurrency)
+		convertedAmount, rate, err := s.currency.ConvertDecimalAmount(ctx, fromAmount, fromCurrency, toCurrency)
 		if err != nil {
 			return nil, fmt.Errorf("convert transfer amount: %w", err)
 		}
@@ -85,7 +86,7 @@ func (s *TransferService) Create(ctx context.Context, req *CreateTransferRequest
 		UserID:               strings.TrimSpace(req.UserID),
 		FromAccountID:        fromAccountID,
 		ToAccountID:          toAccountID,
-		FromAmount:           req.Amount,
+		FromAmount:           fromAmount,
 		ToAmount:             inAmount,
 		FromCurrency:         fromCurrency,
 		ToCurrency:           toCurrency,
@@ -102,13 +103,15 @@ func (s *TransferService) Create(ctx context.Context, req *CreateTransferRequest
 		AccountID:        fromAccountID,
 		RelatedAccountID: &outRelatedID,
 		Type:             models.TransactionTypeTransferOut,
-		Amount:           req.Amount,
+		Amount:           fromAmount,
+		Currency:         fromCurrency,
 		Description:      req.Description,
 	}, &CreateTransactionRequest{
 		AccountID:        toAccountID,
 		RelatedAccountID: &inRelatedID,
 		Type:             models.TransactionTypeTransferIn,
 		Amount:           inAmount,
+		Currency:         toCurrency,
 		Description:      req.Description,
 	})
 	if err != nil {

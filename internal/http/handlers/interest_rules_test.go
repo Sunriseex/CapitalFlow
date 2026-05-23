@@ -21,7 +21,7 @@ func TestAccrueInterestForAccountFallbackPersistsAccrual(t *testing.T) {
 	h := &Handler{store: store}
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/accounts/account-1/accrue-interest", http.NoBody)
 
-	result, err := h.accrueInterestForAccount(req, testInterestAccountID, "user-1", testInterestRuleID, accrualDate)
+	result, err := h.accrueInterestForAccount(req, testInterestAccountID, "user-1", "RUB", testInterestRuleID, accrualDate)
 	if err != nil {
 		t.Fatalf("accrue interest: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestAccrueInterestForAccountConflictRollsBackLockedAccrual(t *testing.T) {
 	h := &Handler{store: store}
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/accounts/account-1/accrue-interest", http.NoBody)
 
-	result, err := h.accrueInterestForAccount(req, testInterestAccountID, "user-1", testInterestRuleID, accrualDate)
+	result, err := h.accrueInterestForAccount(req, testInterestAccountID, "user-1", "RUB", testInterestRuleID, accrualDate)
 	if err != nil {
 		t.Fatalf("accrue interest: %v", err)
 	}

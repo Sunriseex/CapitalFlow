@@ -60,6 +60,7 @@ type CreateInterestRuleRequest struct {
 
 type AccrueRuleInterestRequest struct {
 	Rule             models.InterestRule
+	Currency         string
 	Balance          decimal.Decimal
 	AccrualDate      time.Time
 	Transactions     []models.Transaction
@@ -74,6 +75,7 @@ type AccrueRuleInterestResponse struct {
 
 type RecalculateRuleInterestRequest struct {
 	Rule             models.InterestRule
+	Currency         string
 	Transactions     []models.Transaction
 	ExistingAccruals []models.InterestAccrual
 	FromDate         time.Time
@@ -96,6 +98,7 @@ type RecalculateRuleInterestResponse struct {
 
 type ForecastRuleInterestRequest struct {
 	Rule             models.InterestRule
+	Currency         string
 	Transactions     []models.Transaction
 	ExistingAccruals []models.InterestAccrual
 	FromDate         time.Time
@@ -246,7 +249,8 @@ func (s *InterestRuleService) Accrue(ctx context.Context, req *AccrueRuleInteres
 
 	periodStart := nextAccrualPeriodStart(&req.Rule, req.ExistingAccruals, accrualDate)
 	calculationTransactions := PrincipalTransactionsForRuleAt(req.Transactions, req.ExistingAccruals, &req.Rule, accrualDate)
-	amount, balance, rateBps, err := calculateAccrualAmount(ctx, &req.Rule, calculationTransactions, req.Balance, periodStart, accrualDate)
+	currency := interestCurrency(req.Currency)
+	amount, balance, rateBps, err := calculateAccrualAmount(ctx, &req.Rule, currency, calculationTransactions, req.Balance, periodStart, accrualDate)
 	if err != nil {
 		return nil, err
 	}
@@ -258,6 +262,7 @@ func (s *InterestRuleService) Accrue(ctx context.Context, req *AccrueRuleInteres
 		AccountID:   req.Rule.AccountID,
 		Type:        models.TransactionTypeInterestIncome,
 		Amount:      amount,
+		Currency:    currency,
 		Description: interestAccrualDescription(req.Rule.ID, accrualDate),
 		OccurredAt:  accrualDate,
 	})
@@ -326,6 +331,7 @@ func (s *InterestRuleService) Recalculate(ctx context.Context, req *RecalculateR
 	if toDate.Before(fromDate) {
 		return nil, validationError("to date must be on or after from date")
 	}
+	currency := interestCurrency(req.Currency)
 
 	calculationFromDate := recalculationStartDate(&req.Rule, fromDate, toDate)
 	baseTransactions := excludeAccrualTransactions(req.Transactions, req.ExistingAccruals, &req.Rule, fromDate, toDate)
@@ -365,7 +371,7 @@ func (s *InterestRuleService) Recalculate(ctx context.Context, req *RecalculateR
 			response.SkippedDays++
 		} else {
 			rateBps := effectiveRateBps(&req.Rule, day)
-			amount := calculateDailyInterestAmount(balance.Balance, rateBps, req.Rule.DayCountConvention, day)
+			amount := calculateDailyInterestAmount(balance.Balance, rateBps, req.Rule.DayCountConvention, day, currency)
 			if !amount.IsPositive() {
 				response.SkippedDays++
 			} else {
@@ -383,6 +389,7 @@ func (s *InterestRuleService) Recalculate(ctx context.Context, req *RecalculateR
 			AccountID:   req.Rule.AccountID,
 			Type:        models.TransactionTypeInterestIncome,
 			Amount:      pendingAmount,
+			Currency:    currency,
 			Description: interestAccrualDescription(req.Rule.ID, day),
 			OccurredAt:  day,
 		})
@@ -460,6 +467,7 @@ func (s *InterestRuleService) Forecast(ctx context.Context, req *ForecastRuleInt
 	forecastRule.AccrualFrequency = models.AccrualFrequencyDaily
 	result, err := NewInterestRuleService(nil).Recalculate(ctx, &RecalculateRuleInterestRequest{
 		Rule:             forecastRule,
+		Currency:         req.Currency,
 		Transactions:     req.Transactions,
 		ExistingAccruals: req.ExistingAccruals,
 		FromDate:         fromDate,
@@ -646,7 +654,7 @@ func transactionsUpToDate(transactions []models.Transaction, date time.Time) []m
 	return filtered
 }
 
-func calculateAccrualAmount(ctx context.Context, rule *models.InterestRule, transactions []models.Transaction, balance decimal.Decimal, fromDate, toDate time.Time) (amount, finalBalance decimal.Decimal, finalRateBps int64, err error) {
+func calculateAccrualAmount(ctx context.Context, rule *models.InterestRule, currency string, transactions []models.Transaction, balance decimal.Decimal, fromDate, toDate time.Time) (amount, finalBalance decimal.Decimal, finalRateBps int64, err error) {
 	if toDate.Before(fromDate) {
 		return decimal.Zero, decimal.Zero, 0, validationError("accrual period is empty")
 	}
@@ -667,7 +675,7 @@ func calculateAccrualAmount(ctx context.Context, rule *models.InterestRule, tran
 				continue
 			}
 			rateBps := effectiveRateBps(rule, day)
-			total = total.Add(calculateDailyInterestAmount(balance, rateBps, rule.DayCountConvention, day))
+			total = total.Add(calculateDailyInterestAmount(balance, rateBps, rule.DayCountConvention, day, currency))
 			lastRate = rateBps
 		}
 		return total, balance, lastRate, nil
@@ -697,18 +705,26 @@ func calculateAccrualAmount(ctx context.Context, rule *models.InterestRule, tran
 			continue
 		}
 		rateBps := effectiveRateBps(rule, day)
-		total = total.Add(calculateDailyInterestAmount(balance.Balance, rateBps, rule.DayCountConvention, day))
+		total = total.Add(calculateDailyInterestAmount(balance.Balance, rateBps, rule.DayCountConvention, day, currency))
 		lastBalance = balance.Balance
 		lastRate = rateBps
 	}
 	return total, lastBalance, lastRate, nil
 }
 
-func calculateDailyInterestAmount(balance decimal.Decimal, rateBps int64, convention models.DayCountConvention, date time.Time) decimal.Decimal {
+func calculateDailyInterestAmount(balance decimal.Decimal, rateBps int64, convention models.DayCountConvention, date time.Time, currency string) decimal.Decimal {
 	rate := decimal.NewFromInt(rateBps).Div(decimal.NewFromInt(10_000))
 	days := decimal.NewFromInt(int64(daysInYear(convention, date)))
 
-	return money.RoundForCurrency(balance.Mul(rate).Div(days), "")
+	return money.RoundForCurrency(balance.Mul(rate).Div(days), interestCurrency(currency))
+}
+
+func interestCurrency(currency string) string {
+	currency = strings.ToUpper(strings.TrimSpace(currency))
+	if currency == "" {
+		return "RUB"
+	}
+	return currency
 }
 
 func nextAccrualPeriodStart(rule *models.InterestRule, accruals []models.InterestAccrual, accrualDate time.Time) time.Time {

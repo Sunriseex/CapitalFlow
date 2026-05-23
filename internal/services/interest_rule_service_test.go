@@ -11,6 +11,28 @@ import (
 	"github.com/sunriseex/capitalflow/internal/repository"
 )
 
+func TestCalculateDailyInterestAmountUsesCurrencyScale(t *testing.T) {
+	date := time.Date(2026, 5, 23, 0, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name     string
+		currency string
+		scale    int32
+		want     string
+	}{
+		{name: "jpy rounds to whole units", currency: "JPY", scale: 0, want: "3"},
+		{name: "kwd rounds to three decimals", currency: "KWD", scale: 3, want: "2.740"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := calculateDailyInterestAmount(dec("10000"), 1000, models.DayCountConventionActual365, date, tt.currency)
+			if got.StringFixed(tt.scale) != tt.want {
+				t.Fatalf("got %s, want %s", got.StringFixed(tt.scale), tt.want)
+			}
+		})
+	}
+}
+
 func TestInterestRuleServiceCreate(t *testing.T) {
 	startDate := time.Date(2026, 5, 1, 12, 0, 0, 0, time.Local)
 
