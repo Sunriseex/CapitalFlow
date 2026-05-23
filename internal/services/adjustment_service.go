@@ -39,6 +39,10 @@ func (s *AdjustmentService) Create(ctx context.Context, req *CreateAdjustmentReq
 	if accountID == "" {
 		return nil, fmt.Errorf("account id is required")
 	}
+	currency := strings.TrimSpace(req.Currency)
+	if currency == "" {
+		return nil, fmt.Errorf("currency is required")
+	}
 	if req.Amount.IsZero() {
 		return nil, fmt.Errorf("adjustment amount must be non-zero")
 	}
@@ -47,7 +51,7 @@ func (s *AdjustmentService) Create(ctx context.Context, req *CreateAdjustmentReq
 		AccountID:   accountID,
 		Type:        models.TransactionTypeAdjustment,
 		Amount:      req.Amount,
-		Currency:    req.Currency,
+		Currency:    currency,
 		Description: req.Description,
 		OccurredAt:  req.OccurredAt,
 	})

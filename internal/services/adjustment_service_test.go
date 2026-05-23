@@ -10,9 +10,10 @@ import (
 func TestAdjustmentServiceCreate(t *testing.T) {
 	occurredAt := time.Date(2026, 5, 4, 0, 0, 0, 0, time.UTC)
 
-	tx, err := NewAdjustmentService(NewTransactionService(&recordingCreateForUserRepo{})).Create(t.Context(), CreateAdjustmentRequest{
+	tx, err := NewAdjustmentService(NewTransactionService(&recordingCreateForUserRepo{})).Create(t.Context(), &CreateAdjustmentRequest{
 		AccountID:   " account-1 ",
 		Amount:      dec("-50"),
+		Currency:    "RUB",
 		Description: " Balance correction ",
 		OccurredAt:  occurredAt,
 	})
@@ -53,7 +54,7 @@ func TestAdjustmentServiceCreateUsesCurrencyScale(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewAdjustmentService(NewTransactionService(&recordingCreateForUserRepo{})).Create(t.Context(), CreateAdjustmentRequest{
+			_, err := NewAdjustmentService(NewTransactionService(&recordingCreateForUserRepo{})).Create(t.Context(), &CreateAdjustmentRequest{
 				AccountID: "account-1",
 				Amount:    dec(tt.amount),
 				Currency:  tt.currency,
@@ -69,9 +70,10 @@ func TestAdjustmentServiceCreateUsesCurrencyScale(t *testing.T) {
 }
 
 func TestAdjustmentServiceCreateRejectsMissingTransactionService(t *testing.T) {
-	_, err := NewAdjustmentService(nil).Create(t.Context(), CreateAdjustmentRequest{
+	_, err := NewAdjustmentService(nil).Create(t.Context(), &CreateAdjustmentRequest{
 		AccountID: "account-1",
 		Amount:    dec("1"),
+		Currency:  "RUB",
 	})
 	if err == nil {
 		t.Fatal("expected error")
@@ -79,11 +81,33 @@ func TestAdjustmentServiceCreateRejectsMissingTransactionService(t *testing.T) {
 }
 
 func TestAdjustmentServiceCreateValidatesInput(t *testing.T) {
-	_, err := NewAdjustmentService(nil).Create(t.Context(), CreateAdjustmentRequest{
-		AccountID: "account-1",
-		Amount:    dec("0"),
-	})
-	if err == nil {
-		t.Fatal("expected error")
+	tests := []struct {
+		name string
+		req  CreateAdjustmentRequest
+	}{
+		{
+			name: "zero amount",
+			req: CreateAdjustmentRequest{
+				AccountID: "account-1",
+				Amount:    dec("0"),
+				Currency:  "RUB",
+			},
+		},
+		{
+			name: "missing currency",
+			req: CreateAdjustmentRequest{
+				AccountID: "account-1",
+				Amount:    dec("1"),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewAdjustmentService(NewTransactionService(&recordingCreateForUserRepo{})).Create(t.Context(), &tt.req)
+			if err == nil {
+				t.Fatal("expected error")
+			}
+		})
 	}
 }
