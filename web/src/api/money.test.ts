@@ -38,12 +38,37 @@ describe("convertAmount", () => {
       fetched_at: "2026-05-23T00:00:00Z",
     })).toBe("1.25");
   });
+
+  it("rounds converted amount to the target currency scale", () => {
+    expect(convertAmount("1", "RUB", "KWD", {
+      base: "KWD",
+      date: "2026-05-23",
+      provider: "test",
+      rates: { RUB: 3 },
+      fetched_at: "2026-05-23T00:00:00Z",
+    })).toBe("0.333");
+  });
+
+  it("handles rates serialized with exponent notation", () => {
+    expect(convertAmount("1000", "RUB", "USD", {
+      base: "USD",
+      date: "2026-05-23",
+      provider: "test",
+      rates: { RUB: 1e-7 },
+      fetched_at: "2026-05-23T00:00:00Z",
+    })).toBe("10000000000");
+  });
 });
 
 describe("formatMoney", () => {
   it("rounds fractional digits to cents", () => {
     expect(formatMoney("1.999")).toBe("2,00\u00a0RUB");
     expect(formatMoney("-1.995")).toBe("-2,00\u00a0RUB");
+  });
+
+  it("uses the currency minor unit scale", () => {
+    expect(formatMoney("1234.56", "JPY")).toBe("1\u00a0235\u00a0JPY");
+    expect(formatMoney("1.2345", "KWD")).toBe("1,235\u00a0KWD");
   });
 });
 

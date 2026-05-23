@@ -9,6 +9,10 @@ ALTER TABLE transactions
 ALTER TABLE transactions
     ALTER COLUMN amount TYPE NUMERIC(38,18) USING (amount::NUMERIC(38,18) / 100);
 
+ALTER TABLE transactions
+    ADD CONSTRAINT transactions_amount_bounds_check
+    CHECK (amount BETWEEN -1000000000000 AND 1000000000000);
+
 ALTER TABLE transfers
     RENAME COLUMN from_amount_minor TO from_amount;
 
@@ -104,6 +108,9 @@ BEGIN
 END;
 $$;
 -- +goose StatementEnd
+
+ALTER TABLE transactions
+    DROP CONSTRAINT IF EXISTS transactions_amount_bounds_check;
 
 ALTER TABLE transactions
     ALTER COLUMN amount TYPE BIGINT USING (amount * 100)::BIGINT;

@@ -60,14 +60,16 @@ export function moneyToNumber(amount: string) {
 }
 
 export function formatMoney(amount: string, currency = "RUB") {
-  const units = roundUnits(decimalParts(amount), 2n);
+  const scale = BigInt(currencyFractionDigits(currency));
+  const units = roundUnits(decimalParts(amount), scale);
   const sign = units < 0n ? "-" : "";
   const abs = units < 0n ? -units : units;
-  const raw = abs.toString().padStart(3, "0");
-  const whole = raw.slice(0, -2);
-  const fraction = raw.slice(-2);
+  const scaleNumber = Number(scale);
+  const raw = abs.toString().padStart(scaleNumber + 1, "0");
+  const whole = scale === 0n ? raw : raw.slice(0, -scaleNumber);
+  const fraction = scale === 0n ? "" : raw.slice(-scaleNumber);
   const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, "\u00a0");
-  return `${sign}${grouped},${fraction}\u00a0${currency}`;
+  return `${sign}${grouped}${fraction ? `,${fraction}` : ""}\u00a0${currency}`;
 }
 
 export function parseMoneyResult(value: string, options: MoneyParseOptions = {}): MoneyParseResult {
@@ -105,7 +107,7 @@ export function convertAmount(amount: string, from: string, to: string, table?: 
   if (!table || table.base !== to) return "0";
   const rate = table.rates[from];
   if (!rate || rate <= 0) return "0";
-  return divideMoneyByRate(amount, rate);
+  return divideMoneyByRate(amount, rate, BigInt(currencyFractionDigits(to)));
 }
 
 export const convertMinor = convertAmount;
@@ -137,7 +139,7 @@ export function transactionTypeLabel(type: TransactionType) {
 }
 
 function decimalParts(value: string) {
-  const normalized = normalizeMoney(value);
+  const normalized = plainDecimalString(normalizeMoney(value));
   const sign = normalized.startsWith("-") ? -1n : 1n;
   const unsigned = sign < 0n ? normalized.slice(1) : normalized;
   const [whole, fraction = ""] = unsigned.split(".");
@@ -145,6 +147,31 @@ function decimalParts(value: string) {
     units: sign * BigInt(`${whole || "0"}${fraction}`),
     scale: BigInt(fraction.length),
   };
+}
+
+function plainDecimalString(value: string) {
+  if (!/[eE]/.test(value)) return value;
+
+  const sign = value.startsWith("-") ? "-" : "";
+  const unsigned = sign ? value.slice(1) : value;
+  const [coefficient, exponentPart] = unsigned.toLowerCase().split("e");
+  const exponent = Number(exponentPart);
+  if (!Number.isInteger(exponent)) return value;
+
+  const [whole, fraction = ""] = coefficient.split(".");
+  const digits = `${whole}${fraction}`;
+  const decimalIndex = whole.length + exponent;
+  if (decimalIndex <= 0) return `${sign}0.${"0".repeat(-decimalIndex)}${digits}`.replace(/\.?0+$/, "");
+  if (decimalIndex >= digits.length) return `${sign}${digits}${"0".repeat(decimalIndex - digits.length)}`;
+  return `${sign}${digits.slice(0, decimalIndex)}.${digits.slice(decimalIndex)}`.replace(/\.?0+$/, "");
+}
+
+function currencyFractionDigits(currency: string) {
+  try {
+    return new Intl.NumberFormat("en", { style: "currency", currency }).resolvedOptions().maximumFractionDigits ?? 2;
+  } catch {
+    return 2;
+  }
 }
 
 function scaleUnits(value: { units: bigint; scale: bigint }, scale: bigint) {
@@ -173,12 +200,12 @@ function unitsToDecimal(units: bigint, scale: bigint) {
   return `${sign}${whole}${fraction ? `.${fraction}` : ""}`;
 }
 
-function divideMoneyByRate(amount: string, rate: number) {
+function divideMoneyByRate(amount: string, rate: number, scale: bigint) {
   const value = decimalParts(amount);
   const rateValue = decimalParts(rate.toString());
   if (rateValue.units <= 0n) return "0";
 
-  const numerator = value.units * 10n ** rateValue.scale * 100n;
+  const numerator = value.units * 10n ** rateValue.scale * 10n ** scale;
   const denominator = rateValue.units * 10n ** value.scale;
   const sign = numerator < 0n ? -1n : 1n;
   const absNumerator = numerator < 0n ? -numerator : numerator;
@@ -186,7 +213,7 @@ function divideMoneyByRate(amount: string, rate: number) {
   const remainder = absNumerator % denominator;
   const rounded = remainder * 2n >= denominator ? quotient + 1n : quotient;
 
-  return unitsToDecimal(sign * rounded, 2n);
+  return unitsToDecimal(sign * rounded, scale);
 }
 
 

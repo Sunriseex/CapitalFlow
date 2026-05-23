@@ -114,6 +114,28 @@ func TestParsePositiveRUB(t *testing.T) {
 	}
 }
 
+func TestCurrencyScale(t *testing.T) {
+	tests := []struct {
+		currency string
+		want     int32
+	}{
+		{currency: "RUB", want: 2},
+		{currency: "JPY", want: 0},
+		{currency: "krw", want: 0},
+		{currency: "KWD", want: 3},
+		{currency: "CLF", want: 4},
+		{currency: "UNKNOWN", want: 2},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.currency, func(t *testing.T) {
+			if got := CurrencyScale(tt.currency); got != tt.want {
+				t.Fatalf("got %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestLegacyKopeckConversion(t *testing.T) {
 	amount := LegacyKopecksToDecimal(10050)
 	if amount.StringFixed(2) != "100.50" {
