@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { convertAmount, parseMoneyToMinorResult } from "./money";
+import { convertAmount, formatMoney, parseMoneyToMinorResult } from "./money";
 
 describe("parseMoneyToMinorResult", () => {
   it.each([
@@ -37,6 +37,13 @@ describe("convertAmount", () => {
       rates: { RUB: 100 },
       fetched_at: "2026-05-23T00:00:00Z",
     })).toBe("1.25");
+  });
+});
+
+describe("formatMoney", () => {
+  it("rounds fractional digits to cents", () => {
+    expect(formatMoney("1.999")).toBe("2,00\u00a0RUB");
+    expect(formatMoney("-1.995")).toBe("-2,00\u00a0RUB");
   });
 });
 

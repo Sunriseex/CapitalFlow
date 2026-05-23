@@ -60,15 +60,14 @@ export function moneyToNumber(amount: string) {
 }
 
 export function formatMoney(amount: string, currency = "RUB") {
-  const parts = decimalParts(amount);
-  const sign = parts.units < 0n ? "-" : "";
-  const abs = parts.units < 0n ? -parts.units : parts.units;
-  const scale = parts.scale;
-  const raw = abs.toString().padStart(Number(scale) + 1, "0");
-  const whole = scale === 0n ? raw : raw.slice(0, -Number(scale));
-  const fraction = scale === 0n ? "" : raw.slice(-Number(scale)).padEnd(2, "0").slice(0, 2);
+  const units = roundUnits(decimalParts(amount), 2n);
+  const sign = units < 0n ? "-" : "";
+  const abs = units < 0n ? -units : units;
+  const raw = abs.toString().padStart(3, "0");
+  const whole = raw.slice(0, -2);
+  const fraction = raw.slice(-2);
   const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, "\u00a0");
-  return `${sign}${grouped},${fraction || "00"}\u00a0${currency}`;
+  return `${sign}${grouped},${fraction}\u00a0${currency}`;
 }
 
 export function parseMoneyResult(value: string, options: MoneyParseOptions = {}): MoneyParseResult {
@@ -150,6 +149,18 @@ function decimalParts(value: string) {
 
 function scaleUnits(value: { units: bigint; scale: bigint }, scale: bigint) {
   return value.units * (10n ** (scale - value.scale));
+}
+
+function roundUnits(value: { units: bigint; scale: bigint }, scale: bigint) {
+  if (value.scale <= scale) return scaleUnits(value, scale);
+
+  const divisor = 10n ** (value.scale - scale);
+  const sign = value.units < 0n ? -1n : 1n;
+  const abs = value.units < 0n ? -value.units : value.units;
+  const quotient = abs / divisor;
+  const remainder = abs % divisor;
+  const rounded = remainder * 2n >= divisor ? quotient + 1n : quotient;
+  return sign * rounded;
 }
 
 function unitsToDecimal(units: bigint, scale: bigint) {

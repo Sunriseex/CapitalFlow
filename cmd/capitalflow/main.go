@@ -722,8 +722,8 @@ func printMigrationReport(report *migration.JSONMigrationReport) {
 	fmt.Printf("  interest rules created: %d\n", report.CreatedInterestRules)
 	fmt.Printf("  transactions created: %d\n", report.CreatedTransactions)
 	fmt.Printf("  skipped existing: %d\n", report.SkippedExisting)
-	fmt.Printf("  source balance minor: %d\n", report.SourceBalance)
-	fmt.Printf("  migrated balance minor: %d\n", report.MigratedBalance)
+	fmt.Printf("  source balance: %s\n", report.SourceBalance)
+	fmt.Printf("  migrated balance: %s\n", report.MigratedBalance)
 	fmt.Printf("  balance matches: %t\n", report.BalanceMatchesSource)
 	if len(report.Errors) > 0 {
 		fmt.Println("  errors:")
