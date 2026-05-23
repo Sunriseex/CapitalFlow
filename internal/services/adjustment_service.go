@@ -22,6 +22,7 @@ func NewAdjustmentService(transactions *TransactionService) *AdjustmentService {
 type CreateAdjustmentRequest struct {
 	AccountID   string
 	Amount      decimal.Decimal
+	Currency    string
 	Description string
 	OccurredAt  time.Time
 }
@@ -42,6 +43,7 @@ func (s *AdjustmentService) Create(ctx context.Context, req CreateAdjustmentRequ
 		AccountID:   accountID,
 		Type:        models.TransactionTypeAdjustment,
 		Amount:      req.Amount,
+		Currency:    req.Currency,
 		Description: req.Description,
 		OccurredAt:  req.OccurredAt,
 	})

@@ -278,7 +278,7 @@ func runTransactionsCreate(ctx context.Context, args []string) error {
 	flags := flag.NewFlagSet("transactions create", flag.ContinueOnError)
 	accountID := flags.String("account", "", "account id")
 	transactionType := flags.String("type", string(models.TransactionTypeIncome), "transaction type")
-	amount := flags.String("amount", "", "amount in RUB")
+	amount := flags.String("amount", "", "amount")
 	description := flags.String("description", "", "description")
 	occurred := flags.String("occurred", "", "occurred date YYYY-MM-DD")
 	databaseURL := flags.String("database-url", config.AppConfig.DatabaseURL, "PostgreSQL connection URL")
@@ -844,7 +844,7 @@ func excludeRuleAccrualTransactions(transactions []models.Transaction, accruals 
 	return filtered
 }
 
-func parseAmount(input string) (decimal.Decimal, error) { return money.ParseRUB(input) }
+func parseAmount(input string) (decimal.Decimal, error) { return money.ParseDecimalString(input) }
 
 func resolveOwnerUserID(ctx context.Context, users repository.UserRepository, ownerUserID string) (string, error) {
 	ownerUserID = strings.TrimSpace(ownerUserID)
