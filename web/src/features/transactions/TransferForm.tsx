@@ -17,7 +17,7 @@ export function TransferForm({ accounts, onDone }: { accounts: Account[]; onDone
   });
   const fromAccount = accounts.find((account) => account.id === form.from_account_id);
   const toAccount = accounts.find((account) => account.id === form.to_account_id);
-  const previewAmount = parseMoneyToMinorResult(form.amount);
+  const previewAmount = parseMoneyToMinorResult(form.amount, { currency: fromAccount?.currency ?? "RUB" });
   const amount = previewAmount.ok ? previewAmount.value : "0";
   const rates = useQuery({
     queryKey: ["currency-rates", fromAccount?.currency],
@@ -37,7 +37,7 @@ export function TransferForm({ accounts, onDone }: { accounts: Account[]; onDone
   const cannotConvert = needsConversion && (!rate || rates.isLoading || Boolean(rates.error));
   const mutation = useMutation({
     mutationFn: () => {
-      const amount = parseMoneyToMinorResult(form.amount, { required: true, positive: true });
+      const amount = parseMoneyToMinorResult(form.amount, { required: true, positive: true, currency: fromAccount?.currency ?? "RUB" });
       if (!amount.ok) {
         throw new Error(amount.error);
       }

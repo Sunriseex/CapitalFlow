@@ -4,12 +4,12 @@ type MoneyParseOptions = {
   required?: boolean;
   positive?: boolean;
   allowNegative?: boolean;
+  currency?: string;
 };
 
 export type MoneyParseResult = { ok: true; value: string } | { ok: false; error: string };
 
-const moneyPattern = /^-?\d+(?:\.\d{1,2})?$/;
-const moneyFormatError = "Amount must be a number with up to 2 decimal places";
+const moneyPattern = /^-?\d+(?:\.\d+)?$/;
 
 export function normalizeMoney(value: string) {
   const normalized = value.trim().replace(",", ".");
@@ -78,7 +78,13 @@ export function parseMoneyResult(value: string, options: MoneyParseOptions = {})
     if (options.required) return { ok: false, error: "Amount is required" };
     return { ok: true, value: "0" };
   }
+  const scale = currencyFractionDigits(options.currency ?? "RUB");
+  const moneyFormatError = `Amount must be a number with up to ${scale} decimal places`;
   if (!moneyPattern.test(normalized)) {
+    return { ok: false, error: moneyFormatError };
+  }
+  const fraction = normalized.split(".")[1] ?? "";
+  if (fraction.length > scale) {
     return { ok: false, error: moneyFormatError };
   }
   if (normalized.startsWith("-") && options.allowNegative !== true) {

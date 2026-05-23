@@ -18,6 +18,7 @@ export function TransactionForm({ accounts, categories, fixedType, onDone }: { a
     description: "",
     occurred_at: today,
   });
+  const selectedAccount = accounts.find((account) => account.id === form.account_id);
   const mutation = useMutation({
     mutationFn: () => {
       const transactionType = form.type as TransactionType;
@@ -25,6 +26,7 @@ export function TransactionForm({ accounts, categories, fixedType, onDone }: { a
         required: true,
         positive: transactionType !== "adjustment",
         allowNegative: transactionType === "adjustment",
+        currency: selectedAccount?.currency ?? "RUB",
       });
       if (!amount.ok) {
         throw new Error(amount.error);

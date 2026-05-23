@@ -69,6 +69,13 @@ func (s *TransferService) Create(ctx context.Context, req *CreateTransferRequest
 	fromCurrency := strings.TrimSpace(req.FromCurrency)
 	toCurrency := strings.TrimSpace(req.ToCurrency)
 	fromAmount := money.RoundForCurrency(req.Amount, fromCurrency)
+	if !req.Amount.Equal(fromAmount) {
+		currency := fromCurrency
+		if currency == "" {
+			currency = "RUB"
+		}
+		return nil, validationError("transfer amount scale exceeds " + currency + " minor units")
+	}
 	inAmount := fromAmount
 	exchangeRate := "1"
 	if fromCurrency != "" || toCurrency != "" {

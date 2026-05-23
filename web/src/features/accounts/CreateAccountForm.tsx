@@ -25,7 +25,7 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
   });
   const mutation = useMutation({
     mutationFn: async () => {
-      const initial = parseMoneyToMinorResult(form.initial);
+      const initial = parseMoneyToMinorResult(form.initial, { currency: form.currency });
       if (!initial.ok) {
         throw new Error(initial.error);
       }

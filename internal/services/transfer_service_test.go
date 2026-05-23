@@ -38,20 +38,51 @@ func TestTransferServiceCreate(t *testing.T) {
 	}
 }
 
-func TestTransferServiceCreateRoundsSameCurrencyAmounts(t *testing.T) {
+func TestTransferServiceCreateKeepsSameCurrencyAmounts(t *testing.T) {
 	got, err := NewTransferService(NewTransactionService(&batchTransactionRepo{})).Create(t.Context(), &CreateTransferRequest{
 		FromAccountID:  "account-1",
 		ToAccountID:    "account-2",
 		FromCurrency:   "RUB",
 		ToCurrency:     "RUB",
-		Amount:         dec("1.234"),
-		IdempotencyKey: "same-currency-rounding",
+		Amount:         dec("1.23"),
+		IdempotencyKey: "same-currency",
 	})
 	if err != nil {
 		t.Fatalf("create transfer: %v", err)
 	}
 	if !got.Out.Amount.Equal(dec("1.23")) || !got.In.Amount.Equal(dec("1.23")) {
 		t.Fatalf("amounts = %s/%s, want 1.23/1.23", got.Out.Amount, got.In.Amount)
+	}
+}
+
+func TestTransferServiceCreateRejectsSourceOverPrecision(t *testing.T) {
+	tests := []struct {
+		name     string
+		amount   string
+		currency string
+	}{
+		{name: "RUB", amount: "1.234", currency: "RUB"},
+		{name: "JPY rounds up", amount: "0.6", currency: "JPY"},
+		{name: "JPY rounds down", amount: "0.4", currency: "JPY"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewTransferService(NewTransactionService(&batchTransactionRepo{})).Create(t.Context(), &CreateTransferRequest{
+				FromAccountID:  "account-1",
+				ToAccountID:    "account-2",
+				FromCurrency:   tt.currency,
+				ToCurrency:     tt.currency,
+				Amount:         dec(tt.amount),
+				IdempotencyKey: "source-over-precision-" + tt.name,
+			})
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			if !IsValidationError(err) {
+				t.Fatalf("expected validation error, got %T: %v", err, err)
+			}
+		})
 	}
 }
 
@@ -159,7 +190,7 @@ func TestTransferServiceCreateConvertsCrossCurrencyAmount(t *testing.T) {
 	}
 }
 
-func TestTransferServiceCreateRoundsSourceBeforeCrossCurrencyConversion(t *testing.T) {
+func TestTransferServiceCreateRoundsDestinationAfterCrossCurrencyConversion(t *testing.T) {
 	repo := &batchTransactionRepo{}
 	service := NewTransferService(NewTransactionService(repo))
 	service.currency = NewCurrencyService(staticExchangeRateProvider{
@@ -176,7 +207,7 @@ func TestTransferServiceCreateRoundsSourceBeforeCrossCurrencyConversion(t *testi
 		ToAccountID:    "kwd-account",
 		FromCurrency:   "RUB",
 		ToCurrency:     "KWD",
-		Amount:         dec("1.234"),
+		Amount:         dec("1.23"),
 		IdempotencyKey: "cross-currency-rounding",
 	})
 	if err != nil {
