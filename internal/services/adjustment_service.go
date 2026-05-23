@@ -27,7 +27,11 @@ type CreateAdjustmentRequest struct {
 	OccurredAt  time.Time
 }
 
-func (s *AdjustmentService) Create(ctx context.Context, req CreateAdjustmentRequest) (*models.Transaction, error) {
+func (s *AdjustmentService) Create(ctx context.Context, req *CreateAdjustmentRequest) (*models.Transaction, error) {
+	if req == nil {
+		return nil, validationError("adjustment request is required")
+	}
+
 	if s == nil || s.transactions == nil {
 		return nil, fmt.Errorf("adjustment service requires transaction service")
 	}
