@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/sunriseex/capitalflow/internal/auth"
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/repository"
@@ -260,8 +262,8 @@ func (r *testTransactionRepo) ListByUserFiltered(_ context.Context, userID strin
 	return r.listFilteredTransactions, nil
 }
 
-func (r *testTransactionRepo) GetBalanceByAccountForUser(_ context.Context, accountID, _ string) (balanceMinor, transactionCount int64, err error) {
-	return 0, r.transactionCountByAccount[accountID], nil
+func (r *testTransactionRepo) GetBalanceByAccountForUser(_ context.Context, accountID, _ string) (balance decimal.Decimal, transactionCount int64, err error) {
+	return decimal.Zero, r.transactionCountByAccount[accountID], nil
 }
 
 func (r *testTransactionRepo) Delete(context.Context, string) error {

@@ -32,9 +32,9 @@ const summary: DashboardSummary = {
   monthly_expense: [],
   monthly_interest_income: [],
   account_balances: [
-    { account_id: "account-1", balance_minor: 10_000, transaction_count: 1, name: "Card", type: "card", currency: "RUB", is_active: true },
-    { account_id: "account-2", balance_minor: 20_000, transaction_count: 1, name: "Savings", type: "savings", currency: "RUB", is_active: true },
-    { account_id: "account-3", balance_minor: 30_000, transaction_count: 1, name: "Term", type: "term_deposit", currency: "RUB", is_active: true },
+    { account_id: "account-1", balance: "100.00", transaction_count: 1, name: "Card", type: "card", currency: "RUB", is_active: true },
+    { account_id: "account-2", balance: "200.00", transaction_count: 1, name: "Savings", type: "savings", currency: "RUB", is_active: true },
+    { account_id: "account-3", balance: "300.00", transaction_count: 1, name: "Term", type: "term_deposit", currency: "RUB", is_active: true },
   ],
   recent_transactions: [],
   recent_transactions_limit: 5,
@@ -120,3 +120,5 @@ function interestRule(id: string, accountID: string, annualRateBps: number, star
     start_date: startDate,
   };
 }
+
+

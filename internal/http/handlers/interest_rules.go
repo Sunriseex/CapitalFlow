@@ -12,6 +12,7 @@ import (
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/repository"
 	"github.com/sunriseex/capitalflow/internal/services"
+	"github.com/sunriseex/capitalflow/pkg/money"
 )
 
 func (h *Handler) listInterestRules(w http.ResponseWriter, r *http.Request) {
@@ -216,7 +217,8 @@ func (h *Handler) accrueInterest(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if !h.ensureAccountExists(w, r, accountID) {
+	account, ok := h.accountByID(w, r, accountID, "account_id")
+	if !ok {
 		return
 	}
 	var req dto.AccrueInterestRequest
@@ -232,7 +234,7 @@ func (h *Handler) accrueInterest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.accrueInterestForAccount(r, accountID, userID, req.RuleID, accrualDate)
+	result, err := h.accrueInterestForAccount(r, accountID, userID, account.Currency, req.RuleID, accrualDate)
 	if err != nil {
 		if _, ok := err.(validationError); ok {
 			writeError(w, http.StatusBadRequest, "validation_error", err.Error(), nil)
@@ -282,7 +284,8 @@ func (h *Handler) recalculateInterest(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if !h.ensureAccountExists(w, r, accountID) {
+	account, ok := h.accountByID(w, r, accountID, "account_id")
+	if !ok {
 		return
 	}
 
@@ -291,7 +294,7 @@ func (h *Handler) recalculateInterest(w http.ResponseWriter, r *http.Request) {
 		ruleDate = dateOnly(time.Now())
 	}
 
-	result, err := h.recalculateInterestForAccount(r, accountID, userID, req.RuleID, ruleDate, fromDate, toDate)
+	result, err := h.recalculateInterestForAccount(r, accountID, userID, account.Currency, req.RuleID, ruleDate, fromDate, toDate)
 	if err != nil {
 		if _, ok := err.(validationError); ok {
 			writeError(w, http.StatusBadRequest, "validation_error", err.Error(), nil)
@@ -302,22 +305,22 @@ func (h *Handler) recalculateInterest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, dto.RecalculateInterestResponse{
-		AccountID:        result.AccountID,
-		RuleID:           result.RuleID,
-		FromDate:         result.FromDate,
-		ToDate:           result.ToDate,
-		DeletedAccruals:  result.DeletedAccruals,
-		CreatedAccruals:  result.CreatedAccruals,
-		SkippedDays:      result.SkippedDays,
-		TotalAmountMinor: result.TotalAmountMinor,
+		AccountID:       result.AccountID,
+		RuleID:          result.RuleID,
+		FromDate:        result.FromDate,
+		ToDate:          result.ToDate,
+		DeletedAccruals: result.DeletedAccruals,
+		CreatedAccruals: result.CreatedAccruals,
+		SkippedDays:     result.SkippedDays,
+		TotalAmount:     money.NewJSONDecimal(result.TotalAmount),
 	})
 }
 
-func (h *Handler) accrueInterestForAccount(r *http.Request, accountID, userID, ruleID string, accrualDate time.Time) (*services.AccrueRuleInterestResponse, error) {
+func (h *Handler) accrueInterestForAccount(r *http.Request, accountID, userID, currency, ruleID string, accrualDate time.Time) (*services.AccrueRuleInterestResponse, error) {
 	if txRepo, ok := h.store.InterestAccruals().(repository.InterestAccrualTransactionalRepository); ok {
 		var result *services.AccrueRuleInterestResponse
 		err := txRepo.WithAccountInterestLock(r.Context(), accountID, userID, func(ctx context.Context, snapshot repository.InterestCalculationRepository) error {
-			calculated, err := accrueInterestFromSnapshot(ctx, snapshot, accountID, userID, ruleID, accrualDate)
+			calculated, err := accrueInterestFromSnapshot(ctx, snapshot, accountID, userID, currency, ruleID, accrualDate)
 			if err != nil {
 				return err
 			}
@@ -350,7 +353,7 @@ func (h *Handler) accrueInterestForAccount(r *http.Request, accountID, userID, r
 	if err != nil {
 		return nil, fmt.Errorf("list account accruals for interest accrual: %w", err)
 	}
-	result, err := accrueInterestFromData(r.Context(), rule, accountID, accrualDate, transactions, accruals)
+	result, err := accrueInterestFromData(r.Context(), rule, accountID, currency, accrualDate, transactions, accruals)
 	if err != nil {
 		return nil, err
 	}
@@ -366,11 +369,11 @@ func (h *Handler) accrueInterestForAccount(r *http.Request, accountID, userID, r
 	return result, nil
 }
 
-func (h *Handler) recalculateInterestForAccount(r *http.Request, accountID, userID, ruleID string, ruleDate, fromDate, toDate time.Time) (*services.RecalculateRuleInterestResponse, error) {
+func (h *Handler) recalculateInterestForAccount(r *http.Request, accountID, userID, currency, ruleID string, ruleDate, fromDate, toDate time.Time) (*services.RecalculateRuleInterestResponse, error) {
 	if txRepo, ok := h.store.InterestAccruals().(repository.InterestAccrualTransactionalRepository); ok {
 		var result *services.RecalculateRuleInterestResponse
 		err := txRepo.WithAccountInterestLock(r.Context(), accountID, userID, func(ctx context.Context, snapshot repository.InterestCalculationRepository) error {
-			calculated, err := recalculateInterestFromSnapshot(ctx, snapshot, accountID, userID, ruleID, ruleDate, fromDate, toDate)
+			calculated, err := recalculateInterestFromSnapshot(ctx, snapshot, accountID, userID, currency, ruleID, ruleDate, fromDate, toDate)
 			if err != nil {
 				return err
 			}
@@ -402,6 +405,7 @@ func (h *Handler) recalculateInterestForAccount(r *http.Request, accountID, user
 	}
 	result, err := h.interestRules.Recalculate(r.Context(), &services.RecalculateRuleInterestRequest{
 		Rule:             *rule,
+		Currency:         currency,
 		Transactions:     transactions,
 		ExistingAccruals: accruals,
 		FromDate:         fromDate,
@@ -413,7 +417,7 @@ func (h *Handler) recalculateInterestForAccount(r *http.Request, accountID, user
 	return result, nil
 }
 
-func accrueInterestFromSnapshot(ctx context.Context, snapshot repository.InterestCalculationRepository, accountID, userID, ruleID string, accrualDate time.Time) (*services.AccrueRuleInterestResponse, error) {
+func accrueInterestFromSnapshot(ctx context.Context, snapshot repository.InterestCalculationRepository, accountID, userID, currency, ruleID string, accrualDate time.Time) (*services.AccrueRuleInterestResponse, error) {
 	rule, err := ruleForAccrualSnapshot(ctx, snapshot, accountID, ruleID, accrualDate)
 	if err != nil {
 		return nil, err
@@ -426,10 +430,10 @@ func accrueInterestFromSnapshot(ctx context.Context, snapshot repository.Interes
 	if err != nil {
 		return nil, fmt.Errorf("list snapshot accruals for interest accrual: %w", err)
 	}
-	return accrueInterestFromData(ctx, rule, accountID, accrualDate, transactions, accruals)
+	return accrueInterestFromData(ctx, rule, accountID, currency, accrualDate, transactions, accruals)
 }
 
-func accrueInterestFromData(ctx context.Context, rule *models.InterestRule, accountID string, accrualDate time.Time, transactions []models.Transaction, accruals []models.InterestAccrual) (*services.AccrueRuleInterestResponse, error) {
+func accrueInterestFromData(ctx context.Context, rule *models.InterestRule, accountID, currency string, accrualDate time.Time, transactions []models.Transaction, accruals []models.InterestAccrual) (*services.AccrueRuleInterestResponse, error) {
 	transactions = transactionsUpToDate(transactions, accrualDate)
 	transactions = services.PrincipalTransactionsForRuleAt(transactions, accruals, rule, accrualDate)
 
@@ -443,7 +447,8 @@ func accrueInterestFromData(ctx context.Context, rule *models.InterestRule, acco
 
 	result, err := services.NewInterestRuleService(nil).Accrue(ctx, &services.AccrueRuleInterestRequest{
 		Rule:             *rule,
-		BalanceMinor:     balance.BalanceMinor,
+		Currency:         currency,
+		Balance:          balance.Balance,
 		AccrualDate:      accrualDate,
 		Transactions:     transactions,
 		ExistingAccruals: accruals,
@@ -454,7 +459,7 @@ func accrueInterestFromData(ctx context.Context, rule *models.InterestRule, acco
 	return result, nil
 }
 
-func recalculateInterestFromSnapshot(ctx context.Context, snapshot repository.InterestCalculationRepository, accountID, userID, ruleID string, ruleDate, fromDate, toDate time.Time) (*services.RecalculateRuleInterestResponse, error) {
+func recalculateInterestFromSnapshot(ctx context.Context, snapshot repository.InterestCalculationRepository, accountID, userID, currency, ruleID string, ruleDate, fromDate, toDate time.Time) (*services.RecalculateRuleInterestResponse, error) {
 	rule, err := ruleForRecalculationSnapshot(ctx, snapshot, accountID, ruleID, ruleDate)
 	if err != nil {
 		return nil, err
@@ -469,6 +474,7 @@ func recalculateInterestFromSnapshot(ctx context.Context, snapshot repository.In
 	}
 	result, err := services.NewInterestRuleService(nil).Recalculate(ctx, &services.RecalculateRuleInterestRequest{
 		Rule:             *rule,
+		Currency:         currency,
 		Transactions:     transactions,
 		ExistingAccruals: accruals,
 		FromDate:         fromDate,

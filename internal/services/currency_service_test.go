@@ -10,7 +10,7 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-func TestCurrencyServiceConvertMinor(t *testing.T) {
+func TestCurrencyServiceConvertDecimalAmount(t *testing.T) {
 	service := NewCurrencyService(staticExchangeRateProvider{
 		rates: &ExchangeRates{
 			Base: "RUB",
@@ -21,27 +21,50 @@ func TestCurrencyServiceConvertMinor(t *testing.T) {
 		},
 	})
 
-	amount, rate, err := service.ConvertMinor(t.Context(), 1_000_000, "rub", "krw")
+	amount, rate, err := service.ConvertDecimalAmount(t.Context(), decimal.RequireFromString("10000"), "rub", "krw")
 	if err != nil {
-		t.Fatalf("convert minor: %v", err)
+		t.Fatalf("convert decimal amount: %v", err)
 	}
-	if amount != 16_250_000 {
-		t.Fatalf("amount = %d, want 16250000", amount)
+	if !amount.Equal(decimal.RequireFromString("162500")) {
+		t.Fatalf("amount = %s, want 162500", amount)
 	}
 	if rate.String() != "16.25" {
 		t.Fatalf("rate = %s, want 16.25", rate)
 	}
 }
 
-func TestCurrencyServiceConvertMinorSameCurrency(t *testing.T) {
+func TestCurrencyServiceConvertDecimalAmountDoesNotRound(t *testing.T) {
+	service := NewCurrencyService(staticExchangeRateProvider{
+		rates: &ExchangeRates{
+			Base: "USD",
+			Rates: map[string]decimal.Decimal{
+				"USD": decimal.NewFromInt(1),
+				"EUR": decimal.RequireFromString("0.333"),
+			},
+		},
+	})
+
+	amount, rate, err := service.ConvertDecimalAmount(t.Context(), decimal.RequireFromString("10"), "usd", "eur")
+	if err != nil {
+		t.Fatalf("convert amount: %v", err)
+	}
+	if !amount.Equal(decimal.RequireFromString("3.330")) {
+		t.Fatalf("amount = %s, want 3.330", amount)
+	}
+	if !rate.Equal(decimal.RequireFromString("0.333")) {
+		t.Fatalf("rate = %s, want 0.333", rate)
+	}
+}
+
+func TestCurrencyServiceConvertDecimalAmountSameCurrency(t *testing.T) {
 	service := NewCurrencyService(staticExchangeRateProvider{})
 
-	amount, rate, err := service.ConvertMinor(t.Context(), 10_000, "USD", "USD")
+	amount, rate, err := service.ConvertDecimalAmount(t.Context(), decimal.RequireFromString("100"), "USD", "USD")
 	if err != nil {
-		t.Fatalf("convert minor: %v", err)
+		t.Fatalf("convert decimal amount: %v", err)
 	}
-	if amount != 10_000 {
-		t.Fatalf("amount = %d, want 10000", amount)
+	if !amount.Equal(decimal.RequireFromString("100")) {
+		t.Fatalf("amount = %s, want 100", amount)
 	}
 	if !rate.Equal(decimal.NewFromInt(1)) {
 		t.Fatalf("rate = %s, want 1", rate)

@@ -55,8 +55,8 @@ type JSONMigrationReport struct {
 	CreatedTransactions  int
 	SkippedExisting      int
 	OwnerUserID          string
-	SourceBalanceMinor   int64
-	MigratedBalanceMinor int64
+	SourceBalance        decimal.Decimal
+	MigratedBalance      decimal.Decimal
 	BalanceMatchesSource bool
 	Errors               []string
 }
@@ -76,15 +76,15 @@ func (m *JSONMigrator) MigrateDeposits(ctx context.Context, deposits []models.De
 		}
 
 		deposit := &deposits[i]
-		report.SourceBalanceMinor += deposit.Amount
+		report.SourceBalance = report.SourceBalance.Add(legacyDepositAmountToDecimal(deposit.Amount))
 		balance, err := m.migrateDeposit(ctx, deposit, report)
 		if err != nil {
 			report.Errors = append(report.Errors, fmt.Sprintf("%s: %v", depositLabel(deposit), err))
 			continue
 		}
-		report.MigratedBalanceMinor += balance
+		report.MigratedBalance = report.MigratedBalance.Add(balance)
 	}
-	report.BalanceMatchesSource = report.SourceBalanceMinor == report.MigratedBalanceMinor && len(report.Errors) == 0
+	report.BalanceMatchesSource = report.SourceBalance.Equal(report.MigratedBalance) && len(report.Errors) == 0
 	return report, nil
 }
 
@@ -102,13 +102,13 @@ func parseRequiredDate(fieldName, input string) (time.Time, error) {
 	return dateOnly(date), nil
 }
 
-func (m *JSONMigrator) migrateDeposit(ctx context.Context, deposit *models.Deposit, report *JSONMigrationReport) (int64, error) {
+func (m *JSONMigrator) migrateDeposit(ctx context.Context, deposit *models.Deposit, report *JSONMigrationReport) (decimal.Decimal, error) {
 	legacyID := strings.TrimSpace(deposit.ID)
 	if legacyID == "" {
-		return 0, fmt.Errorf("legacy deposit id is required")
+		return decimal.Zero, fmt.Errorf("legacy deposit id is required")
 	}
 	if deposit.Amount < 0 {
-		return 0, fmt.Errorf("deposit amount must not be negative")
+		return decimal.Zero, fmt.Errorf("deposit amount must not be negative")
 	}
 
 	existing, err := m.accounts.GetByLegacyID(ctx, legacyID)
@@ -116,18 +116,18 @@ func (m *JSONMigrator) migrateDeposit(ctx context.Context, deposit *models.Depos
 		return m.migrateExistingDeposit(ctx, deposit, existing, report)
 	}
 	if !errors.Is(err, repository.ErrNotFound) {
-		return 0, fmt.Errorf("lookup legacy account: %w", err)
+		return decimal.Zero, fmt.Errorf("lookup legacy account: %w", err)
 	}
 
 	now := time.Now().UTC()
 	openedAt, err := parseRequiredDate("start date", deposit.StartDate)
 	if err != nil {
-		return 0, err
+		return decimal.Zero, err
 	}
 	legacyIDPtr := legacyID
 	accountType, err := accountTypeForDeposit(deposit.Type)
 	if err != nil {
-		return 0, err
+		return decimal.Zero, err
 	}
 	account := &models.Account{
 		ID:          uuid.NewString(),
@@ -143,32 +143,32 @@ func (m *JSONMigrator) migrateDeposit(ctx context.Context, deposit *models.Depos
 		UpdatedAt:   firstNonZeroTime(deposit.UpdatedAt, now),
 	}
 	if account.Name == "" {
-		return 0, fmt.Errorf("deposit name is required")
+		return decimal.Zero, fmt.Errorf("deposit name is required")
 	}
 
 	rule, err := interestRuleForDeposit(deposit, account.ID, openedAt)
 	if err != nil {
-		return 0, err
+		return decimal.Zero, err
 	}
 	transaction := &models.Transaction{
 		ID:          uuid.NewString(),
 		AccountID:   account.ID,
 		Type:        models.TransactionTypeInitialBalance,
-		AmountMinor: deposit.Amount,
+		Amount:      legacyDepositAmountToDecimal(deposit.Amount),
 		Description: legacyInitialDescription(legacyID),
 		OccurredAt:  openedAt,
 		CreatedAt:   now,
 	}
 
 	if err := m.migration.CreateMigratedDeposit(ctx, account, rule, transaction); err != nil {
-		return 0, fmt.Errorf("create migrated deposit: %w", err)
+		return decimal.Zero, fmt.Errorf("create migrated deposit: %w", err)
 	}
 
 	report.CreatedAccounts++
 	report.CreatedInterestRules++
 	report.CreatedTransactions++
 
-	return deposit.Amount, nil
+	return legacyDepositAmountToDecimal(deposit.Amount), nil
 }
 
 func ownerUserIDPtr(userID string) *string {
@@ -179,32 +179,32 @@ func ownerUserIDPtr(userID string) *string {
 	return &userID
 }
 
-func (m *JSONMigrator) migrateExistingDeposit(ctx context.Context, deposit *models.Deposit, account *models.Account, report *JSONMigrationReport) (int64, error) {
+func (m *JSONMigrator) migrateExistingDeposit(ctx context.Context, deposit *models.Deposit, account *models.Account, report *JSONMigrationReport) (decimal.Decimal, error) {
 	report.SkippedExisting++
 	legacyID := strings.TrimSpace(deposit.ID)
 	openedAt, err := parseRequiredDate("start date", deposit.StartDate)
 	if err != nil {
-		return 0, err
+		return decimal.Zero, err
 	}
 
 	rules, err := m.rules.ListByAccount(ctx, account.ID)
 	if err != nil {
-		return 0, fmt.Errorf("list existing rules: %w", err)
+		return decimal.Zero, fmt.Errorf("list existing rules: %w", err)
 	}
 	if len(rules) == 0 {
 		rule, err := interestRuleForDeposit(deposit, account.ID, openedAt)
 		if err != nil {
-			return 0, err
+			return decimal.Zero, err
 		}
 		if err := m.rules.Create(ctx, rule); err != nil {
-			return 0, fmt.Errorf("create missing interest rule: %w", err)
+			return decimal.Zero, fmt.Errorf("create missing interest rule: %w", err)
 		}
 		report.CreatedInterestRules++
 	}
 
 	transactions, err := m.transactions.ListByAccount(ctx, account.ID)
 	if err != nil {
-		return 0, fmt.Errorf("list existing transactions: %w", err)
+		return decimal.Zero, fmt.Errorf("list existing transactions: %w", err)
 	}
 	legacyInitialBalance, ok := legacyInitialBalanceFromTransactions(transactions, legacyID)
 	if !ok {
@@ -213,32 +213,36 @@ func (m *JSONMigrator) migrateExistingDeposit(ctx context.Context, deposit *mode
 			ID:          uuid.NewString(),
 			AccountID:   account.ID,
 			Type:        models.TransactionTypeInitialBalance,
-			AmountMinor: deposit.Amount,
+			Amount:      legacyDepositAmountToDecimal(deposit.Amount),
 			Description: legacyInitialDescription(legacyID),
 			OccurredAt:  openedAt,
 			CreatedAt:   now,
 		}
 		if err := m.transactions.Create(ctx, transaction); err != nil {
-			return 0, fmt.Errorf("create missing initial balance transaction: %w", err)
+			return decimal.Zero, fmt.Errorf("create missing initial balance transaction: %w", err)
 		}
 		report.CreatedTransactions++
-		legacyInitialBalance = deposit.Amount
+		legacyInitialBalance = legacyDepositAmountToDecimal(deposit.Amount)
 	}
 
 	return legacyInitialBalance, nil
 }
 
-func legacyInitialBalanceFromTransactions(transactions []models.Transaction, legacyID string) (int64, bool) {
+func legacyInitialBalanceFromTransactions(transactions []models.Transaction, legacyID string) (decimal.Decimal, bool) {
 	description := legacyInitialDescription(legacyID)
-	var balance int64
+	balance := decimal.Zero
 	var found bool
 	for i := range transactions {
 		if transactions[i].Type == models.TransactionTypeInitialBalance && transactions[i].Description == description {
-			balance += transactions[i].AmountMinor
+			balance = balance.Add(transactions[i].Amount)
 			found = true
 		}
 	}
 	return balance, found
+}
+
+func legacyDepositAmountToDecimal(amount int64) decimal.Decimal {
+	return decimal.NewFromInt(amount).Div(decimal.NewFromInt(100))
 }
 
 func interestRuleForDeposit(deposit *models.Deposit, accountID string, openedAt time.Time) (*models.InterestRule, error) {

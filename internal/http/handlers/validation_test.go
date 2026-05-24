@@ -358,22 +358,22 @@ func TestLatestApplicableInterestRuleIgnoresRulesOutsideAccrualDate(t *testing.T
 func TestTransactionsUpToDateFiltersFutureTransactions(t *testing.T) {
 	transactions := []models.Transaction{
 		{
-			ID:          "tx-before",
-			AccountID:   "account-1",
-			AmountMinor: 100_000,
-			OccurredAt:  time.Date(2026, 5, 1, 10, 0, 0, 0, time.UTC),
+			ID:         "tx-before",
+			AccountID:  "account-1",
+			Amount:     dec("1000"),
+			OccurredAt: time.Date(2026, 5, 1, 10, 0, 0, 0, time.UTC),
 		},
 		{
-			ID:          "tx-same-day",
-			AccountID:   "account-1",
-			AmountMinor: 50_000,
-			OccurredAt:  time.Date(2026, 5, 5, 23, 59, 59, 0, time.UTC),
+			ID:         "tx-same-day",
+			AccountID:  "account-1",
+			Amount:     dec("500"),
+			OccurredAt: time.Date(2026, 5, 5, 23, 59, 59, 0, time.UTC),
 		},
 		{
-			ID:          "tx-after",
-			AccountID:   "account-1",
-			AmountMinor: 200_000,
-			OccurredAt:  time.Date(2026, 5, 6, 0, 0, 0, 0, time.UTC),
+			ID:         "tx-after",
+			AccountID:  "account-1",
+			Amount:     dec("2000"),
+			OccurredAt: time.Date(2026, 5, 6, 0, 0, 0, 0, time.UTC),
 		},
 	}
 

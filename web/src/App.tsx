@@ -63,7 +63,7 @@ export function App() {
   const selectedAccount = accounts.data?.find((account) => account.id === selectedAccountId);
   const primaryCurrency = profile.data?.user.primary_currency ?? "RUB";
   const sessionInvalid = profile.error instanceof ApiClientError && profile.error.status === 401;
-  const accountsReady = accounts.isSuccess && (accounts.data?.length ?? 0) > 0;
+  const accountsReady = accounts.isSuccess && (accounts.data?.length ?? "0") > 0;
   const transactionActionsDisabled = accounts.isLoading || Boolean(accounts.error) || !accountsReady;
 
   useEffect(() => {
@@ -499,3 +499,5 @@ function storedTheme(): Theme {
 
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
+
+

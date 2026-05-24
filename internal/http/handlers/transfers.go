@@ -46,7 +46,7 @@ func (h *Handler) createTransfer(w http.ResponseWriter, r *http.Request) {
 		ToAccountID:    toAccountID,
 		FromCurrency:   fromAccount.Currency,
 		ToCurrency:     toAccount.Currency,
-		AmountMinor:    req.AmountMinor,
+		Amount:         req.Amount.Decimal,
 		Description:    req.Description,
 		IdempotencyKey: r.Header.Get(appmiddleware.IdempotencyKeyHeader),
 	})

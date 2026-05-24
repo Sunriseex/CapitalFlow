@@ -1,17 +1,125 @@
 package money
 
 import (
+	"encoding/json"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/shopspring/decimal"
+)
+
+const (
+	StoragePrecision = 38
+	StorageScale     = 18
 )
 
 var (
 	kopecksPerRub = decimal.NewFromInt(100)
 	maxRubAmount  = decimal.NewFromInt(1_000_000)
 	maxRate       = decimal.NewFromInt(100)
+	maxInt64      = decimal.NewFromInt(math.MaxInt64)
+	minInt64      = decimal.NewFromInt(math.MinInt64)
 )
+
+type JSONDecimal struct {
+	decimal.Decimal
+}
+
+func NewJSONDecimal(amount decimal.Decimal) JSONDecimal {
+	return JSONDecimal{Decimal: amount}
+}
+
+func (d JSONDecimal) MarshalJSON() ([]byte, error) {
+	data, err := json.Marshal(d.String())
+	if err != nil {
+		return nil, fmt.Errorf("marshal money decimal: %w", err)
+	}
+	return data, nil
+}
+
+func (d *JSONDecimal) UnmarshalJSON(data []byte) error {
+	var raw string
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return fmt.Errorf("money value must be a decimal string")
+	}
+	amount, err := ParseDecimalString(raw)
+	if err != nil {
+		return err
+	}
+	d.Decimal = amount
+	return nil
+}
+
+func ParseDecimalString(input string) (decimal.Decimal, error) {
+	value := strings.TrimSpace(strings.ReplaceAll(input, ",", "."))
+	if value == "" {
+		return decimal.Zero, fmt.Errorf("amount is empty")
+	}
+	amount, err := decimal.NewFromString(value)
+	if err != nil {
+		return decimal.Zero, fmt.Errorf("parse amount: %w", err)
+	}
+	if err := ValidateStorageDecimal(amount); err != nil {
+		return decimal.Zero, err
+	}
+	return amount, nil
+}
+
+func ValidateStorageDecimal(amount decimal.Decimal) error {
+	if -amount.Exponent() > StorageScale {
+		return fmt.Errorf("amount scale exceeds %d: %s", StorageScale, amount.String())
+	}
+
+	intDigits := len(amount.Abs().Truncate(0).String())
+	if amount.Abs().LessThan(decimal.NewFromInt(1)) {
+		intDigits = 0
+	}
+	maxIntDigits := StoragePrecision - StorageScale
+	if intDigits > maxIntDigits {
+		return fmt.Errorf("amount precision exceeds NUMERIC(%d,%d): %s", StoragePrecision, StorageScale, amount.String())
+	}
+	return nil
+}
+
+var currencyScales = map[string]int32{
+	"BHD": 3,
+	"BIF": 0,
+	"CLF": 4,
+	"CLP": 0,
+	"DJF": 0,
+	"GNF": 0,
+	"IQD": 3,
+	"ISK": 0,
+	"JOD": 3,
+	"JPY": 0,
+	"KMF": 0,
+	"KRW": 0,
+	"KWD": 3,
+	"LYD": 3,
+	"OMR": 3,
+	"PYG": 0,
+	"RWF": 0,
+	"TND": 3,
+	"UGX": 0,
+	"UYI": 0,
+	"VND": 0,
+	"VUV": 0,
+	"XAF": 0,
+	"XOF": 0,
+	"XPF": 0,
+}
+
+func CurrencyScale(currency string) int32 {
+	if scale, ok := currencyScales[strings.ToUpper(strings.TrimSpace(currency))]; ok {
+		return scale
+	}
+	return 2
+}
+
+func RoundForCurrency(amount decimal.Decimal, currency string) decimal.Decimal {
+	return amount.Round(CurrencyScale(currency))
+}
 
 func ParseRUB(input string) (decimal.Decimal, error) {
 	value := strings.TrimSpace(strings.ReplaceAll(input, ",", "."))
@@ -43,6 +151,22 @@ func ParsePositiveRUB(input string) (decimal.Decimal, error) {
 
 func LegacyKopecksToDecimal(kopecks int64) decimal.Decimal {
 	return decimal.NewFromInt(kopecks).Div(kopecksPerRub).Round(2)
+}
+
+// Deprecated: compatibility helper for legacy integer minor-unit data only.
+func MinorUnitsToDecimal(amount int64) decimal.Decimal {
+	return decimal.NewFromInt(amount)
+}
+
+// Deprecated: compatibility helper for legacy integer minor-unit APIs only.
+func DecimalToMinorUnits(amount decimal.Decimal) (int64, error) {
+	if !amount.IsInteger() {
+		return 0, fmt.Errorf("amount cannot be represented as integer minor units: %s", amount.String())
+	}
+	if amount.GreaterThan(maxInt64) || amount.LessThan(minInt64) {
+		return 0, fmt.Errorf("amount exceeds int64 minor-unit compatibility range: %s", amount.String())
+	}
+	return amount.IntPart(), nil
 }
 
 func DecimalToLegacyKopecks(amount decimal.Decimal) (int64, error) {

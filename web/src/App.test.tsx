@@ -164,3 +164,5 @@ describe("App query states", () => {
     expect(await screen.findByText("Loading profile")).toBeInTheDocument();
   });
 });
+
+

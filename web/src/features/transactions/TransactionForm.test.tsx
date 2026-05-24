@@ -73,7 +73,7 @@ describe("TransactionForm", () => {
     await waitFor(() => expect(mocks.createTransaction).toHaveBeenCalledWith(expect.objectContaining({
       account_id: "account-1",
       type: "adjustment",
-      amount_minor: -1000,
+      amount: "-10",
     })));
     await waitFor(() => expect(onDone).toHaveBeenCalled());
   });
@@ -89,3 +89,5 @@ describe("TransactionForm", () => {
     await waitFor(() => expect(mocks.createTransaction).not.toHaveBeenCalled());
   });
 });
+
+

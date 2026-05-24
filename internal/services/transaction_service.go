@@ -7,16 +7,18 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/repository"
+	"github.com/sunriseex/capitalflow/pkg/money"
 )
 
 type TransactionService struct {
 	repo repository.TransactionRepository
 }
 
-const maxTransactionAmountMinor int64 = 100_000_000_000_000
+var maxTransactionAmount = decimal.RequireFromString("1000000000000")
 
 func NewTransactionService(repos ...repository.TransactionRepository) *TransactionService {
 	var repo repository.TransactionRepository
@@ -30,7 +32,8 @@ type CreateTransactionRequest struct {
 	AccountID        string
 	RelatedAccountID *string
 	Type             models.TransactionType
-	AmountMinor      int64
+	Amount           decimal.Decimal
+	Currency         string
 	CategoryID       *string
 	Description      string
 	OccurredAt       time.Time
@@ -135,13 +138,20 @@ func buildTransaction(ctx context.Context, req *CreateTransactionRequest) (*mode
 	if !validTransactionType(req.Type) {
 		return nil, validationError(fmt.Sprintf("invalid transaction type: %s", req.Type))
 	}
-	if req.AmountMinor == 0 {
+	if req.Amount.IsZero() {
 		return nil, validationError("amount must be non-zero")
 	}
-	if req.AmountMinor < -maxTransactionAmountMinor || req.AmountMinor > maxTransactionAmountMinor {
-		return nil, validationError(fmt.Sprintf("amount must be between %d and %d minor units", -maxTransactionAmountMinor, maxTransactionAmountMinor))
+	if req.Amount.LessThan(maxTransactionAmount.Neg()) || req.Amount.GreaterThan(maxTransactionAmount) {
+		return nil, validationError(fmt.Sprintf("amount must be between %s and %s", maxTransactionAmount.Neg(), maxTransactionAmount))
 	}
-	if req.Type != models.TransactionTypeAdjustment && req.AmountMinor < 0 {
+	if rounded := money.RoundForCurrency(req.Amount, req.Currency); !req.Amount.Equal(rounded) {
+		currency := strings.ToUpper(strings.TrimSpace(req.Currency))
+		if currency == "" {
+			currency = "RUB"
+		}
+		return nil, validationError(fmt.Sprintf("amount scale exceeds %s minor units", currency))
+	}
+	if req.Type != models.TransactionTypeAdjustment && req.Amount.IsNegative() {
 		return nil, validationError(fmt.Sprintf("amount must be positive for %s transactions", req.Type))
 	}
 
@@ -155,7 +165,7 @@ func buildTransaction(ctx context.Context, req *CreateTransactionRequest) (*mode
 		AccountID:        strings.TrimSpace(req.AccountID),
 		RelatedAccountID: req.RelatedAccountID,
 		Type:             req.Type,
-		AmountMinor:      req.AmountMinor,
+		Amount:           req.Amount,
 		CategoryID:       req.CategoryID,
 		Description:      strings.TrimSpace(req.Description),
 		OccurredAt:       occurredAt,

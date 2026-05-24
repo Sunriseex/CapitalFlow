@@ -247,7 +247,7 @@ func (r interestCalculationTxRepository) ReplaceInterestAccrualRangeWithTransact
 }
 
 const selectInterestAccrualSQL = `
-	SELECT id, account_id, rule_id, transaction_id, accrual_date, amount_minor, balance_minor, annual_rate_bps, created_at
+	SELECT id, account_id, rule_id, transaction_id, accrual_date, amount, balance, annual_rate_bps, created_at
 	FROM interest_accruals
 `
 
@@ -263,8 +263,8 @@ func scanInterestAccrual(row interestAccrualScanner) (*models.InterestAccrual, e
 		&accrual.RuleID,
 		&accrual.TransactionID,
 		&accrual.AccrualDate,
-		&accrual.AmountMinor,
-		&accrual.BalanceMinor,
+		&accrual.Amount,
+		&accrual.Balance,
 		&accrual.AnnualRateBps,
 		&accrual.CreatedAt,
 	); err != nil {
@@ -275,9 +275,9 @@ func scanInterestAccrual(row interestAccrualScanner) (*models.InterestAccrual, e
 
 func insertInterestAccrual(ctx context.Context, execer sqlExecer, accrual *models.InterestAccrual) error {
 	_, err := execer.Exec(ctx, `
-		INSERT INTO interest_accruals (id, account_id, rule_id, transaction_id, accrual_date, amount_minor, balance_minor, annual_rate_bps, created_at)
+		INSERT INTO interest_accruals (id, account_id, rule_id, transaction_id, accrual_date, amount, balance, annual_rate_bps, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-	`, accrual.ID, accrual.AccountID, accrual.RuleID, accrual.TransactionID, accrual.AccrualDate, accrual.AmountMinor, accrual.BalanceMinor, accrual.AnnualRateBps, accrual.CreatedAt)
+	`, accrual.ID, accrual.AccountID, accrual.RuleID, accrual.TransactionID, accrual.AccrualDate, accrual.Amount, accrual.Balance, accrual.AnnualRateBps, accrual.CreatedAt)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return fmt.Errorf("insert interest accrual: %w", repository.ErrConflict)

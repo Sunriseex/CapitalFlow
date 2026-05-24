@@ -73,7 +73,7 @@ export type DayCountConvention = "actual_365" | "actual_366" | "actual_actual";
 
 export type Amount = {
   "currency": string;
-  "amount_minor": number;
+  "amount": string;
 };
 
 export type Account = {
@@ -108,7 +108,7 @@ export type UpdateAccountRequest = {
 
 export type AccountBalance = {
   "account_id": string;
-  "balance_minor": number;
+  "balance": string;
   "transaction_count": number;
 };
 
@@ -126,7 +126,7 @@ export type Transaction = {
   "related_account_id"?: string | null;
   "transfer_id"?: string | null;
   "type": TransactionType;
-  "amount_minor": number;
+  "amount": string;
   "category_id"?: string | null;
   "description"?: string;
   "occurred_at": string;
@@ -137,7 +137,7 @@ export type CreateTransactionRequest = {
   "account_id": string;
   "related_account_id"?: string | null;
   "type": TransactionType;
-  "amount_minor": number;
+  "amount": string;
   "category_id"?: string | null;
   "description": string;
   "occurred_at": string;
@@ -146,7 +146,7 @@ export type CreateTransactionRequest = {
 export type CreateTransferRequest = {
   "from_account_id": string;
   "to_account_id": string;
-  "amount_minor": number;
+  "amount": string;
   "description": string;
 };
 
@@ -220,7 +220,7 @@ export type RecalculateInterestResponse = {
   "deleted_accruals": number;
   "created_accruals": number;
   "skipped_days": number;
-  "total_amount_minor": number;
+  "total_amount": string;
 };
 
 export type DashboardAccountBalance = AccountBalance & {
@@ -294,8 +294,8 @@ export type InterestAccrual = {
   "rule_id": string;
   "transaction_id": string;
   "accrual_date": string;
-  "amount_minor": number;
-  "balance_minor": number;
+  "amount": string;
+  "balance": string;
   "annual_rate_bps": number;
   "created_at": string;
 };

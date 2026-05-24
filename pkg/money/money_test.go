@@ -1,6 +1,7 @@
 package money
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/shopspring/decimal"
@@ -41,6 +42,53 @@ func TestParseRUB(t *testing.T) {
 	}
 }
 
+func TestJSONDecimalUnmarshalRequiresString(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    string
+		wantErr bool
+	}{
+		{name: "decimal string", input: `{"amount":"123.45"}`, want: "123.45"},
+		{name: "integer string", input: `{"amount":"123"}`, want: "123"},
+		{name: "json number rejected", input: `{"amount":123.45}`, wantErr: true},
+		{name: "empty string rejected", input: `{"amount":""}`, wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got struct {
+				Amount JSONDecimal `json:"amount"`
+			}
+			err := json.Unmarshal([]byte(tt.input), &got)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got.Amount.String() != tt.want {
+				t.Fatalf("got %s, want %s", got.Amount.String(), tt.want)
+			}
+		})
+	}
+}
+
+func TestJSONDecimalMarshalWritesString(t *testing.T) {
+	got, err := json.Marshal(struct {
+		Amount JSONDecimal `json:"amount"`
+	}{Amount: NewJSONDecimal(decimal.RequireFromString("123.45"))})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if string(got) != `{"amount":"123.45"}` {
+		t.Fatalf("got %s", got)
+	}
+}
+
 func TestParsePositiveRUB(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -61,6 +109,28 @@ func TestParsePositiveRUB(t *testing.T) {
 			}
 			if !tt.wantErr && err != nil {
 				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestCurrencyScale(t *testing.T) {
+	tests := []struct {
+		currency string
+		want     int32
+	}{
+		{currency: "RUB", want: 2},
+		{currency: "JPY", want: 0},
+		{currency: "krw", want: 0},
+		{currency: "KWD", want: 3},
+		{currency: "CLF", want: 4},
+		{currency: "UNKNOWN", want: 2},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.currency, func(t *testing.T) {
+			if got := CurrencyScale(tt.currency); got != tt.want {
+				t.Fatalf("got %d, want %d", got, tt.want)
 			}
 		})
 	}

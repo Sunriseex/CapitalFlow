@@ -1,10 +1,12 @@
 package dto
 
+import "github.com/sunriseex/capitalflow/pkg/money"
+
 type CreateTransferRequest struct {
-	FromAccountID string `json:"from_account_id"`
-	ToAccountID   string `json:"to_account_id"`
-	AmountMinor   int64  `json:"amount_minor"`
-	Description   string `json:"description"`
+	FromAccountID string            `json:"from_account_id"`
+	ToAccountID   string            `json:"to_account_id"`
+	Amount        money.JSONDecimal `json:"amount"`
+	Description   string            `json:"description"`
 }
 
 type TransferResponse struct {

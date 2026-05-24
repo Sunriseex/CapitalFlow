@@ -244,7 +244,7 @@ func TestFinanceMutationIdempotencyReplaysStoredResponse(t *testing.T) {
 	body := `{
 		"account_id":"11111111-1111-1111-1111-111111111111",
 		"type":"income",
-		"amount_minor":1000
+		"amount":"1000"
 	}`
 	var firstBody string
 	for i := range 2 {

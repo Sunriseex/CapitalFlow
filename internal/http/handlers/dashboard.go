@@ -9,9 +9,12 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/sunriseex/capitalflow/internal/http/dto"
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/services"
+	"github.com/sunriseex/capitalflow/pkg/money"
 )
 
 const (
@@ -142,10 +145,10 @@ func buildDashboardSummary(ctx context.Context, now time.Time, accounts []models
 		RecentTransactionsReturned: min(recentLimit, len(transactions)),
 	}
 
-	balances := make(map[string]int64)
-	income := make(map[string]int64)
-	expense := make(map[string]int64)
-	interestIncome := make(map[string]int64)
+	balances := make(map[string]decimal.Decimal)
+	income := make(map[string]decimal.Decimal)
+	expense := make(map[string]decimal.Decimal)
+	interestIncome := make(map[string]decimal.Decimal)
 
 	for i := range accounts {
 		account := &accounts[i]
@@ -162,7 +165,7 @@ func buildDashboardSummary(ctx context.Context, now time.Time, accounts []models
 		}
 
 		if account.IsActive {
-			balances[account.Currency] += balance.BalanceMinor
+			balances[account.Currency] = balances[account.Currency].Add(balance.Balance)
 		}
 
 		summary.AccountBalances = append(summary.AccountBalances, dto.DashboardAccountBalanceResponse{
@@ -172,7 +175,7 @@ func buildDashboardSummary(ctx context.Context, now time.Time, accounts []models
 			Type:             account.Type,
 			Currency:         account.Currency,
 			IsActive:         account.IsActive,
-			BalanceMinor:     balance.BalanceMinor,
+			Balance:          money.NewJSONDecimal(balance.Balance),
 			TransactionCount: balance.Count,
 		})
 	}
@@ -192,12 +195,12 @@ func buildDashboardSummary(ctx context.Context, now time.Time, accounts []models
 
 		switch tx.Type {
 		case models.TransactionTypeIncome:
-			income[account.Currency] += tx.AmountMinor
+			income[account.Currency] = income[account.Currency].Add(tx.Amount)
 		case models.TransactionTypeExpense:
-			expense[account.Currency] += tx.AmountMinor
+			expense[account.Currency] = expense[account.Currency].Add(tx.Amount)
 		case models.TransactionTypeInterestIncome:
-			income[account.Currency] += tx.AmountMinor
-			interestIncome[account.Currency] += tx.AmountMinor
+			income[account.Currency] = income[account.Currency].Add(tx.Amount)
+			interestIncome[account.Currency] = interestIncome[account.Currency].Add(tx.Amount)
 		}
 	}
 
@@ -226,7 +229,7 @@ func buildDashboardSummary(ctx context.Context, now time.Time, accounts []models
 }
 
 func buildDashboardNetWorth(ctx context.Context, now time.Time, accounts []models.Account, transactions []models.Transaction) (*dto.DashboardNetWorthResponse, error) {
-	balances := make(map[string]int64)
+	balances := make(map[string]decimal.Decimal)
 	response := &dto.DashboardNetWorthResponse{
 		GeneratedAt: now,
 	}
@@ -242,7 +245,7 @@ func buildDashboardNetWorth(ctx context.Context, now time.Time, accounts []model
 		}
 
 		if account.IsActive {
-			balances[account.Currency] += balance.BalanceMinor
+			balances[account.Currency] = balances[account.Currency].Add(balance.Balance)
 		}
 
 		response.AccountBalances = append(response.AccountBalances, dto.DashboardAccountBalanceResponse{
@@ -252,7 +255,7 @@ func buildDashboardNetWorth(ctx context.Context, now time.Time, accounts []model
 			Type:             account.Type,
 			Currency:         account.Currency,
 			IsActive:         account.IsActive,
-			BalanceMinor:     balance.BalanceMinor,
+			Balance:          money.NewJSONDecimal(balance.Balance),
 			TransactionCount: balance.Count,
 		})
 	}
@@ -284,12 +287,12 @@ func buildDashboardCashflow(now time.Time, accounts []models.Account, transactio
 
 		switch tx.Type {
 		case models.TransactionTypeIncome, models.TransactionTypeInterestIncome:
-			addDashboardAmount(&bucket.Income, account.Currency, tx.AmountMinor)
-			addDashboardAmount(&bucket.NetCashflow, account.Currency, tx.AmountMinor)
+			addDashboardAmount(&bucket.Income, account.Currency, tx.Amount)
+			addDashboardAmount(&bucket.NetCashflow, account.Currency, tx.Amount)
 			bucket.TransactionCount++
 		case models.TransactionTypeExpense:
-			addDashboardAmount(&bucket.Expense, account.Currency, tx.AmountMinor)
-			addDashboardAmount(&bucket.NetCashflow, account.Currency, -tx.AmountMinor)
+			addDashboardAmount(&bucket.Expense, account.Currency, tx.Amount)
+			addDashboardAmount(&bucket.NetCashflow, account.Currency, tx.Amount.Neg())
 			bucket.TransactionCount++
 		}
 	}
@@ -309,7 +312,7 @@ func buildDashboardInterestIncome(now time.Time, accounts []models.Account, tran
 		bucketByPeriod[buckets[i].Period] = &buckets[i]
 	}
 
-	total := make(map[string]int64)
+	total := make(map[string]decimal.Decimal)
 	for i := range transactions {
 		tx := &transactions[i]
 		if tx.Type != models.TransactionTypeInterestIncome {
@@ -327,8 +330,8 @@ func buildDashboardInterestIncome(now time.Time, accounts []models.Account, tran
 			continue
 		}
 
-		addDashboardAmount(&bucket.InterestIncome, account.Currency, tx.AmountMinor)
-		total[account.Currency] += tx.AmountMinor
+		addDashboardAmount(&bucket.InterestIncome, account.Currency, tx.Amount)
+		total[account.Currency] = total[account.Currency].Add(tx.Amount)
 		bucket.TransactionCount++
 	}
 
@@ -340,7 +343,7 @@ func buildDashboardInterestIncome(now time.Time, accounts []models.Account, tran
 	}
 }
 
-func dashboardAmountsFromMap(amounts map[string]int64) []dto.DashboardAmountResponse {
+func dashboardAmountsFromMap(amounts map[string]decimal.Decimal) []dto.DashboardAmountResponse {
 	currencies := make([]string, 0, len(amounts))
 	for currency := range amounts {
 		currencies = append(currencies, currency)
@@ -350,8 +353,8 @@ func dashboardAmountsFromMap(amounts map[string]int64) []dto.DashboardAmountResp
 	response := make([]dto.DashboardAmountResponse, 0, len(currencies))
 	for _, currency := range currencies {
 		response = append(response, dto.DashboardAmountResponse{
-			Currency:    currency,
-			AmountMinor: amounts[currency],
+			Currency: currency,
+			Amount:   money.NewJSONDecimal(amounts[currency]),
 		})
 	}
 	return response
@@ -395,17 +398,17 @@ func dashboardInterestMonthBuckets(now time.Time, months int) []dto.DashboardInt
 	return buckets
 }
 
-func addDashboardAmount(amounts *[]dto.DashboardAmountResponse, currency string, delta int64) {
+func addDashboardAmount(amounts *[]dto.DashboardAmountResponse, currency string, delta decimal.Decimal) {
 	for i := range *amounts {
 		if (*amounts)[i].Currency == currency {
-			(*amounts)[i].AmountMinor += delta
+			(*amounts)[i].Amount = money.NewJSONDecimal((*amounts)[i].Amount.Add(delta))
 			return
 		}
 	}
 
 	*amounts = append(*amounts, dto.DashboardAmountResponse{
-		Currency:    currency,
-		AmountMinor: delta,
+		Currency: currency,
+		Amount:   money.NewJSONDecimal(delta),
 	})
 }
 

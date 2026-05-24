@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/sunriseex/capitalflow/internal/http/dto"
 	"github.com/sunriseex/capitalflow/internal/models"
 )
@@ -35,52 +37,52 @@ func TestBuildDashboardSummary(t *testing.T) {
 	}
 	transactions := []models.Transaction{
 		{
-			ID:          "initial-1",
-			AccountID:   "account-1",
-			Type:        models.TransactionTypeInitialBalance,
-			AmountMinor: 100_000,
-			OccurredAt:  time.Date(2026, 4, 30, 0, 0, 0, 0, time.UTC),
-			CreatedAt:   time.Date(2026, 4, 30, 1, 0, 0, 0, time.UTC),
+			ID:         "initial-1",
+			AccountID:  "account-1",
+			Type:       models.TransactionTypeInitialBalance,
+			Amount:     dec("1000"),
+			OccurredAt: time.Date(2026, 4, 30, 0, 0, 0, 0, time.UTC),
+			CreatedAt:  time.Date(2026, 4, 30, 1, 0, 0, 0, time.UTC),
 		},
 		{
-			ID:          "income-1",
-			AccountID:   "account-1",
-			Type:        models.TransactionTypeIncome,
-			AmountMinor: 50_000,
-			OccurredAt:  time.Date(2026, 5, 2, 0, 0, 0, 0, time.UTC),
-			CreatedAt:   time.Date(2026, 5, 2, 1, 0, 0, 0, time.UTC),
+			ID:         "income-1",
+			AccountID:  "account-1",
+			Type:       models.TransactionTypeIncome,
+			Amount:     dec("500"),
+			OccurredAt: time.Date(2026, 5, 2, 0, 0, 0, 0, time.UTC),
+			CreatedAt:  time.Date(2026, 5, 2, 1, 0, 0, 0, time.UTC),
 		},
 		{
-			ID:          "expense-1",
-			AccountID:   "account-1",
-			Type:        models.TransactionTypeExpense,
-			AmountMinor: 20_000,
-			OccurredAt:  time.Date(2026, 5, 3, 0, 0, 0, 0, time.UTC),
-			CreatedAt:   time.Date(2026, 5, 3, 1, 0, 0, 0, time.UTC),
+			ID:         "expense-1",
+			AccountID:  "account-1",
+			Type:       models.TransactionTypeExpense,
+			Amount:     dec("200"),
+			OccurredAt: time.Date(2026, 5, 3, 0, 0, 0, 0, time.UTC),
+			CreatedAt:  time.Date(2026, 5, 3, 1, 0, 0, 0, time.UTC),
 		},
 		{
-			ID:          "interest-1",
-			AccountID:   "account-1",
-			Type:        models.TransactionTypeInterestIncome,
-			AmountMinor: 1_000,
-			OccurredAt:  time.Date(2026, 5, 4, 0, 0, 0, 0, time.UTC),
-			CreatedAt:   time.Date(2026, 5, 4, 1, 0, 0, 0, time.UTC),
+			ID:         "interest-1",
+			AccountID:  "account-1",
+			Type:       models.TransactionTypeInterestIncome,
+			Amount:     dec("10"),
+			OccurredAt: time.Date(2026, 5, 4, 0, 0, 0, 0, time.UTC),
+			CreatedAt:  time.Date(2026, 5, 4, 1, 0, 0, 0, time.UTC),
 		},
 		{
-			ID:          "archived-initial",
-			AccountID:   "account-2",
-			Type:        models.TransactionTypeInitialBalance,
-			AmountMinor: 999_999,
-			OccurredAt:  time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
-			CreatedAt:   time.Date(2026, 5, 1, 1, 0, 0, 0, time.UTC),
+			ID:         "archived-initial",
+			AccountID:  "account-2",
+			Type:       models.TransactionTypeInitialBalance,
+			Amount:     dec("9999.99"),
+			OccurredAt: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+			CreatedAt:  time.Date(2026, 5, 1, 1, 0, 0, 0, time.UTC),
 		},
 		{
-			ID:          "usd-initial",
-			AccountID:   "account-3",
-			Type:        models.TransactionTypeInitialBalance,
-			AmountMinor: 10_000,
-			OccurredAt:  time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
-			CreatedAt:   time.Date(2026, 5, 1, 1, 0, 0, 0, time.UTC),
+			ID:         "usd-initial",
+			AccountID:  "account-3",
+			Type:       models.TransactionTypeInitialBalance,
+			Amount:     dec("100"),
+			OccurredAt: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+			CreatedAt:  time.Date(2026, 5, 1, 1, 0, 0, 0, time.UTC),
 		},
 	}
 
@@ -129,18 +131,18 @@ func TestBuildDashboardNetWorth(t *testing.T) {
 	}
 	transactions := []models.Transaction{
 		{
-			ID:          "active-balance",
-			AccountID:   "active",
-			Type:        models.TransactionTypeInitialBalance,
-			AmountMinor: 100_000,
-			OccurredAt:  now,
+			ID:         "active-balance",
+			AccountID:  "active",
+			Type:       models.TransactionTypeInitialBalance,
+			Amount:     dec("1000"),
+			OccurredAt: now,
 		},
 		{
-			ID:          "archived-balance",
-			AccountID:   "archived",
-			Type:        models.TransactionTypeInitialBalance,
-			AmountMinor: 999_999,
-			OccurredAt:  now,
+			ID:         "archived-balance",
+			AccountID:  "archived",
+			Type:       models.TransactionTypeInitialBalance,
+			Amount:     dec("9999.99"),
+			OccurredAt: now,
 		},
 	}
 
@@ -168,32 +170,32 @@ func TestBuildDashboardCashflow(t *testing.T) {
 	}
 	transactions := []models.Transaction{
 		{
-			ID:          "income-current",
-			AccountID:   "account-1",
-			Type:        models.TransactionTypeIncome,
-			AmountMinor: 100_000,
-			OccurredAt:  time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+			ID:         "income-current",
+			AccountID:  "account-1",
+			Type:       models.TransactionTypeIncome,
+			Amount:     dec("1000"),
+			OccurredAt: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
 		},
 		{
-			ID:          "expense-current",
-			AccountID:   "account-1",
-			Type:        models.TransactionTypeExpense,
-			AmountMinor: 40_000,
-			OccurredAt:  time.Date(2026, 5, 2, 0, 0, 0, 0, time.UTC),
+			ID:         "expense-current",
+			AccountID:  "account-1",
+			Type:       models.TransactionTypeExpense,
+			Amount:     dec("400"),
+			OccurredAt: time.Date(2026, 5, 2, 0, 0, 0, 0, time.UTC),
 		},
 		{
-			ID:          "interest-current",
-			AccountID:   "account-1",
-			Type:        models.TransactionTypeInterestIncome,
-			AmountMinor: 5_000,
-			OccurredAt:  time.Date(2026, 5, 3, 0, 0, 0, 0, time.UTC),
+			ID:         "interest-current",
+			AccountID:  "account-1",
+			Type:       models.TransactionTypeInterestIncome,
+			Amount:     dec("50"),
+			OccurredAt: time.Date(2026, 5, 3, 0, 0, 0, 0, time.UTC),
 		},
 		{
-			ID:          "old-income",
-			AccountID:   "account-1",
-			Type:        models.TransactionTypeIncome,
-			AmountMinor: 999_999,
-			OccurredAt:  time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
+			ID:         "old-income",
+			AccountID:  "account-1",
+			Type:       models.TransactionTypeIncome,
+			Amount:     dec("9999.99"),
+			OccurredAt: time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC),
 		},
 	}
 
@@ -223,25 +225,25 @@ func TestBuildDashboardInterestIncome(t *testing.T) {
 	}
 	transactions := []models.Transaction{
 		{
-			ID:          "interest-april",
-			AccountID:   "account-1",
-			Type:        models.TransactionTypeInterestIncome,
-			AmountMinor: 4_000,
-			OccurredAt:  time.Date(2026, 4, 30, 0, 0, 0, 0, time.UTC),
+			ID:         "interest-april",
+			AccountID:  "account-1",
+			Type:       models.TransactionTypeInterestIncome,
+			Amount:     dec("40"),
+			OccurredAt: time.Date(2026, 4, 30, 0, 0, 0, 0, time.UTC),
 		},
 		{
-			ID:          "interest-may",
-			AccountID:   "account-1",
-			Type:        models.TransactionTypeInterestIncome,
-			AmountMinor: 5_000,
-			OccurredAt:  time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+			ID:         "interest-may",
+			AccountID:  "account-1",
+			Type:       models.TransactionTypeInterestIncome,
+			Amount:     dec("50"),
+			OccurredAt: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
 		},
 		{
-			ID:          "income-may",
-			AccountID:   "account-1",
-			Type:        models.TransactionTypeIncome,
-			AmountMinor: 100_000,
-			OccurredAt:  time.Date(2026, 5, 2, 0, 0, 0, 0, time.UTC),
+			ID:         "income-may",
+			AccountID:  "account-1",
+			Type:       models.TransactionTypeIncome,
+			Amount:     dec("1000"),
+			OccurredAt: time.Date(2026, 5, 2, 0, 0, 0, 0, time.UTC),
 		},
 	}
 
@@ -257,8 +259,8 @@ func assertDashboardAmount(t *testing.T, amounts []dto.DashboardAmountResponse, 
 
 	for _, amount := range amounts {
 		if amount.Currency == currency {
-			if amount.AmountMinor != want {
-				t.Fatalf("%s amount = %d, want %d", currency, amount.AmountMinor, want)
+			if !amount.Amount.Equal(decimal.NewFromInt(want).Div(decimal.NewFromInt(100))) {
+				t.Fatalf("%s amount = %d, want %d", currency, amount.Amount, want)
 			}
 			return
 		}

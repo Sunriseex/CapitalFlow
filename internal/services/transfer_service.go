@@ -7,8 +7,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 
 	"github.com/sunriseex/capitalflow/internal/models"
+	"github.com/sunriseex/capitalflow/pkg/money"
 )
 
 type TransferService struct {
@@ -26,7 +28,7 @@ type CreateTransferRequest struct {
 	ToAccountID    string
 	FromCurrency   string
 	ToCurrency     string
-	AmountMinor    int64
+	Amount         decimal.Decimal
 	Description    string
 	IdempotencyKey string
 }
@@ -56,7 +58,7 @@ func (s *TransferService) Create(ctx context.Context, req *CreateTransferRequest
 	if fromAccountID == toAccountID {
 		return nil, validationError("transfer accounts must be different")
 	}
-	if req.AmountMinor <= 0 {
+	if !req.Amount.IsPositive() {
 		return nil, validationError("transfer amount must be positive")
 	}
 	idempotencyKey := strings.TrimSpace(req.IdempotencyKey)
@@ -64,16 +66,24 @@ func (s *TransferService) Create(ctx context.Context, req *CreateTransferRequest
 		return nil, validationError("idempotency key is required")
 	}
 
-	inAmountMinor := req.AmountMinor
-	exchangeRate := "1"
 	fromCurrency := strings.TrimSpace(req.FromCurrency)
 	toCurrency := strings.TrimSpace(req.ToCurrency)
+	fromAmount := money.RoundForCurrency(req.Amount, fromCurrency)
+	if !req.Amount.Equal(fromAmount) {
+		currency := fromCurrency
+		if currency == "" {
+			currency = "RUB"
+		}
+		return nil, validationError("transfer amount scale exceeds " + currency + " minor units")
+	}
+	inAmount := fromAmount
+	exchangeRate := "1"
 	if fromCurrency != "" || toCurrency != "" {
-		convertedAmountMinor, rate, err := s.currency.ConvertMinor(ctx, req.AmountMinor, fromCurrency, toCurrency)
+		convertedAmount, rate, err := s.currency.ConvertDecimalAmount(ctx, fromAmount, fromCurrency, toCurrency)
 		if err != nil {
 			return nil, fmt.Errorf("convert transfer amount: %w", err)
 		}
-		inAmountMinor = convertedAmountMinor
+		inAmount = money.RoundForCurrency(convertedAmount, toCurrency)
 		exchangeRate = rate.String()
 	}
 
@@ -83,8 +93,8 @@ func (s *TransferService) Create(ctx context.Context, req *CreateTransferRequest
 		UserID:               strings.TrimSpace(req.UserID),
 		FromAccountID:        fromAccountID,
 		ToAccountID:          toAccountID,
-		FromAmountMinor:      req.AmountMinor,
-		ToAmountMinor:        inAmountMinor,
+		FromAmount:           fromAmount,
+		ToAmount:             inAmount,
 		FromCurrency:         fromCurrency,
 		ToCurrency:           toCurrency,
 		ExchangeRate:         exchangeRate,
@@ -100,13 +110,15 @@ func (s *TransferService) Create(ctx context.Context, req *CreateTransferRequest
 		AccountID:        fromAccountID,
 		RelatedAccountID: &outRelatedID,
 		Type:             models.TransactionTypeTransferOut,
-		AmountMinor:      req.AmountMinor,
+		Amount:           fromAmount,
+		Currency:         fromCurrency,
 		Description:      req.Description,
 	}, &CreateTransactionRequest{
 		AccountID:        toAccountID,
 		RelatedAccountID: &inRelatedID,
 		Type:             models.TransactionTypeTransferIn,
-		AmountMinor:      inAmountMinor,
+		Amount:           inAmount,
+		Currency:         toCurrency,
 		Description:      req.Description,
 	})
 	if err != nil {
