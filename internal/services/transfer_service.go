@@ -116,7 +116,7 @@ func (s *TransferService) Create(ctx context.Context, req *CreateTransferRequest
 		Amount:           fromAmount,
 		Currency:         fromCurrency,
 		Description:      req.Description,
-	}, &CreateTransactionRequest{
+	}, {
 		AccountID:        toAccountID,
 		RelatedAccountID: &inRelatedID,
 		Type:             models.TransactionTypeTransferIn,
