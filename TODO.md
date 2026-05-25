@@ -113,7 +113,7 @@ internal/
 ## Edge cases
 
 * [ ] Account принадлежит другому `user_id`.
-* [ ] Account archived, но по нему пытаются создать transaction.
+* [x] Account archived, но по нему пытаются создать transaction.
 * [ ] Transaction с `amount = 0`.
 * [ ] Transaction с отрицательной суммой там, где это запрещено.
 * [ ] Currency в lowercase: `rub`, `usd`.
@@ -185,7 +185,7 @@ transfers
 * [ ] Перевод с комиссией.
 * [ ] Перевод между своими счетами в разных банках.
 * [ ] Перевод на брокерский счет.
-* [ ] Перевод между archived и active account должен быть запрещен или явно ограничен.
+* [x] Перевод между archived и active account должен быть запрещен или явно ограничен.
 
 ### Transfer edge cases
 

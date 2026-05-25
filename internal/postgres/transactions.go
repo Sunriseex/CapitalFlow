@@ -63,31 +63,53 @@ func lockTransactionAccountsForUser(ctx context.Context, db queryer, userID stri
 	if len(accountIDs) == 0 {
 		return repository.ErrNotFound
 	}
-	if len(accountIDs) == 1 {
-		return lockAccountForUser(ctx, db, accountIDs[0], userID)
-	}
 
-	rows, err := db.Query(ctx, `
-		SELECT id
+	query := `
+		SELECT id, is_active
 		FROM accounts
-		WHERE id IN ($1, $2) AND owner_user_id = $3
+		WHERE id = $1 AND owner_user_id = $2
 		ORDER BY id
 		FOR UPDATE
-	`, accountIDs[0], accountIDs[1], userID)
+	`
+	args := []any{accountIDs[0], userID}
+	if len(accountIDs) == 2 {
+		query = `
+			SELECT id, is_active
+			FROM accounts
+			WHERE id IN ($1, $2) AND owner_user_id = $3
+			ORDER BY id
+			FOR UPDATE
+		`
+		args = []any{accountIDs[0], accountIDs[1], userID}
+	}
+
+	rows, err := db.Query(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("query locked transaction accounts: %w", err)
 	}
 	defer rows.Close()
 
 	locked := 0
+	hasInactive := false
 	for rows.Next() {
+		var id string
+		var isActive bool
+		if err := rows.Scan(&id, &isActive); err != nil {
+			return fmt.Errorf("scan locked transaction account: %w", err)
+		}
 		locked++
+		if !isActive {
+			hasInactive = true
+		}
 	}
 	if err := rows.Err(); err != nil {
 		return fmt.Errorf("read locked transaction accounts: %w", err)
 	}
 	if locked != len(accountIDs) {
 		return repository.ErrNotFound
+	}
+	if hasInactive {
+		return repository.ErrInactiveAccount
 	}
 	return nil
 }
@@ -124,7 +146,7 @@ func (r *TransactionRepository) CreateTransfer(ctx context.Context, transfer *mo
 	accountIDs := []string{transfer.FromAccountID, transfer.ToAccountID}
 	slices.Sort(accountIDs)
 	rows, err := tx.Query(ctx, `
-		SELECT id, currency
+		SELECT id, currency, is_active
 		FROM accounts
 		WHERE id IN ($1, $2) AND owner_user_id = $3
 		ORDER BY id
@@ -137,9 +159,14 @@ func (r *TransactionRepository) CreateTransfer(ctx context.Context, transfer *mo
 	for rows.Next() {
 		var id string
 		var currency string
-		if err := rows.Scan(&id, &currency); err != nil {
+		var isActive bool
+		if err := rows.Scan(&id, &currency, &isActive); err != nil {
 			rows.Close()
 			return fmt.Errorf("scan locked transfer account: %w", err)
+		}
+		if !isActive {
+			rows.Close()
+			return fmt.Errorf("lock transfer accounts: %w", repository.ErrInactiveAccount)
 		}
 		lockedCurrencies[id] = currency
 	}
