@@ -102,6 +102,32 @@ END;
 $$;
 -- +goose StatementEnd
 
+-- +goose StatementBegin
+CREATE OR REPLACE FUNCTION validate_transfer_integrity_from_transaction()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        PERFORM validate_transfer_integrity(OLD.transfer_id);
+        PERFORM validate_transfer_integrity(tr.id)
+        FROM transfers tr
+        WHERE tr.fee_transaction_id = OLD.id;
+        RETURN OLD;
+    END IF;
+
+    PERFORM validate_transfer_integrity(NEW.transfer_id);
+    PERFORM validate_transfer_integrity(tr.id)
+    FROM transfers tr
+    WHERE tr.fee_transaction_id = NEW.id;
+    IF TG_OP = 'UPDATE' AND OLD.transfer_id IS DISTINCT FROM NEW.transfer_id THEN
+        PERFORM validate_transfer_integrity(OLD.transfer_id);
+    END IF;
+    RETURN NEW;
+END;
+$$;
+-- +goose StatementEnd
+
 -- +goose Down
 -- +goose StatementBegin
 CREATE OR REPLACE FUNCTION validate_transfer_integrity(p_transfer_id UUID)
@@ -147,6 +173,26 @@ BEGIN
         RAISE EXCEPTION 'invalid transfer invariant for transfer %', p_transfer_id
             USING ERRCODE = '23514';
     END IF;
+END;
+$$;
+-- +goose StatementEnd
+
+-- +goose StatementBegin
+CREATE OR REPLACE FUNCTION validate_transfer_integrity_from_transaction()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        PERFORM validate_transfer_integrity(OLD.transfer_id);
+        RETURN OLD;
+    END IF;
+
+    PERFORM validate_transfer_integrity(NEW.transfer_id);
+    IF TG_OP = 'UPDATE' AND OLD.transfer_id IS DISTINCT FROM NEW.transfer_id THEN
+        PERFORM validate_transfer_integrity(OLD.transfer_id);
+    END IF;
+    RETURN NEW;
 END;
 $$;
 -- +goose StatementEnd

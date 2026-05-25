@@ -253,6 +253,46 @@ func TestPostgresRepositoriesIntegration(t *testing.T) {
 	}
 }
 
+func TestAccountAndUserRepositoriesPersistCryptoCurrencyCodes(t *testing.T) {
+	ctx := t.Context()
+	store := newTestStore(t)
+	now := time.Now().UTC()
+	userID := seedUser(ctx, t, store, "crypto-currency@example.com")
+
+	if err := store.Users().UpdatePrimaryCurrency(ctx, userID, "USDT", now); err != nil {
+		t.Fatalf("update primary currency to USDT: %v", err)
+	}
+	user, err := store.Users().GetByID(ctx, userID)
+	if err != nil {
+		t.Fatalf("get user: %v", err)
+	}
+	if user.PrimaryCurrency != "USDT" {
+		t.Fatalf("primary currency = %q, want USDT", user.PrimaryCurrency)
+	}
+
+	account := &models.Account{
+		ID:          uuid.NewString(),
+		OwnerUserID: &userID,
+		Name:        "USDT Wallet",
+		Type:        models.AccountTypeSavings,
+		Currency:    "USDT",
+		IsActive:    true,
+		OpenedAt:    now,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	if err := store.Accounts().Create(ctx, account); err != nil {
+		t.Fatalf("create USDT account: %v", err)
+	}
+	got, err := store.Accounts().GetByIDForUser(ctx, account.ID, userID)
+	if err != nil {
+		t.Fatalf("get USDT account: %v", err)
+	}
+	if got.Currency != "USDT" {
+		t.Fatalf("account currency = %q, want USDT", got.Currency)
+	}
+}
+
 func TestUserRepositorySetupRollsBackOnRefreshTokenFailure(t *testing.T) {
 	store := newTestStore(t)
 	ctx := t.Context()
@@ -1650,6 +1690,48 @@ func TestTransactionCreateTransferRejectsMismatchedFeeCurrency(t *testing.T) {
 	}
 	if len(got) != 1 {
 		t.Fatalf("transactions after rejected transfer = %d, want only initial funding", len(got))
+	}
+}
+
+func TestTransactionFeeMutationRevalidatesTransferIntegrity(t *testing.T) {
+	ctx := t.Context()
+	store := newTestStore(t)
+	now := time.Now().UTC()
+	userID := seedUser(ctx, t, store, "fee-mutation-transfer@example.com")
+	from := transferTestAccount(t, store, userID, "from-fee-mutation")
+	to := transferTestAccount(t, store, userID, "to-fee-mutation")
+	seedTransferFunds(ctx, t, store, userID, from.ID, 500, now)
+
+	transfer, transferTransactions := transferTestRows(userID, from.ID, to.ID, "RUB", "RUB", 100, 100, "1", now)
+	feeCurrency := "RUB"
+	feeTransactionID := uuid.NewString()
+	transfer.FeeTransactionID = &feeTransactionID
+	transfer.FeeAmount = dec("1")
+	transfer.FeeCurrency = &feeCurrency
+	transferTransactions = append(transferTransactions, models.Transaction{
+		ID:          feeTransactionID,
+		AccountID:   from.ID,
+		Type:        models.TransactionTypeExpense,
+		Amount:      dec("1"),
+		Description: "Transfer fee",
+		OccurredAt:  now,
+		CreatedAt:   now,
+	})
+	if err := store.Transactions().CreateTransfer(ctx, transfer, transferTransactions); err != nil {
+		t.Fatalf("create transfer with fee: %v", err)
+	}
+
+	_, err := store.pool.Exec(ctx, `UPDATE transactions SET amount = 2 WHERE id = $1`, feeTransactionID)
+	if err == nil {
+		t.Fatal("expected fee transaction mutation to violate transfer integrity")
+	}
+
+	var amount decimal.Decimal
+	if err := store.pool.QueryRow(ctx, `SELECT amount FROM transactions WHERE id = $1`, feeTransactionID).Scan(&amount); err != nil {
+		t.Fatalf("read fee transaction amount: %v", err)
+	}
+	if !amount.Equal(dec("1")) {
+		t.Fatalf("fee amount after rejected mutation = %s, want 1", amount)
 	}
 }
 

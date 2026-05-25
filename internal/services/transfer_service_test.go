@@ -313,6 +313,29 @@ func TestTransferServiceCreateRejectsMismatchedFeeCurrency(t *testing.T) {
 	}
 }
 
+func TestTransferServiceCreateNormalizesFeeCurrency(t *testing.T) {
+	repo := &batchTransactionRepo{}
+	got, err := NewTransferService(NewTransactionService(repo)).Create(t.Context(), &CreateTransferRequest{
+		FromAccountID:  "account-1",
+		ToAccountID:    "account-2",
+		FromCurrency:   "RUB",
+		ToCurrency:     "RUB",
+		Amount:         dec("100"),
+		FeeAmount:      dec("1"),
+		FeeCurrency:    "rub",
+		IdempotencyKey: "normalized-fee-currency",
+	})
+	if err != nil {
+		t.Fatalf("create transfer with lowercase fee currency: %v", err)
+	}
+	if got.Fee == nil {
+		t.Fatal("fee transaction is nil")
+	}
+	if repo.transfer == nil || repo.transfer.FeeCurrency == nil || *repo.transfer.FeeCurrency != "RUB" {
+		t.Fatalf("transfer fee currency = %v, want RUB", repo.transfer)
+	}
+}
+
 type batchTransactionRepo struct {
 	createCalls  int
 	batches      [][]models.Transaction

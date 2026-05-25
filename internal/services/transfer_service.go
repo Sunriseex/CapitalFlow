@@ -54,13 +54,13 @@ func (s *TransferService) Create(ctx context.Context, req *CreateTransferRequest
 	fromAccountID := strings.TrimSpace(req.FromAccountID)
 	toAccountID := strings.TrimSpace(req.ToAccountID)
 	idempotencyKey := strings.TrimSpace(req.IdempotencyKey)
-	fromCurrency := strings.TrimSpace(req.FromCurrency)
-	toCurrency := strings.TrimSpace(req.ToCurrency)
-	feeCurrency := strings.TrimSpace(req.FeeCurrency)
+	fromCurrency := strings.ToUpper(strings.TrimSpace(req.FromCurrency))
+	toCurrency := strings.ToUpper(strings.TrimSpace(req.ToCurrency))
+	feeCurrency := strings.ToUpper(strings.TrimSpace(req.FeeCurrency))
 	if feeCurrency == "" && req.FeeAmount.IsPositive() {
 		feeCurrency = fromCurrency
 	}
-	if req.FeeAmount.IsPositive() && !strings.EqualFold(feeCurrency, fromCurrency) {
+	if req.FeeAmount.IsPositive() && feeCurrency != fromCurrency {
 		return nil, validationError("transfer fee currency must match source account currency")
 	}
 	if err := domaintransfer.ValidateCreate(&domaintransfer.CreateValidation{
