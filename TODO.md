@@ -41,8 +41,8 @@ CapitalFlow — self-hosted сервис для личного учета фин
 
 * [ ] README and run docs match the real current auth flow.
 * [ ] WebUI dev proxy and API port are documented consistently.
-* [ ] Transfer audit model is good enough for cross-currency operations.
-* [ ] Idempotency behavior is tested for all financial mutations.
+* [x] Transfer audit model is good enough for cross-currency operations.
+* [x] Idempotency behavior is tested for all financial mutations.
 * [ ] E2E tests cover critical user flows.
 * [ ] Backup/restore is available before the app is used with real data.
 * [ ] Production/self-host deployment path is documented.
@@ -50,7 +50,7 @@ CapitalFlow — self-hosted сервис для личного учета фин
 ## Roadmap order
 
 * [x] v0.5.5 Architecture Stabilization.
-* [ ] v0.5.6 Financial Auditability & Idempotency.
+* [x] v0.5.6 Financial Auditability & Idempotency.
 * [ ] v0.5.7 Security Baseline Before Passkeys.
 * [ ] v0.5.8 Passkey Login / WebAuthn.
 * [ ] v0.5.9 E2E Testing Baseline.
@@ -178,39 +178,39 @@ transfers
 
 ### User cases
 
-* [ ] Перевод между двумя RUB-счетами.
-* [ ] Перевод RUB -> USD.
-* [ ] Перевод USD -> RUB.
-* [ ] Перевод RUB -> USDT.
-* [ ] Перевод с комиссией.
-* [ ] Перевод между своими счетами в разных банках.
-* [ ] Перевод на брокерский счет.
+* [x] Перевод между двумя RUB-счетами.
+* [x] Перевод RUB -> USD.
+* [x] Перевод USD -> RUB.
+* [x] Перевод RUB -> USDT.
+* [x] Перевод с комиссией.
+* [x] Перевод между своими счетами в разных банках.
+* [x] Перевод на брокерский счет.
 * [x] Перевод между archived и active account должен быть запрещен или явно ограничен.
 
 ### Transfer edge cases
 
-* [ ] `from_account_id == to_account_id`.
-* [ ] `from_amount <= 0`.
-* [ ] `to_amount <= 0`.
-* [ ] `exchange_rate` отсутствует при разных валютах.
-* [ ] `exchange_rate` указан при одинаковых валютах.
-* [ ] `exchange_rate = 0`.
-* [ ] `exchange_rate` слишком большой.
-* [ ] Потеря точности при конвертации.
-* [ ] Создалась только одна leg из двух.
-* [ ] Повторный запрос создает дубль.
-* [ ] Удаление одной leg ломает transfer.
-* [ ] Один account принадлежит другому `user_id`.
+* [x] `from_account_id == to_account_id`.
+* [x] `from_amount <= 0`.
+* [x] `to_amount <= 0`.
+* [x] `exchange_rate` отсутствует при разных валютах.
+* [x] `exchange_rate` указан при одинаковых валютах.
+* [x] `exchange_rate = 0`.
+* [x] `exchange_rate` слишком большой.
+* [x] Потеря точности при конвертации.
+* [x] Создалась только одна leg из двух.
+* [x] Повторный запрос создает дубль.
+* [x] Удаление одной leg ломает transfer.
+* [x] Один account принадлежит другому `user_id`.
 
 ### Transfer tests
 
-* [ ] Same-currency transfer persists transfer row.
-* [ ] Cross-currency transfer persists rate and both legs.
-* [ ] Transfer rollback: если вторая leg не создалась, первая тоже не сохраняется.
-* [ ] Idempotent retry returns previous result.
-* [ ] Same idempotency key + different payload returns conflict.
-* [ ] Transfer cannot be partially deleted.
-* [ ] Transfer list shows both business event and legs.
+* [x] Same-currency transfer persists transfer row.
+* [x] Cross-currency transfer persists rate and both legs.
+* [x] Transfer rollback: если вторая leg не создалась, первая тоже не сохраняется.
+* [x] Idempotent retry returns previous result.
+* [x] Same idempotency key + different payload returns conflict.
+* [x] Transfer cannot be partially deleted.
+* [x] Transfer list shows both business event and legs.
 
 ## Idempotency keys
 
@@ -234,29 +234,29 @@ idempotency_keys
 
 ### Endpoints
 
-* [ ] `POST /api/transactions`.
-* [ ] `POST /api/transfers`.
-* [ ] `POST /api/accounts/{id}/accrue-interest`.
-* [ ] `POST /api/accounts/{id}/recalculate-interest`.
+* [x] `POST /api/transactions`.
+* [x] `POST /api/transfers`.
+* [x] `POST /api/accounts/{id}/accrue-interest`.
+* [x] `POST /api/accounts/{id}/recalculate-interest`.
 * [ ] Future: import.
 * [ ] Future: bulk operations.
 
 ### Idempotency edge cases
 
-* [ ] Клиент отправил один и тот же request дважды.
-* [ ] Первый request успел записать данные, но клиент получил timeout.
-* [ ] Два одинаковых request пришли одновременно.
-* [ ] Один idempotency key используется с другим body.
-* [ ] Idempotency key истек.
-* [ ] Request упал до commit.
-* [ ] Request упал после commit, но до ответа.
+* [x] Клиент отправил один и тот же request дважды.
+* [x] Первый request успел записать данные, но клиент получил timeout.
+* [x] Два одинаковых request пришли одновременно.
+* [x] Один idempotency key используется с другим body.
+* [x] Idempotency key истек.
+* [x] Request упал до commit.
+* [x] Request упал после commit, но до ответа.
 
 ## Acceptance criteria
 
-* [ ] Повтор POST-запроса не создает дубль.
-* [ ] Concurrent retry безопасен.
-* [ ] Idempotency работает на уровне БД, а не только в памяти.
-* [ ] Cross-currency transfer audit не зависит от текущего курса валют.
+* [x] Повтор POST-запроса не создает дубль.
+* [x] Concurrent retry безопасен.
+* [x] Idempotency работает на уровне БД, а не только в памяти.
+* [x] Cross-currency transfer audit не зависит от текущего курса валют.
 * [x] Есть `docs/architecture/idempotency.md`.
 
 ---

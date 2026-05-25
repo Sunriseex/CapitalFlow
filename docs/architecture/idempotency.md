@@ -43,6 +43,16 @@ key, user_id, method, path
 
 This prevents one user's retry key from affecting another user and allows the same client-generated key to be used on different endpoints without collision.
 
+Each row also stores:
+
+- `id`: stable row UUID for operations/debugging.
+- `endpoint`: denormalized `METHOD path`.
+- `request_hash`: SHA-256 hash of the request body.
+- `status`: `pending` or `completed`.
+- `status_code` and `response_body`: replay payload after completion.
+- `locked_until`: short pending marker for concurrent retry visibility.
+- `created_at`, `updated_at`, `expires_at`.
+
 ## Handler Contract
 
 Handlers must be safe to run once after the middleware creates a pending idempotency record.
