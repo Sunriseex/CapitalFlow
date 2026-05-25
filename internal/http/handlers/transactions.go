@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/sunriseex/capitalflow/internal/http/dto"
 	"github.com/sunriseex/capitalflow/internal/models"
@@ -205,13 +206,16 @@ func (h *Handler) createTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	currency := "RUB"
+	var accountOpenedAt time.Time
+	var account *models.Account
 	if accounts := h.store.Accounts(); accounts != nil {
-		account, err := accounts.GetByIDForUser(r.Context(), accountID, userID)
+		account, err = accounts.GetByIDForUser(r.Context(), accountID, userID)
 		if err != nil {
 			writeServiceError(w, err)
 			return
 		}
 		currency = account.Currency
+		accountOpenedAt = account.OpenedAt
 	}
 
 	var relatedAccountID *string
@@ -254,6 +258,7 @@ func (h *Handler) createTransaction(w http.ResponseWriter, r *http.Request) {
 		CategoryID:       categoryID,
 		Description:      req.Description,
 		OccurredAt:       occurredAt,
+		AccountOpenedAt:  accountOpenedAt,
 	})
 	if err != nil {
 		writeServiceError(w, err)

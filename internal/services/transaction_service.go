@@ -9,16 +9,16 @@ import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
+	domaintransaction "github.com/sunriseex/capitalflow/internal/domain/transaction"
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/repository"
-	"github.com/sunriseex/capitalflow/pkg/money"
 )
 
 type TransactionService struct {
 	repo repository.TransactionRepository
 }
 
-var maxTransactionAmount = decimal.RequireFromString("1000000000000")
+var maxTransactionAmount = domaintransaction.MaxAmount
 
 func NewTransactionService(repos ...repository.TransactionRepository) *TransactionService {
 	var repo repository.TransactionRepository
@@ -37,6 +37,8 @@ type CreateTransactionRequest struct {
 	CategoryID       *string
 	Description      string
 	OccurredAt       time.Time
+	AccountOpenedAt  time.Time
+	AllowFutureDate  bool
 }
 
 func (s *TransactionService) Create(ctx context.Context, req *CreateTransactionRequest) (*models.Transaction, error) {
@@ -132,32 +134,20 @@ func buildTransaction(ctx context.Context, req *CreateTransactionRequest) (*mode
 		return nil, fmt.Errorf("create transaction request is required")
 	}
 
-	if strings.TrimSpace(req.AccountID) == "" {
-		return nil, validationError("account id is required")
-	}
-	if !validTransactionType(req.Type) {
-		return nil, validationError(fmt.Sprintf("invalid transaction type: %s", req.Type))
-	}
-	if req.Amount.IsZero() {
-		return nil, validationError("amount must be non-zero")
-	}
-	if req.Amount.LessThan(maxTransactionAmount.Neg()) || req.Amount.GreaterThan(maxTransactionAmount) {
-		return nil, validationError(fmt.Sprintf("amount must be between %s and %s", maxTransactionAmount.Neg(), maxTransactionAmount))
-	}
-	if rounded := money.RoundForCurrency(req.Amount, req.Currency); !req.Amount.Equal(rounded) {
-		currency := strings.ToUpper(strings.TrimSpace(req.Currency))
-		if currency == "" {
-			currency = "RUB"
-		}
-		return nil, validationError(fmt.Sprintf("amount scale exceeds %s minor units", currency))
-	}
-	if req.Type != models.TransactionTypeAdjustment && req.Amount.IsNegative() {
-		return nil, validationError(fmt.Sprintf("amount must be positive for %s transactions", req.Type))
-	}
-
 	occurredAt := req.OccurredAt
 	if occurredAt.IsZero() {
 		occurredAt = time.Now()
+	}
+	if err := domaintransaction.ValidateCreate(&domaintransaction.CreateValidation{
+		AccountID:     req.AccountID,
+		Type:          req.Type,
+		Amount:        req.Amount,
+		Currency:      req.Currency,
+		OccurredAt:    occurredAt,
+		AccountOpened: req.AccountOpenedAt,
+		AllowFuture:   req.AllowFutureDate,
+	}); err != nil {
+		return nil, validationError(err.Error())
 	}
 
 	transaction := &models.Transaction{
@@ -173,19 +163,4 @@ func buildTransaction(ctx context.Context, req *CreateTransactionRequest) (*mode
 	}
 
 	return transaction, nil
-}
-
-func validTransactionType(transactionType models.TransactionType) bool {
-	switch transactionType {
-	case models.TransactionTypeInitialBalance,
-		models.TransactionTypeIncome,
-		models.TransactionTypeExpense,
-		models.TransactionTypeTransferIn,
-		models.TransactionTypeTransferOut,
-		models.TransactionTypeInterestIncome,
-		models.TransactionTypeAdjustment:
-		return true
-	default:
-		return false
-	}
 }

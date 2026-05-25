@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	domainaccount "github.com/sunriseex/capitalflow/internal/domain/account"
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/repository"
 )
@@ -44,20 +45,13 @@ func (s *AccountService) Create(ctx context.Context, req *CreateAccountRequest) 
 	}
 
 	name := strings.TrimSpace(req.Name)
-	if name == "" {
-		return nil, validationError("account name is required")
-	}
-	if !ValidAccountType(req.Type) {
-		return nil, validationError(fmt.Sprintf("invalid account type: %s", req.Type))
-	}
-
 	currency := strings.TrimSpace(req.Currency)
 	if currency == "" {
 		currency = "RUB"
 	}
-	currency = strings.ToUpper(currency)
-	if !ValidCurrency(currency) {
-		return nil, validationError(fmt.Sprintf("invalid currency: %s", currency))
+	currency = domainaccount.NormalizeCurrency(currency)
+	if err := domainaccount.ValidateCreate(name, req.Type, currency); err != nil {
+		return nil, validationError(err.Error())
 	}
 
 	openedAt := req.OpenedAt
@@ -98,27 +92,9 @@ func ownerUserID(id string) *string {
 }
 
 func ValidCurrency(currency string) bool {
-	if len(currency) != 3 {
-		return false
-	}
-	for _, r := range currency {
-		if r < 'A' || r > 'Z' {
-			return false
-		}
-	}
-	return true
+	return domainaccount.ValidCurrency(currency)
 }
 
 func ValidAccountType(accountType models.AccountType) bool {
-	switch accountType {
-	case models.AccountTypeCash,
-		models.AccountTypeCard,
-		models.AccountTypeSavings,
-		models.AccountTypeTermDeposit,
-		models.AccountTypeBroker,
-		models.AccountTypeOther:
-		return true
-	default:
-		return false
-	}
+	return domainaccount.ValidAccountType(accountType)
 }

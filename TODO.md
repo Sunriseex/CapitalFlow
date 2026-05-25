@@ -49,7 +49,7 @@ CapitalFlow — self-hosted сервис для личного учета фин
 
 ## Roadmap order
 
-* [ ] v0.5.5 Architecture Stabilization.
+* [x] v0.5.5 Architecture Stabilization.
 * [ ] v0.5.6 Financial Auditability & Idempotency.
 * [ ] v0.5.7 Security Baseline Before Passkeys.
 * [ ] v0.5.8 Passkey Login / WebAuthn.
@@ -91,54 +91,54 @@ internal/
   http/
 ```
 
-* [ ] `models` содержит данные.
-* [ ] `domain` содержит правила и инварианты.
-* [ ] `services` содержит сценарии использования.
-* [ ] `repositories` содержит доступ к БД.
-* [ ] `handlers` содержит только HTTP-слой.
-* [ ] Проверки вроде "нельзя перевести деньги на тот же счет" живут в `TransferService` или domain validator, а не только в handler.
+* [x] `models` содержит данные.
+* [x] `domain` содержит правила и инварианты.
+* [x] `services` содержит сценарии использования.
+* [x] `repositories` содержит доступ к БД.
+* [x] `handlers` содержит только HTTP-слой.
+* [x] Проверки вроде "нельзя перевести деньги на тот же счет" живут в `TransferService` или domain validator, а не только в handler.
 
 ## Architecture invariants
 
-* [ ] Любая финансовая операция принадлежит `user_id`.
-* [ ] Handler не содержит бизнес-правил.
-* [ ] Service не знает про HTTP DTO.
-* [ ] Repository не принимает HTTP DTO.
-* [ ] Money всегда хранится в minor units: копейки, центы и т.д.
-* [ ] Currency всегда нормализована и валидируется.
-* [ ] Все write-операции проходят через транзакцию БД.
-* [ ] Все опасные операции имеют audit/event trail.
-* [ ] Удаление финансовых данных либо запрещено, либо soft-delete/audit.
+* [x] Любая финансовая операция принадлежит `user_id`.
+* [x] Handler не содержит бизнес-правил.
+* [x] Service не знает про HTTP DTO.
+* [x] Repository не принимает HTTP DTO.
+* [x] Money всегда хранится в minor units: копейки, центы и т.д.
+* [x] Currency всегда нормализована и валидируется.
+* [x] Все write-операции проходят через транзакцию БД.
+* [x] Все опасные операции имеют audit/event trail.
+* [x] Удаление финансовых данных либо запрещено, либо soft-delete/audit.
 
 ## Edge cases
 
-* [ ] Account принадлежит другому `user_id`.
-* [ ] Account archived, но по нему пытаются создать transaction.
-* [ ] Transaction с `amount = 0`.
-* [ ] Transaction с отрицательной суммой там, где это запрещено.
-* [ ] Currency в lowercase: `rub`, `usd`.
-* [ ] Currency нестандартная: `RUR`, `BTC`, `USDT`.
-* [ ] Дата операции в будущем.
-* [ ] Дата операции до даты открытия счета.
-* [ ] Удаление transaction, которая участвует в transfer.
-* [ ] Повторный запрос после timeout.
-* [ ] Одновременное создание двух операций по одному счету.
+* [x] Account принадлежит другому `user_id`.
+* [x] Account archived, но по нему пытаются создать transaction.
+* [x] Transaction с `amount = 0`.
+* [x] Transaction с отрицательной суммой там, где это запрещено.
+* [x] Currency в lowercase: `rub`, `usd`.
+* [x] Currency нестандартная: `RUR`, `BTC`, `USDT`.
+* [x] Дата операции в будущем.
+* [x] Дата операции до даты открытия счета.
+* [x] Удаление transaction, которая участвует в transfer.
+* [x] Повторный запрос после timeout.
+* [x] Одновременное создание двух операций по одному счету.
 
 ## Tests
 
-* [ ] Unit tests для domain validators.
-* [ ] Service tests без HTTP.
-* [ ] Handler tests только на контракт API.
-* [ ] Integration tests с PostgreSQL для write-flow.
-* [ ] Regression tests на каждый найденный audit bug.
+* [x] Unit tests для domain validators.
+* [x] Service tests без HTTP.
+* [x] Handler tests только на контракт API.
+* [x] Integration tests с PostgreSQL для write-flow.
+* [x] Regression tests на каждый найденный audit bug.
 
 ## Acceptance criteria
 
-* [ ] Все write-flow имеют понятный service-level сценарий.
-* [ ] Handler не решает финансовые правила.
-* [ ] Есть `docs/architecture/layers.md`.
-* [ ] Есть `docs/architecture/invariants.md`.
-* [ ] Новая фича добавляется по шаблону: model -> domain rule -> service -> repo -> handler -> tests.
+* [x] Все write-flow имеют понятный service-level сценарий.
+* [x] Handler не решает финансовые правила.
+* [x] Есть `docs/architecture/layers.md`.
+* [x] Есть `docs/architecture/invariants.md`.
+* [x] Новая фича добавляется по шаблону: model -> domain rule -> service -> repo -> handler -> tests.
 
 ---
 
@@ -185,7 +185,7 @@ transfers
 * [ ] Перевод с комиссией.
 * [ ] Перевод между своими счетами в разных банках.
 * [ ] Перевод на брокерский счет.
-* [ ] Перевод между archived и active account должен быть запрещен или явно ограничен.
+* [x] Перевод между archived и active account должен быть запрещен или явно ограничен.
 
 ### Transfer edge cases
 

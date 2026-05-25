@@ -158,13 +158,17 @@ func lockAccountForTransaction(ctx context.Context, execer queryExecer, accountI
 
 func lockAccountForUser(ctx context.Context, execer queryExecer, accountID, userID string) error {
 	var lockedID string
+	var isActive bool
 	if err := execer.QueryRow(ctx, `
-		SELECT id
+		SELECT id, is_active
 		FROM accounts
 		WHERE id = $1 AND owner_user_id = $2
 		FOR UPDATE
-	`, accountID, userID).Scan(&lockedID); err != nil {
+	`, accountID, userID).Scan(&lockedID, &isActive); err != nil {
 		return mapNotFound(err)
+	}
+	if !isActive {
+		return repository.ErrInactiveAccount
 	}
 	return nil
 }

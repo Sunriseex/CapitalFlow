@@ -710,6 +710,96 @@ func TestTransactionRepositoryCreateForUserScopesByOwner(t *testing.T) {
 	}
 }
 
+func TestTransactionRepositoryCreateForUserRejectsArchivedAccounts(t *testing.T) {
+	ctx := t.Context()
+	store := newTestStore(t)
+	now := time.Now().UTC()
+	userID := seedUser(ctx, t, store, "transaction-archived-account@example.com")
+
+	account := transferTestAccount(t, store, userID, "archived-transaction")
+	if err := store.Accounts().ArchiveForUser(ctx, account.ID, userID); err != nil {
+		t.Fatalf("archive account: %v", err)
+	}
+
+	tx := &models.Transaction{
+		ID:         uuid.NewString(),
+		AccountID:  account.ID,
+		Type:       models.TransactionTypeIncome,
+		Amount:     dec("1"),
+		OccurredAt: now,
+		CreatedAt:  now,
+	}
+	err := store.Transactions().CreateForUser(ctx, userID, tx)
+	if !errors.Is(err, repository.ErrInactiveAccount) {
+		t.Fatalf("archived account err = %v, want ErrInactiveAccount", err)
+	}
+
+	got, err := store.Transactions().ListByUser(ctx, userID)
+	if err != nil {
+		t.Fatalf("list transactions: %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("archived account transaction inserted rows: %+v", got)
+	}
+}
+
+func TestTransactionRepositoryCreateForUserRejectsBeforeAccountOpen(t *testing.T) {
+	ctx := t.Context()
+	store := newTestStore(t)
+	now := time.Now().UTC()
+	userID := seedUser(ctx, t, store, "transaction-before-open@example.com")
+
+	account := transferTestAccount(t, store, userID, "before-open-transaction")
+	tx := &models.Transaction{
+		ID:         uuid.NewString(),
+		AccountID:  account.ID,
+		Type:       models.TransactionTypeIncome,
+		Amount:     dec("1"),
+		OccurredAt: account.OpenedAt.AddDate(0, 0, -1),
+		CreatedAt:  now,
+	}
+	err := store.Transactions().CreateForUser(ctx, userID, tx)
+	if !errors.Is(err, repository.ErrTransactionBeforeOpen) {
+		t.Fatalf("before open err = %v, want ErrTransactionBeforeOpen", err)
+	}
+
+	got, err := store.Transactions().ListByUser(ctx, userID)
+	if err != nil {
+		t.Fatalf("list transactions: %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("before open transaction inserted rows: %+v", got)
+	}
+}
+
+func TestTransactionRepositoryCreateForUserAllowsAccountOpenDate(t *testing.T) {
+	ctx := t.Context()
+	store := newTestStore(t)
+	now := time.Now().UTC()
+	userID := seedUser(ctx, t, store, "transaction-open-date@example.com")
+
+	account := transferTestAccount(t, store, userID, "open-date-transaction")
+	tx := &models.Transaction{
+		ID:         uuid.NewString(),
+		AccountID:  account.ID,
+		Type:       models.TransactionTypeIncome,
+		Amount:     dec("1"),
+		OccurredAt: pgDateOnly(account.OpenedAt),
+		CreatedAt:  now,
+	}
+	if err := store.Transactions().CreateForUser(ctx, userID, tx); err != nil {
+		t.Fatalf("create transaction on account open date: %v", err)
+	}
+
+	got, err := store.Transactions().ListByUser(ctx, userID)
+	if err != nil {
+		t.Fatalf("list transactions: %v", err)
+	}
+	if len(got) != 1 || got[0].ID != tx.ID {
+		t.Fatalf("open date transactions = %+v, want %s", got, tx.ID)
+	}
+}
+
 func TestTransactionRepositoryCreateForUserLocksRelatedAccountsWithoutDeadlock(t *testing.T) {
 	store := newTestStore(t)
 	ctx := t.Context()
@@ -1526,6 +1616,78 @@ func TestTransactionCreateTransferRejectsInsufficientFunds(t *testing.T) {
 	}
 	if transferCount != 0 {
 		t.Fatalf("transfers after insufficient funds = %d, want 0", transferCount)
+	}
+}
+
+func TestTransactionCreateTransferRejectsArchivedAccounts(t *testing.T) {
+	ctx := t.Context()
+	store := newTestStore(t)
+	now := time.Now().UTC()
+	userID := seedUser(ctx, t, store, "archived-transfer@example.com")
+	from := transferTestAccount(t, store, userID, "from-archived-transfer")
+	to := transferTestAccount(t, store, userID, "to-archived-transfer")
+	seedTransferFunds(ctx, t, store, userID, from.ID, 100, now)
+
+	if err := store.Accounts().ArchiveForUser(ctx, to.ID, userID); err != nil {
+		t.Fatalf("archive transfer target: %v", err)
+	}
+
+	transfer, transferTransactions := transferTestRows(userID, from.ID, to.ID, "RUB", "RUB", 100, 100, "1", now)
+	err := store.Transactions().CreateTransfer(ctx, transfer, transferTransactions)
+	if !errors.Is(err, repository.ErrInactiveAccount) {
+		t.Fatalf("archived transfer err = %v, want ErrInactiveAccount", err)
+	}
+
+	got, err := store.Transactions().ListByUser(ctx, userID)
+	if err != nil {
+		t.Fatalf("list transactions: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("transactions after archived transfer = %d, want only initial funding", len(got))
+	}
+	var transferCount int
+	if err := store.pool.QueryRow(ctx, `SELECT COUNT(*) FROM transfers WHERE user_id = $1`, userID).Scan(&transferCount); err != nil {
+		t.Fatalf("count transfers: %v", err)
+	}
+	if transferCount != 0 {
+		t.Fatalf("transfers after archived transfer = %d, want 0", transferCount)
+	}
+}
+
+func TestTransactionCreateTransferRejectsBeforeAccountOpen(t *testing.T) {
+	ctx := t.Context()
+	store := newTestStore(t)
+	now := time.Now().UTC()
+	userID := seedUser(ctx, t, store, "before-open-transfer@example.com")
+	from := transferTestAccount(t, store, userID, "from-before-open-transfer")
+	to := transferTestAccount(t, store, userID, "to-before-open-transfer")
+	seedTransferFunds(ctx, t, store, userID, from.ID, 100, now)
+
+	to.OpenedAt = now.Add(time.Hour)
+	to.UpdatedAt = now.Add(time.Minute)
+	if err := store.Accounts().UpdateForUserEnforcingCurrencyInvariant(ctx, to, userID); err != nil {
+		t.Fatalf("move transfer target opened_at: %v", err)
+	}
+
+	transfer, transferTransactions := transferTestRows(userID, from.ID, to.ID, "RUB", "RUB", 100, 100, "1", now)
+	err := store.Transactions().CreateTransfer(ctx, transfer, transferTransactions)
+	if !errors.Is(err, repository.ErrTransactionBeforeOpen) {
+		t.Fatalf("before open transfer err = %v, want ErrTransactionBeforeOpen", err)
+	}
+
+	got, err := store.Transactions().ListByUser(ctx, userID)
+	if err != nil {
+		t.Fatalf("list transactions: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("transactions after before-open transfer = %d, want only initial funding", len(got))
+	}
+	var transferCount int
+	if err := store.pool.QueryRow(ctx, `SELECT COUNT(*) FROM transfers WHERE user_id = $1`, userID).Scan(&transferCount); err != nil {
+		t.Fatalf("count transfers: %v", err)
+	}
+	if transferCount != 0 {
+		t.Fatalf("transfers after before-open transfer = %d, want 0", transferCount)
 	}
 }
 

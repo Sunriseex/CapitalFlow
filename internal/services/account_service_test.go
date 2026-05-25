@@ -127,13 +127,19 @@ func (r *recordingAccountRepo) ClaimUnowned(context.Context, string) error {
 }
 
 func TestAccountServiceCreateValidatesCurrency(t *testing.T) {
-	_, err := NewAccountService().Create(t.Context(), &CreateAccountRequest{
-		Name:     "Savings",
-		Type:     models.AccountTypeSavings,
-		Currency: "RUB1",
-	})
-	if err == nil {
-		t.Fatal("expected error")
+	tests := []string{"RUB1", "RUR", "BTC", "USDT"}
+
+	for _, currency := range tests {
+		t.Run(currency, func(t *testing.T) {
+			_, err := NewAccountService().Create(t.Context(), &CreateAccountRequest{
+				Name:     "Savings",
+				Type:     models.AccountTypeSavings,
+				Currency: currency,
+			})
+			if err == nil {
+				t.Fatal("expected error")
+			}
+		})
 	}
 }
 

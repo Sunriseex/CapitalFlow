@@ -119,6 +119,22 @@ func errorResponseFromError(err error) errorResponse {
 		}
 	}
 
+	if errors.Is(err, repository.ErrInactiveAccount) {
+		return errorResponse{
+			status:  http.StatusBadRequest,
+			code:    "validation_error",
+			message: repository.ErrInactiveAccount.Error(),
+		}
+	}
+
+	if errors.Is(err, repository.ErrTransactionBeforeOpen) {
+		return errorResponse{
+			status:  http.StatusBadRequest,
+			code:    "validation_error",
+			message: repository.ErrTransactionBeforeOpen.Error(),
+		}
+	}
+
 	if errors.Is(err, context.Canceled) {
 		return errorResponse{
 			status:  499,
