@@ -87,28 +87,33 @@ internal/
     interest/
     auth/
   services/
+  repository/
   postgres/
   http/
 ```
 
 * [x] `models` содержит данные.
-* [x] `domain` содержит правила и инварианты.
+* [x] `domain` содержит правила и инварианты для уже вынесенных областей.
 * [x] `services` содержит сценарии использования.
-* [x] `repositories` содержит доступ к БД.
-* [x] `handlers` содержит только HTTP-слой.
-* [x] Проверки вроде "нельзя перевести деньги на тот же счет" живут в `TransferService` или domain validator, а не только в handler.
+* [x] `repository` содержит контракты доступа к БД.
+* [x] `postgres` содержит реализацию доступа к PostgreSQL.
+* [ ] `handlers` содержит только HTTP-слой.
+* [x] Проверки вроде «нельзя перевести деньги на тот же счет» живут в `TransferService` или domain validator, а не только в handler.
+* [ ] Полный domain scope ещё не завершён: `money`, `interest`, `auth` пока не выделены как отдельные domain packages.
 
 ## Architecture invariants
 
-* [x] Любая финансовая операция принадлежит `user_id`.
-* [x] Handler не содержит бизнес-правил.
+* [x] Любая user-facing финансовая операция принадлежит `user_id`.
+* [ ] Handler не содержит бизнес-правил.
 * [x] Service не знает про HTTP DTO.
 * [x] Repository не принимает HTTP DTO.
-* [x] Money всегда хранится в minor units: копейки, центы и т.д.
+* [x] Money хранится как `decimal.Decimal` в Go и `NUMERIC` в PostgreSQL.
+* [x] Currency scale валидируется на domain/service boundary.
+* [x] Sub-minor значения запрещены для user-created financial operations.
 * [x] Currency всегда нормализована и валидируется.
-* [x] Все write-операции проходят через транзакцию БД.
-* [x] Все опасные операции имеют audit/event trail.
-* [x] Удаление финансовых данных либо запрещено, либо soft-delete/audit.
+* [ ] Все write-операции проходят через транзакцию БД.
+* [ ] Все опасные операции имеют audit/event trail.
+* [ ] Удаление финансовых данных либо запрещено, либо soft-delete/audit.
 
 ## Edge cases
 
@@ -117,12 +122,13 @@ internal/
 * [x] Transaction с `amount = 0`.
 * [x] Transaction с отрицательной суммой там, где это запрещено.
 * [x] Currency в lowercase: `rub`, `usd`.
-* [x] Currency нестандартная: `RUR`, `BTC`, `USDT`.
+* [x] Currency нестандартная: `RUR`, `BTC`, `USDT` отклоняется в stable core.
 * [x] Дата операции в будущем.
 * [x] Дата операции до даты открытия счета.
 * [x] Удаление transaction, которая участвует в transfer.
 * [x] Повторный запрос после timeout.
 * [x] Одновременное создание двух операций по одному счету.
+* [ ] Прямая service-level попытка создать `transfer_in` / `transfer_out` transaction вне transfer flow.
 
 ## Tests
 
@@ -130,15 +136,18 @@ internal/
 * [x] Service tests без HTTP.
 * [x] Handler tests только на контракт API.
 * [x] Integration tests с PostgreSQL для write-flow.
-* [x] Regression tests на каждый найденный audit bug.
+* [x] Regression tests на найденные audit/concurrency bugs.
+* [ ] Architecture boundary tests / lint rules, которые не дают handler-слою снова начать решать финансовые правила.
 
 ## Acceptance criteria
 
-* [x] Все write-flow имеют понятный service-level сценарий.
-* [x] Handler не решает финансовые правила.
+* [x] Основные user-facing write-flow имеют понятный service-level сценарий.
+* [ ] Handler не решает финансовые правила.
 * [x] Есть `docs/architecture/layers.md`.
 * [x] Есть `docs/architecture/invariants.md`.
 * [x] Новая фича добавляется по шаблону: model -> domain rule -> service -> repo -> handler -> tests.
+* [ ] Hard delete финансовых данных заменён на запрет, soft-delete или audit-backed deletion.
+* [ ] Legacy/internal write paths либо переведены на транзакции БД, либо явно задокументированы как исключения.
 
 ---
 

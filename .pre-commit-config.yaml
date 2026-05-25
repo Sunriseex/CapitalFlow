@@ -3,7 +3,7 @@ repos:
     hooks:
       - id: gofumpt
         name: gofumpt
-        entry: gofumpt -w -l
+        entry: gofumpt -w -l -extra
         language: system
         files: \.go$
         types_or: [go]
