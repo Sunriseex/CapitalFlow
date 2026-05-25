@@ -784,7 +784,7 @@ func TestTransactionRepositoryCreateForUserAllowsAccountOpenDate(t *testing.T) {
 		AccountID:  account.ID,
 		Type:       models.TransactionTypeIncome,
 		Amount:     dec("1"),
-		OccurredAt: pgDateOnly(account.OpenedAt),
+		OccurredAt: account.OpenedAt,
 		CreatedAt:  now,
 	}
 	if err := store.Transactions().CreateForUser(ctx, userID, tx); err != nil {
@@ -1614,6 +1614,45 @@ func TestTransactionCreateTransferPersistsFeeAndListsBusinessEvent(t *testing.T)
 	}
 }
 
+func TestTransactionCreateTransferRejectsMismatchedFeeCurrency(t *testing.T) {
+	ctx := t.Context()
+	store := newTestStore(t)
+	now := time.Now().UTC()
+	userID := seedUser(ctx, t, store, "fee-currency-transfer@example.com")
+	from := transferTestAccount(t, store, userID, "from-fee-currency")
+	to := transferTestAccount(t, store, userID, "to-fee-currency")
+	seedTransferFunds(ctx, t, store, userID, from.ID, 500, now)
+
+	transfer, transferTransactions := transferTestRows(userID, from.ID, to.ID, "RUB", "RUB", 100, 100, "1", now)
+	feeCurrency := "USD"
+	feeTransactionID := uuid.NewString()
+	transfer.FeeTransactionID = &feeTransactionID
+	transfer.FeeAmount = dec("1")
+	transfer.FeeCurrency = &feeCurrency
+	transferTransactions = append(transferTransactions, models.Transaction{
+		ID:          feeTransactionID,
+		AccountID:   from.ID,
+		Type:        models.TransactionTypeExpense,
+		Amount:      dec("1"),
+		Description: "Transfer fee",
+		OccurredAt:  now,
+		CreatedAt:   now,
+	})
+
+	err := store.Transactions().CreateTransfer(ctx, transfer, transferTransactions)
+	if err == nil {
+		t.Fatal("expected fee currency mismatch error")
+	}
+
+	got, err := store.Transactions().ListByUser(ctx, userID)
+	if err != nil {
+		t.Fatalf("list transactions: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("transactions after rejected transfer = %d, want only initial funding", len(got))
+	}
+}
+
 func TestTransactionCreateTransferRejectsDuplicateIdempotencyKey(t *testing.T) {
 	ctx := t.Context()
 	store := newTestStore(t)
@@ -2222,7 +2261,7 @@ func TestTransactionRepositoryListByUserFilteredTreatsSearchAsLiteralSubstring(t
 func transferTestAccount(t *testing.T, store *Store, userID, name string) *models.Account {
 	t.Helper()
 	now := time.Now().UTC()
-	openedAt := now.AddDate(-10, 0, 0)
+	openedAt := pgDateOnly(now.AddDate(-10, 0, 0))
 	account := &models.Account{
 		ID:          uuid.NewString(),
 		OwnerUserID: &userID,
@@ -2306,6 +2345,7 @@ func seedTransferFunds(ctx context.Context, t *testing.T, store *Store, userID, 
 func seedInterestLockTestData(ctx context.Context, t *testing.T, store *Store, email, accountName string) (string, *models.Account, *models.InterestRule) {
 	t.Helper()
 	now := time.Now().UTC()
+	openedAt := pgDateOnly(now.AddDate(-10, 0, 0))
 	userID := uuid.NewString()
 	if err := store.Users().Create(ctx, &models.User{
 		ID:              userID,
@@ -2324,7 +2364,7 @@ func seedInterestLockTestData(ctx context.Context, t *testing.T, store *Store, e
 		Type:        models.AccountTypeSavings,
 		Currency:    "RUB",
 		IsActive:    true,
-		OpenedAt:    now,
+		OpenedAt:    openedAt,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}

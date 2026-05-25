@@ -11,7 +11,7 @@ ALTER TABLE transfers
     ADD CONSTRAINT transfers_fee_currency_check CHECK (
         (fee_amount = 0 AND fee_currency IS NULL AND fee_transaction_id IS NULL)
         OR
-        (fee_amount > 0 AND fee_currency IS NOT NULL AND fee_transaction_id IS NOT NULL)
+        (fee_amount > 0 AND fee_currency = from_currency AND fee_transaction_id IS NOT NULL)
     );
 
 CREATE UNIQUE INDEX transfers_fee_transaction_id_idx
@@ -88,6 +88,7 @@ BEGIN
                         AND fee_tx.type = 'expense'
                         AND fee_tx.account_id = tr.from_account_id
                         AND fee_tx.amount = tr.fee_amount
+                        AND tr.fee_currency = tr.from_currency
                     )
                 )
           )
