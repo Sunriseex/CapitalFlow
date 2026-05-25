@@ -66,7 +66,7 @@ func TestValidateCreate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateCreate(tt.input)
+			err := ValidateCreate(&tt.input)
 			if tt.wantErr && err == nil {
 				t.Fatal("expected error")
 			}

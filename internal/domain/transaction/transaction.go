@@ -24,7 +24,10 @@ type CreateValidation struct {
 	AllowFuture   bool
 }
 
-func ValidateCreate(input CreateValidation) error {
+func ValidateCreate(input *CreateValidation) error {
+	if input == nil {
+		return fmt.Errorf("transaction validation input is required")
+	}
 	if strings.TrimSpace(input.AccountID) == "" {
 		return fmt.Errorf("account id is required")
 	}

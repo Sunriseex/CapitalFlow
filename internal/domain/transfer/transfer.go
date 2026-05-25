@@ -17,7 +17,10 @@ type CreateValidation struct {
 	IdempotencyKey string
 }
 
-func ValidateCreate(input CreateValidation) error {
+func ValidateCreate(input *CreateValidation) error {
+	if input == nil {
+		return fmt.Errorf("transfer validation input is required")
+	}
 	fromAccountID := strings.TrimSpace(input.FromAccountID)
 	toAccountID := strings.TrimSpace(input.ToAccountID)
 	if fromAccountID == "" {

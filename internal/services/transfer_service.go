@@ -53,7 +53,7 @@ func (s *TransferService) Create(ctx context.Context, req *CreateTransferRequest
 	idempotencyKey := strings.TrimSpace(req.IdempotencyKey)
 	fromCurrency := strings.TrimSpace(req.FromCurrency)
 	toCurrency := strings.TrimSpace(req.ToCurrency)
-	if err := domaintransfer.ValidateCreate(domaintransfer.CreateValidation{
+	if err := domaintransfer.ValidateCreate(&domaintransfer.CreateValidation{
 		FromAccountID:  fromAccountID,
 		ToAccountID:    toAccountID,
 		FromCurrency:   fromCurrency,

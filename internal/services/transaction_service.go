@@ -138,7 +138,7 @@ func buildTransaction(ctx context.Context, req *CreateTransactionRequest) (*mode
 	if occurredAt.IsZero() {
 		occurredAt = time.Now()
 	}
-	if err := domaintransaction.ValidateCreate(domaintransaction.CreateValidation{
+	if err := domaintransaction.ValidateCreate(&domaintransaction.CreateValidation{
 		AccountID:     req.AccountID,
 		Type:          req.Type,
 		Amount:        req.Amount,
@@ -163,8 +163,4 @@ func buildTransaction(ctx context.Context, req *CreateTransactionRequest) (*mode
 	}
 
 	return transaction, nil
-}
-
-func validTransactionType(transactionType models.TransactionType) bool {
-	return domaintransaction.ValidType(transactionType)
 }
