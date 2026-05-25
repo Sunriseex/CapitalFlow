@@ -24,14 +24,15 @@ test:
 	@go test ./...
 
 lint:
+	@gofumpt -w .
 	@golangci-lint run ./...
 
 race:
 	@go test ./... -race
 
-check-race: test lint race
+check-race: lint test race
 
-check: test lint
+check: lint test
 
 check-all: check web-check
 
