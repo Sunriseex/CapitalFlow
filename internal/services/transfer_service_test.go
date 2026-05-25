@@ -290,6 +290,29 @@ func TestTransferServiceCreatePersistsFeeTransaction(t *testing.T) {
 	}
 }
 
+func TestTransferServiceCreateRejectsMismatchedFeeCurrency(t *testing.T) {
+	repo := &batchTransactionRepo{}
+	_, err := NewTransferService(NewTransactionService(repo)).Create(t.Context(), &CreateTransferRequest{
+		FromAccountID:  "account-1",
+		ToAccountID:    "account-2",
+		FromCurrency:   "RUB",
+		ToCurrency:     "RUB",
+		Amount:         dec("100"),
+		FeeAmount:      dec("1"),
+		FeeCurrency:    "USDT",
+		IdempotencyKey: "mismatched-fee-currency",
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !IsValidationError(err) {
+		t.Fatalf("expected validation error, got %T: %v", err, err)
+	}
+	if len(repo.batches) != 0 {
+		t.Fatalf("created batches = %d, want 0", len(repo.batches))
+	}
+}
+
 type batchTransactionRepo struct {
 	createCalls  int
 	batches      [][]models.Transaction

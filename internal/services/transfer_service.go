@@ -60,6 +60,9 @@ func (s *TransferService) Create(ctx context.Context, req *CreateTransferRequest
 	if feeCurrency == "" && req.FeeAmount.IsPositive() {
 		feeCurrency = fromCurrency
 	}
+	if req.FeeAmount.IsPositive() && !strings.EqualFold(feeCurrency, fromCurrency) {
+		return nil, validationError("transfer fee currency must match source account currency")
+	}
 	if err := domaintransfer.ValidateCreate(&domaintransfer.CreateValidation{
 		FromAccountID:  fromAccountID,
 		ToAccountID:    toAccountID,
