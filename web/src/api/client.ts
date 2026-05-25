@@ -17,6 +17,7 @@ import type {
   CurrencyRateTable,
   InterestRule,
   Profile,
+  TransferEvent,
   TransferResponse,
   Transaction,
   UpdateAccountRequest,
@@ -283,6 +284,7 @@ export const api = {
       method: "POST",
       body: JSON.stringify(input),
     }),
+  transfers: () => apiFetch<TransferEvent[]>("/transfers"),
 
   createInterestRule: (accountId: string, input: CreateInterestRuleRequest) =>
     apiFetch<InterestRule>(`/accounts/${accountId}/interest-rules`, { method: "POST", body: JSON.stringify(input) }),

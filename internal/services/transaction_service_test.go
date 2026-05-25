@@ -348,6 +348,10 @@ func (r failingTransactionRepo) CreateTransfer(_ context.Context, _ *models.Tran
 	return r.err
 }
 
+func (r failingTransactionRepo) ListTransfersByUser(context.Context, string) ([]models.Transfer, error) {
+	return nil, r.err
+}
+
 func (r failingTransactionRepo) GetByID(_ context.Context, _ string) (*models.Transaction, error) {
 	return nil, r.err
 }

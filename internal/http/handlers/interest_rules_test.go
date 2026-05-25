@@ -271,6 +271,10 @@ func (r *testInterestTransactionRepo) CreateTransfer(context.Context, *models.Tr
 	return nil
 }
 
+func (r *testInterestTransactionRepo) ListTransfersByUser(context.Context, string) ([]models.Transfer, error) {
+	return nil, nil
+}
+
 func (r *testInterestTransactionRepo) GetByID(context.Context, string) (*models.Transaction, error) {
 	return nil, repository.ErrNotFound
 }

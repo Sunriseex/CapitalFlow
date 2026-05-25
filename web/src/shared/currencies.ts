@@ -1,5 +1,5 @@
 const fallbackCurrencyCodes = [
-  "AED", "ARS", "AUD", "BRL", "CAD", "CHF", "CNY", "EUR", "GBP", "HKD", "INR", "JPY", "KRW", "MXN", "RUB", "SGD", "TRY", "USD",
+  "AED", "ARS", "AUD", "BRL", "CAD", "CHF", "CNY", "EUR", "GBP", "HKD", "INR", "JPY", "KRW", "MXN", "RUB", "SGD", "TRY", "USD", "USDT",
 ];
 
 export function currencyOptions() {

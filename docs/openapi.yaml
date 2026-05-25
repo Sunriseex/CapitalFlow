@@ -422,6 +422,20 @@ paths:
         default:
           $ref: "#/components/responses/APIError"
   /transfers:
+    get:
+      tags: [Transfers]
+      summary: List transfer business events
+      responses:
+        "200":
+          description: Transfer audit events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TransferEvent"
+        default:
+          $ref: "#/components/responses/APIError"
     post:
       tags: [Transfers]
       summary: Create transfer
@@ -971,6 +985,12 @@ components:
         amount:
           type: string
           pattern: "^-?\\d+(\\.\\d{1,18})?$"
+        fee_amount:
+          type: string
+          pattern: "^\\d+(\\.\\d{1,18})?$"
+          default: "0"
+        fee_currency:
+          type: string
         description:
           type: string
     TransferResponse:
@@ -981,9 +1001,83 @@ components:
           $ref: "#/components/schemas/Transaction"
         in:
           $ref: "#/components/schemas/Transaction"
+        fee:
+          $ref: "#/components/schemas/Transaction"
         exchange_rate:
           type: string
           description: Rate used to convert out amount into in amount.
+    TransferEvent:
+      type: object
+      required:
+        - id
+        - user_id
+        - from_account_id
+        - to_account_id
+        - from_transaction_id
+        - to_transaction_id
+        - from_amount
+        - to_amount
+        - from_currency
+        - to_currency
+        - exchange_rate
+        - exchange_rate_scale
+        - exchange_rate_provider
+        - exchange_rate_date
+        - fee_amount
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        from_account_id:
+          type: string
+          format: uuid
+        to_account_id:
+          type: string
+          format: uuid
+        from_transaction_id:
+          type: string
+          format: uuid
+        to_transaction_id:
+          type: string
+          format: uuid
+        fee_transaction_id:
+          type: string
+          format: uuid
+        from_amount:
+          type: string
+        to_amount:
+          type: string
+        from_currency:
+          type: string
+        to_currency:
+          type: string
+        exchange_rate:
+          type: string
+        exchange_rate_scale:
+          type: integer
+        exchange_rate_provider:
+          type: string
+        exchange_rate_date:
+          type: string
+          format: date-time
+        fee_amount:
+          type: string
+        fee_currency:
+          type: string
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
     CurrencyRateTable:
       type: object
       required: [base, date, provider, fetched_at, rates]

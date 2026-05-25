@@ -133,6 +133,27 @@ describe("TransferForm", () => {
       });
       expect(onDone).toHaveBeenCalled();
     });
+  });
+
+  it("submits an optional transfer fee", async () => {
+    const user = userEvent.setup();
+    mocks.createTransfer.mockResolvedValue({});
+
+    renderTransferForm(sameCurrencyAccounts);
+
+    await user.type(screen.getByLabelText("Amount"), "100");
+    await user.type(screen.getByLabelText("Fee"), "1.25");
+    await user.click(screen.getByRole("button", { name: "Create" }));
+
+    await waitFor(() => {
+      expect(mocks.createTransfer).toHaveBeenCalledWith({
+        from_account_id: "account-1",
+        to_account_id: "account-2",
+        amount: "100",
+        fee_amount: "1.25",
+        description: "",
+      });
+    });
+  });
 });
-})
 

@@ -8,26 +8,27 @@ import (
 )
 
 var supportedCurrencies = map[string]struct{}{
-	"AED": {},
-	"ARS": {},
-	"AUD": {},
-	"BRL": {},
-	"CAD": {},
-	"CHF": {},
-	"CLF": {},
-	"CNY": {},
-	"EUR": {},
-	"GBP": {},
-	"HKD": {},
-	"INR": {},
-	"JPY": {},
-	"KRW": {},
-	"KWD": {},
-	"MXN": {},
-	"RUB": {},
-	"SGD": {},
-	"TRY": {},
-	"USD": {},
+	"AED":  {},
+	"ARS":  {},
+	"AUD":  {},
+	"BRL":  {},
+	"CAD":  {},
+	"CHF":  {},
+	"CLF":  {},
+	"CNY":  {},
+	"EUR":  {},
+	"GBP":  {},
+	"HKD":  {},
+	"INR":  {},
+	"JPY":  {},
+	"KRW":  {},
+	"KWD":  {},
+	"MXN":  {},
+	"RUB":  {},
+	"SGD":  {},
+	"TRY":  {},
+	"USD":  {},
+	"USDT": {},
 }
 
 func NormalizeCurrency(currency string) string {
@@ -36,7 +37,7 @@ func NormalizeCurrency(currency string) string {
 
 func ValidCurrency(currency string) bool {
 	currency = NormalizeCurrency(currency)
-	if len(currency) != 3 {
+	if currency == "" {
 		return false
 	}
 	_, ok := supportedCurrencies[currency]

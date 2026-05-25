@@ -71,6 +71,38 @@ func TestCurrencyServiceConvertDecimalAmountSameCurrency(t *testing.T) {
 	}
 }
 
+func TestCurrencyServiceConvertDecimalAmountRejectsInvalidRates(t *testing.T) {
+	tests := []struct {
+		name string
+		rate decimal.Decimal
+	}{
+		{name: "zero", rate: decimal.Zero},
+		{name: "negative", rate: decimal.NewFromInt(-1)},
+		{name: "too large", rate: maxExchangeRate.Add(decimal.NewFromInt(1))},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			service := NewCurrencyService(staticExchangeRateProvider{
+				rates: &ExchangeRates{
+					Base: "RUB",
+					Rates: map[string]decimal.Decimal{
+						"USD": tt.rate,
+					},
+				},
+			})
+
+			_, _, err := service.ConvertDecimalAmount(t.Context(), decimal.RequireFromString("100"), "RUB", "USD")
+			if err == nil {
+				t.Fatal("expected error")
+			}
+			if !IsValidationError(err) {
+				t.Fatalf("expected validation error, got %T: %v", err, err)
+			}
+		})
+	}
+}
+
 func TestHTTPExchangeRateProviderLatestCachesRates(t *testing.T) {
 	requests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

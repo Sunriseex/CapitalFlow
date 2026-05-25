@@ -199,6 +199,7 @@ type testTransactionRepo struct {
 	listFilteredUserID           string
 	listFilteredFilter           repository.TransactionListFilter
 	listFilteredTransactions     []models.Transaction
+	listTransfersByUser          []models.Transfer
 }
 
 func (r *testTransactionRepo) Create(context.Context, *models.Transaction) error {
@@ -227,6 +228,10 @@ func (r *testTransactionRepo) CreateTransfer(_ context.Context, transfer *models
 	r.createTransferIdempotencyKey = transfer.IdempotencyKey
 	r.createTransferTransactions = append(r.createTransferTransactions[:0], transactions...)
 	return nil
+}
+
+func (r *testTransactionRepo) ListTransfersByUser(context.Context, string) ([]models.Transfer, error) {
+	return r.listTransfersByUser, nil
 }
 
 func (r *testTransactionRepo) GetByID(context.Context, string) (*models.Transaction, error) {

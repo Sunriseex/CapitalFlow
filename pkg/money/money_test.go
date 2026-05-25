@@ -124,6 +124,7 @@ func TestCurrencyScale(t *testing.T) {
 		{currency: "krw", want: 0},
 		{currency: "KWD", want: 3},
 		{currency: "CLF", want: 4},
+		{currency: "USDT", want: 6},
 		{currency: "UNKNOWN", want: 2},
 	}
 

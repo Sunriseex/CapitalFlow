@@ -13,6 +13,7 @@ export function TransferForm({ accounts, onDone }: { accounts: Account[]; onDone
     from_account_id: accounts[0]?.id ?? "",
     to_account_id: accounts[1]?.id ?? "",
     amount: "",
+    fee_amount: "",
     description: "",
   });
   const fromAccount = accounts.find((account) => account.id === form.from_account_id);
@@ -41,11 +42,16 @@ export function TransferForm({ accounts, onDone }: { accounts: Account[]; onDone
       if (!amount.ok) {
         throw new Error(amount.error);
       }
+      const feeAmount = parseMoneyToMinorResult(form.fee_amount, { currency: fromAccount?.currency ?? "RUB" });
+      if (!feeAmount.ok) {
+        throw new Error(feeAmount.error);
+      }
 
       return api.createTransfer({
         from_account_id: form.from_account_id,
         to_account_id: form.to_account_id,
         amount: amount.value,
+        ...(isPositiveMoney(feeAmount.value) ? { fee_amount: feeAmount.value } : {}),
         description: form.description,
       });
     },
@@ -61,6 +67,7 @@ export function TransferForm({ accounts, onDone }: { accounts: Account[]; onDone
       <Field label="From"><Select value={form.from_account_id} onChange={(event) => setForm({ ...form, from_account_id: event.target.value })}>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</Select></Field>
       <Field label="To"><Select value={form.to_account_id} onChange={(event) => setForm({ ...form, to_account_id: event.target.value })}>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</Select></Field>
       <Field label="Amount"><Input required inputMode="decimal" value={form.amount} onChange={(event) => setForm({ ...form, amount: event.target.value })} /></Field>
+      <Field label="Fee"><Input inputMode="decimal" value={form.fee_amount} onChange={(event) => setForm({ ...form, fee_amount: event.target.value })} /></Field>
       {needsConversion && fromAccount && toAccount ? (
         <div className="conversion-preview">
           <span>{fromAccount.currency} to {toAccount.currency}</span>

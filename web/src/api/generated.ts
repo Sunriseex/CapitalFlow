@@ -147,13 +147,39 @@ export type CreateTransferRequest = {
   "from_account_id": string;
   "to_account_id": string;
   "amount": string;
+  "fee_amount"?: string;
+  "fee_currency"?: string;
   "description": string;
 };
 
 export type TransferResponse = {
   "out": Transaction;
   "in": Transaction;
+  "fee"?: Transaction;
   "exchange_rate": string;
+};
+
+export type TransferEvent = {
+  "id": string;
+  "user_id": string;
+  "from_account_id": string;
+  "to_account_id": string;
+  "from_transaction_id": string;
+  "to_transaction_id": string;
+  "fee_transaction_id"?: string;
+  "from_amount": string;
+  "to_amount": string;
+  "from_currency": string;
+  "to_currency": string;
+  "exchange_rate": string;
+  "exchange_rate_scale": number;
+  "exchange_rate_provider": string;
+  "exchange_rate_date": string;
+  "fee_amount": string;
+  "fee_currency"?: string;
+  "status": string;
+  "created_at": string;
+  "updated_at": string;
 };
 
 export type CurrencyRateTable = {

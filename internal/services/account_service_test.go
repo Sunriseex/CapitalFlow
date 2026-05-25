@@ -127,7 +127,7 @@ func (r *recordingAccountRepo) ClaimUnowned(context.Context, string) error {
 }
 
 func TestAccountServiceCreateValidatesCurrency(t *testing.T) {
-	tests := []string{"RUB1", "RUR", "BTC", "USDT"}
+	tests := []string{"RUB1", "RUR", "BTC"}
 
 	for _, currency := range tests {
 		t.Run(currency, func(t *testing.T) {

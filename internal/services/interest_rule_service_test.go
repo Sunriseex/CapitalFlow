@@ -675,6 +675,10 @@ func (r *recordingTransactionRepo) CreateTransfer(context.Context, *models.Trans
 	return nil
 }
 
+func (r *recordingTransactionRepo) ListTransfersByUser(context.Context, string) ([]models.Transfer, error) {
+	return nil, nil
+}
+
 func (r *recordingTransactionRepo) GetByID(context.Context, string) (*models.Transaction, error) {
 	return nil, errNotImplemented
 }

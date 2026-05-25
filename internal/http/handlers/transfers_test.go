@@ -61,6 +61,78 @@ func TestTransferRouteCreatesOwnedTransfer(t *testing.T) {
 	}
 }
 
+func TestTransferRouteCreatesTransferWithFee(t *testing.T) {
+	router, transactions, token := newTestTransferRouter(t)
+	req := newTestTransferRequest(t, token, "create-fee-transfer", `{
+		"from_account_id":"`+testTransferFromAccountID+`",
+		"to_account_id":"`+testTransferToAccountID+`",
+		"amount":"12500",
+		"fee_amount":"12.50",
+		"description":"Move savings"
+	}`)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+	if len(transactions.createTransferTransactions) != 3 {
+		t.Fatalf("created transactions = %d, want 3", len(transactions.createTransferTransactions))
+	}
+	if transactions.createTransferTransactions[2].Type != models.TransactionTypeExpense {
+		t.Fatalf("fee transaction = %+v", transactions.createTransferTransactions[2])
+	}
+
+	var response dto.TransferResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if response.Fee == nil || response.Fee.Type != models.TransactionTypeExpense {
+		t.Fatalf("fee response = %+v", response.Fee)
+	}
+}
+
+func TestTransferRouteListsTransferEvents(t *testing.T) {
+	router, transactions, token := newTestTransferRouter(t)
+	now := time.Date(2026, 5, 25, 12, 0, 0, 0, time.UTC)
+	transactions.listTransfersByUser = []models.Transfer{{
+		ID:                   "44444444-4444-4444-4444-444444444444",
+		UserID:               "user-1",
+		FromAccountID:        testTransferFromAccountID,
+		ToAccountID:          testTransferToAccountID,
+		FromTransactionID:    "55555555-5555-5555-5555-555555555555",
+		ToTransactionID:      "66666666-6666-6666-6666-666666666666",
+		FromAmount:           dec("12500"),
+		ToAmount:             dec("12500"),
+		FromCurrency:         "RUB",
+		ToCurrency:           "RUB",
+		ExchangeRate:         "1",
+		ExchangeRateScale:    18,
+		ExchangeRateProvider: "internal",
+		ExchangeRateDate:     now,
+		Status:               "completed",
+		CreatedAt:            now,
+		UpdatedAt:            now,
+	}}
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/transfers", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var response []dto.TransferEventResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(response) != 1 || response[0].ID != "44444444-4444-4444-4444-444444444444" {
+		t.Fatalf("response = %+v", response)
+	}
+}
+
 func TestTransferRouteRejectsForeignAccount(t *testing.T) {
 	router, transactions, token := newTestTransferRouter(t)
 	req := newTestTransferRequest(t, token, "reject-foreign-transfer", `{

@@ -30,6 +30,8 @@ type CreateTransferRequest struct {
 	FromCurrency   string
 	ToCurrency     string
 	Amount         decimal.Decimal
+	FeeAmount      decimal.Decimal
+	FeeCurrency    string
 	Description    string
 	IdempotencyKey string
 }
@@ -37,6 +39,7 @@ type CreateTransferRequest struct {
 type CreateTransferResponse struct {
 	Out          *models.Transaction
 	In           *models.Transaction
+	Fee          *models.Transaction
 	ExchangeRate string
 }
 
@@ -53,11 +56,17 @@ func (s *TransferService) Create(ctx context.Context, req *CreateTransferRequest
 	idempotencyKey := strings.TrimSpace(req.IdempotencyKey)
 	fromCurrency := strings.TrimSpace(req.FromCurrency)
 	toCurrency := strings.TrimSpace(req.ToCurrency)
+	feeCurrency := strings.TrimSpace(req.FeeCurrency)
+	if feeCurrency == "" && req.FeeAmount.IsPositive() {
+		feeCurrency = fromCurrency
+	}
 	if err := domaintransfer.ValidateCreate(&domaintransfer.CreateValidation{
 		FromAccountID:  fromAccountID,
 		ToAccountID:    toAccountID,
 		FromCurrency:   fromCurrency,
 		Amount:         req.Amount,
+		FeeAmount:      req.FeeAmount,
+		FeeCurrency:    feeCurrency,
 		IdempotencyKey: idempotencyKey,
 	}); err != nil {
 		return nil, validationError(err.Error())
@@ -85,15 +94,22 @@ func (s *TransferService) Create(ctx context.Context, req *CreateTransferRequest
 		FromCurrency:         fromCurrency,
 		ToCurrency:           toCurrency,
 		ExchangeRate:         exchangeRate,
+		ExchangeRateScale:    18,
 		ExchangeRateProvider: "internal",
 		ExchangeRateDate:     now,
+		FeeAmount:            req.FeeAmount,
+		Status:               "completed",
 		IdempotencyKey:       idempotencyKey,
 		CreatedAt:            now,
+		UpdatedAt:            now,
+	}
+	if req.FeeAmount.IsPositive() {
+		transfer.FeeCurrency = &feeCurrency
 	}
 
 	inRelatedID := fromAccountID
 	outRelatedID := toAccountID
-	created, err := s.transactions.CreateTransfer(ctx, transfer, &CreateTransactionRequest{
+	createReqs := []*CreateTransactionRequest{{
 		AccountID:        fromAccountID,
 		RelatedAccountID: &outRelatedID,
 		Type:             models.TransactionTypeTransferOut,
@@ -107,10 +123,33 @@ func (s *TransferService) Create(ctx context.Context, req *CreateTransferRequest
 		Amount:           inAmount,
 		Currency:         toCurrency,
 		Description:      req.Description,
-	})
+	}}
+	if req.FeeAmount.IsPositive() {
+		createReqs = append(createReqs, &CreateTransactionRequest{
+			AccountID:   fromAccountID,
+			Type:        models.TransactionTypeExpense,
+			Amount:      req.FeeAmount,
+			Currency:    feeCurrency,
+			Description: transferFeeDescription(req.Description),
+		})
+	}
+
+	created, err := s.transactions.CreateTransfer(ctx, transfer, createReqs...)
 	if err != nil {
 		return nil, fmt.Errorf("create transfer transactions: %w", err)
 	}
 
-	return &CreateTransferResponse{Out: &created[0], In: &created[1], ExchangeRate: exchangeRate}, nil
+	response := &CreateTransferResponse{Out: &created[0], In: &created[1], ExchangeRate: exchangeRate}
+	if len(created) == 3 {
+		response.Fee = &created[2]
+	}
+	return response, nil
+}
+
+func transferFeeDescription(description string) string {
+	description = strings.TrimSpace(description)
+	if description == "" {
+		return "Transfer fee"
+	}
+	return "Transfer fee: " + description
 }

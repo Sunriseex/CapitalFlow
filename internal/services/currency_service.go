@@ -17,6 +17,8 @@ const (
 	defaultExchangeRateTTL = 6 * time.Hour
 )
 
+var maxExchangeRate = decimal.RequireFromString("1000000000000")
+
 type ExchangeRates struct {
 	Base      string
 	Date      string
@@ -70,6 +72,9 @@ func (s *CurrencyService) ConvertDecimalAmount(ctx context.Context, amount decim
 	rate, ok := rates.Rates[to]
 	if !ok || !rate.IsPositive() {
 		return decimal.Zero, decimal.Zero, validationError("exchange rate not found for " + from + "/" + to)
+	}
+	if rate.GreaterThan(maxExchangeRate) {
+		return decimal.Zero, decimal.Zero, validationError("exchange rate is too large for " + from + "/" + to)
 	}
 
 	converted = amount.Mul(rate)

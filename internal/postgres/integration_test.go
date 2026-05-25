@@ -1424,15 +1424,15 @@ func TestTransactionCreateTransferLocksAccountsAndRollsBack(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list transfer transactions: %v", err)
 	}
-	if len(got) != 4 {
-		t.Fatalf("transaction count = %d, want 4", len(got))
+	if len(got) != 6 {
+		t.Fatalf("transaction count = %d, want 6", len(got))
 	}
 	fromBalance, fromCount, err := transactions.GetBalanceByAccountForUser(ctx, from.ID, userID)
 	if err != nil {
 		t.Fatalf("get from balance: %v", err)
 	}
-	if !fromBalance.Equal(dec("100")) || fromCount != 3 {
-		t.Fatalf("from balance/count = %d/%d, want 100/3", fromBalance, fromCount)
+	if !fromBalance.Equal(dec("1")) || fromCount != 3 {
+		t.Fatalf("from balance/count = %s/%d, want 1/3", fromBalance, fromCount)
 	}
 
 	otherUserID := uuid.NewString()
@@ -1456,8 +1456,8 @@ func TestTransactionCreateTransferLocksAccountsAndRollsBack(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list after failed transfer: %v", err)
 	}
-	if len(got) != 4 {
-		t.Fatalf("failed transfer inserted rows, count = %d, want 4", len(got))
+	if len(got) != 6 {
+		t.Fatalf("failed transfer inserted rows, count = %d, want 6", len(got))
 	}
 }
 
@@ -1550,10 +1550,67 @@ func TestTransactionCreateTransferPersistsAuditRecord(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list transfer transactions: %v", err)
 	}
+	wantTransferIDs := map[string]bool{
+		transferTransactions[0].ID: true,
+		transferTransactions[1].ID: true,
+	}
 	for i := range gotTransactions {
+		if !wantTransferIDs[gotTransactions[i].ID] {
+			continue
+		}
 		if gotTransactions[i].TransferID == nil || *gotTransactions[i].TransferID != transfer.ID {
 			t.Fatalf("transaction %s transfer_id = %v, want %s", gotTransactions[i].ID, gotTransactions[i].TransferID, transfer.ID)
 		}
+	}
+}
+
+func TestTransactionCreateTransferPersistsFeeAndListsBusinessEvent(t *testing.T) {
+	ctx := t.Context()
+	store := newTestStore(t)
+	now := time.Now().UTC()
+	userID := seedUser(ctx, t, store, "fee-transfer@example.com")
+	from := transferTestAccount(t, store, userID, "from-fee")
+	to := transferTestAccount(t, store, userID, "to-fee")
+	seedTransferFunds(ctx, t, store, userID, from.ID, 500, now)
+
+	transfer, transferTransactions := transferTestRows(userID, from.ID, to.ID, "RUB", "RUB", 100, 100, "1", now)
+	feeCurrency := "RUB"
+	feeTransactionID := uuid.NewString()
+	transfer.FeeTransactionID = &feeTransactionID
+	transfer.FeeAmount = dec("1.25")
+	transfer.FeeCurrency = &feeCurrency
+	transferTransactions = append(transferTransactions, models.Transaction{
+		ID:          feeTransactionID,
+		AccountID:   from.ID,
+		Type:        models.TransactionTypeExpense,
+		Amount:      dec("1.25"),
+		Description: "Transfer fee",
+		OccurredAt:  now,
+		CreatedAt:   now,
+	})
+	if err := store.Transactions().CreateTransfer(ctx, transfer, transferTransactions); err != nil {
+		t.Fatalf("create transfer with fee: %v", err)
+	}
+
+	transfers, err := store.Transactions().ListTransfersByUser(ctx, userID)
+	if err != nil {
+		t.Fatalf("list transfers: %v", err)
+	}
+	if len(transfers) != 1 {
+		t.Fatalf("transfer count = %d, want 1", len(transfers))
+	}
+	if transfers[0].FeeTransactionID == nil || *transfers[0].FeeTransactionID != feeTransactionID {
+		t.Fatalf("fee transaction id = %v, want %s", transfers[0].FeeTransactionID, feeTransactionID)
+	}
+	if !transfers[0].FeeAmount.Equal(dec("1.25")) || transfers[0].FeeCurrency == nil || *transfers[0].FeeCurrency != "RUB" {
+		t.Fatalf("fee audit = %+v", transfers[0])
+	}
+	balance, _, err := store.Transactions().GetBalanceByAccountForUser(ctx, from.ID, userID)
+	if err != nil {
+		t.Fatalf("get source balance: %v", err)
+	}
+	if !balance.Equal(dec("2.75")) {
+		t.Fatalf("source balance = %s, want 2.75", balance)
 	}
 }
 
@@ -1764,6 +1821,9 @@ func TestFinancialSchemaHasExpectedIndexesAndConstraints(t *testing.T) {
 		"interest_accruals_rule_id_idx",
 		"categories_parent_id_idx",
 		"transfers_user_id_idempotency_key_idx",
+		"transfers_fee_transaction_id_idx",
+		"idempotency_keys_id_idx",
+		"idempotency_keys_status_locked_until_idx",
 	}
 	for _, indexName := range expectedIndexes {
 		var exists bool
@@ -1853,8 +1913,8 @@ func TestTransactionRepositoryGetBalanceByAccountForUserMatchesBalanceService(t 
 	if err != nil {
 		t.Fatalf("get SQL balance: %v", err)
 	}
-	if gotBalance != want.Balance || gotCount != int64(want.Count) {
-		t.Fatalf("SQL balance/count = %d/%d, want %d/%d", gotBalance, gotCount, want.Balance, want.Count)
+	if !gotBalance.Equal(want.Balance) || gotCount != int64(want.Count) {
+		t.Fatalf("SQL balance/count = %s/%d, want %s/%d", gotBalance, gotCount, want.Balance, want.Count)
 	}
 
 	otherBalance, otherCount, err := store.Transactions().GetBalanceByAccountForUser(ctx, account.ID, otherUserID)
@@ -2162,6 +2222,7 @@ func TestTransactionRepositoryListByUserFilteredTreatsSearchAsLiteralSubstring(t
 func transferTestAccount(t *testing.T, store *Store, userID, name string) *models.Account {
 	t.Helper()
 	now := time.Now().UTC()
+	openedAt := now.AddDate(-10, 0, 0)
 	account := &models.Account{
 		ID:          uuid.NewString(),
 		OwnerUserID: &userID,
@@ -2169,7 +2230,7 @@ func transferTestAccount(t *testing.T, store *Store, userID, name string) *model
 		Type:        models.AccountTypeSavings,
 		Currency:    "RUB",
 		IsActive:    true,
-		OpenedAt:    now,
+		OpenedAt:    openedAt,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}

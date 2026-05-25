@@ -14,6 +14,8 @@ type CreateValidation struct {
 	ToAccountID    string
 	FromCurrency   string
 	Amount         decimal.Decimal
+	FeeAmount      decimal.Decimal
+	FeeCurrency    string
 	IdempotencyKey string
 }
 
@@ -35,6 +37,9 @@ func ValidateCreate(input *CreateValidation) error {
 	if !input.Amount.IsPositive() {
 		return fmt.Errorf("transfer amount must be positive")
 	}
+	if input.FeeAmount.IsNegative() {
+		return fmt.Errorf("transfer fee must not be negative")
+	}
 	if strings.TrimSpace(input.IdempotencyKey) == "" {
 		return fmt.Errorf("idempotency key is required")
 	}
@@ -44,6 +49,18 @@ func ValidateCreate(input *CreateValidation) error {
 			currency = "RUB"
 		}
 		return fmt.Errorf("transfer amount scale exceeds %s minor units", currency)
+	}
+	if input.FeeAmount.IsPositive() {
+		feeCurrency := strings.TrimSpace(input.FeeCurrency)
+		if feeCurrency == "" {
+			feeCurrency = input.FromCurrency
+		}
+		if rounded := money.RoundForCurrency(input.FeeAmount, feeCurrency); !input.FeeAmount.Equal(rounded) {
+			if feeCurrency == "" {
+				feeCurrency = "RUB"
+			}
+			return fmt.Errorf("transfer fee scale exceeds %s minor units", feeCurrency)
+		}
 	}
 	return nil
 }
