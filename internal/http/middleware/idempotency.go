@@ -15,8 +15,10 @@ import (
 	"github.com/sunriseex/capitalflow/internal/repository"
 )
 
-const IdempotencyKeyHeader = "Idempotency-Key"
-const maxIdempotencyKeyLength = 255
+const (
+	IdempotencyKeyHeader    = "Idempotency-Key"
+	maxIdempotencyKeyLength = 255
+)
 
 const idempotencyCompletionUnknownMessage = "The operation may have completed, but idempotency state could not be persisted. Retry later with the same Idempotency-Key. Do not retry with a new key."
 
