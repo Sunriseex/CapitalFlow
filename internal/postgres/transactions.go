@@ -103,7 +103,7 @@ func lockTransactionAccountsForUser(ctx context.Context, db queryer, userID stri
 		if !isActive {
 			hasInactive = true
 		}
-		if !occurredAt.IsZero() && occurredAt.Before(openedAt) {
+		if !occurredAt.IsZero() && dateOnly(occurredAt).Before(dateOnly(openedAt)) {
 			hasBeforeOpen = true
 		}
 	}

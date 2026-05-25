@@ -755,7 +755,7 @@ func TestTransactionRepositoryCreateForUserRejectsBeforeAccountOpen(t *testing.T
 		AccountID:  account.ID,
 		Type:       models.TransactionTypeIncome,
 		Amount:     dec("1"),
-		OccurredAt: account.OpenedAt.Add(-time.Second),
+		OccurredAt: account.OpenedAt.AddDate(0, 0, -1),
 		CreatedAt:  now,
 	}
 	err := store.Transactions().CreateForUser(ctx, userID, tx)
@@ -769,6 +769,34 @@ func TestTransactionRepositoryCreateForUserRejectsBeforeAccountOpen(t *testing.T
 	}
 	if len(got) != 0 {
 		t.Fatalf("before open transaction inserted rows: %+v", got)
+	}
+}
+
+func TestTransactionRepositoryCreateForUserAllowsAccountOpenDate(t *testing.T) {
+	ctx := t.Context()
+	store := newTestStore(t)
+	now := time.Now().UTC()
+	userID := seedUser(ctx, t, store, "transaction-open-date@example.com")
+
+	account := transferTestAccount(t, store, userID, "open-date-transaction")
+	tx := &models.Transaction{
+		ID:         uuid.NewString(),
+		AccountID:  account.ID,
+		Type:       models.TransactionTypeIncome,
+		Amount:     dec("1"),
+		OccurredAt: pgDateOnly(account.OpenedAt),
+		CreatedAt:  now,
+	}
+	if err := store.Transactions().CreateForUser(ctx, userID, tx); err != nil {
+		t.Fatalf("create transaction on account open date: %v", err)
+	}
+
+	got, err := store.Transactions().ListByUser(ctx, userID)
+	if err != nil {
+		t.Fatalf("list transactions: %v", err)
+	}
+	if len(got) != 1 || got[0].ID != tx.ID {
+		t.Fatalf("open date transactions = %+v, want %s", got, tx.ID)
 	}
 }
 

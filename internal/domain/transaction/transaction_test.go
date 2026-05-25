@@ -66,11 +66,22 @@ func TestValidateCreate(t *testing.T) {
 				AccountID:     "account-1",
 				Type:          models.TransactionTypeIncome,
 				Amount:        decimal.NewFromInt(1),
-				OccurredAt:    now.Add(-time.Hour),
+				OccurredAt:    now.AddDate(0, 0, -1),
 				AccountOpened: now,
 				Now:           now,
 			},
 			wantErr: true,
+		},
+		{
+			name: "same account open date ignores time of day",
+			input: CreateValidation{
+				AccountID:     "account-1",
+				Type:          models.TransactionTypeIncome,
+				Amount:        decimal.NewFromInt(1),
+				OccurredAt:    time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC),
+				AccountOpened: now,
+				Now:           now,
+			},
 		},
 		{
 			name: "transfer generation can allow future",

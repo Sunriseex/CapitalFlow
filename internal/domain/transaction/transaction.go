@@ -59,10 +59,17 @@ func ValidateCreate(input *CreateValidation) error {
 			return fmt.Errorf("transaction date must not be in the future")
 		}
 	}
-	if !input.AccountOpened.IsZero() && input.OccurredAt.Before(input.AccountOpened) {
+	if !input.AccountOpened.IsZero() && dateOnly(input.OccurredAt).Before(dateOnly(input.AccountOpened)) {
 		return fmt.Errorf("transaction date must be on or after account opened date")
 	}
 	return nil
+}
+
+func dateOnly(date time.Time) time.Time {
+	if date.IsZero() {
+		return time.Time{}
+	}
+	return time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
 }
 
 func ValidType(transactionType models.TransactionType) bool {
