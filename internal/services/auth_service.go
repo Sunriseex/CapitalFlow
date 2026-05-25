@@ -13,6 +13,7 @@ import (
 	zxcvbn "github.com/nbutton23/zxcvbn-go"
 
 	"github.com/sunriseex/capitalflow/internal/auth"
+	domainaccount "github.com/sunriseex/capitalflow/internal/domain/account"
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/repository"
 	"github.com/sunriseex/capitalflow/pkg/security"
@@ -520,7 +521,7 @@ func normalizeEmail(email string) (string, error) {
 }
 
 func normalizePrimaryCurrency(currency string) string {
-	currency = strings.ToUpper(strings.TrimSpace(currency))
+	currency = domainaccount.NormalizeCurrency(currency)
 	if currency == "" {
 		return "RUB"
 	}
@@ -528,13 +529,8 @@ func normalizePrimaryCurrency(currency string) string {
 }
 
 func validateCurrency(currency string) error {
-	if len(currency) != 3 {
+	if !domainaccount.ValidCurrency(currency) {
 		return validationError("invalid currency: " + currency)
-	}
-	for _, r := range currency {
-		if r < 'A' || r > 'Z' {
-			return validationError("invalid currency: " + currency)
-		}
 	}
 	return nil
 }

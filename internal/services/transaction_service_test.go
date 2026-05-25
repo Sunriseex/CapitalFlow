@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/shopspring/decimal"
 
@@ -224,6 +225,38 @@ func TestTransactionServiceCreateValidatesCurrencyScale(t *testing.T) {
 				t.Fatalf("create transaction: %v", err)
 			}
 		})
+	}
+}
+
+func TestTransactionServiceCreateRejectsFutureDate(t *testing.T) {
+	_, err := NewTransactionService(&recordingCreateForUserRepo{}).Create(t.Context(), &CreateTransactionRequest{
+		AccountID:  "account-1",
+		Type:       models.TransactionTypeIncome,
+		Amount:     dec("1"),
+		OccurredAt: time.Now().Add(time.Hour),
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !IsValidationError(err) {
+		t.Fatalf("expected validation error, got %T: %v", err, err)
+	}
+}
+
+func TestTransactionServiceCreateRejectsBeforeAccountOpen(t *testing.T) {
+	openedAt := time.Date(2026, 5, 10, 0, 0, 0, 0, time.UTC)
+	_, err := NewTransactionService(&recordingCreateForUserRepo{}).Create(t.Context(), &CreateTransactionRequest{
+		AccountID:       "account-1",
+		Type:            models.TransactionTypeIncome,
+		Amount:          dec("1"),
+		OccurredAt:      openedAt.AddDate(0, 0, -1),
+		AccountOpenedAt: openedAt,
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !IsValidationError(err) {
+		t.Fatalf("expected validation error, got %T: %v", err, err)
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
+	domaintransfer "github.com/sunriseex/capitalflow/internal/domain/transfer"
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/pkg/money"
 )
@@ -49,33 +50,19 @@ func (s *TransferService) Create(ctx context.Context, req *CreateTransferRequest
 
 	fromAccountID := strings.TrimSpace(req.FromAccountID)
 	toAccountID := strings.TrimSpace(req.ToAccountID)
-	if fromAccountID == "" {
-		return nil, validationError("from account id is required")
-	}
-	if toAccountID == "" {
-		return nil, validationError("to account id is required")
-	}
-	if fromAccountID == toAccountID {
-		return nil, validationError("transfer accounts must be different")
-	}
-	if !req.Amount.IsPositive() {
-		return nil, validationError("transfer amount must be positive")
-	}
 	idempotencyKey := strings.TrimSpace(req.IdempotencyKey)
-	if idempotencyKey == "" {
-		return nil, validationError("idempotency key is required")
-	}
-
 	fromCurrency := strings.TrimSpace(req.FromCurrency)
 	toCurrency := strings.TrimSpace(req.ToCurrency)
-	fromAmount := money.RoundForCurrency(req.Amount, fromCurrency)
-	if !req.Amount.Equal(fromAmount) {
-		currency := fromCurrency
-		if currency == "" {
-			currency = "RUB"
-		}
-		return nil, validationError("transfer amount scale exceeds " + currency + " minor units")
+	if err := domaintransfer.ValidateCreate(domaintransfer.CreateValidation{
+		FromAccountID:  fromAccountID,
+		ToAccountID:    toAccountID,
+		FromCurrency:   fromCurrency,
+		Amount:         req.Amount,
+		IdempotencyKey: idempotencyKey,
+	}); err != nil {
+		return nil, validationError(err.Error())
 	}
+	fromAmount := money.RoundForCurrency(req.Amount, fromCurrency)
 	inAmount := fromAmount
 	exchangeRate := "1"
 	if fromCurrency != "" || toCurrency != "" {

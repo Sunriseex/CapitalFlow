@@ -163,7 +163,7 @@ func validateAccount(account *models.Account) error {
 	if !services.ValidAccountType(account.Type) {
 		return errValidation("invalid account type: " + string(account.Type))
 	}
-	if !services.ValidCurrency(account.Currency) {
+	if account.Currency != strings.ToUpper(strings.TrimSpace(account.Currency)) || !services.ValidCurrency(account.Currency) {
 		return errValidation("invalid currency: " + account.Currency)
 	}
 	return nil

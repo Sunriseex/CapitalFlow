@@ -42,7 +42,7 @@ func (r *TransactionRepository) CreateForUser(ctx context.Context, userID string
 	if transaction.RelatedAccountID != nil {
 		accountIDs = append(accountIDs, *transaction.RelatedAccountID)
 	}
-	if err := lockTransactionAccountsForUser(ctx, tx, userID, accountIDs); err != nil {
+	if err := lockTransactionAccountsForUser(ctx, tx, userID, accountIDs, transaction.OccurredAt); err != nil {
 		return fmt.Errorf("lock transaction accounts: %w", err)
 	}
 
@@ -55,7 +55,7 @@ func (r *TransactionRepository) CreateForUser(ctx context.Context, userID string
 	return nil
 }
 
-func lockTransactionAccountsForUser(ctx context.Context, db queryer, userID string, accountIDs []string) error {
+func lockTransactionAccountsForUser(ctx context.Context, db queryer, userID string, accountIDs []string, occurredAt time.Time) error {
 	accountIDs = slices.Clone(accountIDs)
 	slices.Sort(accountIDs)
 	accountIDs = slices.Compact(accountIDs)
@@ -65,7 +65,7 @@ func lockTransactionAccountsForUser(ctx context.Context, db queryer, userID stri
 	}
 
 	query := `
-		SELECT id, is_active
+		SELECT id, is_active, opened_at
 		FROM accounts
 		WHERE id = $1 AND owner_user_id = $2
 		ORDER BY id
@@ -74,7 +74,7 @@ func lockTransactionAccountsForUser(ctx context.Context, db queryer, userID stri
 	args := []any{accountIDs[0], userID}
 	if len(accountIDs) == 2 {
 		query = `
-			SELECT id, is_active
+			SELECT id, is_active, opened_at
 			FROM accounts
 			WHERE id IN ($1, $2) AND owner_user_id = $3
 			ORDER BY id
@@ -91,15 +91,20 @@ func lockTransactionAccountsForUser(ctx context.Context, db queryer, userID stri
 
 	locked := 0
 	hasInactive := false
+	hasBeforeOpen := false
 	for rows.Next() {
 		var id string
 		var isActive bool
-		if err := rows.Scan(&id, &isActive); err != nil {
+		var openedAt time.Time
+		if err := rows.Scan(&id, &isActive, &openedAt); err != nil {
 			return fmt.Errorf("scan locked transaction account: %w", err)
 		}
 		locked++
 		if !isActive {
 			hasInactive = true
+		}
+		if !occurredAt.IsZero() && occurredAt.Before(openedAt) {
+			hasBeforeOpen = true
 		}
 	}
 	if err := rows.Err(); err != nil {
@@ -110,6 +115,9 @@ func lockTransactionAccountsForUser(ctx context.Context, db queryer, userID stri
 	}
 	if hasInactive {
 		return repository.ErrInactiveAccount
+	}
+	if hasBeforeOpen {
+		return repository.ErrTransactionBeforeOpen
 	}
 	return nil
 }
@@ -146,7 +154,7 @@ func (r *TransactionRepository) CreateTransfer(ctx context.Context, transfer *mo
 	accountIDs := []string{transfer.FromAccountID, transfer.ToAccountID}
 	slices.Sort(accountIDs)
 	rows, err := tx.Query(ctx, `
-		SELECT id, currency, is_active
+		SELECT id, currency, is_active, opened_at
 		FROM accounts
 		WHERE id IN ($1, $2) AND owner_user_id = $3
 		ORDER BY id
@@ -160,13 +168,18 @@ func (r *TransactionRepository) CreateTransfer(ctx context.Context, transfer *mo
 		var id string
 		var currency string
 		var isActive bool
-		if err := rows.Scan(&id, &currency, &isActive); err != nil {
+		var openedAt time.Time
+		if err := rows.Scan(&id, &currency, &isActive, &openedAt); err != nil {
 			rows.Close()
 			return fmt.Errorf("scan locked transfer account: %w", err)
 		}
 		if !isActive {
 			rows.Close()
 			return fmt.Errorf("lock transfer accounts: %w", repository.ErrInactiveAccount)
+		}
+		if transfer.CreatedAt.Before(openedAt) {
+			rows.Close()
+			return fmt.Errorf("lock transfer accounts: %w", repository.ErrTransactionBeforeOpen)
 		}
 		lockedCurrencies[id] = currency
 	}

@@ -187,6 +187,12 @@ func TestWriteServiceErrorMapsKnownErrors(t *testing.T) {
 			wantStatus: http.StatusBadRequest,
 			wantCode:   "validation_error",
 		},
+		{
+			name:       "transaction before account open",
+			err:        repository.ErrTransactionBeforeOpen,
+			wantStatus: http.StatusBadRequest,
+			wantCode:   "validation_error",
+		},
 	}
 
 	for _, tt := range tests {

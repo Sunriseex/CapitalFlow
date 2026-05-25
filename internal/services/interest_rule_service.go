@@ -259,12 +259,13 @@ func (s *InterestRuleService) Accrue(ctx context.Context, req *AccrueRuleInteres
 	}
 
 	tx, err := buildTransaction(ctx, &CreateTransactionRequest{
-		AccountID:   req.Rule.AccountID,
-		Type:        models.TransactionTypeInterestIncome,
-		Amount:      amount,
-		Currency:    currency,
-		Description: interestAccrualDescription(req.Rule.ID, accrualDate),
-		OccurredAt:  accrualDate,
+		AccountID:       req.Rule.AccountID,
+		Type:            models.TransactionTypeInterestIncome,
+		Amount:          amount,
+		Currency:        currency,
+		Description:     interestAccrualDescription(req.Rule.ID, accrualDate),
+		OccurredAt:      accrualDate,
+		AllowFutureDate: true,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("build interest income transaction: %w", err)
@@ -386,12 +387,13 @@ func (s *InterestRuleService) Recalculate(ctx context.Context, req *RecalculateR
 		}
 
 		tx, err := buildTransaction(ctx, &CreateTransactionRequest{
-			AccountID:   req.Rule.AccountID,
-			Type:        models.TransactionTypeInterestIncome,
-			Amount:      pendingAmount,
-			Currency:    currency,
-			Description: interestAccrualDescription(req.Rule.ID, day),
-			OccurredAt:  day,
+			AccountID:       req.Rule.AccountID,
+			Type:            models.TransactionTypeInterestIncome,
+			Amount:          pendingAmount,
+			Currency:        currency,
+			Description:     interestAccrualDescription(req.Rule.ID, day),
+			OccurredAt:      day,
+			AllowFutureDate: true,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("build recalculated interest transaction: %w", err)

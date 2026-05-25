@@ -315,14 +315,21 @@ func runTransactionsCreate(ctx context.Context, args []string) error {
 		return err
 	}
 	service := services.NewTransactionService(store.Transactions())
-	transaction, err := service.Create(ctx, &services.CreateTransactionRequest{
-		AccountID:   *accountID,
-		Type:        parsedType,
-		Amount:      Amount,
-		Currency:    account.Currency,
-		Description: *description,
-		OccurredAt:  occurredAt,
-	})
+	createReq := &services.CreateTransactionRequest{
+		AccountID:       *accountID,
+		Type:            parsedType,
+		Amount:          Amount,
+		Currency:        account.Currency,
+		Description:     *description,
+		OccurredAt:      occurredAt,
+		AccountOpenedAt: account.OpenedAt,
+	}
+	var transaction *models.Transaction
+	if account.OwnerUserID != nil && strings.TrimSpace(*account.OwnerUserID) != "" {
+		transaction, err = service.CreateForUser(ctx, *account.OwnerUserID, createReq)
+	} else {
+		transaction, err = service.Create(ctx, createReq)
+	}
 	if err != nil {
 		return err
 	}
