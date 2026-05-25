@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/sunriseex/capitalflow/internal/models"
@@ -15,12 +16,17 @@ import (
 )
 
 const IdempotencyKeyHeader = "Idempotency-Key"
+const maxIdempotencyKeyLength = 255
 
 const idempotencyCompletionUnknownMessage = "The operation may have completed, but idempotency state could not be persisted. Retry later with the same Idempotency-Key. Do not retry with a new key."
 
 func RequireIdempotencyKey(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get(IdempotencyKeyHeader) == "" {
+		key, ok := normalizeIdempotencyKey(w, r)
+		if !ok {
+			return
+		}
+		if key == "" {
 			writeJSONError(w, http.StatusPreconditionRequired, "idempotency_key_required", "Idempotency key is required", nil)
 			return
 		}
@@ -50,7 +56,10 @@ func Idempotency(repo repository.IdempotencyRepository) func(http.Handler) http.
 			return next
 		}
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			key := r.Header.Get(IdempotencyKeyHeader)
+			key, ok := normalizeIdempotencyKey(w, r)
+			if !ok {
+				return
+			}
 			if key == "" {
 				next.ServeHTTP(w, r)
 				return
@@ -125,6 +134,19 @@ func Idempotency(repo repository.IdempotencyRepository) func(http.Handler) http.
 			rec.flushTo(w)
 		})
 	}
+}
+
+func normalizeIdempotencyKey(w http.ResponseWriter, r *http.Request) (string, bool) {
+	key := strings.TrimSpace(r.Header.Get(IdempotencyKeyHeader))
+	if key == "" {
+		return "", true
+	}
+	if len(key) > maxIdempotencyKeyLength {
+		writeJSONError(w, http.StatusBadRequest, "idempotency_key_too_long", "Idempotency key is too long", nil)
+		return "", false
+	}
+	r.Header.Set(IdempotencyKeyHeader, key)
+	return key, true
 }
 
 func writeIdempotencyCompletionUnknown(w http.ResponseWriter) {

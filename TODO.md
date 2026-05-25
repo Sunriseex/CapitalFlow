@@ -257,7 +257,7 @@ idempotency_keys
 * [ ] Concurrent retry безопасен.
 * [ ] Idempotency работает на уровне БД, а не только в памяти.
 * [ ] Cross-currency transfer audit не зависит от текущего курса валют.
-* [ ] Есть `docs/architecture/idempotency.md`.
+* [x] Есть `docs/architecture/idempotency.md`.
 
 ---
 
