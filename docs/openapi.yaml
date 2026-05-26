@@ -413,14 +413,6 @@ paths:
                 $ref: "#/components/schemas/Transaction"
         default:
           $ref: "#/components/responses/APIError"
-    delete:
-      tags: [Transactions]
-      summary: Delete transaction
-      responses:
-        "204":
-          description: Deleted
-        default:
-          $ref: "#/components/responses/APIError"
   /transfers:
     get:
       tags: [Transfers]

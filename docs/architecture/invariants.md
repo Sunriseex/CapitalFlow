@@ -47,9 +47,11 @@ These invariants protect CapitalFlow from silent balance corruption and audit ga
 
 ## Deletion
 
-- Transfer transaction deletion is forbidden through the transaction endpoint.
+- User-facing transaction deletion is forbidden.
+- Corrections must be modeled as new financial events, not by erasing posted transactions.
+- Generated interest recalculation may replace generated accrual transactions only inside one database transaction.
 - Transfer foreign keys use restrictive deletes.
-- Future destructive financial operations must be soft-delete or audit-backed.
+- Future destructive financial operations must be soft-delete or audit-backed before they become user-facing.
 
 ## Concurrency
 

@@ -77,7 +77,7 @@ export function AccountDetails({ account, onBack }: { account: Account; onBack: 
       </Panel>
 
       <Panel title="Transactions">
-        <TransactionsTable transactions={transactions.data ?? []} accounts={[account]} categories={[]} allowDelete />
+        <TransactionsTable transactions={transactions.data ?? []} accounts={[account]} categories={[]} />
       </Panel>
 
       {editOpen ? (

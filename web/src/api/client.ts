@@ -277,8 +277,6 @@ export const api = {
   createTransaction: (input: CreateTransactionRequest) =>
     apiFetch<Transaction>("/transactions", { method: "POST", body: JSON.stringify(input) }),
 
-  deleteTransaction: (id: string) => apiFetch<void>(`/transactions/${id}`, { method: "DELETE" }),
-
   createTransfer: (input: CreateTransferRequest) =>
     apiFetch<TransferResponse>("/transfers", {
       method: "POST",

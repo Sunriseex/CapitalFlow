@@ -141,6 +141,83 @@ func TestTransactionServiceCreateRejectsNegativeNonAdjustmentAmounts(t *testing.
 	}
 }
 
+func TestTransactionServiceCreateRejectsDirectTransferTypes(t *testing.T) {
+	for _, transactionType := range []models.TransactionType{models.TransactionTypeTransferIn, models.TransactionTypeTransferOut} {
+		t.Run(string(transactionType), func(t *testing.T) {
+			tests := []struct {
+				name string
+				run  func() error
+			}{
+				{
+					name: "create",
+					run: func() error {
+						_, err := NewTransactionService(&recordingCreateForUserRepo{}).Create(t.Context(), &CreateTransactionRequest{
+							AccountID: "account-1",
+							Type:      transactionType,
+							Amount:    dec("1"),
+						})
+						return err
+					},
+				},
+				{
+					name: "create for user",
+					run: func() error {
+						_, err := NewTransactionService(&recordingCreateForUserRepo{}).CreateForUser(t.Context(), "user-1", &CreateTransactionRequest{
+							AccountID: "account-1",
+							Type:      transactionType,
+							Amount:    dec("1"),
+						})
+						return err
+					},
+				},
+				{
+					name: "create many",
+					run: func() error {
+						_, err := NewTransactionService(&recordingCreateForUserRepo{}).CreateMany(t.Context(), &CreateTransactionRequest{
+							AccountID: "account-1",
+							Type:      transactionType,
+							Amount:    dec("1"),
+						})
+						return err
+					},
+				},
+			}
+
+			for _, tt := range tests {
+				t.Run(tt.name, func(t *testing.T) {
+					err := tt.run()
+					if err == nil {
+						t.Fatal("expected error")
+					}
+					if !IsValidationError(err) {
+						t.Fatalf("expected validation error, got %T: %v", err, err)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestTransactionServiceCreateTransferAllowsTransferTypes(t *testing.T) {
+	repo := &recordingCreateForUserRepo{}
+	transfer := &models.Transfer{ID: "transfer-1"}
+
+	transactions, err := NewTransactionService(repo).CreateTransfer(
+		t.Context(), transfer,
+		&CreateTransactionRequest{AccountID: "account-1", Type: models.TransactionTypeTransferOut, Amount: dec("1")},
+		&CreateTransactionRequest{AccountID: "account-2", Type: models.TransactionTypeTransferIn, Amount: dec("1")},
+	)
+	if err != nil {
+		t.Fatalf("create transfer transactions: %v", err)
+	}
+	if len(transactions) != 2 {
+		t.Fatalf("transactions len = %d, want 2", len(transactions))
+	}
+	if transfer.FromTransactionID == "" || transfer.ToTransactionID == "" {
+		t.Fatalf("transfer transaction ids were not set: %+v", transfer)
+	}
+}
+
 func TestTransactionServiceCreateAllowsNegativeAdjustments(t *testing.T) {
 	tx, err := NewTransactionService(&recordingCreateForUserRepo{}).Create(t.Context(), &CreateTransactionRequest{
 		AccountID: "account-1",
@@ -380,14 +457,6 @@ func (r failingTransactionRepo) GetBalanceByAccountForUser(context.Context, stri
 	return decimal.Zero, 0, r.err
 }
 
-func (r failingTransactionRepo) Delete(_ context.Context, _ string) error {
-	return r.err
-}
-
-func (r failingTransactionRepo) DeleteForUser(_ context.Context, _, _ string) error {
-	return r.err
-}
-
 type userScopedTransactionRepo struct {
 	failingTransactionRepo
 	createCalls     int
@@ -466,5 +535,13 @@ func (r *recordingCreateForUserRepo) CreateForUser(_ context.Context, userID str
 	r.createForUserCalls++
 	r.userID = userID
 	r.transaction = transaction
+	return nil
+}
+
+func (r *recordingCreateForUserRepo) CreateTransfer(_ context.Context, _ *models.Transfer, transactions []models.Transaction) error {
+	r.createForUserCalls++
+	if len(transactions) > 0 {
+		r.transaction = &transactions[0]
+	}
 	return nil
 }

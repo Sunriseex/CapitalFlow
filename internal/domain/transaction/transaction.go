@@ -7,8 +7,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
+	domainmoney "github.com/sunriseex/capitalflow/internal/domain/money"
 	"github.com/sunriseex/capitalflow/internal/models"
-	"github.com/sunriseex/capitalflow/pkg/money"
 )
 
 var MaxAmount = decimal.RequireFromString("1000000000000")
@@ -22,6 +22,7 @@ type CreateValidation struct {
 	AccountOpened time.Time
 	Now           time.Time
 	AllowFuture   bool
+	AllowTransfer bool
 }
 
 func ValidateCreate(input *CreateValidation) error {
@@ -34,18 +35,17 @@ func ValidateCreate(input *CreateValidation) error {
 	if !ValidType(input.Type) {
 		return fmt.Errorf("invalid transaction type: %s", input.Type)
 	}
+	if IsTransferType(input.Type) && !input.AllowTransfer {
+		return fmt.Errorf("transfer transactions must be created through the transfer flow")
+	}
 	if input.Amount.IsZero() {
 		return fmt.Errorf("amount must be non-zero")
 	}
 	if input.Amount.LessThan(MaxAmount.Neg()) || input.Amount.GreaterThan(MaxAmount) {
 		return fmt.Errorf("amount must be between %s and %s", MaxAmount.Neg(), MaxAmount)
 	}
-	if rounded := money.RoundForCurrency(input.Amount, input.Currency); !input.Amount.Equal(rounded) {
-		currency := strings.ToUpper(strings.TrimSpace(input.Currency))
-		if currency == "" {
-			currency = "RUB"
-		}
-		return fmt.Errorf("amount scale exceeds %s minor units", currency)
+	if err := domainmoney.ValidateCurrencyScale(input.Amount, input.Currency); err != nil {
+		return err
 	}
 	if input.Type != models.TransactionTypeAdjustment && input.Amount.IsNegative() {
 		return fmt.Errorf("amount must be positive for %s transactions", input.Type)
@@ -63,6 +63,11 @@ func ValidateCreate(input *CreateValidation) error {
 		return fmt.Errorf("transaction date must be on or after account opened date")
 	}
 	return nil
+}
+
+func IsTransferType(transactionType models.TransactionType) bool {
+	return transactionType == models.TransactionTypeTransferIn ||
+		transactionType == models.TransactionTypeTransferOut
 }
 
 func dateOnly(date time.Time) time.Time {
