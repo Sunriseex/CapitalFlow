@@ -5,7 +5,7 @@ ALTER TABLE transfers
     ADD COLUMN fee_amount NUMERIC(38,18) NOT NULL DEFAULT 0 CHECK (fee_amount >= 0),
     ADD COLUMN fee_currency TEXT,
     ADD COLUMN status TEXT NOT NULL DEFAULT 'completed',
-    ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    ADD COLUMN updated_at TIMESTAMPTZ,
     ADD CONSTRAINT transfers_fee_transaction_fk FOREIGN KEY (fee_transaction_id) REFERENCES transactions(id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED,
     ADD CONSTRAINT transfers_status_check CHECK (status IN ('completed')),
     ADD CONSTRAINT transfers_fee_currency_check CHECK (
@@ -13,6 +13,16 @@ ALTER TABLE transfers
         OR
         (fee_amount > 0 AND fee_currency = from_currency AND fee_transaction_id IS NOT NULL)
     );
+
+UPDATE transfers
+SET updated_at = created_at
+WHERE updated_at IS NULL;
+
+SET CONSTRAINTS ALL IMMEDIATE;
+
+ALTER TABLE transfers
+    ALTER COLUMN updated_at SET DEFAULT now(),
+    ALTER COLUMN updated_at SET NOT NULL;
 
 CREATE UNIQUE INDEX transfers_fee_transaction_id_idx
     ON transfers (fee_transaction_id)
