@@ -414,48 +414,6 @@ func (r *TransactionRepository) GetBalanceByAccountForUser(ctx context.Context, 
 	return balance, count, nil
 }
 
-func (r *TransactionRepository) Delete(ctx context.Context, id string) error {
-	tag, err := r.pool.Exec(ctx, `DELETE FROM transactions WHERE id = $1`, id)
-	if err != nil {
-		return fmt.Errorf("delete transaction: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("delete transaction: %w", repository.ErrNotFound)
-	}
-	return nil
-}
-
-func (r *TransactionRepository) DeleteForUser(ctx context.Context, id, userID string) error {
-	var isTransferFee bool
-	if err := r.pool.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1
-			FROM transactions t
-			JOIN accounts a ON a.id = t.account_id
-			JOIN transfers tr ON tr.fee_transaction_id = t.id
-			WHERE t.id = $1 AND a.owner_user_id = $2
-		)
-	`, id, userID).Scan(&isTransferFee); err != nil {
-		return fmt.Errorf("check transaction transfer fee usage: %w", err)
-	}
-	if isTransferFee {
-		return fmt.Errorf("delete transaction: %w", repository.ErrConflict)
-	}
-
-	tag, err := r.pool.Exec(ctx, `
-		DELETE FROM transactions t
-		USING accounts a
-		WHERE t.id = $1 AND t.account_id = a.id AND a.owner_user_id = $2
-	`, id, userID)
-	if err != nil {
-		return fmt.Errorf("delete transaction: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("delete transaction: %w", repository.ErrNotFound)
-	}
-	return nil
-}
-
 func listTransactions(ctx context.Context, db queryer, query string, args ...any) ([]models.Transaction, error) {
 	rows, err := db.Query(ctx, query, args...)
 	if err != nil {

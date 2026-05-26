@@ -15,7 +15,9 @@ import (
 )
 
 type TransactionService struct {
-	repo repository.TransactionRepository
+	repo       repository.TransactionRepository
+	accounts   repository.AccountRepository
+	categories repository.CategoryRepository
 }
 
 var maxTransactionAmount = domaintransaction.MaxAmount
@@ -26,6 +28,16 @@ func NewTransactionService(repos ...repository.TransactionRepository) *Transacti
 		repo = repos[0]
 	}
 	return &TransactionService{repo: repo}
+}
+
+func (s *TransactionService) WithAccountRepository(repo repository.AccountRepository) *TransactionService {
+	s.accounts = repo
+	return s
+}
+
+func (s *TransactionService) WithCategoryRepository(repo repository.CategoryRepository) *TransactionService {
+	s.categories = repo
+	return s
 }
 
 type CreateTransactionRequest struct {
@@ -42,7 +54,11 @@ type CreateTransactionRequest struct {
 }
 
 func (s *TransactionService) Create(ctx context.Context, req *CreateTransactionRequest) (*models.Transaction, error) {
-	transaction, err := buildTransaction(ctx, req)
+	req, err := s.resolveCreateRequest(ctx, "", req)
+	if err != nil {
+		return nil, err
+	}
+	transaction, err := buildTransaction(ctx, req, false)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +74,12 @@ func (s *TransactionService) Create(ctx context.Context, req *CreateTransactionR
 }
 
 func (s *TransactionService) CreateForUser(ctx context.Context, userID string, req *CreateTransactionRequest) (*models.Transaction, error) {
-	transaction, err := buildTransaction(ctx, req)
+	userID = strings.TrimSpace(userID)
+	req, err := s.resolveCreateRequest(ctx, userID, req)
+	if err != nil {
+		return nil, err
+	}
+	transaction, err := buildTransaction(ctx, req, false)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +87,7 @@ func (s *TransactionService) CreateForUser(ctx context.Context, userID string, r
 	if s == nil || s.repo == nil {
 		return nil, fmt.Errorf("transaction repository is required")
 	}
-	if err := s.repo.CreateForUser(ctx, strings.TrimSpace(userID), transaction); err != nil {
+	if err := s.repo.CreateForUser(ctx, userID, transaction); err != nil {
 		return nil, fmt.Errorf("save transaction: %w", err)
 	}
 
@@ -76,7 +97,11 @@ func (s *TransactionService) CreateForUser(ctx context.Context, userID string, r
 func (s *TransactionService) CreateMany(ctx context.Context, reqs ...*CreateTransactionRequest) ([]models.Transaction, error) {
 	transactions := make([]models.Transaction, 0, len(reqs))
 	for _, req := range reqs {
-		transaction, err := buildTransaction(ctx, req)
+		req, err := s.resolveCreateRequest(ctx, "", req)
+		if err != nil {
+			return nil, err
+		}
+		transaction, err := buildTransaction(ctx, req, false)
 		if err != nil {
 			return nil, err
 		}
@@ -96,7 +121,7 @@ func (s *TransactionService) CreateMany(ctx context.Context, reqs ...*CreateTran
 func (s *TransactionService) CreateTransfer(ctx context.Context, transfer *models.Transfer, reqs ...*CreateTransactionRequest) ([]models.Transaction, error) {
 	transactions := make([]models.Transaction, 0, len(reqs))
 	for _, req := range reqs {
-		transaction, err := buildTransaction(ctx, req)
+		transaction, err := buildTransaction(ctx, req, true)
 		if err != nil {
 			return nil, err
 		}
@@ -127,7 +152,66 @@ func (s *TransactionService) CreateTransfer(ctx context.Context, transfer *model
 	return transactions, nil
 }
 
-func buildTransaction(ctx context.Context, req *CreateTransactionRequest) (*models.Transaction, error) {
+func (s *TransactionService) resolveCreateRequest(ctx context.Context, userID string, req *CreateTransactionRequest) (*CreateTransactionRequest, error) {
+	if req == nil {
+		return nil, fmt.Errorf("create transaction request is required")
+	}
+	resolved := *req
+	resolved.AccountID = strings.TrimSpace(req.AccountID)
+
+	if s != nil && s.accounts != nil && resolved.AccountID != "" {
+		var (
+			account *models.Account
+			err     error
+		)
+		if userID == "" {
+			account, err = s.accounts.GetByID(ctx, resolved.AccountID)
+		} else {
+			account, err = s.accounts.GetByIDForUser(ctx, resolved.AccountID, userID)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("get transaction account: %w", err)
+		}
+		resolved.Currency = account.Currency
+		resolved.AccountOpenedAt = account.OpenedAt
+	}
+
+	if resolved.RelatedAccountID != nil {
+		relatedAccountID := strings.TrimSpace(*resolved.RelatedAccountID)
+		if relatedAccountID == "" {
+			resolved.RelatedAccountID = nil
+		} else {
+			if s != nil && s.accounts != nil {
+				if userID == "" {
+					if _, err := s.accounts.GetByID(ctx, relatedAccountID); err != nil {
+						return nil, fmt.Errorf("get related transaction account: %w", err)
+					}
+				} else if _, err := s.accounts.GetByIDForUser(ctx, relatedAccountID, userID); err != nil {
+					return nil, fmt.Errorf("get related transaction account: %w", err)
+				}
+			}
+			resolved.RelatedAccountID = &relatedAccountID
+		}
+	}
+
+	if resolved.CategoryID != nil {
+		categoryID := strings.TrimSpace(*resolved.CategoryID)
+		if categoryID == "" {
+			resolved.CategoryID = nil
+		} else {
+			if s != nil && s.categories != nil {
+				if _, err := s.categories.GetByID(ctx, categoryID); err != nil {
+					return nil, fmt.Errorf("get transaction category: %w", err)
+				}
+			}
+			resolved.CategoryID = &categoryID
+		}
+	}
+
+	return &resolved, nil
+}
+
+func buildTransaction(ctx context.Context, req *CreateTransactionRequest, allowTransfer bool) (*models.Transaction, error) {
 	select {
 	case <-ctx.Done():
 		return nil, fmt.Errorf("create transaction: %w", ctx.Err())
@@ -149,6 +233,7 @@ func buildTransaction(ctx context.Context, req *CreateTransactionRequest) (*mode
 		OccurredAt:    occurredAt,
 		AccountOpened: req.AccountOpenedAt,
 		AllowFuture:   req.AllowFutureDate,
+		AllowTransfer: allowTransfer,
 	}); err != nil {
 		return nil, validationError(err.Error())
 	}

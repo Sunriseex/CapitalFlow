@@ -397,14 +397,6 @@ func (r *batchTransactionRepo) GetBalanceByAccountForUser(context.Context, strin
 	return decimal.Zero, 0, nil
 }
 
-func (r *batchTransactionRepo) Delete(context.Context, string) error {
-	return nil
-}
-
-func (r *batchTransactionRepo) DeleteForUser(context.Context, string, string) error {
-	return nil
-}
-
 var errNotImplemented = errors.New("not implemented")
 
 func TestTransferServiceCreateReturnsValidationError(t *testing.T) {

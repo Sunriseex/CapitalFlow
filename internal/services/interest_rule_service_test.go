@@ -707,14 +707,6 @@ func (r *recordingTransactionRepo) GetBalanceByAccountForUser(context.Context, s
 	return decimal.Zero, 0, nil
 }
 
-func (r *recordingTransactionRepo) Delete(context.Context, string) error {
-	return nil
-}
-
-func (r *recordingTransactionRepo) DeleteForUser(context.Context, string, string) error {
-	return nil
-}
-
 func TestInterestRuleServiceCreateReturnsValidationError(t *testing.T) {
 	tests := []struct {
 		name string

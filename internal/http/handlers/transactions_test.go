@@ -14,49 +14,6 @@ import (
 	"github.com/sunriseex/capitalflow/internal/repository"
 )
 
-func TestIsTransferTransaction(t *testing.T) {
-	tests := []struct {
-		name            string
-		transactionType models.TransactionType
-		want            bool
-	}{
-		{
-			name:            "transfer in",
-			transactionType: models.TransactionTypeTransferIn,
-			want:            true,
-		},
-		{
-			name:            "transfer out",
-			transactionType: models.TransactionTypeTransferOut,
-			want:            true,
-		},
-		{
-			name:            "income",
-			transactionType: models.TransactionTypeIncome,
-			want:            false,
-		},
-		{
-			name:            "expense",
-			transactionType: models.TransactionTypeExpense,
-			want:            false,
-		},
-		{
-			name:            "interest income",
-			transactionType: models.TransactionTypeInterestIncome,
-			want:            false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := isTransferTransaction(tt.transactionType)
-			if got != tt.want {
-				t.Fatalf("isTransferTransaction(%q) = %t, want %t", tt.transactionType, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestApplyTransactionListFilter(t *testing.T) {
 	categoryID := "11111111-1111-1111-1111-111111111111"
 	transactions := []models.Transaction{
@@ -194,52 +151,24 @@ func TestCreateTransactionRejectsTransferTypes(t *testing.T) {
 
 	for _, transactionType := range tests {
 		t.Run(string(transactionType), func(t *testing.T) {
-			if !isTransferTransaction(transactionType) {
-				t.Fatalf("expected %q to be recognized as transfer transaction", transactionType)
-			}
-		})
-	}
-}
+			tokens, pair := testProfileTokenPair(t)
+			store := newTestProfileStore()
+			store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
 
-func TestRejectDirectTransferTransaction(t *testing.T) {
-	tests := []struct {
-		name            string
-		transactionType models.TransactionType
-		wantRejected    bool
-		wantStatus      int
-	}{
-		{
-			name:            "transfer in",
-			transactionType: models.TransactionTypeTransferIn,
-			wantRejected:    true,
-			wantStatus:      http.StatusBadRequest,
-		},
-		{
-			name:            "transfer out",
-			transactionType: models.TransactionTypeTransferOut,
-			wantRejected:    true,
-			wantStatus:      http.StatusBadRequest,
-		},
-		{
-			name:            "income",
-			transactionType: models.TransactionTypeIncome,
-			wantRejected:    false,
-			wantStatus:      http.StatusOK,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+			router := NewRouter(store, &RouterConfig{TokenService: tokens})
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/transactions", strings.NewReader(`{
+				"account_id":"11111111-1111-1111-1111-111111111111",
+				"type":"`+string(transactionType)+`",
+				"amount":"100"
+			}`))
+			req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
+			req.Header.Set("Idempotency-Key", "reject-direct-"+string(transactionType))
 			rec := httptest.NewRecorder()
 
-			gotRejected := rejectDirectTransferTransaction(rec, tt.transactionType)
+			router.ServeHTTP(rec, req)
 
-			if gotRejected != tt.wantRejected {
-				t.Fatalf("rejected = %t, want %t", gotRejected, tt.wantRejected)
-			}
-
-			if tt.wantRejected && rec.Code != tt.wantStatus {
-				t.Fatalf("status = %d, want %d", rec.Code, tt.wantStatus)
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 			}
 		})
 	}
@@ -298,19 +227,9 @@ func TestCreateTransactionForOtherUsersAccountReturnsNotFound(t *testing.T) {
 	}
 }
 
-func TestDeleteTransactionReturnsConflictForTransferFee(t *testing.T) {
+func TestDeleteTransactionRouteIsRemoved(t *testing.T) {
 	tokens, pair := testProfileTokenPair(t)
 	store := newTestProfileStore()
-	transactions := &testTransactionRepo{
-		getByIDForUserTransaction: &models.Transaction{
-			ID:        "33333333-3333-3333-3333-333333333333",
-			AccountID: "11111111-1111-1111-1111-111111111111",
-			Type:      models.TransactionTypeExpense,
-			Amount:    dec("1"),
-		},
-		deleteForUserErr: repository.ErrConflict,
-	}
-	store.transactions = transactions
 	store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
 
 	router := NewRouter(store, &RouterConfig{TokenService: tokens})
@@ -320,11 +239,8 @@ func TestDeleteTransactionReturnsConflictForTransferFee(t *testing.T) {
 
 	router.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusConflict {
-		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusConflict, rec.Body.String())
-	}
-	if transactions.deleteForUserCalls != 1 {
-		t.Fatalf("DeleteForUser calls = %d, want 1", transactions.deleteForUserCalls)
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusMethodNotAllowed, rec.Body.String())
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
+	domaininterest "github.com/sunriseex/capitalflow/internal/domain/interest"
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/repository"
 	"github.com/sunriseex/capitalflow/pkg/money"
@@ -148,7 +149,7 @@ func (s *InterestRuleService) Create(ctx context.Context, req *CreateInterestRul
 	if accrualFrequency == "" {
 		accrualFrequency = models.AccrualFrequencyDaily
 	}
-	if !validAccrualFrequency(accrualFrequency) {
+	if !domaininterest.ValidAccrualFrequency(accrualFrequency) {
 		return nil, validationError(fmt.Sprintf("invalid accrual frequency: %s", accrualFrequency))
 	}
 
@@ -156,7 +157,7 @@ func (s *InterestRuleService) Create(ctx context.Context, req *CreateInterestRul
 	if capitalizationFrequency == "" {
 		capitalizationFrequency = models.CapitalizationFrequencyNone
 	}
-	if !validCapitalizationFrequency(capitalizationFrequency) {
+	if !domaininterest.ValidCapitalizationFrequency(capitalizationFrequency) {
 		return nil, validationError(fmt.Sprintf("invalid capitalization frequency: %s", capitalizationFrequency))
 	}
 
@@ -164,7 +165,7 @@ func (s *InterestRuleService) Create(ctx context.Context, req *CreateInterestRul
 	if dayCountConvention == "" {
 		dayCountConvention = models.DayCountConventionActual365
 	}
-	if !validDayCountConvention(dayCountConvention) {
+	if !domaininterest.ValidDayCountConvention(dayCountConvention) {
 		return nil, validationError(fmt.Sprintf("invalid day count convention: %s", dayCountConvention))
 	}
 
@@ -266,7 +267,7 @@ func (s *InterestRuleService) Accrue(ctx context.Context, req *AccrueRuleInteres
 		Description:     interestAccrualDescription(req.Rule.ID, accrualDate),
 		OccurredAt:      accrualDate,
 		AllowFutureDate: true,
-	})
+	}, false)
 	if err != nil {
 		return nil, fmt.Errorf("build interest income transaction: %w", err)
 	}
@@ -394,7 +395,7 @@ func (s *InterestRuleService) Recalculate(ctx context.Context, req *RecalculateR
 			Description:     interestAccrualDescription(req.Rule.ID, day),
 			OccurredAt:      day,
 			AllowFutureDate: true,
-		})
+		}, false)
 		if err != nil {
 			return nil, fmt.Errorf("build recalculated interest transaction: %w", err)
 		}
@@ -568,14 +569,8 @@ func validateRuleForAccrual(rule *models.InterestRule) error {
 	if rule.AnnualRateBps <= 0 {
 		return validationError("annual rate must be positive")
 	}
-	if !validAccrualFrequency(rule.AccrualFrequency) {
-		return validationError(fmt.Sprintf("invalid accrual frequency: %s", rule.AccrualFrequency))
-	}
-	if !validCapitalizationFrequency(rule.CapitalizationFrequency) {
-		return validationError(fmt.Sprintf("invalid capitalization frequency: %s", rule.CapitalizationFrequency))
-	}
-	if !validDayCountConvention(rule.DayCountConvention) {
-		return validationError(fmt.Sprintf("invalid day count convention: %s", rule.DayCountConvention))
+	if err := domaininterest.ValidateFrequencies(rule.AccrualFrequency, rule.CapitalizationFrequency, rule.DayCountConvention); err != nil {
+		return validationError(err.Error())
 	}
 	return nil
 }
@@ -918,41 +913,6 @@ func isLeapYear(year int) bool {
 	return year%4 == 0 && (year%100 != 0 || year%400 == 0)
 }
 
-func validAccrualFrequency(frequency models.AccrualFrequency) bool {
-	switch frequency {
-	case models.AccrualFrequencyDaily,
-		models.AccrualFrequencyMonthly,
-		models.AccrualFrequencyEndOfTerm:
-		return true
-	default:
-		return false
-	}
-}
-
-func validCapitalizationFrequency(frequency models.CapitalizationFrequency) bool {
-	switch frequency {
-	case "",
-		models.CapitalizationFrequencyDaily,
-		models.CapitalizationFrequencyMonthly,
-		models.CapitalizationFrequencyEndOfTerm,
-		models.CapitalizationFrequencyNone:
-		return true
-	default:
-		return false
-	}
-}
-
-func validDayCountConvention(convention models.DayCountConvention) bool {
-	switch convention {
-	case models.DayCountConventionActual365,
-		models.DayCountConventionActual366,
-		models.DayCountConventionActualActual:
-		return true
-	default:
-		return false
-	}
-}
-
 func validateRuleForRecalculation(rule *models.InterestRule) error {
 	if strings.TrimSpace(rule.ID) == "" {
 		return validationError("interest rule id is required")
@@ -963,14 +923,8 @@ func validateRuleForRecalculation(rule *models.InterestRule) error {
 	if rule.AnnualRateBps <= 0 {
 		return validationError("annual rate must be positive")
 	}
-	if !validAccrualFrequency(rule.AccrualFrequency) {
-		return validationError(fmt.Sprintf("invalid accrual frequency: %s", rule.AccrualFrequency))
-	}
-	if !validCapitalizationFrequency(rule.CapitalizationFrequency) {
-		return validationError(fmt.Sprintf("invalid capitalization frequency: %s", rule.CapitalizationFrequency))
-	}
-	if !validDayCountConvention(rule.DayCountConvention) {
-		return validationError(fmt.Sprintf("invalid day count convention: %s", rule.DayCountConvention))
+	if err := domaininterest.ValidateFrequencies(rule.AccrualFrequency, rule.CapitalizationFrequency, rule.DayCountConvention); err != nil {
+		return validationError(err.Error())
 	}
 	return nil
 }

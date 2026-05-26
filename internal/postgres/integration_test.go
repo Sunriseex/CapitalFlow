@@ -248,9 +248,6 @@ func TestPostgresRepositoriesIntegration(t *testing.T) {
 	if err := accounts.Archive(ctx, account.ID); err != nil {
 		t.Fatalf("archive account: %v", err)
 	}
-	if err := transactions.Delete(ctx, "00000000-0000-0000-0000-000000000000"); !errors.Is(err, repository.ErrNotFound) {
-		t.Fatalf("delete missing err = %v, want ErrNotFound", err)
-	}
 }
 
 func TestAccountAndUserRepositoriesPersistCryptoCurrencyCodes(t *testing.T) {
@@ -1735,7 +1732,7 @@ func TestTransactionFeeMutationRevalidatesTransferIntegrity(t *testing.T) {
 	}
 }
 
-func TestTransactionDeleteForUserRejectsTransferFeeTransaction(t *testing.T) {
+func TestTransferFeeTransactionCannotBeHardDeletedByDatabase(t *testing.T) {
 	ctx := t.Context()
 	store := newTestStore(t)
 	now := time.Now().UTC()
@@ -1763,9 +1760,8 @@ func TestTransactionDeleteForUserRejectsTransferFeeTransaction(t *testing.T) {
 		t.Fatalf("create transfer with fee: %v", err)
 	}
 
-	err := store.Transactions().DeleteForUser(ctx, feeTransactionID, userID)
-	if !errors.Is(err, repository.ErrConflict) {
-		t.Fatalf("delete fee transaction err = %v, want ErrConflict", err)
+	if _, err := store.pool.Exec(ctx, `DELETE FROM transactions WHERE id = $1`, feeTransactionID); err == nil {
+		t.Fatal("expected fee transaction hard delete to violate transfer integrity")
 	}
 	if _, err := store.Transactions().GetByIDForUser(ctx, feeTransactionID, userID); err != nil {
 		t.Fatalf("fee transaction should remain after rejected delete: %v", err)

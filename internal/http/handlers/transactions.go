@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/sunriseex/capitalflow/internal/http/dto"
 	"github.com/sunriseex/capitalflow/internal/models"
@@ -197,25 +196,9 @@ func (h *Handler) createTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if rejectDirectTransferTransaction(w, req.Type) {
-		return
-	}
-
 	accountID := strings.TrimSpace(req.AccountID)
 	if !validateOptionalUUID(w, accountID, "account_id") {
 		return
-	}
-	currency := "RUB"
-	var accountOpenedAt time.Time
-	var account *models.Account
-	if accounts := h.store.Accounts(); accounts != nil {
-		account, err = accounts.GetByIDForUser(r.Context(), accountID, userID)
-		if err != nil {
-			writeServiceError(w, err)
-			return
-		}
-		currency = account.Currency
-		accountOpenedAt = account.OpenedAt
 	}
 
 	var relatedAccountID *string
@@ -226,9 +209,6 @@ func (h *Handler) createTransaction(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if normalized != "" {
-			if !h.ensureAccountExists(w, r, normalized) {
-				return
-			}
 			relatedAccountID = &normalized
 		}
 	}
@@ -241,10 +221,6 @@ func (h *Handler) createTransaction(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if normalized != "" {
-			if _, err := h.store.Categories().GetByID(r.Context(), normalized); err != nil {
-				writeServiceError(w, err)
-				return
-			}
 			categoryID = &normalized
 		}
 	}
@@ -254,11 +230,9 @@ func (h *Handler) createTransaction(w http.ResponseWriter, r *http.Request) {
 		RelatedAccountID: relatedAccountID,
 		Type:             req.Type,
 		Amount:           req.Amount.Decimal,
-		Currency:         currency,
 		CategoryID:       categoryID,
 		Description:      req.Description,
 		OccurredAt:       occurredAt,
-		AccountOpenedAt:  accountOpenedAt,
 	})
 	if err != nil {
 		writeServiceError(w, err)
@@ -286,60 +260,4 @@ func (h *Handler) getTransaction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, dto.TransactionFromModel(transaction))
-}
-
-func (h *Handler) deleteTransaction(w http.ResponseWriter, r *http.Request) {
-	userID, ok := currentUserID(w, r)
-	if !ok {
-		return
-	}
-
-	transactionID, ok := routeUUIDParam(w, r, "id")
-	if !ok {
-		return
-	}
-
-	transaction, err := h.store.Transactions().GetByIDForUser(r.Context(), transactionID, userID)
-	if err != nil {
-		writeServiceError(w, err)
-		return
-	}
-
-	if isTransferTransaction(transaction.Type) {
-		writeError(
-			w,
-			http.StatusConflict,
-			"transfer_transaction_delete_forbidden",
-			"Transfer transactions cannot be deleted through the transaction endpoint",
-			nil,
-		)
-		return
-	}
-
-	if err := h.store.Transactions().DeleteForUser(r.Context(), transactionID, userID); err != nil {
-		writeServiceError(w, err)
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func isTransferTransaction(transactionType models.TransactionType) bool {
-	return transactionType == models.TransactionTypeTransferIn ||
-		transactionType == models.TransactionTypeTransferOut
-}
-
-func rejectDirectTransferTransaction(w http.ResponseWriter, transactionType models.TransactionType) bool {
-	if !isTransferTransaction(transactionType) {
-		return false
-	}
-
-	writeError(
-		w,
-		http.StatusBadRequest,
-		"validation_error",
-		"Transfer transactions must be created through the transfer endpoint",
-		nil,
-	)
-	return true
 }

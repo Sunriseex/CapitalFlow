@@ -24,6 +24,9 @@ Models are data containers. They should not open database connections, parse HTT
 Domain packages contain pure validation and invariant rules:
 
 - `account`: account type and currency rules.
+- `auth`: email and password policy rules.
+- `interest`: interest frequency and convention rules.
+- `money`: currency scale and money precision rules.
 - `transaction`: transaction amount, type, precision, and date rules.
 - `transfer`: transfer request invariants.
 
@@ -40,6 +43,10 @@ Examples:
 - `TransferService.Create`
 - `InterestRuleService.Accrue`
 
+Services own financial write decisions. HTTP handlers must not directly create,
+delete, archive, or update financial records through repositories when a service
+use case exists.
+
 ### `internal/repository`
 
 Repository interfaces describe persistence operations in model terms. They must not accept HTTP DTOs.
@@ -55,6 +62,7 @@ PostgreSQL repositories enforce storage-level invariants that must survive concu
 - transfer atomicity
 - transfer leg integrity
 - idempotency persistence
+- generated interest replacement in one database transaction
 
 ### `internal/http`
 

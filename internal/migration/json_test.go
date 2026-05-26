@@ -713,18 +713,6 @@ func (r *fakeTransactionRepo) GetBalanceByAccountForUser(ctx context.Context, ac
 	return result.Balance, int64(result.Count), nil
 }
 
-func (r *fakeTransactionRepo) Delete(_ context.Context, id string) error {
-	if _, ok := r.byID[id]; !ok {
-		return repository.ErrNotFound
-	}
-	delete(r.byID, id)
-	return nil
-}
-
-func (r *fakeTransactionRepo) DeleteForUser(ctx context.Context, id, _ string) error {
-	return r.Delete(ctx, id)
-}
-
 type fakeInterestRuleRepo struct {
 	byID      map[string]*models.InterestRule
 	byAccount map[string][]models.InterestRule

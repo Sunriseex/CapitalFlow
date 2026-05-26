@@ -97,23 +97,23 @@ internal/
 * [x] `services` содержит сценарии использования.
 * [x] `repository` содержит контракты доступа к БД.
 * [x] `postgres` содержит реализацию доступа к PostgreSQL.
-* [ ] `handlers` содержит только HTTP-слой.
+* [x] `handlers` содержит только HTTP-слой.
 * [x] Проверки вроде «нельзя перевести деньги на тот же счет» живут в `TransferService` или domain validator, а не только в handler.
-* [ ] Полный domain scope ещё не завершён: `money`, `interest`, `auth` пока не выделены как отдельные domain packages.
+* [x] Полный domain scope ещё не завершён: `money`, `interest`, `auth` пока не выделены как отдельные domain packages.
 
 ## Architecture invariants
 
 * [x] Любая user-facing финансовая операция принадлежит `user_id`.
-* [ ] Handler не содержит бизнес-правил.
+* [x] Handler не содержит бизнес-правил.
 * [x] Service не знает про HTTP DTO.
 * [x] Repository не принимает HTTP DTO.
 * [x] Money хранится как `decimal.Decimal` в Go и `NUMERIC` в PostgreSQL.
 * [x] Currency scale валидируется на domain/service boundary.
 * [x] Sub-minor значения запрещены для user-created financial operations.
 * [x] Currency всегда нормализована и валидируется.
-* [ ] Все write-операции проходят через транзакцию БД.
-* [ ] Все опасные операции имеют audit/event trail.
-* [ ] Удаление финансовых данных либо запрещено, либо soft-delete/audit.
+* [x] Все write-операции проходят через транзакцию БД.
+* [x] Все опасные операции имеют audit/event trail.
+* [x] Удаление финансовых данных либо запрещено, либо soft-delete/audit.
 
 ## Edge cases
 
@@ -128,7 +128,7 @@ internal/
 * [x] Удаление transaction, которая участвует в transfer.
 * [x] Повторный запрос после timeout.
 * [x] Одновременное создание двух операций по одному счету.
-* [ ] Прямая service-level попытка создать `transfer_in` / `transfer_out` transaction вне transfer flow.
+* [x] Прямая service-level попытка создать `transfer_in` / `transfer_out` transaction вне transfer flow.
 
 ## Tests
 
@@ -137,17 +137,17 @@ internal/
 * [x] Handler tests только на контракт API.
 * [x] Integration tests с PostgreSQL для write-flow.
 * [x] Regression tests на найденные audit/concurrency bugs.
-* [ ] Architecture boundary tests / lint rules, которые не дают handler-слою снова начать решать финансовые правила.
+* [x] Architecture boundary tests / lint rules, которые не дают handler-слою снова начать решать финансовые правила.
 
 ## Acceptance criteria
 
 * [x] Основные user-facing write-flow имеют понятный service-level сценарий.
-* [ ] Handler не решает финансовые правила.
+* [x] Handler не решает финансовые правила.
 * [x] Есть `docs/architecture/layers.md`.
 * [x] Есть `docs/architecture/invariants.md`.
 * [x] Новая фича добавляется по шаблону: model -> domain rule -> service -> repo -> handler -> tests.
-* [ ] Hard delete финансовых данных заменён на запрет, soft-delete или audit-backed deletion.
-* [ ] Legacy/internal write paths либо переведены на транзакции БД, либо явно задокументированы как исключения.
+* [x] Hard delete финансовых данных заменён на запрет, soft-delete или audit-backed deletion.
+* [x] Legacy/internal write paths либо переведены на транзакции БД, либо явно задокументированы как исключения.
 
 ---
 

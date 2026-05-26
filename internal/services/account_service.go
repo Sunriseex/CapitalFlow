@@ -34,6 +34,17 @@ type CreateAccountRequest struct {
 	OpenedAt    time.Time
 }
 
+type UpdateAccountRequest struct {
+	ID       string
+	UserID   string
+	Name     *string
+	Bank     *string
+	Type     *models.AccountType
+	Currency *string
+	OpenedAt *time.Time
+	IsActive *bool
+}
+
 func (s *AccountService) Create(ctx context.Context, req *CreateAccountRequest) (*models.Account, error) {
 	select {
 	case <-ctx.Done():
@@ -81,6 +92,86 @@ func (s *AccountService) Create(ctx context.Context, req *CreateAccountRequest) 
 	}
 
 	return account, nil
+}
+
+func (s *AccountService) UpdateForUser(ctx context.Context, req *UpdateAccountRequest) (*models.Account, error) {
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("update account: %w", ctx.Err())
+	default:
+	}
+	if s == nil || s.repo == nil {
+		return nil, fmt.Errorf("account repository is required")
+	}
+	if req == nil {
+		return nil, validationError("update account request is required")
+	}
+
+	accountID := strings.TrimSpace(req.ID)
+	userID := strings.TrimSpace(req.UserID)
+	if accountID == "" {
+		return nil, validationError("account id is required")
+	}
+	if userID == "" {
+		return nil, validationError("user is required")
+	}
+
+	account, err := s.repo.GetByIDForUser(ctx, accountID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get account: %w", err)
+	}
+
+	if req.Name != nil {
+		account.Name = strings.TrimSpace(*req.Name)
+	}
+	if req.Bank != nil {
+		account.Bank = strings.TrimSpace(*req.Bank)
+	}
+	if req.Type != nil {
+		account.Type = *req.Type
+	}
+	if req.Currency != nil {
+		account.Currency = domainaccount.NormalizeCurrency(*req.Currency)
+	}
+	if req.OpenedAt != nil && !req.OpenedAt.IsZero() {
+		account.OpenedAt = *req.OpenedAt
+	}
+	if req.IsActive != nil {
+		account.IsActive = *req.IsActive
+	}
+
+	if err := domainaccount.ValidateCreate(account.Name, account.Type, account.Currency); err != nil {
+		return nil, validationError(err.Error())
+	}
+	account.UpdatedAt = time.Now()
+
+	if err := s.repo.UpdateForUserEnforcingCurrencyInvariant(ctx, account, userID); err != nil {
+		return nil, fmt.Errorf("update account: %w", err)
+	}
+	return account, nil
+}
+
+func (s *AccountService) ArchiveForUser(ctx context.Context, id, userID string) error {
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("archive account: %w", ctx.Err())
+	default:
+	}
+	if s == nil || s.repo == nil {
+		return fmt.Errorf("account repository is required")
+	}
+	id = strings.TrimSpace(id)
+	userID = strings.TrimSpace(userID)
+	if id == "" {
+		return validationError("account id is required")
+	}
+	if userID == "" {
+		return validationError("user is required")
+	}
+	if err := s.repo.ArchiveForUser(ctx, id, userID); err != nil {
+		return fmt.Errorf("archive account: %w", err)
+	}
+	return nil
 }
 
 func ownerUserID(id string) *string {

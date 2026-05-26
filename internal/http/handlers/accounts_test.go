@@ -201,8 +201,6 @@ type testTransactionRepo struct {
 	listFilteredTransactions     []models.Transaction
 	listTransfersByUser          []models.Transfer
 	getByIDForUserTransaction    *models.Transaction
-	deleteForUserCalls           int
-	deleteForUserErr             error
 }
 
 func (r *testTransactionRepo) Create(context.Context, *models.Transaction) error {
@@ -275,16 +273,4 @@ func (r *testTransactionRepo) ListByUserFiltered(_ context.Context, userID strin
 
 func (r *testTransactionRepo) GetBalanceByAccountForUser(_ context.Context, accountID, _ string) (balance decimal.Decimal, transactionCount int64, err error) {
 	return decimal.Zero, r.transactionCountByAccount[accountID], nil
-}
-
-func (r *testTransactionRepo) Delete(context.Context, string) error {
-	return nil
-}
-
-func (r *testTransactionRepo) DeleteForUser(context.Context, string, string) error {
-	r.deleteForUserCalls++
-	if r.deleteForUserErr != nil {
-		return r.deleteForUserErr
-	}
-	return nil
 }

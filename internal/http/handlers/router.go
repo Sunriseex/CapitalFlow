@@ -56,16 +56,20 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 
 	var accountRepo repository.AccountRepository
 	var transactionRepo repository.TransactionRepository
+	var categoryRepo repository.CategoryRepository
 	var interestRuleRepo repository.InterestRuleRepository
 	var interestAccrualRepo repository.InterestAccrualRepository
 	if store != nil {
 		accountRepo = store.Accounts()
 		transactionRepo = store.Transactions()
+		categoryRepo = store.Categories()
 		interestRuleRepo = store.InterestRules()
 		interestAccrualRepo = store.InterestAccruals()
 	}
 
-	transactionService := services.NewTransactionService(transactionRepo)
+	transactionService := services.NewTransactionService(transactionRepo).
+		WithAccountRepository(accountRepo).
+		WithCategoryRepository(categoryRepo)
 	h := &Handler{
 		store:        store,
 		tokens:       cfg.TokenService,
@@ -131,7 +135,6 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 			r.Patch("/accounts/{id}", h.updateAccount)
 			r.Post("/accounts/{id}/archive", h.archiveAccount)
 			r.With(appmiddleware.RequireIdempotencyKey).Post("/transactions", h.createTransaction)
-			r.Delete("/transactions/{id}", h.deleteTransaction)
 			r.With(appmiddleware.RequireIdempotencyKey).Post("/transfers", h.createTransfer)
 			r.Post("/accounts/{id}/interest-rules", h.createInterestRule)
 			r.Patch("/interest-rules/{id}", h.updateInterestRule)

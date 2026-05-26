@@ -303,14 +303,6 @@ func (r *testInterestTransactionRepo) GetBalanceByAccountForUser(context.Context
 	return decimal.Zero, 0, nil
 }
 
-func (r *testInterestTransactionRepo) Delete(context.Context, string) error {
-	return nil
-}
-
-func (r *testInterestTransactionRepo) DeleteForUser(context.Context, string, string) error {
-	return nil
-}
-
 type testInterestAccrualRepo struct {
 	accruals           []models.InterestAccrual
 	createdTransaction *models.Transaction
