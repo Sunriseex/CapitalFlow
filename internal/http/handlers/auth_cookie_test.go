@@ -135,6 +135,14 @@ func TestAuthSetupSetsSecureRefreshCookie(t *testing.T) {
 	if cookie.Path != "/auth" {
 		t.Fatalf("Path = %q, want /auth", cookie.Path)
 	}
+
+	refreshReq := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/refresh", http.NoBody)
+	refreshReq.AddCookie(cookie)
+	refreshRec := httptest.NewRecorder()
+	router.ServeHTTP(refreshRec, refreshReq)
+	if refreshRec.Code != http.StatusOK {
+		t.Fatalf("refresh status = %d, want %d: %s", refreshRec.Code, http.StatusOK, refreshRec.Body.String())
+	}
 }
 
 func TestAuthSetupUsesConfiguredRefreshCookiePolicy(t *testing.T) {
@@ -161,6 +169,9 @@ func TestAuthSetupUsesConfiguredRefreshCookiePolicy(t *testing.T) {
 		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusCreated, rec.Body.String())
 	}
 	cookie := requireRefreshCookie(t, rec.Result().Cookies())
+	if cookie.Name != insecureRefreshCookieName {
+		t.Fatalf("refresh cookie name = %q, want %q", cookie.Name, insecureRefreshCookieName)
+	}
 	if cookie.Secure {
 		t.Fatal("refresh cookie Secure = true, want false")
 	}
@@ -169,6 +180,14 @@ func TestAuthSetupUsesConfiguredRefreshCookiePolicy(t *testing.T) {
 	}
 	if cookie.Path != "/auth" {
 		t.Fatalf("Path = %q, want /auth", cookie.Path)
+	}
+
+	refreshReq := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/refresh", http.NoBody)
+	refreshReq.AddCookie(cookie)
+	refreshRec := httptest.NewRecorder()
+	router.ServeHTTP(refreshRec, refreshReq)
+	if refreshRec.Code != http.StatusOK {
+		t.Fatalf("refresh status = %d, want %d: %s", refreshRec.Code, http.StatusOK, refreshRec.Body.String())
 	}
 }
 
@@ -493,10 +512,10 @@ func requireRefreshCookie(t *testing.T, cookies []*http.Cookie) *http.Cookie {
 	t.Helper()
 
 	for _, cookie := range cookies {
-		if cookie.Name == refreshCookieName {
+		if cookie.Name == refreshCookieName || cookie.Name == insecureRefreshCookieName {
 			return cookie
 		}
 	}
-	t.Fatalf("missing %s cookie in %v", refreshCookieName, cookies)
+	t.Fatalf("missing refresh cookie in %v", cookies)
 	return nil
 }

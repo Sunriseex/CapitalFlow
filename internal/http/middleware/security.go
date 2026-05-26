@@ -43,7 +43,7 @@ type HostPolicyConfig struct {
 
 func AuthHostPolicy(cfg HostPolicyConfig) func(http.Handler) http.Handler {
 	production := strings.EqualFold(strings.TrimSpace(cfg.AppEnv), "production")
-	publicOrigin := strings.TrimSpace(cfg.PublicOrigin)
+	publicOrigin := canonicalOriginString(cfg.PublicOrigin)
 	publicHost := strings.TrimSpace(cfg.PublicOriginHost)
 
 	return func(next http.Handler) http.Handler {
@@ -56,13 +56,16 @@ func AuthHostPolicy(cfg HostPolicyConfig) func(http.Handler) http.Handler {
 				writeJSONError(w, http.StatusServiceUnavailable, "security_not_configured", "Security origin is not configured", nil)
 				return
 			}
-			if !hostMatches(r.Host, publicHost) {
-				writeJSONError(w, http.StatusForbidden, "forbidden_host", "Forbidden host", nil)
-				return
-			}
-			if hostIsIP(r.Host) && (!cfg.AllowDirectIPLogin || !hostIsLoopback(r.Host)) {
-				writeJSONError(w, http.StatusForbidden, "forbidden_host", "Forbidden host", nil)
-				return
+			if hostIsIP(r.Host) {
+				if !cfg.AllowDirectIPLogin {
+					writeJSONError(w, http.StatusForbidden, "forbidden_host", "Forbidden host", nil)
+					return
+				}
+			} else {
+				if !hostMatches(r.Host, publicHost) {
+					writeJSONError(w, http.StatusForbidden, "forbidden_host", "Forbidden host", nil)
+					return
+				}
 			}
 			if !originHeadersAllowed(r, publicOrigin) {
 				writeJSONError(w, http.StatusForbidden, "forbidden_origin", "Forbidden origin", nil)
@@ -108,7 +111,7 @@ func hostMatches(requestHost, publicHost string) bool {
 
 func originHeadersAllowed(r *http.Request, publicOrigin string) bool {
 	origin := strings.TrimSpace(r.Header.Get("Origin"))
-	if origin != "" && !strings.EqualFold(origin, publicOrigin) {
+	if origin != "" && !sameOrigin(origin, publicOrigin) {
 		return false
 	}
 	referer := strings.TrimSpace(r.Header.Get("Referer"))
@@ -119,7 +122,7 @@ func originHeadersAllowed(r *http.Request, publicOrigin string) bool {
 	if err != nil || refererURL.Scheme == "" || refererURL.Host == "" {
 		return false
 	}
-	return strings.EqualFold(refererURL.Scheme+"://"+refererURL.Host, publicOrigin)
+	return sameOrigin(refererURL.Scheme+"://"+refererURL.Host, publicOrigin)
 }
 
 func hostIsIP(host string) bool {
@@ -131,12 +134,24 @@ func hostIsIP(host string) bool {
 	return net.ParseIP(host) != nil
 }
 
-func hostIsLoopback(host string) bool {
-	host = strings.TrimSpace(host)
-	if parsedHost, _, err := net.SplitHostPort(host); err == nil {
-		host = parsedHost
+func sameOrigin(left, right string) bool {
+	leftOrigin := canonicalOriginString(left)
+	rightOrigin := canonicalOriginString(right)
+	return leftOrigin != "" && strings.EqualFold(leftOrigin, rightOrigin)
+}
+
+func canonicalOriginString(value string) string {
+	parsed, err := url.Parse(strings.TrimSpace(value))
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return ""
 	}
-	host = strings.Trim(host, "[]")
-	ip := net.ParseIP(host)
-	return ip != nil && ip.IsLoopback()
+	scheme := strings.ToLower(parsed.Scheme)
+	host := strings.ToLower(parsed.Host)
+	switch {
+	case scheme == "https" && strings.HasSuffix(host, ":443"):
+		host = strings.TrimSuffix(host, ":443")
+	case scheme == "http" && strings.HasSuffix(host, ":80"):
+		host = strings.TrimSuffix(host, ":80")
+	}
+	return scheme + "://" + host
 }

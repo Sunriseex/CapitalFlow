@@ -75,6 +75,40 @@ func TestInitRejectsInvalidPublicOrigin(t *testing.T) {
 	}
 }
 
+func TestInitRejectsInvalidAppEnv(t *testing.T) {
+	oldConfig := AppConfig
+	t.Cleanup(func() {
+		AppConfig = oldConfig
+	})
+
+	t.Setenv("CAPITALFLOW_ENV_FILE", "missing-test-env-file")
+	t.Setenv("APP_ENV", "prod")
+
+	if err := Init(); err == nil {
+		t.Fatal("expected invalid APP_ENV error")
+	}
+}
+
+func TestInitNormalizesPublicOriginDefaultPort(t *testing.T) {
+	oldConfig := AppConfig
+	t.Cleanup(func() {
+		AppConfig = oldConfig
+	})
+
+	t.Setenv("CAPITALFLOW_ENV_FILE", "missing-test-env-file")
+	t.Setenv("PUBLIC_ORIGIN", "https://CapitalFlow.home.arpa:443")
+
+	if err := Init(); err != nil {
+		t.Fatalf("init config: %v", err)
+	}
+	if AppConfig.PublicOrigin != "https://capitalflow.home.arpa" {
+		t.Fatalf("public origin = %q", AppConfig.PublicOrigin)
+	}
+	if AppConfig.PublicOriginHost != "capitalflow.home.arpa" {
+		t.Fatalf("public origin host = %q", AppConfig.PublicOriginHost)
+	}
+}
+
 func TestInitProductionRequiresPublicOriginAndStrongJWTSecret(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -102,5 +136,21 @@ func TestInitProductionRequiresPublicOriginAndStrongJWTSecret(t *testing.T) {
 				t.Fatal("expected production security validation error")
 			}
 		})
+	}
+}
+
+func TestInitAllowsGeneratedSecretContainingWordSecret(t *testing.T) {
+	oldConfig := AppConfig
+	t.Cleanup(func() {
+		AppConfig = oldConfig
+	})
+
+	t.Setenv("CAPITALFLOW_ENV_FILE", "missing-test-env-file")
+	t.Setenv("APP_ENV", "production")
+	t.Setenv("PUBLIC_ORIGIN", "https://capitalflow.home.arpa")
+	t.Setenv("JWT_SECRET", "generated-secret-value-with-enough-random-bytes")
+
+	if err := Init(); err != nil {
+		t.Fatalf("init config: %v", err)
 	}
 }

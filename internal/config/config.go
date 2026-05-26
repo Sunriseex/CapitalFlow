@@ -113,7 +113,10 @@ func Init() error {
 		MutationRateLimitWindow:   getEnvDuration("MUTATION_RATE_LIMIT_WINDOW", time.Minute),
 		TrustedProxies:            getEnvList("TRUSTED_PROXIES", nil),
 	}
-	AppConfig.AppEnv = normalizeAppEnv(AppConfig.AppEnv)
+	AppConfig.AppEnv, err = normalizeAppEnv(AppConfig.AppEnv)
+	if err != nil {
+		return err
+	}
 	AppConfig.CookieSecure = getEnvBool("COOKIE_SECURE", true)
 	AppConfig.AllowDirectIPLogin = getEnvBool("ALLOW_DIRECT_IP_LOGIN", !AppConfig.IsProduction())
 
@@ -264,13 +267,15 @@ func getEnvList(key string, defaultValue []string) []string {
 	return items
 }
 
-func normalizeAppEnv(value string) string {
+func normalizeAppEnv(value string) (string, error) {
 	value = strings.ToLower(strings.TrimSpace(value))
 	switch value {
+	case "", "development":
+		return "development", nil
 	case "production":
-		return "production"
+		return "production", nil
 	default:
-		return "development"
+		return "", errors.NewConfigurationError("APP_ENV must be development or production", nil)
 	}
 }
 
@@ -287,7 +292,12 @@ func parsePublicOrigin(value string) (origin, host string, err error) {
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
 		return "", "", errors.NewConfigurationError("PUBLIC_ORIGIN scheme must be http or https", nil)
 	}
-	return parsed.Scheme + "://" + parsed.Host, parsed.Host, nil
+	origin = canonicalOrigin(parsed.Scheme, parsed.Host)
+	originURL, err := url.Parse(origin)
+	if err != nil {
+		return "", "", errors.NewConfigurationError("PUBLIC_ORIGIN must be a valid origin", err)
+	}
+	return origin, originURL.Host, nil
 }
 
 func normalizeCookieSameSite(value string) (string, error) {
@@ -316,9 +326,21 @@ func isPlaceholderSecret(value string) bool {
 		"secret",
 	}
 	for _, placeholder := range placeholders {
-		if normalized == placeholder || strings.Contains(normalized, placeholder) {
+		if normalized == placeholder {
 			return true
 		}
 	}
 	return false
+}
+
+func canonicalOrigin(scheme, host string) string {
+	scheme = strings.ToLower(strings.TrimSpace(scheme))
+	host = strings.ToLower(strings.TrimSpace(host))
+	switch {
+	case scheme == "https" && strings.HasSuffix(host, ":443"):
+		host = strings.TrimSuffix(host, ":443")
+	case scheme == "http" && strings.HasSuffix(host, ":80"):
+		host = strings.TrimSuffix(host, ":80")
+	}
+	return scheme + "://" + host
 }

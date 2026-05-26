@@ -86,6 +86,27 @@ func TestAuthHostPolicyRejectsDirectIPInProduction(t *testing.T) {
 	}
 }
 
+func TestAuthHostPolicyAllowsDirectIPWhenExplicitlyEnabled(t *testing.T) {
+	handler := AuthHostPolicy(HostPolicyConfig{
+		AppEnv:             "production",
+		PublicOrigin:       "https://capitalflow.home.arpa",
+		PublicOriginHost:   "capitalflow.home.arpa",
+		AllowDirectIPLogin: true,
+	})(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/login", http.NoBody)
+	req.Host = "192.168.1.10"
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+}
+
 func TestAuthHostPolicyAllowsDevLoopback(t *testing.T) {
 	handler := AuthHostPolicy(HostPolicyConfig{
 		AppEnv:             "development",
@@ -163,5 +184,27 @@ func TestAuthHostPolicyRejectsWrongOrigin(t *testing.T) {
 
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusForbidden)
+	}
+}
+
+func TestAuthHostPolicyNormalizesDefaultOriginPort(t *testing.T) {
+	handler := AuthHostPolicy(HostPolicyConfig{
+		AppEnv:           "production",
+		PublicOrigin:     "https://capitalflow.home.arpa:443",
+		PublicOriginHost: "capitalflow.home.arpa",
+	})(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/login", http.NoBody)
+	req.Host = "capitalflow.home.arpa"
+	req.Header.Set("Origin", "https://capitalflow.home.arpa")
+	req.Header.Set("Referer", "https://capitalflow.home.arpa/settings")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
 	}
 }

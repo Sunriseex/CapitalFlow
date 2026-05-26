@@ -62,7 +62,7 @@ func (h *Handler) authLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) authRefresh(w http.ResponseWriter, r *http.Request) {
-	session, err := h.authService().Refresh(r.Context(), refreshTokenFromCookie(r))
+	session, err := h.authService().Refresh(r.Context(), h.refreshTokenFromCookie(r))
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -72,7 +72,7 @@ func (h *Handler) authRefresh(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) authLogout(w http.ResponseWriter, r *http.Request) {
-	refreshToken := refreshTokenFromCookie(r)
+	refreshToken := h.refreshTokenFromCookie(r)
 
 	h.clearRefreshCookie(w)
 
@@ -186,12 +186,15 @@ func authSessionsResponse(sessions []services.SessionInfo) dto.AuthSessionsRespo
 	return response
 }
 
-const refreshCookieName = "__Secure-capitalflow_refresh"
+const (
+	refreshCookieName         = "__Secure-capitalflow_refresh"
+	insecureRefreshCookieName = "capitalflow_refresh"
+)
 
 func (h *Handler) setRefreshCookie(w http.ResponseWriter, session *services.AuthSession) {
 	// #nosec G124 -- Secure and SameSite are controlled by validated runtime config.
 	http.SetCookie(w, &http.Cookie{
-		Name:     refreshCookieName,
+		Name:     h.refreshCookieName(),
 		Value:    session.RefreshToken,
 		Path:     "/auth",
 		Expires:  session.RefreshExpiresAt,
@@ -205,7 +208,7 @@ func (h *Handler) setRefreshCookie(w http.ResponseWriter, session *services.Auth
 func (h *Handler) clearRefreshCookie(w http.ResponseWriter) {
 	// #nosec G124 -- deletion must use the same configurable cookie attributes.
 	http.SetCookie(w, &http.Cookie{
-		Name:     refreshCookieName,
+		Name:     h.refreshCookieName(),
 		Value:    "",
 		Path:     "/auth",
 		Expires:  time.Unix(0, 0).UTC(),
@@ -214,6 +217,13 @@ func (h *Handler) clearRefreshCookie(w http.ResponseWriter) {
 		HttpOnly: true,
 		SameSite: h.cookieSameSite,
 	})
+}
+
+func (h *Handler) refreshCookieName() string {
+	if h.cookieSecure {
+		return refreshCookieName
+	}
+	return insecureRefreshCookieName
 }
 
 func cookieSameSiteMode(value string) http.SameSite {
@@ -227,8 +237,8 @@ func cookieSameSiteMode(value string) http.SameSite {
 	}
 }
 
-func refreshTokenFromCookie(r *http.Request) string {
-	cookie, err := r.Cookie(refreshCookieName)
+func (h *Handler) refreshTokenFromCookie(r *http.Request) string {
+	cookie, err := r.Cookie(h.refreshCookieName())
 	if err != nil {
 		return ""
 	}
