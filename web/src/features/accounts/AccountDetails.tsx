@@ -8,7 +8,8 @@ import type { Account, InterestRule, Transaction } from "../../api/types";
 import { errorMessage, invalidateMoney } from "../../shared/api/query";
 import { today } from "../../shared/constants";
 import { dateLabel } from "../../shared/date";
-import { Button, ChartShell, Dialog, Empty, Panel } from "../../shared/ui";
+import { Button, Dialog, Empty, Panel } from "../../shared/ui";
+import { ChartShell } from "../../shared/ui/ChartShell";
 import { TransactionsTable } from "../transactions/TransactionsTable";
 import { EditAccountForm } from "./EditAccountForm";
 

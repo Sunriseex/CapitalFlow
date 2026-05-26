@@ -1,6 +1,7 @@
 package architecture
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -57,21 +58,26 @@ func TestTransactionHardDeleteIsLimitedToGeneratedInterestReplacement(t *testing
 func walkGoFiles(t *testing.T, root string, fn func(path, content string)) {
 	t.Helper()
 
+	var paths []string
 	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
-			return err
+			return fmt.Errorf("walk %s: %w", path, err)
 		}
 		if entry.IsDir() || !strings.HasSuffix(path, ".go") {
 			return nil
 		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		fn(filepath.Clean(path), string(data))
+		paths = append(paths, filepath.Clean(path))
 		return nil
 	})
 	if err != nil {
 		t.Fatalf("walk %s: %v", root, err)
+	}
+
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		fn(filepath.Clean(path), string(data))
 	}
 }

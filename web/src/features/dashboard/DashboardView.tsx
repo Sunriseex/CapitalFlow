@@ -16,7 +16,8 @@ import { api } from "../../api/client";
 import { addMoney, compareMoney, convertMinor, formatMoney, moneyToNumber, sumConverted } from "../../api/money";
 import type { Account } from "../../api/types";
 import { errorMessage } from "../../shared/api/query";
-import { ChartShell, Empty, Panel } from "../../shared/ui";
+import { Empty, Panel } from "../../shared/ui";
+import { ChartShell } from "../../shared/ui/ChartShell";
 import { TransactionsTable } from "../transactions/TransactionsTable";
 
 export function DashboardView({ primaryCurrency, onOpenAccount }: { primaryCurrency: string; onOpenAccount: (id: string) => void }) {

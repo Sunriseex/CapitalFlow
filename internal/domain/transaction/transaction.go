@@ -45,7 +45,7 @@ func ValidateCreate(input *CreateValidation) error {
 		return fmt.Errorf("amount must be between %s and %s", MaxAmount.Neg(), MaxAmount)
 	}
 	if err := domainmoney.ValidateCurrencyScale(input.Amount, input.Currency); err != nil {
-		return err
+		return fmt.Errorf("validate currency scale: %w", err)
 	}
 	if input.Type != models.TransactionTypeAdjustment && input.Amount.IsNegative() {
 		return fmt.Errorf("amount must be positive for %s transactions", input.Type)
