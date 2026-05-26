@@ -200,6 +200,9 @@ type testTransactionRepo struct {
 	listFilteredFilter           repository.TransactionListFilter
 	listFilteredTransactions     []models.Transaction
 	listTransfersByUser          []models.Transfer
+	getByIDForUserTransaction    *models.Transaction
+	deleteForUserCalls           int
+	deleteForUserErr             error
 }
 
 func (r *testTransactionRepo) Create(context.Context, *models.Transaction) error {
@@ -239,6 +242,9 @@ func (r *testTransactionRepo) GetByID(context.Context, string) (*models.Transact
 }
 
 func (r *testTransactionRepo) GetByIDForUser(context.Context, string, string) (*models.Transaction, error) {
+	if r.getByIDForUserTransaction != nil {
+		return r.getByIDForUserTransaction, nil
+	}
 	return nil, repository.ErrNotFound
 }
 
@@ -276,5 +282,9 @@ func (r *testTransactionRepo) Delete(context.Context, string) error {
 }
 
 func (r *testTransactionRepo) DeleteForUser(context.Context, string, string) error {
+	r.deleteForUserCalls++
+	if r.deleteForUserErr != nil {
+		return r.deleteForUserErr
+	}
 	return nil
 }

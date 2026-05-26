@@ -1735,6 +1735,43 @@ func TestTransactionFeeMutationRevalidatesTransferIntegrity(t *testing.T) {
 	}
 }
 
+func TestTransactionDeleteForUserRejectsTransferFeeTransaction(t *testing.T) {
+	ctx := t.Context()
+	store := newTestStore(t)
+	now := time.Now().UTC()
+	userID := seedUser(ctx, t, store, "fee-delete-transfer@example.com")
+	from := transferTestAccount(t, store, userID, "from-fee-delete")
+	to := transferTestAccount(t, store, userID, "to-fee-delete")
+	seedTransferFunds(ctx, t, store, userID, from.ID, 500, now)
+
+	transfer, transferTransactions := transferTestRows(userID, from.ID, to.ID, "RUB", "RUB", 100, 100, "1", now)
+	feeCurrency := "RUB"
+	feeTransactionID := uuid.NewString()
+	transfer.FeeTransactionID = &feeTransactionID
+	transfer.FeeAmount = dec("1")
+	transfer.FeeCurrency = &feeCurrency
+	transferTransactions = append(transferTransactions, models.Transaction{
+		ID:          feeTransactionID,
+		AccountID:   from.ID,
+		Type:        models.TransactionTypeExpense,
+		Amount:      dec("1"),
+		Description: "Transfer fee",
+		OccurredAt:  now,
+		CreatedAt:   now,
+	})
+	if err := store.Transactions().CreateTransfer(ctx, transfer, transferTransactions); err != nil {
+		t.Fatalf("create transfer with fee: %v", err)
+	}
+
+	err := store.Transactions().DeleteForUser(ctx, feeTransactionID, userID)
+	if !errors.Is(err, repository.ErrConflict) {
+		t.Fatalf("delete fee transaction err = %v, want ErrConflict", err)
+	}
+	if _, err := store.Transactions().GetByIDForUser(ctx, feeTransactionID, userID); err != nil {
+		t.Fatalf("fee transaction should remain after rejected delete: %v", err)
+	}
+}
+
 func TestTransactionCreateTransferRejectsDuplicateIdempotencyKey(t *testing.T) {
 	ctx := t.Context()
 	store := newTestStore(t)

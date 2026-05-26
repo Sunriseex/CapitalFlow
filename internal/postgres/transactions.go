@@ -426,6 +426,22 @@ func (r *TransactionRepository) Delete(ctx context.Context, id string) error {
 }
 
 func (r *TransactionRepository) DeleteForUser(ctx context.Context, id, userID string) error {
+	var isTransferFee bool
+	if err := r.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM transactions t
+			JOIN accounts a ON a.id = t.account_id
+			JOIN transfers tr ON tr.fee_transaction_id = t.id
+			WHERE t.id = $1 AND a.owner_user_id = $2
+		)
+	`, id, userID).Scan(&isTransferFee); err != nil {
+		return fmt.Errorf("check transaction transfer fee usage: %w", err)
+	}
+	if isTransferFee {
+		return fmt.Errorf("delete transaction: %w", repository.ErrConflict)
+	}
+
 	tag, err := r.pool.Exec(ctx, `
 		DELETE FROM transactions t
 		USING accounts a

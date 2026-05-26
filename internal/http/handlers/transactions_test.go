@@ -298,6 +298,36 @@ func TestCreateTransactionForOtherUsersAccountReturnsNotFound(t *testing.T) {
 	}
 }
 
+func TestDeleteTransactionReturnsConflictForTransferFee(t *testing.T) {
+	tokens, pair := testProfileTokenPair(t)
+	store := newTestProfileStore()
+	transactions := &testTransactionRepo{
+		getByIDForUserTransaction: &models.Transaction{
+			ID:        "33333333-3333-3333-3333-333333333333",
+			AccountID: "11111111-1111-1111-1111-111111111111",
+			Type:      models.TransactionTypeExpense,
+			Amount:    dec("1"),
+		},
+		deleteForUserErr: repository.ErrConflict,
+	}
+	store.transactions = transactions
+	store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
+
+	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/transactions/33333333-3333-3333-3333-333333333333", nil)
+	req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusConflict, rec.Body.String())
+	}
+	if transactions.deleteForUserCalls != 1 {
+		t.Fatalf("DeleteForUser calls = %d, want 1", transactions.deleteForUserCalls)
+	}
+}
+
 func TestRecalculateInterestRejectsInvalidRequestBeforeStoreAccess(t *testing.T) {
 	tests := []struct {
 		name      string
