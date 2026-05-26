@@ -34,6 +34,7 @@ These invariants protect CapitalFlow from silent balance corruption and audit ga
 - Both accounts must be active.
 - Both legs are created in one database transaction.
 - Transfer rows keep the exchange rate and linked transaction IDs.
+- Transfer fees are stored on the transfer audit row and linked to a source-account expense transaction.
 - Transfer transaction legs cannot be deleted through the transaction endpoint.
 - Database constraints validate that transfer legs match the transfer audit row.
 

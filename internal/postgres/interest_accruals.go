@@ -52,7 +52,7 @@ func (r *InterestAccrualRepository) CreateWithTransaction(ctx context.Context, t
 }
 
 func (r *InterestAccrualRepository) WithAccountInterestLock(ctx context.Context, accountID, userID string, fn func(context.Context, repository.InterestCalculationRepository) error) error {
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return fmt.Errorf("begin account interest transaction: %w", err)
 	}

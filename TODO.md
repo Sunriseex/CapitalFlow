@@ -41,8 +41,8 @@ CapitalFlow — self-hosted сервис для личного учета фин
 
 * [ ] README and run docs match the real current auth flow.
 * [ ] WebUI dev proxy and API port are documented consistently.
-* [ ] Transfer audit model is good enough for cross-currency operations.
-* [ ] Idempotency behavior is tested for all financial mutations.
+* [x] Transfer audit model is good enough for cross-currency operations.
+* [x] Idempotency behavior is tested for all financial mutations.
 * [ ] E2E tests cover critical user flows.
 * [ ] Backup/restore is available before the app is used with real data.
 * [ ] Production/self-host deployment path is documented.
@@ -50,7 +50,7 @@ CapitalFlow — self-hosted сервис для личного учета фин
 ## Roadmap order
 
 * [x] v0.5.5 Architecture Stabilization.
-* [ ] v0.5.6 Financial Auditability & Idempotency.
+* [x] v0.5.6 Financial Auditability & Idempotency.
 * [ ] v0.5.7 Security Baseline Before Passkeys.
 * [ ] v0.5.8 Passkey Login / WebAuthn.
 * [ ] v0.5.9 E2E Testing Baseline.
@@ -87,28 +87,33 @@ internal/
     interest/
     auth/
   services/
+  repository/
   postgres/
   http/
 ```
 
 * [x] `models` содержит данные.
-* [x] `domain` содержит правила и инварианты.
+* [x] `domain` содержит правила и инварианты для уже вынесенных областей.
 * [x] `services` содержит сценарии использования.
-* [x] `repositories` содержит доступ к БД.
-* [x] `handlers` содержит только HTTP-слой.
-* [x] Проверки вроде "нельзя перевести деньги на тот же счет" живут в `TransferService` или domain validator, а не только в handler.
+* [x] `repository` содержит контракты доступа к БД.
+* [x] `postgres` содержит реализацию доступа к PostgreSQL.
+* [ ] `handlers` содержит только HTTP-слой.
+* [x] Проверки вроде «нельзя перевести деньги на тот же счет» живут в `TransferService` или domain validator, а не только в handler.
+* [ ] Полный domain scope ещё не завершён: `money`, `interest`, `auth` пока не выделены как отдельные domain packages.
 
 ## Architecture invariants
 
-* [x] Любая финансовая операция принадлежит `user_id`.
-* [x] Handler не содержит бизнес-правил.
+* [x] Любая user-facing финансовая операция принадлежит `user_id`.
+* [ ] Handler не содержит бизнес-правил.
 * [x] Service не знает про HTTP DTO.
 * [x] Repository не принимает HTTP DTO.
-* [x] Money всегда хранится в minor units: копейки, центы и т.д.
+* [x] Money хранится как `decimal.Decimal` в Go и `NUMERIC` в PostgreSQL.
+* [x] Currency scale валидируется на domain/service boundary.
+* [x] Sub-minor значения запрещены для user-created financial operations.
 * [x] Currency всегда нормализована и валидируется.
-* [x] Все write-операции проходят через транзакцию БД.
-* [x] Все опасные операции имеют audit/event trail.
-* [x] Удаление финансовых данных либо запрещено, либо soft-delete/audit.
+* [ ] Все write-операции проходят через транзакцию БД.
+* [ ] Все опасные операции имеют audit/event trail.
+* [ ] Удаление финансовых данных либо запрещено, либо soft-delete/audit.
 
 ## Edge cases
 
@@ -117,12 +122,13 @@ internal/
 * [x] Transaction с `amount = 0`.
 * [x] Transaction с отрицательной суммой там, где это запрещено.
 * [x] Currency в lowercase: `rub`, `usd`.
-* [x] Currency нестандартная: `RUR`, `BTC`, `USDT`.
+* [x] Currency нестандартная: `RUR`, `BTC`, `USDT` отклоняется в stable core.
 * [x] Дата операции в будущем.
 * [x] Дата операции до даты открытия счета.
 * [x] Удаление transaction, которая участвует в transfer.
 * [x] Повторный запрос после timeout.
 * [x] Одновременное создание двух операций по одному счету.
+* [ ] Прямая service-level попытка создать `transfer_in` / `transfer_out` transaction вне transfer flow.
 
 ## Tests
 
@@ -130,15 +136,18 @@ internal/
 * [x] Service tests без HTTP.
 * [x] Handler tests только на контракт API.
 * [x] Integration tests с PostgreSQL для write-flow.
-* [x] Regression tests на каждый найденный audit bug.
+* [x] Regression tests на найденные audit/concurrency bugs.
+* [ ] Architecture boundary tests / lint rules, которые не дают handler-слою снова начать решать финансовые правила.
 
 ## Acceptance criteria
 
-* [x] Все write-flow имеют понятный service-level сценарий.
-* [x] Handler не решает финансовые правила.
+* [x] Основные user-facing write-flow имеют понятный service-level сценарий.
+* [ ] Handler не решает финансовые правила.
 * [x] Есть `docs/architecture/layers.md`.
 * [x] Есть `docs/architecture/invariants.md`.
 * [x] Новая фича добавляется по шаблону: model -> domain rule -> service -> repo -> handler -> tests.
+* [ ] Hard delete финансовых данных заменён на запрет, soft-delete или audit-backed deletion.
+* [ ] Legacy/internal write paths либо переведены на транзакции БД, либо явно задокументированы как исключения.
 
 ---
 
@@ -178,39 +187,39 @@ transfers
 
 ### User cases
 
-* [ ] Перевод между двумя RUB-счетами.
-* [ ] Перевод RUB -> USD.
-* [ ] Перевод USD -> RUB.
-* [ ] Перевод RUB -> USDT.
-* [ ] Перевод с комиссией.
-* [ ] Перевод между своими счетами в разных банках.
-* [ ] Перевод на брокерский счет.
+* [x] Перевод между двумя RUB-счетами.
+* [x] Перевод RUB -> USD.
+* [x] Перевод USD -> RUB.
+* [x] Перевод RUB -> USDT.
+* [x] Перевод с комиссией.
+* [x] Перевод между своими счетами в разных банках.
+* [x] Перевод на брокерский счет.
 * [x] Перевод между archived и active account должен быть запрещен или явно ограничен.
 
 ### Transfer edge cases
 
-* [ ] `from_account_id == to_account_id`.
-* [ ] `from_amount <= 0`.
-* [ ] `to_amount <= 0`.
-* [ ] `exchange_rate` отсутствует при разных валютах.
-* [ ] `exchange_rate` указан при одинаковых валютах.
-* [ ] `exchange_rate = 0`.
-* [ ] `exchange_rate` слишком большой.
-* [ ] Потеря точности при конвертации.
-* [ ] Создалась только одна leg из двух.
-* [ ] Повторный запрос создает дубль.
-* [ ] Удаление одной leg ломает transfer.
-* [ ] Один account принадлежит другому `user_id`.
+* [x] `from_account_id == to_account_id`.
+* [x] `from_amount <= 0`.
+* [x] `to_amount <= 0`.
+* [x] `exchange_rate` отсутствует при разных валютах.
+* [x] `exchange_rate` указан при одинаковых валютах.
+* [x] `exchange_rate = 0`.
+* [x] `exchange_rate` слишком большой.
+* [x] Потеря точности при конвертации.
+* [x] Создалась только одна leg из двух.
+* [x] Повторный запрос создает дубль.
+* [x] Удаление одной leg ломает transfer.
+* [x] Один account принадлежит другому `user_id`.
 
 ### Transfer tests
 
-* [ ] Same-currency transfer persists transfer row.
-* [ ] Cross-currency transfer persists rate and both legs.
-* [ ] Transfer rollback: если вторая leg не создалась, первая тоже не сохраняется.
-* [ ] Idempotent retry returns previous result.
-* [ ] Same idempotency key + different payload returns conflict.
-* [ ] Transfer cannot be partially deleted.
-* [ ] Transfer list shows both business event and legs.
+* [x] Same-currency transfer persists transfer row.
+* [x] Cross-currency transfer persists rate and both legs.
+* [x] Transfer rollback: если вторая leg не создалась, первая тоже не сохраняется.
+* [x] Idempotent retry returns previous result.
+* [x] Same idempotency key + different payload returns conflict.
+* [x] Transfer cannot be partially deleted.
+* [x] Transfer list shows both business event and legs.
 
 ## Idempotency keys
 
@@ -234,29 +243,29 @@ idempotency_keys
 
 ### Endpoints
 
-* [ ] `POST /api/transactions`.
-* [ ] `POST /api/transfers`.
-* [ ] `POST /api/accounts/{id}/accrue-interest`.
-* [ ] `POST /api/accounts/{id}/recalculate-interest`.
+* [x] `POST /api/transactions`.
+* [x] `POST /api/transfers`.
+* [x] `POST /api/accounts/{id}/accrue-interest`.
+* [x] `POST /api/accounts/{id}/recalculate-interest`.
 * [ ] Future: import.
 * [ ] Future: bulk operations.
 
 ### Idempotency edge cases
 
-* [ ] Клиент отправил один и тот же request дважды.
-* [ ] Первый request успел записать данные, но клиент получил timeout.
-* [ ] Два одинаковых request пришли одновременно.
-* [ ] Один idempotency key используется с другим body.
-* [ ] Idempotency key истек.
-* [ ] Request упал до commit.
-* [ ] Request упал после commit, но до ответа.
+* [x] Клиент отправил один и тот же request дважды.
+* [x] Первый request успел записать данные, но клиент получил timeout.
+* [x] Два одинаковых request пришли одновременно.
+* [x] Один idempotency key используется с другим body.
+* [x] Idempotency key истек.
+* [x] Request упал до commit.
+* [x] Request упал после commit, но до ответа.
 
 ## Acceptance criteria
 
-* [ ] Повтор POST-запроса не создает дубль.
-* [ ] Concurrent retry безопасен.
-* [ ] Idempotency работает на уровне БД, а не только в памяти.
-* [ ] Cross-currency transfer audit не зависит от текущего курса валют.
+* [x] Повтор POST-запроса не создает дубль.
+* [x] Concurrent retry безопасен.
+* [x] Idempotency работает на уровне БД, а не только в памяти.
+* [x] Cross-currency transfer audit не зависит от текущего курса валют.
 * [x] Есть `docs/architecture/idempotency.md`.
 
 ---

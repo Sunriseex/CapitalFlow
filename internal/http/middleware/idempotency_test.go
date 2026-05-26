@@ -145,10 +145,49 @@ func TestIdempotencyTrimsKeyBeforeStorage(t *testing.T) {
 	}
 }
 
+func TestIdempotencyRejectsSameKeyDifferentBody(t *testing.T) {
+	repo := newTestIdempotencyRepo()
+	handler := Idempotency(repo)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+
+	first := newIdempotencyRequest(t, "same-key")
+	handler.ServeHTTP(httptest.NewRecorder(), first)
+
+	second := newIdempotencyRequest(t, "same-key")
+	second.Body = http.NoBody
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, second)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusConflict, rec.Body.String())
+	}
+	assertMiddlewareJSONError(t, rec, "idempotency_key_reused")
+}
+
+func TestIdempotencyRejectsConcurrentInProgressRetry(t *testing.T) {
+	repo := newTestIdempotencyRepo()
+	repo.skipComplete = true
+	handler := Idempotency(repo)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+	}))
+
+	handler.ServeHTTP(httptest.NewRecorder(), newIdempotencyRequest(t, "in-progress"))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, newIdempotencyRequest(t, "in-progress"))
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusConflict, rec.Body.String())
+	}
+	assertMiddlewareJSONError(t, rec, "idempotency_in_progress")
+}
+
 type testIdempotencyRepo struct {
 	records       map[string]*models.IdempotencyRecord
 	completeErr   error
 	completeCalls int
+	skipComplete  bool
 }
 
 func newTestIdempotencyRepo() *testIdempotencyRepo {
@@ -179,6 +218,9 @@ func (r *testIdempotencyRepo) Complete(_ context.Context, key, userID, method, p
 	r.completeCalls++
 	if r.completeErr != nil {
 		return r.completeErr
+	}
+	if r.skipComplete {
+		return nil
 	}
 	record, ok := r.records[idempotencyTestKey(key, userID, method, path)]
 	if !ok {

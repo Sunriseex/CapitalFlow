@@ -661,6 +661,10 @@ func (r *fakeTransactionRepo) CreateTransfer(ctx context.Context, _ *models.Tran
 	return r.CreateMany(ctx, transactions)
 }
 
+func (r *fakeTransactionRepo) ListTransfersByUser(context.Context, string) ([]models.Transfer, error) {
+	return nil, nil
+}
+
 func (r *fakeTransactionRepo) GetByID(_ context.Context, id string) (*models.Transaction, error) {
 	transaction, ok := r.byID[id]
 	if !ok {

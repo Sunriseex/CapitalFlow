@@ -7,6 +7,10 @@ type MoneyParseOptions = {
   currency?: string;
 };
 
+const customCurrencyFractionDigits: Record<string, number> = {
+  USDT: 6,
+};
+
 export type MoneyParseResult = { ok: true; value: string } | { ok: false; error: string };
 
 const moneyPattern = /^-?\d+(?:\.\d+)?$/;
@@ -173,8 +177,12 @@ function plainDecimalString(value: string) {
 }
 
 function currencyFractionDigits(currency: string) {
+  const normalized = currency.trim().toUpperCase();
+  const customScale = customCurrencyFractionDigits[normalized];
+  if (customScale !== undefined) return customScale;
+
   try {
-    return new Intl.NumberFormat("en", { style: "currency", currency }).resolvedOptions().maximumFractionDigits ?? 2;
+    return new Intl.NumberFormat("en", { style: "currency", currency: normalized }).resolvedOptions().maximumFractionDigits ?? 2;
   } catch {
     return 2;
   }

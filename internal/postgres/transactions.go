@@ -205,6 +205,9 @@ func (r *TransactionRepository) CreateTransfer(ctx context.Context, transfer *mo
 	if balance.LessThan(transfer.FromAmount) {
 		return fmt.Errorf("create transfer: %w", repository.ErrInsufficientFunds)
 	}
+	if transfer.FeeAmount.IsPositive() && balance.LessThan(transfer.FromAmount.Add(transfer.FeeAmount)) {
+		return fmt.Errorf("create transfer: %w", repository.ErrInsufficientFunds)
+	}
 
 	if err := insertTransfer(ctx, tx, transfer); err != nil {
 		return fmt.Errorf("create transfer audit: %w", err)
@@ -242,6 +245,57 @@ func (r *TransactionRepository) GetByID(ctx context.Context, id string) (*models
 		return nil, fmt.Errorf("get transaction: %w", mapNotFound(err))
 	}
 	return transaction, nil
+}
+
+func (r *TransactionRepository) ListTransfersByUser(ctx context.Context, userID string) ([]models.Transfer, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, user_id, from_account_id, to_account_id, from_transaction_id, to_transaction_id,
+			fee_transaction_id, from_amount, to_amount, from_currency, to_currency, exchange_rate::text,
+			exchange_rate_scale, exchange_rate_provider, exchange_rate_date, fee_amount, fee_currency,
+			status, idempotency_key, created_at, updated_at
+		FROM transfers
+		WHERE user_id = $1
+		ORDER BY created_at DESC, id DESC
+	`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list transfers: %w", err)
+	}
+	defer rows.Close()
+
+	var transfers []models.Transfer
+	for rows.Next() {
+		var transfer models.Transfer
+		if err := rows.Scan(
+			&transfer.ID,
+			&transfer.UserID,
+			&transfer.FromAccountID,
+			&transfer.ToAccountID,
+			&transfer.FromTransactionID,
+			&transfer.ToTransactionID,
+			&transfer.FeeTransactionID,
+			&transfer.FromAmount,
+			&transfer.ToAmount,
+			&transfer.FromCurrency,
+			&transfer.ToCurrency,
+			&transfer.ExchangeRate,
+			&transfer.ExchangeRateScale,
+			&transfer.ExchangeRateProvider,
+			&transfer.ExchangeRateDate,
+			&transfer.FeeAmount,
+			&transfer.FeeCurrency,
+			&transfer.Status,
+			&transfer.IdempotencyKey,
+			&transfer.CreatedAt,
+			&transfer.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan transfer: %w", err)
+		}
+		transfers = append(transfers, transfer)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list transfers rows: %w", err)
+	}
+	return transfers, nil
 }
 
 func (r *TransactionRepository) GetByIDForUser(ctx context.Context, id, userID string) (*models.Transaction, error) {
@@ -372,6 +426,22 @@ func (r *TransactionRepository) Delete(ctx context.Context, id string) error {
 }
 
 func (r *TransactionRepository) DeleteForUser(ctx context.Context, id, userID string) error {
+	var isTransferFee bool
+	if err := r.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM transactions t
+			JOIN accounts a ON a.id = t.account_id
+			JOIN transfers tr ON tr.fee_transaction_id = t.id
+			WHERE t.id = $1 AND a.owner_user_id = $2
+		)
+	`, id, userID).Scan(&isTransferFee); err != nil {
+		return fmt.Errorf("check transaction transfer fee usage: %w", err)
+	}
+	if isTransferFee {
+		return fmt.Errorf("delete transaction: %w", repository.ErrConflict)
+	}
+
 	tag, err := r.pool.Exec(ctx, `
 		DELETE FROM transactions t
 		USING accounts a
@@ -447,14 +517,24 @@ func insertTransaction(ctx context.Context, execer sqlExecer, transaction *model
 }
 
 func insertTransfer(ctx context.Context, execer sqlExecer, transfer *models.Transfer) error {
+	if transfer.ExchangeRateScale == 0 {
+		transfer.ExchangeRateScale = 18
+	}
+	if transfer.Status == "" {
+		transfer.Status = "completed"
+	}
+	if transfer.UpdatedAt.IsZero() {
+		transfer.UpdatedAt = transfer.CreatedAt
+	}
 	_, err := execer.Exec(ctx, `
 		INSERT INTO transfers (
-			id, user_id, from_account_id, to_account_id, from_transaction_id, to_transaction_id,
+			id, user_id, from_account_id, to_account_id, from_transaction_id, to_transaction_id, fee_transaction_id,
 			from_amount, to_amount, from_currency, to_currency, exchange_rate,
-			exchange_rate_provider, exchange_rate_date, idempotency_key, created_at
+			exchange_rate_scale, exchange_rate_provider, exchange_rate_date, fee_amount,
+			fee_currency, status, idempotency_key, created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::numeric, $12, $13, $14, $15)
-	`, transfer.ID, transfer.UserID, transfer.FromAccountID, transfer.ToAccountID, transfer.FromTransactionID, transfer.ToTransactionID, transfer.FromAmount, transfer.ToAmount, transfer.FromCurrency, transfer.ToCurrency, transfer.ExchangeRate, transfer.ExchangeRateProvider, transfer.ExchangeRateDate, transfer.IdempotencyKey, transfer.CreatedAt)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::numeric, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+	`, transfer.ID, transfer.UserID, transfer.FromAccountID, transfer.ToAccountID, transfer.FromTransactionID, transfer.ToTransactionID, transfer.FeeTransactionID, transfer.FromAmount, transfer.ToAmount, transfer.FromCurrency, transfer.ToCurrency, transfer.ExchangeRate, transfer.ExchangeRateScale, transfer.ExchangeRateProvider, transfer.ExchangeRateDate, transfer.FeeAmount, transfer.FeeCurrency, transfer.Status, transfer.IdempotencyKey, transfer.CreatedAt, transfer.UpdatedAt)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return fmt.Errorf("insert transfer: %w", repository.ErrConflict)

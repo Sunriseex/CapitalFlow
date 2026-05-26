@@ -22,10 +22,10 @@ func TestValidCurrency(t *testing.T) {
 		{name: "usd", currency: "USD", want: true},
 		{name: "krw", currency: "KRW", want: true},
 		{name: "kwd", currency: "KWD", want: true},
+		{name: "usdt", currency: "USDT", want: true},
 		{name: "lowercase normalized", currency: "rub", want: true},
 		{name: "obsolete rur", currency: "RUR"},
 		{name: "unsupported crypto", currency: "BTC"},
-		{name: "four letters", currency: "USDT"},
 		{name: "digits", currency: "R1B"},
 	}
 

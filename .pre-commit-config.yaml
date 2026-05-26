@@ -1,0 +1,10 @@
+repos:
+  - repo: local
+    hooks:
+      - id: gofumpt
+        name: gofumpt
+        entry: gofumpt -w -l -extra
+        language: system
+        files: \.go$
+        types_or: [go]
+        require_serial: true

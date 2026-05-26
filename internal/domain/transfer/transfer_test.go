@@ -52,6 +52,17 @@ func TestValidateCreate(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "negative fee",
+			input: CreateValidation{
+				FromAccountID:  "from",
+				ToAccountID:    "to",
+				Amount:         decimal.NewFromInt(1),
+				FeeAmount:      decimal.NewFromInt(-1),
+				IdempotencyKey: "key",
+			},
+			wantErr: true,
+		},
+		{
 			name: "source over precision",
 			input: CreateValidation{
 				FromAccountID:  "from",

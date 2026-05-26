@@ -190,6 +190,37 @@ func TestTransferServiceCreateConvertsCrossCurrencyAmount(t *testing.T) {
 	}
 }
 
+func TestTransferServiceCreateConvertsRubToUSDT(t *testing.T) {
+	repo := &batchTransactionRepo{}
+	service := NewTransferService(NewTransactionService(repo))
+	service.currency = NewCurrencyService(staticExchangeRateProvider{
+		rates: &ExchangeRates{
+			Base: "RUB",
+			Rates: map[string]decimal.Decimal{
+				"USDT": decimal.RequireFromString("0.01"),
+			},
+		},
+	})
+
+	got, err := service.Create(t.Context(), &CreateTransferRequest{
+		FromAccountID:  "rub-account",
+		ToAccountID:    "usdt-account",
+		FromCurrency:   "RUB",
+		ToCurrency:     "USDT",
+		Amount:         dec("125.55"),
+		IdempotencyKey: "rub-usdt",
+	})
+	if err != nil {
+		t.Fatalf("create transfer: %v", err)
+	}
+	if !got.In.Amount.Equal(dec("1.255500")) {
+		t.Fatalf("in amount = %s, want 1.255500", got.In.Amount)
+	}
+	if repo.transfer == nil || repo.transfer.ToCurrency != "USDT" || !repo.transfer.ToAmount.Equal(dec("1.255500")) {
+		t.Fatalf("transfer audit = %+v", repo.transfer)
+	}
+}
+
 func TestTransferServiceCreateRoundsDestinationAfterCrossCurrencyConversion(t *testing.T) {
 	repo := &batchTransactionRepo{}
 	service := NewTransferService(NewTransactionService(repo))
@@ -224,6 +255,87 @@ func TestTransferServiceCreateRoundsDestinationAfterCrossCurrencyConversion(t *t
 	}
 }
 
+func TestTransferServiceCreatePersistsFeeTransaction(t *testing.T) {
+	repo := &batchTransactionRepo{}
+	got, err := NewTransferService(NewTransactionService(repo)).Create(t.Context(), &CreateTransferRequest{
+		FromAccountID:  "account-1",
+		ToAccountID:    "account-2",
+		FromCurrency:   "RUB",
+		ToCurrency:     "RUB",
+		Amount:         dec("100"),
+		FeeAmount:      dec("1.25"),
+		IdempotencyKey: "transfer-with-fee",
+		Description:    "Broker top up",
+	})
+	if err != nil {
+		t.Fatalf("create transfer with fee: %v", err)
+	}
+	if got.Fee == nil {
+		t.Fatal("fee transaction is nil")
+	}
+	if got.Fee.Type != models.TransactionTypeExpense || got.Fee.AccountID != "account-1" || !got.Fee.Amount.Equal(dec("1.25")) {
+		t.Fatalf("fee transaction = %+v", got.Fee)
+	}
+	if got.Fee.TransferID != nil {
+		t.Fatalf("fee transaction transfer id = %v, want nil", got.Fee.TransferID)
+	}
+	if repo.transfer == nil || repo.transfer.FeeTransactionID == nil || *repo.transfer.FeeTransactionID != got.Fee.ID {
+		t.Fatalf("transfer fee transaction id = %v, fee id = %s", repo.transfer.FeeTransactionID, got.Fee.ID)
+	}
+	if !repo.transfer.FeeAmount.Equal(dec("1.25")) || repo.transfer.FeeCurrency == nil || *repo.transfer.FeeCurrency != "RUB" {
+		t.Fatalf("transfer fee audit = %+v", repo.transfer)
+	}
+	if len(repo.batches) != 1 || len(repo.batches[0]) != 3 {
+		t.Fatalf("batch sizes = %+v, want one batch of 3", repo.batches)
+	}
+}
+
+func TestTransferServiceCreateRejectsMismatchedFeeCurrency(t *testing.T) {
+	repo := &batchTransactionRepo{}
+	_, err := NewTransferService(NewTransactionService(repo)).Create(t.Context(), &CreateTransferRequest{
+		FromAccountID:  "account-1",
+		ToAccountID:    "account-2",
+		FromCurrency:   "RUB",
+		ToCurrency:     "RUB",
+		Amount:         dec("100"),
+		FeeAmount:      dec("1"),
+		FeeCurrency:    "USDT",
+		IdempotencyKey: "mismatched-fee-currency",
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !IsValidationError(err) {
+		t.Fatalf("expected validation error, got %T: %v", err, err)
+	}
+	if len(repo.batches) != 0 {
+		t.Fatalf("created batches = %d, want 0", len(repo.batches))
+	}
+}
+
+func TestTransferServiceCreateNormalizesFeeCurrency(t *testing.T) {
+	repo := &batchTransactionRepo{}
+	got, err := NewTransferService(NewTransactionService(repo)).Create(t.Context(), &CreateTransferRequest{
+		FromAccountID:  "account-1",
+		ToAccountID:    "account-2",
+		FromCurrency:   "RUB",
+		ToCurrency:     "RUB",
+		Amount:         dec("100"),
+		FeeAmount:      dec("1"),
+		FeeCurrency:    "rub",
+		IdempotencyKey: "normalized-fee-currency",
+	})
+	if err != nil {
+		t.Fatalf("create transfer with lowercase fee currency: %v", err)
+	}
+	if got.Fee == nil {
+		t.Fatal("fee transaction is nil")
+	}
+	if repo.transfer == nil || repo.transfer.FeeCurrency == nil || *repo.transfer.FeeCurrency != "RUB" {
+		t.Fatalf("transfer fee currency = %v, want RUB", repo.transfer)
+	}
+}
+
 type batchTransactionRepo struct {
 	createCalls  int
 	batches      [][]models.Transaction
@@ -251,6 +363,10 @@ func (r *batchTransactionRepo) CreateTransfer(ctx context.Context, transfer *mod
 	r.fromCurrency = transfer.FromCurrency
 	r.toCurrency = transfer.ToCurrency
 	return r.CreateMany(ctx, transactions)
+}
+
+func (r *batchTransactionRepo) ListTransfersByUser(context.Context, string) ([]models.Transfer, error) {
+	return nil, nil
 }
 
 func (r *batchTransactionRepo) GetByID(context.Context, string) (*models.Transaction, error) {

@@ -109,13 +109,16 @@ func (s *TransactionService) CreateTransfer(ctx context.Context, transfer *model
 	if transfer == nil {
 		return nil, validationError("transfer audit record is required")
 	}
-	if len(transactions) != 2 {
-		return nil, validationError("transfer requires exactly two transactions")
+	if len(transactions) != 2 && len(transactions) != 3 {
+		return nil, validationError("transfer requires two transactions and optional fee transaction")
 	}
 	transfer.FromTransactionID = transactions[0].ID
 	transfer.ToTransactionID = transactions[1].ID
-	for i := range transactions {
+	for i := range transactions[:2] {
 		transactions[i].TransferID = &transfer.ID
+	}
+	if len(transactions) == 3 {
+		transfer.FeeTransactionID = &transactions[2].ID
 	}
 	if err := s.repo.CreateTransfer(ctx, transfer, transactions); err != nil {
 		return nil, fmt.Errorf("save transfer transactions: %w", err)
