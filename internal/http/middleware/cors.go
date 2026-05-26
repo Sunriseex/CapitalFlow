@@ -28,7 +28,7 @@ func CORS(cfg *CORSConfig) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := strings.TrimSpace(r.Header.Get("Origin"))
-			if isAllowedOrigin(cfg.AllowedOrigins, origin) {
+			if isAllowedOrigin(cfg.AllowedOrigins, origin, cfg.AllowCredentials) {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 				w.Header().Add("Vary", "Origin")
 				w.Header().Set("Access-Control-Allow-Headers", allowedHeaders)
@@ -50,9 +50,12 @@ func CORS(cfg *CORSConfig) func(http.Handler) http.Handler {
 	}
 }
 
-func isAllowedOrigin(allowedOrigins []string, origin string) bool {
+func isAllowedOrigin(allowedOrigins []string, origin string, allowCredentials bool) bool {
 	if origin == "" {
 		return false
+	}
+	if slices.Contains(allowedOrigins, "*") {
+		return !allowCredentials
 	}
 	if slices.Contains(allowedOrigins, origin) {
 		return true

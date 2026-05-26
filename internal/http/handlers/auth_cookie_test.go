@@ -137,6 +137,41 @@ func TestAuthSetupSetsSecureRefreshCookie(t *testing.T) {
 	}
 }
 
+func TestAuthSetupUsesConfiguredRefreshCookiePolicy(t *testing.T) {
+	tokens, err := auth.NewTokenService(testJWTSecret, "capitalflow", time.Minute, time.Hour)
+	if err != nil {
+		t.Fatalf("new token service: %v", err)
+	}
+	router := NewRouter(newTestProfileStore(), &RouterConfig{
+		AppEnv:         "development",
+		TokenService:   tokens,
+		CookieSecure:   false,
+		CookieSameSite: "Lax",
+	})
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/setup", strings.NewReader(`{
+		"email":"user@example.com",
+		"password":"correct horse battery staple",
+		"primary_currency":"RUB"
+	}`))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+	cookie := requireRefreshCookie(t, rec.Result().Cookies())
+	if cookie.Secure {
+		t.Fatal("refresh cookie Secure = true, want false")
+	}
+	if cookie.SameSite != http.SameSiteLaxMode {
+		t.Fatalf("SameSite = %v, want Lax", cookie.SameSite)
+	}
+	if cookie.Path != "/auth" {
+		t.Fatalf("Path = %q, want /auth", cookie.Path)
+	}
+}
+
 func TestAuthRefreshAcceptsRefreshCookieFallback(t *testing.T) {
 	router := newTestAuthRouter(t)
 	setupRec := httptest.NewRecorder()

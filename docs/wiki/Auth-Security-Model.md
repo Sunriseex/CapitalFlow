@@ -35,6 +35,9 @@ API mutations use `Authorization: Bearer <access_token>` and do not rely on ambi
 
 Refresh/logout use the secure refresh cookie. Because that cookie is scoped to `/auth` and uses `SameSite=Strict`, cross-site browser submission risk is reduced.
 
+Production also checks `Host`, `Origin`, and `Referer` for auth-sensitive endpoints against `PUBLIC_ORIGIN`.
+Wildcard CORS origins are not allowed with credentials.
+
 ## Password Policy
 
 Passwords must pass:
@@ -70,3 +73,10 @@ All auth-sensitive flows write events to `auth_audit_events`, including setup, l
 Auth events are counted in `capitalflow_auth_events_total` and exposed through `GET /metrics`.
 
 See [Auth Observability](Auth-Observability).
+
+## Self-host Baseline
+
+For reverse proxy and CSRF details, see:
+
+* `docs/security/reverse-proxy.md`
+* `docs/security/csrf.md`

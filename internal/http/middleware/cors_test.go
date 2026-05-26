@@ -91,3 +91,27 @@ func TestCORSRejectsNonLoopbackPortMismatch(t *testing.T) {
 		t.Fatalf("allow origin = %q, want empty", got)
 	}
 }
+
+func TestCORSRejectsWildcardCredentials(t *testing.T) {
+	handler := CORS(&CORSConfig{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{http.MethodGet, http.MethodOptions},
+		AllowedHeaders:   []string{"Authorization", "Content-Type"},
+		AllowCredentials: true,
+	})(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodOptions, "/api/v1/accounts", http.NoBody)
+	req.Header.Set("Origin", "https://capitalflow.home.arpa")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "" {
+		t.Fatalf("allow origin = %q, want empty", got)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Credentials"); got != "" {
+		t.Fatalf("allow credentials = %q, want empty", got)
+	}
+}
