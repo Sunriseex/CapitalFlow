@@ -202,8 +202,8 @@ APP_VERSION=0.1.0-dev
 LOG_LEVEL=debug
 
 DATABASE_URL=postgres://capitalflow:capitalflow@localhost:5432/capitalflow?sslmode=disable
-API_AUTH_TOKEN=change-me-to-a-long-random-token
-JWT_SECRET=change-me-to-a-long-random-secret
+JWT_SECRET=<generated-secret>
+API_AUTH_TOKEN=<generated-token>
 
 ACCESS_TOKEN_TTL=15m
 REFRESH_TOKEN_TTL=720h
@@ -223,7 +223,27 @@ TELEGRAM_BOT_TOKEN=
 TELEGRAM_USER_ID=0
 ```
 
+`JWT_SECRET` is required by the HTTP server and must be at least 32 characters. `API_AUTH_TOKEN` is used by the bearer-token fallback mode and must also be at least 32 characters when that mode is enabled.
 Do not commit real secrets. Keep local secrets in `configs/.env` and commit only `configs/example.env`.
+
+Generate a strong token on Linux/macOS:
+
+```bash
+openssl rand -hex 32
+```
+
+Generate a strong token on Windows PowerShell:
+
+```powershell
+[Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32)).ToLower()
+```
+
+Put generated values into `configs/.env`:
+
+```env
+JWT_SECRET=<generated-secret>
+API_AUTH_TOKEN=<generated-token>
+```
 
 ## Database Setup
 
@@ -254,7 +274,7 @@ go run github.com/pressly/goose/v3/cmd/goose@v3.27.1 \
 
 ## Running the API
 
-Before starting the API, make sure `configs/.env` exists and contains `DATABASE_URL`, `API_AUTH_TOKEN` and `JWT_SECRET`.
+Before starting the API, make sure `configs/.env` exists and contains `DATABASE_URL` and a strong `JWT_SECRET`. If you run the bearer-token fallback mode, also set a strong `API_AUTH_TOKEN`.
 
 Recommended local command:
 

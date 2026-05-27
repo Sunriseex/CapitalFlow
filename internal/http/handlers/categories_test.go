@@ -7,7 +7,7 @@ import (
 )
 
 func TestCategoriesRouteRequiresAuth(t *testing.T) {
-	router := NewRouter(nil, &RouterConfig{APIAuthToken: "test-token"})
+	router := NewRouter(nil, &RouterConfig{APIAuthToken: "01234567890123456789012345678901"})
 
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/categories", nil)
 	rec := httptest.NewRecorder()
@@ -21,7 +21,7 @@ func TestCategoriesRouteRequiresAuth(t *testing.T) {
 
 func TestCategoriesPreflightSkipsAuth(t *testing.T) {
 	router := NewRouter(nil, &RouterConfig{
-		APIAuthToken:       "test-token",
+		APIAuthToken:       "01234567890123456789012345678901",
 		CORSAllowedOrigins: []string{"http://localhost:5173"},
 	})
 

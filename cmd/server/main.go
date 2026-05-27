@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -38,8 +37,8 @@ func run() error {
 	databaseURL := flag.String("database-url", config.AppConfig.DatabaseURL, "PostgreSQL connection URL")
 	flag.Parse()
 
-	if strings.TrimSpace(config.AppConfig.JWTSecret) == "" {
-		return fmt.Errorf("JWT_SECRET is required")
+	if err := config.ValidateAuthSecret("JWT_SECRET", config.AppConfig.JWTSecret); err != nil {
+		return err
 	}
 
 	pool, err := postgres.OpenPool(ctx, *databaseURL)

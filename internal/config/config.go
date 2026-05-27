@@ -44,6 +44,8 @@ type Config struct {
 
 var AppConfig *Config
 
+const MinAuthSecretLength = 32
+
 func Init() error {
 	envPaths := []string{"./configs/.env"}
 	if envFile := strings.TrimSpace(os.Getenv("CAPITALFLOW_ENV_FILE")); envFile != "" {
@@ -147,6 +149,13 @@ func Init() error {
 	return nil
 }
 
+func ValidateAuthSecret(name, value string) error {
+	if len(strings.TrimSpace(value)) < MinAuthSecretLength {
+		return errors.NewConfigurationError(name+" must be at least 32 characters", nil)
+	}
+	return nil
+}
+
 func (c *Config) IsProduction() bool {
 	return strings.EqualFold(strings.TrimSpace(c.AppEnv), "production")
 }
@@ -158,8 +167,8 @@ func (c *Config) ValidateSecurity() error {
 	if c.PublicOrigin == "" {
 		return errors.NewConfigurationError("PUBLIC_ORIGIN is required in production", nil)
 	}
-	if len(c.JWTSecret) < 32 {
-		return errors.NewConfigurationError("JWT_SECRET must be at least 32 bytes in production", nil)
+	if err := ValidateAuthSecret("JWT_SECRET", c.JWTSecret); err != nil {
+		return err
 	}
 	if isPlaceholderSecret(c.JWTSecret) {
 		return errors.NewConfigurationError("JWT_SECRET must not use a placeholder value in production", nil)
@@ -335,6 +344,7 @@ func isPlaceholderSecret(value string) bool {
 		"change-me",
 		"change-me-to-at-least-32-random-bytes",
 		"change-me-to-a-long-random-secret",
+		"replace-with-32-plus-random-characters",
 		"your-jwt-secret",
 		"secret",
 	}

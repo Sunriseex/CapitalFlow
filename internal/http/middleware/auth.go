@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/sunriseex/capitalflow/internal/auth"
+	"github.com/sunriseex/capitalflow/internal/config"
 	"github.com/sunriseex/capitalflow/internal/repository"
 )
 
@@ -19,7 +20,7 @@ const userClaimsKey contextKey = "user_claims"
 func BearerTokenAuth(expectedToken string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if strings.TrimSpace(expectedToken) == "" {
+			if err := config.ValidateAuthSecret("API_AUTH_TOKEN", expectedToken); err != nil {
 				writeJSONError(w, http.StatusServiceUnavailable, "authentication_not_configured", "Authentication is not configured", nil)
 				return
 			}
