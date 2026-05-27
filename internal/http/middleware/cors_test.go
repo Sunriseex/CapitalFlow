@@ -115,3 +115,27 @@ func TestCORSRejectsWildcardCredentials(t *testing.T) {
 		t.Fatalf("allow credentials = %q, want empty", got)
 	}
 }
+
+func TestCORSAllowsExplicitOriginWithWildcardCredentials(t *testing.T) {
+	handler := CORS(&CORSConfig{
+		AllowedOrigins:   []string{"*", "https://capitalflow.home.arpa"},
+		AllowedMethods:   []string{http.MethodGet, http.MethodOptions},
+		AllowedHeaders:   []string{"Authorization", "Content-Type"},
+		AllowCredentials: true,
+	})(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodOptions, "/api/v1/accounts", http.NoBody)
+	req.Header.Set("Origin", "https://capitalflow.home.arpa")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "https://capitalflow.home.arpa" {
+		t.Fatalf("allow origin = %q", got)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Credentials"); got != "true" {
+		t.Fatalf("allow credentials = %q, want true", got)
+	}
+}

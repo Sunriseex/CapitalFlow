@@ -77,6 +77,8 @@ func TestAuthHostPolicyRejectsDirectIPInProduction(t *testing.T) {
 
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/login", http.NoBody)
 	req.Host = "192.168.1.10"
+	req.Header.Set("Origin", "https://192.168.1.10")
+	req.Header.Set("Referer", "https://192.168.1.10/login")
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)

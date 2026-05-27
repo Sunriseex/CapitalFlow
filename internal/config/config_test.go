@@ -109,6 +109,21 @@ func TestInitNormalizesPublicOriginDefaultPort(t *testing.T) {
 	}
 }
 
+func TestInitRejectsSameSiteNoneWithoutSecureCookie(t *testing.T) {
+	oldConfig := AppConfig
+	t.Cleanup(func() {
+		AppConfig = oldConfig
+	})
+
+	t.Setenv("CAPITALFLOW_ENV_FILE", "missing-test-env-file")
+	t.Setenv("COOKIE_SAMESITE", "None")
+	t.Setenv("COOKIE_SECURE", "false")
+
+	if err := Init(); err == nil {
+		t.Fatal("expected SameSite=None without Secure error")
+	}
+}
+
 func TestInitProductionRequiresPublicOriginAndStrongJWTSecret(t *testing.T) {
 	tests := []struct {
 		name         string

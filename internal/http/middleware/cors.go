@@ -54,10 +54,10 @@ func isAllowedOrigin(allowedOrigins []string, origin string, allowCredentials bo
 	if origin == "" {
 		return false
 	}
-	if slices.Contains(allowedOrigins, "*") {
-		return !allowCredentials
-	}
 	if slices.Contains(allowedOrigins, origin) {
+		return true
+	}
+	if slices.Contains(allowedOrigins, "*") && !allowCredentials {
 		return true
 	}
 

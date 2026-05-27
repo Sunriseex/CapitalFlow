@@ -56,18 +56,18 @@ func AuthHostPolicy(cfg HostPolicyConfig) func(http.Handler) http.Handler {
 				writeJSONError(w, http.StatusServiceUnavailable, "security_not_configured", "Security origin is not configured", nil)
 				return
 			}
+			directIPHost := ""
 			if hostIsIP(r.Host) {
 				if !cfg.AllowDirectIPLogin {
 					writeJSONError(w, http.StatusForbidden, "forbidden_host", "Forbidden host", nil)
 					return
 				}
-			} else {
-				if !hostMatches(r.Host, publicHost) {
-					writeJSONError(w, http.StatusForbidden, "forbidden_host", "Forbidden host", nil)
-					return
-				}
+				directIPHost = r.Host
+			} else if !hostMatches(r.Host, publicHost) {
+				writeJSONError(w, http.StatusForbidden, "forbidden_host", "Forbidden host", nil)
+				return
 			}
-			if !originHeadersAllowed(r, publicOrigin) {
+			if !originHeadersAllowed(r, publicOrigin, directIPHost) {
 				writeJSONError(w, http.StatusForbidden, "forbidden_origin", "Forbidden origin", nil)
 				return
 			}
@@ -109,9 +109,9 @@ func hostMatches(requestHost, publicHost string) bool {
 	return false
 }
 
-func originHeadersAllowed(r *http.Request, publicOrigin string) bool {
+func originHeadersAllowed(r *http.Request, publicOrigin, directIPHost string) bool {
 	origin := strings.TrimSpace(r.Header.Get("Origin"))
-	if origin != "" && !sameOrigin(origin, publicOrigin) {
+	if origin != "" && !originAllowed(origin, publicOrigin, directIPHost) {
 		return false
 	}
 	referer := strings.TrimSpace(r.Header.Get("Referer"))
@@ -122,7 +122,7 @@ func originHeadersAllowed(r *http.Request, publicOrigin string) bool {
 	if err != nil || refererURL.Scheme == "" || refererURL.Host == "" {
 		return false
 	}
-	return sameOrigin(refererURL.Scheme+"://"+refererURL.Host, publicOrigin)
+	return originAllowed(refererURL.Scheme+"://"+refererURL.Host, publicOrigin, directIPHost)
 }
 
 func hostIsIP(host string) bool {
@@ -138,6 +138,48 @@ func sameOrigin(left, right string) bool {
 	leftOrigin := canonicalOriginString(left)
 	rightOrigin := canonicalOriginString(right)
 	return leftOrigin != "" && strings.EqualFold(leftOrigin, rightOrigin)
+}
+
+func originAllowed(origin, publicOrigin, directIPHost string) bool {
+	if sameOrigin(origin, publicOrigin) {
+		return true
+	}
+	return directIPHost != "" && originHostMatches(origin, directIPHost)
+}
+
+func originHostMatches(origin, requestHost string) bool {
+	parsed, err := url.Parse(strings.TrimSpace(origin))
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return false
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return false
+	}
+	originHost, ok := canonicalHostForScheme(parsed.Host, parsed.Scheme)
+	if !ok {
+		return false
+	}
+	host, ok := canonicalHostForScheme(requestHost, parsed.Scheme)
+	return ok && strings.EqualFold(originHost, host)
+}
+
+func canonicalHostForScheme(host, scheme string) (string, bool) {
+	parsed, err := url.Parse("//" + strings.TrimSpace(host))
+	if err != nil || parsed.Host == "" || parsed.Hostname() == "" {
+		return "", false
+	}
+	port := parsed.Port()
+	if port == "" {
+		switch scheme {
+		case "https":
+			port = "443"
+		case "http":
+			port = "80"
+		default:
+			return "", false
+		}
+	}
+	return strings.ToLower(parsed.Hostname()) + ":" + port, true
 }
 
 func canonicalOriginString(value string) string {

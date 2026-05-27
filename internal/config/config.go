@@ -130,6 +130,9 @@ func Init() error {
 	if err != nil {
 		return err
 	}
+	if err := AppConfig.ValidateCookiePolicy(); err != nil {
+		return err
+	}
 	if err := AppConfig.ValidateSecurity(); err != nil {
 		return err
 	}
@@ -160,6 +163,16 @@ func (c *Config) ValidateSecurity() error {
 	}
 	if isPlaceholderSecret(c.JWTSecret) {
 		return errors.NewConfigurationError("JWT_SECRET must not use a placeholder value in production", nil)
+	}
+	return nil
+}
+
+func (c *Config) ValidateCookiePolicy() error {
+	if c == nil {
+		return nil
+	}
+	if c.CookieSameSite == "None" && !c.CookieSecure {
+		return errors.NewConfigurationError("COOKIE_SAMESITE=None requires COOKIE_SECURE=true", nil)
 	}
 	return nil
 }
