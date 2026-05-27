@@ -52,7 +52,7 @@ func (r *InterestAccrualRepository) CreateWithTransaction(ctx context.Context, t
 }
 
 func (r *InterestAccrualRepository) WithAccountInterestLock(ctx context.Context, accountID, userID string, fn func(context.Context, repository.InterestCalculationRepository) error) error {
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return fmt.Errorf("begin account interest transaction: %w", err)
 	}
@@ -158,13 +158,17 @@ func lockAccountForTransaction(ctx context.Context, execer queryExecer, accountI
 
 func lockAccountForUser(ctx context.Context, execer queryExecer, accountID, userID string) error {
 	var lockedID string
+	var isActive bool
 	if err := execer.QueryRow(ctx, `
-		SELECT id
+		SELECT id, is_active
 		FROM accounts
 		WHERE id = $1 AND owner_user_id = $2
 		FOR UPDATE
-	`, accountID, userID).Scan(&lockedID); err != nil {
+	`, accountID, userID).Scan(&lockedID, &isActive); err != nil {
 		return mapNotFound(err)
+	}
+	if !isActive {
+		return repository.ErrInactiveAccount
 	}
 	return nil
 }
@@ -247,7 +251,7 @@ func (r interestCalculationTxRepository) ReplaceInterestAccrualRangeWithTransact
 }
 
 const selectInterestAccrualSQL = `
-	SELECT id, account_id, rule_id, transaction_id, accrual_date, amount_minor, balance_minor, annual_rate_bps, created_at
+	SELECT id, account_id, rule_id, transaction_id, accrual_date, amount, balance, annual_rate_bps, created_at
 	FROM interest_accruals
 `
 
@@ -263,8 +267,8 @@ func scanInterestAccrual(row interestAccrualScanner) (*models.InterestAccrual, e
 		&accrual.RuleID,
 		&accrual.TransactionID,
 		&accrual.AccrualDate,
-		&accrual.AmountMinor,
-		&accrual.BalanceMinor,
+		&accrual.Amount,
+		&accrual.Balance,
 		&accrual.AnnualRateBps,
 		&accrual.CreatedAt,
 	); err != nil {
@@ -275,9 +279,9 @@ func scanInterestAccrual(row interestAccrualScanner) (*models.InterestAccrual, e
 
 func insertInterestAccrual(ctx context.Context, execer sqlExecer, accrual *models.InterestAccrual) error {
 	_, err := execer.Exec(ctx, `
-		INSERT INTO interest_accruals (id, account_id, rule_id, transaction_id, accrual_date, amount_minor, balance_minor, annual_rate_bps, created_at)
+		INSERT INTO interest_accruals (id, account_id, rule_id, transaction_id, accrual_date, amount, balance, annual_rate_bps, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-	`, accrual.ID, accrual.AccountID, accrual.RuleID, accrual.TransactionID, accrual.AccrualDate, accrual.AmountMinor, accrual.BalanceMinor, accrual.AnnualRateBps, accrual.CreatedAt)
+	`, accrual.ID, accrual.AccountID, accrual.RuleID, accrual.TransactionID, accrual.AccrualDate, accrual.Amount, accrual.Balance, accrual.AnnualRateBps, accrual.CreatedAt)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return fmt.Errorf("insert interest accrual: %w", repository.ErrConflict)

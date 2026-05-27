@@ -17,6 +17,7 @@ import type {
   CurrencyRateTable,
   InterestRule,
   Profile,
+  TransferEvent,
   TransferResponse,
   Transaction,
   UpdateAccountRequest,
@@ -276,13 +277,12 @@ export const api = {
   createTransaction: (input: CreateTransactionRequest) =>
     apiFetch<Transaction>("/transactions", { method: "POST", body: JSON.stringify(input) }),
 
-  deleteTransaction: (id: string) => apiFetch<void>(`/transactions/${id}`, { method: "DELETE" }),
-
   createTransfer: (input: CreateTransferRequest) =>
     apiFetch<TransferResponse>("/transfers", {
       method: "POST",
       body: JSON.stringify(input),
     }),
+  transfers: () => apiFetch<TransferEvent[]>("/transfers"),
 
   createInterestRule: (accountId: string, input: CreateInterestRuleRequest) =>
     apiFetch<InterestRule>(`/accounts/${accountId}/interest-rules`, { method: "POST", body: JSON.stringify(input) }),
@@ -293,3 +293,5 @@ export const api = {
       body: JSON.stringify({ date } satisfies AccrueInterestRequest),
     }),
 };
+
+

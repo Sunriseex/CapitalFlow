@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/sunriseex/capitalflow/internal/models"
 )
 
@@ -42,15 +44,14 @@ type TransactionRepository interface {
 	CreateForUser(ctx context.Context, userID string, transaction *models.Transaction) error
 	CreateMany(ctx context.Context, transactions []models.Transaction) error
 	CreateTransfer(ctx context.Context, transfer *models.Transfer, transactions []models.Transaction) error
+	ListTransfersByUser(ctx context.Context, userID string) ([]models.Transfer, error)
 	GetByID(ctx context.Context, id string) (*models.Transaction, error)
 	GetByIDForUser(ctx context.Context, id, userID string) (*models.Transaction, error)
 	List(ctx context.Context) ([]models.Transaction, error)
 	ListByUser(ctx context.Context, userID string) ([]models.Transaction, error)
 	ListByAccount(ctx context.Context, accountID string) ([]models.Transaction, error)
 	ListByAccountForUser(ctx context.Context, accountID, userID string) ([]models.Transaction, error)
-	GetBalanceByAccountForUser(ctx context.Context, accountID, userID string) (balanceMinor, transactionCount int64, err error)
-	Delete(ctx context.Context, id string) error
-	DeleteForUser(ctx context.Context, id, userID string) error
+	GetBalanceByAccountForUser(ctx context.Context, accountID, userID string) (balance decimal.Decimal, transactionCount int64, err error)
 }
 
 type CategoryRepository interface {
@@ -68,8 +69,9 @@ type InterestRuleRepository interface {
 }
 
 type InterestRuleJobTarget struct {
-	Rule        models.InterestRule
-	OwnerUserID string
+	Rule            models.InterestRule
+	OwnerUserID     string
+	AccountCurrency string
 }
 
 type InterestRuleJobRepository interface {

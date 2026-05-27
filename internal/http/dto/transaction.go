@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/sunriseex/capitalflow/internal/models"
+	"github.com/sunriseex/capitalflow/pkg/money"
 )
 
 type TransactionResponse struct {
@@ -12,7 +13,7 @@ type TransactionResponse struct {
 	RelatedAccountID *string                `json:"related_account_id,omitempty"`
 	TransferID       *string                `json:"transfer_id,omitempty"`
 	Type             models.TransactionType `json:"type"`
-	AmountMinor      int64                  `json:"amount_minor"`
+	Amount           money.JSONDecimal      `json:"amount"`
 	CategoryID       *string                `json:"category_id,omitempty"`
 	Description      string                 `json:"description,omitempty"`
 	OccurredAt       time.Time              `json:"occurred_at"`
@@ -23,7 +24,7 @@ type CreateTransactionRequest struct {
 	AccountID        string                 `json:"account_id"`
 	RelatedAccountID *string                `json:"related_account_id"`
 	Type             models.TransactionType `json:"type"`
-	AmountMinor      int64                  `json:"amount_minor"`
+	Amount           money.JSONDecimal      `json:"amount"`
 	CategoryID       *string                `json:"category_id"`
 	Description      string                 `json:"description"`
 	OccurredAt       string                 `json:"occurred_at"`
@@ -36,7 +37,7 @@ func TransactionFromModel(transaction *models.Transaction) TransactionResponse {
 		RelatedAccountID: transaction.RelatedAccountID,
 		TransferID:       transaction.TransferID,
 		Type:             transaction.Type,
-		AmountMinor:      transaction.AmountMinor,
+		Amount:           money.NewJSONDecimal(transaction.Amount),
 		CategoryID:       transaction.CategoryID,
 		Description:      transaction.Description,
 		OccurredAt:       transaction.OccurredAt,

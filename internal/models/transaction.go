@@ -1,6 +1,10 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"github.com/shopspring/decimal"
+)
 
 type TransactionType string
 
@@ -20,7 +24,7 @@ type Transaction struct {
 	RelatedAccountID *string         `json:"related_account_id,omitempty"`
 	TransferID       *string         `json:"transfer_id,omitempty"`
 	Type             TransactionType `json:"type"`
-	AmountMinor      int64           `json:"amount_minor"`
+	Amount           decimal.Decimal `json:"amount"`
 	CategoryID       *string         `json:"category_id,omitempty"`
 	Description      string          `json:"description,omitempty"`
 	OccurredAt       time.Time       `json:"occurred_at"`
@@ -28,19 +32,25 @@ type Transaction struct {
 }
 
 type Transfer struct {
-	ID                   string    `json:"id"`
-	UserID               string    `json:"user_id"`
-	FromAccountID        string    `json:"from_account_id"`
-	ToAccountID          string    `json:"to_account_id"`
-	FromTransactionID    string    `json:"from_transaction_id"`
-	ToTransactionID      string    `json:"to_transaction_id"`
-	FromAmountMinor      int64     `json:"from_amount_minor"`
-	ToAmountMinor        int64     `json:"to_amount_minor"`
-	FromCurrency         string    `json:"from_currency"`
-	ToCurrency           string    `json:"to_currency"`
-	ExchangeRate         string    `json:"exchange_rate"`
-	ExchangeRateProvider string    `json:"exchange_rate_provider"`
-	ExchangeRateDate     time.Time `json:"exchange_rate_date"`
-	IdempotencyKey       string    `json:"idempotency_key,omitempty"`
-	CreatedAt            time.Time `json:"created_at"`
+	ID                   string          `json:"id"`
+	UserID               string          `json:"user_id"`
+	FromAccountID        string          `json:"from_account_id"`
+	ToAccountID          string          `json:"to_account_id"`
+	FromTransactionID    string          `json:"from_transaction_id"`
+	ToTransactionID      string          `json:"to_transaction_id"`
+	FeeTransactionID     *string         `json:"fee_transaction_id,omitempty"`
+	FromAmount           decimal.Decimal `json:"from_amount"`
+	ToAmount             decimal.Decimal `json:"to_amount"`
+	FromCurrency         string          `json:"from_currency"`
+	ToCurrency           string          `json:"to_currency"`
+	ExchangeRate         string          `json:"exchange_rate"`
+	ExchangeRateScale    int             `json:"exchange_rate_scale"`
+	ExchangeRateProvider string          `json:"exchange_rate_provider"`
+	ExchangeRateDate     time.Time       `json:"exchange_rate_date"`
+	FeeAmount            decimal.Decimal `json:"fee_amount"`
+	FeeCurrency          *string         `json:"fee_currency,omitempty"`
+	Status               string          `json:"status"`
+	IdempotencyKey       string          `json:"idempotency_key,omitempty"`
+	CreatedAt            time.Time       `json:"created_at"`
+	UpdatedAt            time.Time       `json:"updated_at"`
 }

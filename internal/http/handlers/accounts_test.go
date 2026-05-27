@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/sunriseex/capitalflow/internal/auth"
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/repository"
@@ -197,6 +199,8 @@ type testTransactionRepo struct {
 	listFilteredUserID           string
 	listFilteredFilter           repository.TransactionListFilter
 	listFilteredTransactions     []models.Transaction
+	listTransfersByUser          []models.Transfer
+	getByIDForUserTransaction    *models.Transaction
 }
 
 func (r *testTransactionRepo) Create(context.Context, *models.Transaction) error {
@@ -227,11 +231,18 @@ func (r *testTransactionRepo) CreateTransfer(_ context.Context, transfer *models
 	return nil
 }
 
+func (r *testTransactionRepo) ListTransfersByUser(context.Context, string) ([]models.Transfer, error) {
+	return r.listTransfersByUser, nil
+}
+
 func (r *testTransactionRepo) GetByID(context.Context, string) (*models.Transaction, error) {
 	return nil, repository.ErrNotFound
 }
 
 func (r *testTransactionRepo) GetByIDForUser(context.Context, string, string) (*models.Transaction, error) {
+	if r.getByIDForUserTransaction != nil {
+		return r.getByIDForUserTransaction, nil
+	}
 	return nil, repository.ErrNotFound
 }
 
@@ -260,14 +271,6 @@ func (r *testTransactionRepo) ListByUserFiltered(_ context.Context, userID strin
 	return r.listFilteredTransactions, nil
 }
 
-func (r *testTransactionRepo) GetBalanceByAccountForUser(_ context.Context, accountID, _ string) (balanceMinor, transactionCount int64, err error) {
-	return 0, r.transactionCountByAccount[accountID], nil
-}
-
-func (r *testTransactionRepo) Delete(context.Context, string) error {
-	return nil
-}
-
-func (r *testTransactionRepo) DeleteForUser(context.Context, string, string) error {
-	return nil
+func (r *testTransactionRepo) GetBalanceByAccountForUser(_ context.Context, accountID, _ string) (balance decimal.Decimal, transactionCount int64, err error) {
+	return decimal.Zero, r.transactionCountByAccount[accountID], nil
 }

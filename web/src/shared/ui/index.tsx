@@ -1,6 +1,5 @@
 import { useEffect, useId, useRef } from "react";
-import type { ButtonHTMLAttributes, InputHTMLAttributes, KeyboardEvent, ReactElement, ReactNode, SelectHTMLAttributes } from "react";
-import { ResponsiveContainer } from "recharts";
+import type { ButtonHTMLAttributes, InputHTMLAttributes, KeyboardEvent, ReactNode, SelectHTMLAttributes } from "react";
 import { X } from "lucide-react";
 
 export function Panel({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
@@ -51,16 +50,6 @@ export function FormShell({ title, error, onSubmit, children }: { title: string;
       {error ? <div className="error">{error}</div> : null}
       {children}
     </form>
-  );
-}
-
-export function ChartShell({ children, size = "regular" }: { children: ReactElement; size?: "regular" | "large" }) {
-  return (
-    <div className={`chart chart-${size}`}>
-      <ResponsiveContainer width="100%" height="100%">
-        {children}
-      </ResponsiveContainer>
-    </div>
   );
 }
 
@@ -148,4 +137,6 @@ const focusableSelector = [
   "textarea",
   '[tabindex]:not([tabindex="-1"])',
 ].join(",");
+
+
 

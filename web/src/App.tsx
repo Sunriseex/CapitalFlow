@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowDownLeft,
@@ -15,10 +15,8 @@ import {
   Wallet,
 } from "lucide-react";
 import { ApiClientError, api, clearStoredSession, getStoredToken } from "./api/client";
-import { AccountDetails } from "./features/accounts/AccountDetails";
 import { AccountsView } from "./features/accounts/AccountsView";
 import { CreateAccountForm } from "./features/accounts/CreateAccountForm";
-import { DashboardView } from "./features/dashboard/DashboardView";
 import { SettingsView } from "./features/settings/SettingsView";
 import { TransactionForm } from "./features/transactions/TransactionForm";
 import { TransactionsView } from "./features/transactions/TransactionsView";
@@ -28,6 +26,13 @@ import { themeStorageKey } from "./shared/constants";
 import { currencyOptions } from "./shared/currencies";
 import { errorMessage } from "./shared/api/query";
 import { Button, Dialog, Empty, Field, IconButton, Input, Select } from "./shared/ui";
+
+const AccountDetails = lazy(() =>
+  import("./features/accounts/AccountDetails").then((module) => ({ default: module.AccountDetails })),
+);
+const DashboardView = lazy(() =>
+  import("./features/dashboard/DashboardView").then((module) => ({ default: module.DashboardView })),
+);
 
 export function App() {
   const queryClient = useQueryClient();
@@ -63,7 +68,7 @@ export function App() {
   const selectedAccount = accounts.data?.find((account) => account.id === selectedAccountId);
   const primaryCurrency = profile.data?.user.primary_currency ?? "RUB";
   const sessionInvalid = profile.error instanceof ApiClientError && profile.error.status === 401;
-  const accountsReady = accounts.isSuccess && (accounts.data?.length ?? 0) > 0;
+  const accountsReady = accounts.isSuccess && (accounts.data?.length ?? "0") > 0;
   const transactionActionsDisabled = accounts.isLoading || Boolean(accounts.error) || !accountsReady;
 
   useEffect(() => {
@@ -184,28 +189,30 @@ export function App() {
           </div>
         </header>
 
-        {view === "dashboard" ? (
-          <DashboardView
-            key={primaryCurrency}
-            primaryCurrency={primaryCurrency}
-            onOpenAccount={(id) => {
-              navigateTo("accounts", id);
-            }}
-          />
-        ) : null}
-
-        {view === "accounts" ? (
-          selectedAccount ? (
-            <AccountDetails account={selectedAccount} onBack={() => navigateTo("accounts")} />
-          ) : (
-            <AccountsView
-              accounts={accounts.data ?? []}
-              isLoading={accounts.isLoading}
-              error={accounts.error}
-              onSelect={(id) => navigateTo("accounts", id)}
+        <Suspense fallback={<Empty>Loading view</Empty>}>
+          {view === "dashboard" ? (
+            <DashboardView
+              key={primaryCurrency}
+              primaryCurrency={primaryCurrency}
+              onOpenAccount={(id) => {
+                navigateTo("accounts", id);
+              }}
             />
-          )
-        ) : null}
+          ) : null}
+
+          {view === "accounts" ? (
+            selectedAccount ? (
+              <AccountDetails account={selectedAccount} onBack={() => navigateTo("accounts")} />
+            ) : (
+              <AccountsView
+                accounts={accounts.data ?? []}
+                isLoading={accounts.isLoading}
+                error={accounts.error}
+                onSelect={(id) => navigateTo("accounts", id)}
+              />
+            )
+          ) : null}
+        </Suspense>
 
         {view === "transactions" ? (
           <TransactionsView
@@ -499,3 +506,5 @@ function storedTheme(): Theme {
 
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
+
+

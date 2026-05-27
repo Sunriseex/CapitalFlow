@@ -87,51 +87,33 @@ func (h *Handler) updateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	account, err := h.store.Accounts().GetByIDForUser(r.Context(), accountID, userID)
-	if err != nil {
-		writeServiceError(w, err)
-		return
-	}
-
 	var req dto.UpdateAccountRequest
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
 		return
 	}
 
-	if req.Name != nil {
-		account.Name = strings.TrimSpace(*req.Name)
-	}
-	if req.Bank != nil {
-		account.Bank = strings.TrimSpace(*req.Bank)
-	}
-	if req.Type != nil {
-		account.Type = *req.Type
-	}
-	if req.Currency != nil {
-		account.Currency = strings.ToUpper(strings.TrimSpace(*req.Currency))
-	}
+	var openedAt *time.Time
 	if req.OpenedAt != nil {
-		openedAt, err := parseOptionalDate(*req.OpenedAt)
+		parsed, err := parseOptionalDate(*req.OpenedAt)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "validation_error", err.Error(), nil)
 			return
 		}
-		if !openedAt.IsZero() {
-			account.OpenedAt = openedAt
-		}
-	}
-	if req.IsActive != nil {
-		account.IsActive = *req.IsActive
+		openedAt = &parsed
 	}
 
-	if err := validateAccount(account); err != nil {
-		writeError(w, http.StatusBadRequest, "validation_error", err.Error(), nil)
-		return
-	}
-
-	account.UpdatedAt = time.Now()
-	if err := h.store.Accounts().UpdateForUserEnforcingCurrencyInvariant(r.Context(), account, userID); err != nil {
+	account, err := h.accounts.UpdateForUser(r.Context(), &services.UpdateAccountRequest{
+		ID:       accountID,
+		UserID:   userID,
+		Name:     req.Name,
+		Bank:     req.Bank,
+		Type:     req.Type,
+		Currency: req.Currency,
+		OpenedAt: openedAt,
+		IsActive: req.IsActive,
+	})
+	if err != nil {
 		writeServiceError(w, err)
 		return
 	}
@@ -149,24 +131,11 @@ func (h *Handler) archiveAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.store.Accounts().ArchiveForUser(r.Context(), accountID, userID); err != nil {
+	if err := h.accounts.ArchiveForUser(r.Context(), accountID, userID); err != nil {
 		writeServiceError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
-}
-
-func validateAccount(account *models.Account) error {
-	if strings.TrimSpace(account.Name) == "" {
-		return errValidation("account name is required")
-	}
-	if !services.ValidAccountType(account.Type) {
-		return errValidation("invalid account type: " + string(account.Type))
-	}
-	if !services.ValidCurrency(account.Currency) {
-		return errValidation("invalid currency: " + account.Currency)
-	}
-	return nil
 }
 
 func (h *Handler) ensureAccountExists(w http.ResponseWriter, r *http.Request, accountID string) bool {

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/shopspring/decimal"
 
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/repository"
@@ -41,7 +42,7 @@ func (r *TransactionRepository) CreateForUser(ctx context.Context, userID string
 	if transaction.RelatedAccountID != nil {
 		accountIDs = append(accountIDs, *transaction.RelatedAccountID)
 	}
-	if err := lockTransactionAccountsForUser(ctx, tx, userID, accountIDs); err != nil {
+	if err := lockTransactionAccountsForUser(ctx, tx, userID, accountIDs, transaction.OccurredAt); err != nil {
 		return fmt.Errorf("lock transaction accounts: %w", err)
 	}
 
@@ -54,7 +55,7 @@ func (r *TransactionRepository) CreateForUser(ctx context.Context, userID string
 	return nil
 }
 
-func lockTransactionAccountsForUser(ctx context.Context, db queryer, userID string, accountIDs []string) error {
+func lockTransactionAccountsForUser(ctx context.Context, db queryer, userID string, accountIDs []string, occurredAt time.Time) error {
 	accountIDs = slices.Clone(accountIDs)
 	slices.Sort(accountIDs)
 	accountIDs = slices.Compact(accountIDs)
@@ -62,31 +63,61 @@ func lockTransactionAccountsForUser(ctx context.Context, db queryer, userID stri
 	if len(accountIDs) == 0 {
 		return repository.ErrNotFound
 	}
-	if len(accountIDs) == 1 {
-		return lockAccountForUser(ctx, db, accountIDs[0], userID)
-	}
 
-	rows, err := db.Query(ctx, `
-		SELECT id
+	query := `
+		SELECT id, is_active, opened_at
 		FROM accounts
-		WHERE id IN ($1, $2) AND owner_user_id = $3
+		WHERE id = $1 AND owner_user_id = $2
 		ORDER BY id
 		FOR UPDATE
-	`, accountIDs[0], accountIDs[1], userID)
+	`
+	args := []any{accountIDs[0], userID}
+	if len(accountIDs) == 2 {
+		query = `
+			SELECT id, is_active, opened_at
+			FROM accounts
+			WHERE id IN ($1, $2) AND owner_user_id = $3
+			ORDER BY id
+			FOR UPDATE
+		`
+		args = []any{accountIDs[0], accountIDs[1], userID}
+	}
+
+	rows, err := db.Query(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("query locked transaction accounts: %w", err)
 	}
 	defer rows.Close()
 
 	locked := 0
+	hasInactive := false
+	hasBeforeOpen := false
 	for rows.Next() {
+		var id string
+		var isActive bool
+		var openedAt time.Time
+		if err := rows.Scan(&id, &isActive, &openedAt); err != nil {
+			return fmt.Errorf("scan locked transaction account: %w", err)
+		}
 		locked++
+		if !isActive {
+			hasInactive = true
+		}
+		if !occurredAt.IsZero() && dateOnly(occurredAt).Before(dateOnly(openedAt)) {
+			hasBeforeOpen = true
+		}
 	}
 	if err := rows.Err(); err != nil {
 		return fmt.Errorf("read locked transaction accounts: %w", err)
 	}
 	if locked != len(accountIDs) {
 		return repository.ErrNotFound
+	}
+	if hasInactive {
+		return repository.ErrInactiveAccount
+	}
+	if hasBeforeOpen {
+		return repository.ErrTransactionBeforeOpen
 	}
 	return nil
 }
@@ -123,7 +154,7 @@ func (r *TransactionRepository) CreateTransfer(ctx context.Context, transfer *mo
 	accountIDs := []string{transfer.FromAccountID, transfer.ToAccountID}
 	slices.Sort(accountIDs)
 	rows, err := tx.Query(ctx, `
-		SELECT id, currency
+		SELECT id, currency, is_active, opened_at
 		FROM accounts
 		WHERE id IN ($1, $2) AND owner_user_id = $3
 		ORDER BY id
@@ -136,9 +167,19 @@ func (r *TransactionRepository) CreateTransfer(ctx context.Context, transfer *mo
 	for rows.Next() {
 		var id string
 		var currency string
-		if err := rows.Scan(&id, &currency); err != nil {
+		var isActive bool
+		var openedAt time.Time
+		if err := rows.Scan(&id, &currency, &isActive, &openedAt); err != nil {
 			rows.Close()
 			return fmt.Errorf("scan locked transfer account: %w", err)
+		}
+		if !isActive {
+			rows.Close()
+			return fmt.Errorf("lock transfer accounts: %w", repository.ErrInactiveAccount)
+		}
+		if transfer.CreatedAt.Before(openedAt) {
+			rows.Close()
+			return fmt.Errorf("lock transfer accounts: %w", repository.ErrTransactionBeforeOpen)
 		}
 		lockedCurrencies[id] = currency
 	}
@@ -161,7 +202,10 @@ func (r *TransactionRepository) CreateTransfer(ctx context.Context, transfer *mo
 	if err != nil {
 		return fmt.Errorf("calculate transfer source balance: %w", err)
 	}
-	if balance < transfer.FromAmountMinor {
+	if balance.LessThan(transfer.FromAmount) {
+		return fmt.Errorf("create transfer: %w", repository.ErrInsufficientFunds)
+	}
+	if transfer.FeeAmount.IsPositive() && balance.LessThan(transfer.FromAmount.Add(transfer.FeeAmount)) {
 		return fmt.Errorf("create transfer: %w", repository.ErrInsufficientFunds)
 	}
 
@@ -179,18 +223,18 @@ func (r *TransactionRepository) CreateTransfer(ctx context.Context, transfer *mo
 	return nil
 }
 
-func transferSourceBalance(ctx context.Context, db queryExecer, accountID string) (int64, error) {
-	var balance int64
+func transferSourceBalance(ctx context.Context, db queryExecer, accountID string) (decimal.Decimal, error) {
+	var balance decimal.Decimal
 	if err := db.QueryRow(ctx, `
 		SELECT COALESCE(SUM(CASE
-			WHEN type IN ('initial_balance', 'income', 'transfer_in', 'interest_income', 'adjustment') THEN amount_minor
-			WHEN type IN ('expense', 'transfer_out') THEN -amount_minor
+			WHEN type IN ('initial_balance', 'income', 'transfer_in', 'interest_income', 'adjustment') THEN amount
+			WHEN type IN ('expense', 'transfer_out') THEN -amount
 			ELSE 0
 		END), 0)
 		FROM transactions
 		WHERE account_id = $1
 	`, accountID).Scan(&balance); err != nil {
-		return 0, fmt.Errorf("scan source balance: %w", err)
+		return decimal.Zero, fmt.Errorf("scan source balance: %w", err)
 	}
 	return balance, nil
 }
@@ -201,6 +245,57 @@ func (r *TransactionRepository) GetByID(ctx context.Context, id string) (*models
 		return nil, fmt.Errorf("get transaction: %w", mapNotFound(err))
 	}
 	return transaction, nil
+}
+
+func (r *TransactionRepository) ListTransfersByUser(ctx context.Context, userID string) ([]models.Transfer, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, user_id, from_account_id, to_account_id, from_transaction_id, to_transaction_id,
+			fee_transaction_id, from_amount, to_amount, from_currency, to_currency, exchange_rate::text,
+			exchange_rate_scale, exchange_rate_provider, exchange_rate_date, fee_amount, fee_currency,
+			status, idempotency_key, created_at, updated_at
+		FROM transfers
+		WHERE user_id = $1
+		ORDER BY created_at DESC, id DESC
+	`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list transfers: %w", err)
+	}
+	defer rows.Close()
+
+	var transfers []models.Transfer
+	for rows.Next() {
+		var transfer models.Transfer
+		if err := rows.Scan(
+			&transfer.ID,
+			&transfer.UserID,
+			&transfer.FromAccountID,
+			&transfer.ToAccountID,
+			&transfer.FromTransactionID,
+			&transfer.ToTransactionID,
+			&transfer.FeeTransactionID,
+			&transfer.FromAmount,
+			&transfer.ToAmount,
+			&transfer.FromCurrency,
+			&transfer.ToCurrency,
+			&transfer.ExchangeRate,
+			&transfer.ExchangeRateScale,
+			&transfer.ExchangeRateProvider,
+			&transfer.ExchangeRateDate,
+			&transfer.FeeAmount,
+			&transfer.FeeCurrency,
+			&transfer.Status,
+			&transfer.IdempotencyKey,
+			&transfer.CreatedAt,
+			&transfer.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan transfer: %w", err)
+		}
+		transfers = append(transfers, transfer)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list transfers rows: %w", err)
+	}
+	return transfers, nil
 }
 
 func (r *TransactionRepository) GetByIDForUser(ctx context.Context, id, userID string) (*models.Transaction, error) {
@@ -298,14 +393,13 @@ func (r *TransactionRepository) ListByAccountForUser(ctx context.Context, accoun
 	`, accountID, userID)
 }
 
-func (r *TransactionRepository) GetBalanceByAccountForUser(ctx context.Context, accountID, userID string) (balanceMinor, transactionCount int64, err error) {
-	var balance int64
+func (r *TransactionRepository) GetBalanceByAccountForUser(ctx context.Context, accountID, userID string) (balance decimal.Decimal, transactionCount int64, err error) {
 	var count int64
 	if err := r.pool.QueryRow(ctx, `
 		SELECT
 			COALESCE(SUM(CASE
-				WHEN t.type IN ('initial_balance', 'income', 'transfer_in', 'interest_income', 'adjustment') THEN t.amount_minor
-				WHEN t.type IN ('expense', 'transfer_out') THEN -t.amount_minor
+				WHEN t.type IN ('initial_balance', 'income', 'transfer_in', 'interest_income', 'adjustment') THEN t.amount
+				WHEN t.type IN ('expense', 'transfer_out') THEN -t.amount
 				ELSE 0
 			END), 0),
 			COUNT(t.id)
@@ -315,35 +409,9 @@ func (r *TransactionRepository) GetBalanceByAccountForUser(ctx context.Context, 
 				SELECT 1 FROM accounts a WHERE a.id = t.account_id AND a.owner_user_id = $2
 			)
 	`, accountID, userID).Scan(&balance, &count); err != nil {
-		return 0, 0, fmt.Errorf("get account balance: %w", err)
+		return decimal.Zero, 0, fmt.Errorf("get account balance: %w", err)
 	}
 	return balance, count, nil
-}
-
-func (r *TransactionRepository) Delete(ctx context.Context, id string) error {
-	tag, err := r.pool.Exec(ctx, `DELETE FROM transactions WHERE id = $1`, id)
-	if err != nil {
-		return fmt.Errorf("delete transaction: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("delete transaction: %w", repository.ErrNotFound)
-	}
-	return nil
-}
-
-func (r *TransactionRepository) DeleteForUser(ctx context.Context, id, userID string) error {
-	tag, err := r.pool.Exec(ctx, `
-		DELETE FROM transactions t
-		USING accounts a
-		WHERE t.id = $1 AND t.account_id = a.id AND a.owner_user_id = $2
-	`, id, userID)
-	if err != nil {
-		return fmt.Errorf("delete transaction: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("delete transaction: %w", repository.ErrNotFound)
-	}
-	return nil
 }
 
 func listTransactions(ctx context.Context, db queryer, query string, args ...any) ([]models.Transaction, error) {
@@ -372,7 +440,7 @@ type transactionScanner interface {
 }
 
 const transactionSelectSQL = `
-	SELECT t.id, t.account_id, t.related_account_id, t.transfer_id, t.type, t.amount_minor, t.category_id, t.description, t.occurred_at, t.created_at
+	SELECT t.id, t.account_id, t.related_account_id, t.transfer_id, t.type, t.amount, t.category_id, t.description, t.occurred_at, t.created_at
 	FROM transactions t
 `
 
@@ -384,7 +452,7 @@ func scanTransaction(row transactionScanner) (*models.Transaction, error) {
 		&transaction.RelatedAccountID,
 		&transaction.TransferID,
 		&transaction.Type,
-		&transaction.AmountMinor,
+		&transaction.Amount,
 		&transaction.CategoryID,
 		&transaction.Description,
 		&transaction.OccurredAt,
@@ -397,9 +465,9 @@ func scanTransaction(row transactionScanner) (*models.Transaction, error) {
 
 func insertTransaction(ctx context.Context, execer sqlExecer, transaction *models.Transaction) error {
 	_, err := execer.Exec(ctx, `
-		INSERT INTO transactions (id, account_id, related_account_id, transfer_id, type, amount_minor, category_id, description, occurred_at, created_at)
+		INSERT INTO transactions (id, account_id, related_account_id, transfer_id, type, amount, category_id, description, occurred_at, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-	`, transaction.ID, transaction.AccountID, transaction.RelatedAccountID, transaction.TransferID, transaction.Type, transaction.AmountMinor, transaction.CategoryID, transaction.Description, transaction.OccurredAt, transaction.CreatedAt)
+	`, transaction.ID, transaction.AccountID, transaction.RelatedAccountID, transaction.TransferID, transaction.Type, transaction.Amount, transaction.CategoryID, transaction.Description, transaction.OccurredAt, transaction.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("insert transaction: %w", err)
 	}
@@ -407,14 +475,24 @@ func insertTransaction(ctx context.Context, execer sqlExecer, transaction *model
 }
 
 func insertTransfer(ctx context.Context, execer sqlExecer, transfer *models.Transfer) error {
+	if transfer.ExchangeRateScale == 0 {
+		transfer.ExchangeRateScale = 18
+	}
+	if transfer.Status == "" {
+		transfer.Status = "completed"
+	}
+	if transfer.UpdatedAt.IsZero() {
+		transfer.UpdatedAt = transfer.CreatedAt
+	}
 	_, err := execer.Exec(ctx, `
 		INSERT INTO transfers (
-			id, user_id, from_account_id, to_account_id, from_transaction_id, to_transaction_id,
-			from_amount_minor, to_amount_minor, from_currency, to_currency, exchange_rate,
-			exchange_rate_provider, exchange_rate_date, idempotency_key, created_at
+			id, user_id, from_account_id, to_account_id, from_transaction_id, to_transaction_id, fee_transaction_id,
+			from_amount, to_amount, from_currency, to_currency, exchange_rate,
+			exchange_rate_scale, exchange_rate_provider, exchange_rate_date, fee_amount,
+			fee_currency, status, idempotency_key, created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::numeric, $12, $13, $14, $15)
-	`, transfer.ID, transfer.UserID, transfer.FromAccountID, transfer.ToAccountID, transfer.FromTransactionID, transfer.ToTransactionID, transfer.FromAmountMinor, transfer.ToAmountMinor, transfer.FromCurrency, transfer.ToCurrency, transfer.ExchangeRate, transfer.ExchangeRateProvider, transfer.ExchangeRateDate, transfer.IdempotencyKey, transfer.CreatedAt)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::numeric, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+	`, transfer.ID, transfer.UserID, transfer.FromAccountID, transfer.ToAccountID, transfer.FromTransactionID, transfer.ToTransactionID, transfer.FeeTransactionID, transfer.FromAmount, transfer.ToAmount, transfer.FromCurrency, transfer.ToCurrency, transfer.ExchangeRate, transfer.ExchangeRateScale, transfer.ExchangeRateProvider, transfer.ExchangeRateDate, transfer.FeeAmount, transfer.FeeCurrency, transfer.Status, transfer.IdempotencyKey, transfer.CreatedAt, transfer.UpdatedAt)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return fmt.Errorf("insert transfer: %w", repository.ErrConflict)

@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/repository"
@@ -72,8 +73,81 @@ func TestAccountServiceCreateValidatesInput(t *testing.T) {
 	}
 }
 
+func TestAccountServiceUpdateForUserValidatesAndPersists(t *testing.T) {
+	repo := &recordingAccountRepo{
+		existing: &models.Account{
+			ID:        "account-1",
+			Name:      "Old",
+			Type:      models.AccountTypeSavings,
+			Currency:  "RUB",
+			IsActive:  true,
+			OpenedAt:  time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+			CreatedAt: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+			UpdatedAt: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+		},
+	}
+	name := " New "
+	currency := "usd"
+
+	account, err := NewAccountService(repo).UpdateForUser(t.Context(), &UpdateAccountRequest{
+		ID:       " account-1 ",
+		UserID:   " user-1 ",
+		Name:     &name,
+		Currency: &currency,
+	})
+	if err != nil {
+		t.Fatalf("update account: %v", err)
+	}
+	if account.Name != "New" || account.Currency != "USD" {
+		t.Fatalf("account = %+v, want normalized update", account)
+	}
+	if repo.updateForUserID != "user-1" || repo.updatedAccount == nil || repo.updatedAccount.ID != "account-1" {
+		t.Fatalf("repo update = user %q account %+v", repo.updateForUserID, repo.updatedAccount)
+	}
+}
+
+func TestAccountServiceUpdateForUserRejectsInvalidCurrency(t *testing.T) {
+	repo := &recordingAccountRepo{
+		existing: &models.Account{
+			ID:       "account-1",
+			Name:     "Main",
+			Type:     models.AccountTypeSavings,
+			Currency: "RUB",
+		},
+	}
+	currency := "BTC"
+
+	_, err := NewAccountService(repo).UpdateForUser(t.Context(), &UpdateAccountRequest{
+		ID:       "account-1",
+		UserID:   "user-1",
+		Currency: &currency,
+	})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !IsValidationError(err) {
+		t.Fatalf("expected validation error, got %T: %v", err, err)
+	}
+}
+
+func TestAccountServiceArchiveForUser(t *testing.T) {
+	repo := &recordingAccountRepo{}
+
+	if err := NewAccountService(repo).ArchiveForUser(t.Context(), " account-1 ", " user-1 "); err != nil {
+		t.Fatalf("archive account: %v", err)
+	}
+	if repo.archivedID != "account-1" || repo.archivedUserID != "user-1" {
+		t.Fatalf("archive args = %q/%q, want account-1/user-1", repo.archivedID, repo.archivedUserID)
+	}
+}
+
 type recordingAccountRepo struct {
-	account *models.Account
+	account         *models.Account
+	existing        *models.Account
+	updatedAccount  *models.Account
+	updateForUserID string
+	archivedID      string
+	archivedUserID  string
 }
 
 func (r *recordingAccountRepo) Create(_ context.Context, account *models.Account) error {
@@ -86,8 +160,12 @@ func (r *recordingAccountRepo) GetByID(context.Context, string) (*models.Account
 	return nil, repository.ErrNotFound
 }
 
-func (r *recordingAccountRepo) GetByIDForUser(context.Context, string, string) (*models.Account, error) {
-	return nil, repository.ErrNotFound
+func (r *recordingAccountRepo) GetByIDForUser(_ context.Context, id, _ string) (*models.Account, error) {
+	if r.existing == nil || r.existing.ID != id {
+		return nil, repository.ErrNotFound
+	}
+	accountCopy := *r.existing
+	return &accountCopy, nil
 }
 
 func (r *recordingAccountRepo) GetByLegacyID(context.Context, string) (*models.Account, error) {
@@ -110,7 +188,10 @@ func (r *recordingAccountRepo) UpdateForUser(context.Context, *models.Account, s
 	return nil
 }
 
-func (r *recordingAccountRepo) UpdateForUserEnforcingCurrencyInvariant(context.Context, *models.Account, string) error {
+func (r *recordingAccountRepo) UpdateForUserEnforcingCurrencyInvariant(_ context.Context, account *models.Account, userID string) error {
+	accountCopy := *account
+	r.updatedAccount = &accountCopy
+	r.updateForUserID = userID
 	return nil
 }
 
@@ -118,7 +199,9 @@ func (r *recordingAccountRepo) Archive(context.Context, string) error {
 	return nil
 }
 
-func (r *recordingAccountRepo) ArchiveForUser(context.Context, string, string) error {
+func (r *recordingAccountRepo) ArchiveForUser(_ context.Context, id, userID string) error {
+	r.archivedID = id
+	r.archivedUserID = userID
 	return nil
 }
 
@@ -127,13 +210,19 @@ func (r *recordingAccountRepo) ClaimUnowned(context.Context, string) error {
 }
 
 func TestAccountServiceCreateValidatesCurrency(t *testing.T) {
-	_, err := NewAccountService().Create(t.Context(), &CreateAccountRequest{
-		Name:     "Savings",
-		Type:     models.AccountTypeSavings,
-		Currency: "RUB1",
-	})
-	if err == nil {
-		t.Fatal("expected error")
+	tests := []string{"RUB1", "RUR", "BTC"}
+
+	for _, currency := range tests {
+		t.Run(currency, func(t *testing.T) {
+			_, err := NewAccountService().Create(t.Context(), &CreateAccountRequest{
+				Name:     "Savings",
+				Type:     models.AccountTypeSavings,
+				Currency: currency,
+			})
+			if err == nil {
+				t.Fatal("expected error")
+			}
+		})
 	}
 }
 

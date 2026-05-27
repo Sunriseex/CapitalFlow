@@ -65,8 +65,14 @@ func run() error {
 	server := &http.Server{
 		Addr: *addr,
 		Handler: handlers.NewRouter(store, &handlers.RouterConfig{
+			AppEnv:                    config.AppConfig.AppEnv,
 			APIAuthToken:              config.AppConfig.APIAuthToken,
 			TokenService:              tokenService,
+			PublicOrigin:              config.AppConfig.PublicOrigin,
+			PublicOriginHost:          config.AppConfig.PublicOriginHost,
+			CookieSecure:              config.AppConfig.CookieSecure,
+			CookieSameSite:            config.AppConfig.CookieSameSite,
+			AllowDirectIPLogin:        config.AppConfig.AllowDirectIPLogin,
 			CORSAllowedOrigins:        config.AppConfig.CORSAllowedOrigins,
 			RateLimitRequests:         config.AppConfig.RateLimitRequests,
 			RateLimitWindow:           config.AppConfig.RateLimitWindow,

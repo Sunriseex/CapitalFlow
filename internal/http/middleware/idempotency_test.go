@@ -90,10 +90,104 @@ func TestIdempotencyReturnsCompletionUnknownWhenCompleteFailsAfterSuccess(t *tes
 	}
 }
 
+func TestRequireIdempotencyKeyRejectsBlankKey(t *testing.T) {
+	handler := RequireIdempotencyKey(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	req := newIdempotencyRequest(t, "   ")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusPreconditionRequired {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusPreconditionRequired)
+	}
+	assertMiddlewareJSONError(t, rec, "idempotency_key_required")
+}
+
+func TestIdempotencyRejectsTooLongKey(t *testing.T) {
+	repo := newTestIdempotencyRepo()
+	handler := Idempotency(repo)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	req := newIdempotencyRequest(t, strings.Repeat("a", maxIdempotencyKeyLength+1))
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+	assertMiddlewareJSONError(t, rec, "idempotency_key_too_long")
+	if repo.completeCalls != 0 {
+		t.Fatalf("complete calls = %d, want 0", repo.completeCalls)
+	}
+}
+
+func TestIdempotencyTrimsKeyBeforeStorage(t *testing.T) {
+	repo := newTestIdempotencyRepo()
+	handler := Idempotency(repo)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+	}))
+	req := newIdempotencyRequest(t, "  create-transaction  ")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+	if repo.records[idempotencyTestKey("create-transaction", "user-1", http.MethodPost, "/api/v1/transactions")] == nil {
+		t.Fatal("trimmed idempotency key was not stored")
+	}
+	if repo.records[idempotencyTestKey("  create-transaction  ", "user-1", http.MethodPost, "/api/v1/transactions")] != nil {
+		t.Fatal("untrimmed idempotency key was stored")
+	}
+}
+
+func TestIdempotencyRejectsSameKeyDifferentBody(t *testing.T) {
+	repo := newTestIdempotencyRepo()
+	handler := Idempotency(repo)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+
+	first := newIdempotencyRequest(t, "same-key")
+	handler.ServeHTTP(httptest.NewRecorder(), first)
+
+	second := newIdempotencyRequest(t, "same-key")
+	second.Body = http.NoBody
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, second)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusConflict, rec.Body.String())
+	}
+	assertMiddlewareJSONError(t, rec, "idempotency_key_reused")
+}
+
+func TestIdempotencyRejectsConcurrentInProgressRetry(t *testing.T) {
+	repo := newTestIdempotencyRepo()
+	repo.skipComplete = true
+	handler := Idempotency(repo)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+	}))
+
+	handler.ServeHTTP(httptest.NewRecorder(), newIdempotencyRequest(t, "in-progress"))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, newIdempotencyRequest(t, "in-progress"))
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusConflict, rec.Body.String())
+	}
+	assertMiddlewareJSONError(t, rec, "idempotency_in_progress")
+}
+
 type testIdempotencyRepo struct {
 	records       map[string]*models.IdempotencyRecord
 	completeErr   error
 	completeCalls int
+	skipComplete  bool
 }
 
 func newTestIdempotencyRepo() *testIdempotencyRepo {
@@ -125,6 +219,9 @@ func (r *testIdempotencyRepo) Complete(_ context.Context, key, userID, method, p
 	if r.completeErr != nil {
 		return r.completeErr
 	}
+	if r.skipComplete {
+		return nil
+	}
 	record, ok := r.records[idempotencyTestKey(key, userID, method, path)]
 	if !ok {
 		return repository.ErrNotFound
@@ -137,7 +234,7 @@ func (r *testIdempotencyRepo) Complete(_ context.Context, key, userID, method, p
 func newIdempotencyRequest(t *testing.T, key string) *http.Request {
 	t.Helper()
 
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/transactions", strings.NewReader(`{"amount_minor":100}`))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/transactions", strings.NewReader(`{"amount":"100.00"}`))
 	req.Header.Set(IdempotencyKeyHeader, key)
 	ctx := context.WithValue(req.Context(), userClaimsKey, &auth.Claims{
 		UserID:    "user-1",
@@ -150,4 +247,31 @@ func newIdempotencyRequest(t *testing.T, key string) *http.Request {
 
 func idempotencyTestKey(key, userID, method, path string) string {
 	return key + "\x00" + userID + "\x00" + method + "\x00" + path
+}
+
+func assertMiddlewareJSONError(t *testing.T, rec *httptest.ResponseRecorder, wantCode string) {
+	t.Helper()
+
+	if got := rec.Header().Get("Content-Type"); got != "application/json" {
+		t.Fatalf("content type = %q, want application/json", got)
+	}
+	var body struct {
+		Error struct {
+			Code    string         `json:"code"`
+			Message string         `json:"message"`
+			Details map[string]any `json:"details"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response: %v; body = %s", err, rec.Body.String())
+	}
+	if body.Error.Code != wantCode {
+		t.Fatalf("code = %q, want %q; body = %s", body.Error.Code, wantCode, rec.Body.String())
+	}
+	if body.Error.Message == "" {
+		t.Fatalf("message is empty; body = %s", rec.Body.String())
+	}
+	if body.Error.Details == nil {
+		t.Fatalf("details = nil, want empty object; body = %s", rec.Body.String())
+	}
 }

@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"net/http"
+
+	"github.com/sunriseex/capitalflow/pkg/money"
 )
 
 func (h *Handler) getAccountBalance(w http.ResponseWriter, r *http.Request) {
@@ -19,7 +21,7 @@ func (h *Handler) getAccountBalance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	balanceMinor, count, err := h.store.Transactions().GetBalanceByAccountForUser(r.Context(), accountID, userID)
+	balance, count, err := h.store.Transactions().GetBalanceByAccountForUser(r.Context(), accountID, userID)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -27,7 +29,7 @@ func (h *Handler) getAccountBalance(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"account_id":        accountID,
-		"balance_minor":     balanceMinor,
+		"balance":           money.NewJSONDecimal(balance),
 		"transaction_count": count,
 	})
 }

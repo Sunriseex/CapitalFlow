@@ -54,7 +54,7 @@ func (r *InterestRuleRepository) ListActiveForAccrual(ctx context.Context, frequ
         interest_rules.accrual_frequency, interest_rules.capitalization_frequency,
         interest_rules.day_count_convention, interest_rules.is_active,
         interest_rules.start_date, interest_rules.end_date,
-        a.owner_user_id
+        a.owner_user_id, a.currency
     FROM interest_rules
     JOIN accounts a ON a.id = interest_rules.account_id
     WHERE interest_rules.is_active = true
@@ -86,6 +86,7 @@ func (r *InterestRuleRepository) ListActiveForAccrual(ctx context.Context, frequ
 			&target.Rule.StartDate,
 			&target.Rule.EndDate,
 			&target.OwnerUserID,
+			&target.AccountCurrency,
 		); err != nil {
 			return nil, fmt.Errorf("scan active interest rule for accrual: %w", mapNotFound(err))
 		}

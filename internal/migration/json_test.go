@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/repository"
 	"github.com/sunriseex/capitalflow/internal/services"
@@ -170,8 +172,8 @@ func TestJSONMigratorMigrateDeposits(t *testing.T) {
 	}
 
 	tx := transactions.byAccount[account.ID][0]
-	if tx.Type != models.TransactionTypeInitialBalance || tx.AmountMinor != 100_000 {
-		t.Fatalf("transaction = %s %d, want initial_balance 100000", tx.Type, tx.AmountMinor)
+	if tx.Type != models.TransactionTypeInitialBalance || !tx.Amount.Equal(dec("1000")) {
+		t.Fatalf("transaction = %s %d, want initial_balance 100000", tx.Type, tx.Amount)
 	}
 }
 
@@ -328,7 +330,7 @@ func TestJSONMigratorUsesTrimmedLegacyIDForExistingInitialBalance(t *testing.T) 
 		ID:          "tx-1",
 		AccountID:   account.ID,
 		Type:        models.TransactionTypeInitialBalance,
-		AmountMinor: 100_000,
+		Amount:      dec("1000"),
 		Description: legacyInitialDescription(legacyID),
 		OccurredAt:  account.OpenedAt,
 		CreatedAt:   account.OpenedAt,
@@ -391,7 +393,7 @@ func TestJSONMigratorExistingAccountIgnoresPostMigrationActivityForSourceBalance
 			ID:          "tx-initial",
 			AccountID:   account.ID,
 			Type:        models.TransactionTypeInitialBalance,
-			AmountMinor: 100_000,
+			Amount:      dec("1000"),
 			Description: legacyInitialDescription(legacyID),
 			OccurredAt:  account.OpenedAt,
 			CreatedAt:   account.OpenedAt,
@@ -400,7 +402,7 @@ func TestJSONMigratorExistingAccountIgnoresPostMigrationActivityForSourceBalance
 			ID:          "tx-interest",
 			AccountID:   account.ID,
 			Type:        models.TransactionTypeInterestIncome,
-			AmountMinor: 5_000,
+			Amount:      dec("50"),
 			Description: "interest accrual",
 			OccurredAt:  account.OpenedAt.AddDate(0, 0, 1),
 			CreatedAt:   account.OpenedAt.AddDate(0, 0, 1),
@@ -409,7 +411,7 @@ func TestJSONMigratorExistingAccountIgnoresPostMigrationActivityForSourceBalance
 			ID:          "tx-expense",
 			AccountID:   account.ID,
 			Type:        models.TransactionTypeExpense,
-			AmountMinor: 2_000,
+			Amount:      dec("20"),
 			Description: "card payment",
 			OccurredAt:  account.OpenedAt.AddDate(0, 0, 2),
 			CreatedAt:   account.OpenedAt.AddDate(0, 0, 2),
@@ -436,8 +438,8 @@ func TestJSONMigratorExistingAccountIgnoresPostMigrationActivityForSourceBalance
 	if report.CreatedTransactions != 0 {
 		t.Fatalf("created transactions = %d, want 0", report.CreatedTransactions)
 	}
-	if report.MigratedBalanceMinor != 100_000 {
-		t.Fatalf("migrated balance = %d, want 100000", report.MigratedBalanceMinor)
+	if !report.MigratedBalance.Equal(dec("1000")) {
+		t.Fatalf("migrated balance = %s, want 1000", report.MigratedBalance)
 	}
 	if !report.BalanceMatchesSource {
 		t.Fatal("balance must match source")
@@ -659,6 +661,10 @@ func (r *fakeTransactionRepo) CreateTransfer(ctx context.Context, _ *models.Tran
 	return r.CreateMany(ctx, transactions)
 }
 
+func (r *fakeTransactionRepo) ListTransfersByUser(context.Context, string) ([]models.Transfer, error) {
+	return nil, nil
+}
+
 func (r *fakeTransactionRepo) GetByID(_ context.Context, id string) (*models.Transaction, error) {
 	transaction, ok := r.byID[id]
 	if !ok {
@@ -692,31 +698,19 @@ func (r *fakeTransactionRepo) ListByAccountForUser(ctx context.Context, accountI
 	return r.ListByAccount(ctx, accountID)
 }
 
-func (r *fakeTransactionRepo) GetBalanceByAccountForUser(ctx context.Context, accountID, _ string) (balanceMinor, transactionCount int64, err error) {
+func (r *fakeTransactionRepo) GetBalanceByAccountForUser(ctx context.Context, accountID, _ string) (balance decimal.Decimal, transactionCount int64, err error) {
 	transactions, err := r.ListByAccount(ctx, accountID)
 	if err != nil {
-		return 0, 0, fmt.Errorf("calculate fake account balance: %w", err)
+		return decimal.Zero, 0, fmt.Errorf("calculate fake account balance: %w", err)
 	}
-	balance, err := services.NewBalanceService().Calculate(ctx, services.CalculateBalanceRequest{
+	result, err := services.NewBalanceService().Calculate(ctx, services.CalculateBalanceRequest{
 		AccountID:    accountID,
 		Transactions: transactions,
 	})
 	if err != nil {
-		return 0, 0, fmt.Errorf("calculate fake account balance: %w", err)
+		return decimal.Zero, 0, fmt.Errorf("calculate fake account balance: %w", err)
 	}
-	return balance.BalanceMinor, int64(balance.Count), nil
-}
-
-func (r *fakeTransactionRepo) Delete(_ context.Context, id string) error {
-	if _, ok := r.byID[id]; !ok {
-		return repository.ErrNotFound
-	}
-	delete(r.byID, id)
-	return nil
-}
-
-func (r *fakeTransactionRepo) DeleteForUser(ctx context.Context, id, _ string) error {
-	return r.Delete(ctx, id)
+	return result.Balance, int64(result.Count), nil
 }
 
 type fakeInterestRuleRepo struct {

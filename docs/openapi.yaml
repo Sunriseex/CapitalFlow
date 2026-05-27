@@ -413,15 +413,21 @@ paths:
                 $ref: "#/components/schemas/Transaction"
         default:
           $ref: "#/components/responses/APIError"
-    delete:
-      tags: [Transactions]
-      summary: Delete transaction
+  /transfers:
+    get:
+      tags: [Transfers]
+      summary: List transfer business events
       responses:
-        "204":
-          description: Deleted
+        "200":
+          description: Transfer audit events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TransferEvent"
         default:
           $ref: "#/components/responses/APIError"
-  /transfers:
     post:
       tags: [Transfers]
       summary: Create transfer
@@ -800,15 +806,15 @@ components:
       enum: [actual_365, actual_366, actual_actual]
     Amount:
       type: object
-      required: [currency, amount_minor]
+      required: [currency, amount]
       properties:
         currency:
           type: string
           minLength: 3
           maxLength: 3
-        amount_minor:
-          type: integer
-          format: int64
+        amount:
+          type: string
+          pattern: "^-?\\d+(\\.\\d{1,18})?$"
     Account:
       type: object
       required: [id, name, type, currency, is_active, opened_at, created_at, updated_at]
@@ -871,14 +877,14 @@ components:
           type: boolean
     AccountBalance:
       type: object
-      required: [account_id, balance_minor, transaction_count]
+      required: [account_id, balance, transaction_count]
       properties:
         account_id:
           type: string
           format: uuid
-        balance_minor:
-          type: integer
-          format: int64
+        balance:
+          type: string
+          pattern: "^-?\\d+(\\.\\d{1,18})?$"
         transaction_count:
           type: integer
     Category:
@@ -900,7 +906,7 @@ components:
           format: date-time
     Transaction:
       type: object
-      required: [id, account_id, type, amount_minor, occurred_at, created_at]
+      required: [id, account_id, type, amount, occurred_at, created_at]
       properties:
         id:
           type: string
@@ -918,9 +924,9 @@ components:
           nullable: true
         type:
           $ref: "#/components/schemas/TransactionType"
-        amount_minor:
-          type: integer
-          format: int64
+        amount:
+          type: string
+          pattern: "^-?\\d+(\\.\\d{1,18})?$"
         category_id:
           type: string
           format: uuid
@@ -935,7 +941,7 @@ components:
           format: date-time
     CreateTransactionRequest:
       type: object
-      required: [account_id, type, amount_minor, description, occurred_at]
+      required: [account_id, type, amount, description, occurred_at]
       properties:
         account_id:
           type: string
@@ -946,9 +952,9 @@ components:
           nullable: true
         type:
           $ref: "#/components/schemas/TransactionType"
-        amount_minor:
-          type: integer
-          format: int64
+        amount:
+          type: string
+          pattern: "^-?\\d+(\\.\\d{1,18})?$"
         category_id:
           type: string
           format: uuid
@@ -960,7 +966,7 @@ components:
           format: date
     CreateTransferRequest:
       type: object
-      required: [from_account_id, to_account_id, amount_minor, description]
+      required: [from_account_id, to_account_id, amount, description]
       properties:
         from_account_id:
           type: string
@@ -968,9 +974,15 @@ components:
         to_account_id:
           type: string
           format: uuid
-        amount_minor:
-          type: integer
-          format: int64
+        amount:
+          type: string
+          pattern: "^-?\\d+(\\.\\d{1,18})?$"
+        fee_amount:
+          type: string
+          pattern: "^\\d+(\\.\\d{1,18})?$"
+          default: "0"
+        fee_currency:
+          type: string
         description:
           type: string
     TransferResponse:
@@ -981,9 +993,83 @@ components:
           $ref: "#/components/schemas/Transaction"
         in:
           $ref: "#/components/schemas/Transaction"
+        fee:
+          $ref: "#/components/schemas/Transaction"
         exchange_rate:
           type: string
           description: Rate used to convert out amount into in amount.
+    TransferEvent:
+      type: object
+      required:
+        - id
+        - user_id
+        - from_account_id
+        - to_account_id
+        - from_transaction_id
+        - to_transaction_id
+        - from_amount
+        - to_amount
+        - from_currency
+        - to_currency
+        - exchange_rate
+        - exchange_rate_scale
+        - exchange_rate_provider
+        - exchange_rate_date
+        - fee_amount
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        from_account_id:
+          type: string
+          format: uuid
+        to_account_id:
+          type: string
+          format: uuid
+        from_transaction_id:
+          type: string
+          format: uuid
+        to_transaction_id:
+          type: string
+          format: uuid
+        fee_transaction_id:
+          type: string
+          format: uuid
+        from_amount:
+          type: string
+        to_amount:
+          type: string
+        from_currency:
+          type: string
+        to_currency:
+          type: string
+        exchange_rate:
+          type: string
+        exchange_rate_scale:
+          type: integer
+        exchange_rate_provider:
+          type: string
+        exchange_rate_date:
+          type: string
+          format: date-time
+        fee_amount:
+          type: string
+        fee_currency:
+          type: string
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
     CurrencyRateTable:
       type: object
       required: [base, date, provider, fetched_at, rates]
@@ -1126,7 +1212,7 @@ components:
           format: date
     RecalculateInterestResponse:
       type: object
-      required: [account_id, rule_id, from_date, to_date, deleted_accruals, created_accruals, skipped_days, total_amount_minor]
+      required: [account_id, rule_id, from_date, to_date, deleted_accruals, created_accruals, skipped_days, total_amount]
       properties:
         account_id:
           type: string
@@ -1149,9 +1235,9 @@ components:
         skipped_days:
           type: integer
           format: int64
-        total_amount_minor:
-          type: integer
-          format: int64
+        total_amount:
+          type: string
+          pattern: "^-?\\d+(\\.\\d{1,18})?$"
     DashboardAccountBalance:
       allOf:
         - $ref: "#/components/schemas/AccountBalance"
@@ -1323,8 +1409,8 @@ components:
        - rule_id
        - transaction_id
        - accrual_date
-       - amount_minor
-       - balance_minor
+       - amount
+       - balance
        - annual_rate_bps
        - created_at
       properties:
@@ -1343,12 +1429,12 @@ components:
         accrual_date:
           type: string
           format: date-time
-        amount_minor:
-          type: integer
-          format: int64
-        balance_minor:
-          type: integer
-          format: int64
+        amount:
+          type: string
+          pattern: "^-?\\d+(\\.\\d{1,18})?$"
+        balance:
+          type: string
+          pattern: "^-?\\d+(\\.\\d{1,18})?$"
         annual_rate_bps:
           type: integer
           format: int64

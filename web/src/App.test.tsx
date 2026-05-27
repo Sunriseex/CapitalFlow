@@ -120,7 +120,7 @@ describe("App query states", () => {
     expect(window.location.pathname).toBe("/accounts/account-1");
     await waitFor(() => expect(screen.getAllByText("Card").length).toBeGreaterThan(0));
 
-    await user.click(screen.getByRole("button", { name: "Back to accounts" }));
+    await user.click(await screen.findByRole("button", { name: "Back to accounts" }));
     expect(window.location.pathname).toBe("/accounts");
   });
 
@@ -164,3 +164,5 @@ describe("App query states", () => {
     expect(await screen.findByText("Loading profile")).toBeInTheDocument();
   });
 });
+
+

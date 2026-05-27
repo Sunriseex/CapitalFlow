@@ -49,7 +49,7 @@ export function AccountsView({
                 <td>{account.name}</td>
                 <td>{account.bank || "-"}</td>
                 <td>{account.type}</td>
-                <td className="amount">{formatMoney(balances.get(account.id)?.balance_minor ?? 0, account.currency)}</td>
+                <td className="amount">{formatMoney(balances.get(account.id)?.balance ?? "0", account.currency)}</td>
                 <td><AccountRate rule={activeRules.get(account.id)} isLoading={rules.isLoading} error={rules.error} /></td>
                 <td>{account.is_active ? "active" : "archived"}</td>
                 <td><Button onClick={() => onSelect(account.id)}>Open</Button></td>
@@ -100,3 +100,5 @@ function localDateString(date: Date) {
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
+
+

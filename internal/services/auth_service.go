@@ -5,14 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/mail"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	zxcvbn "github.com/nbutton23/zxcvbn-go"
 
 	"github.com/sunriseex/capitalflow/internal/auth"
+	domainaccount "github.com/sunriseex/capitalflow/internal/domain/account"
+	domainauth "github.com/sunriseex/capitalflow/internal/domain/auth"
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/repository"
 	"github.com/sunriseex/capitalflow/pkg/security"
@@ -509,18 +509,15 @@ func (s *AuthService) buildSession(user *models.User) (*AuthSession, *models.Ref
 }
 
 func normalizeEmail(email string) (string, error) {
-	email = strings.ToLower(strings.TrimSpace(email))
-	if email == "" {
-		return "", validationError("email is required")
+	normalized, err := domainauth.NormalizeEmail(email)
+	if err != nil {
+		return "", validationError(err.Error())
 	}
-	if _, err := mail.ParseAddress(email); err != nil {
-		return "", validationError("invalid email")
-	}
-	return email, nil
+	return normalized, nil
 }
 
 func normalizePrimaryCurrency(currency string) string {
-	currency = strings.ToUpper(strings.TrimSpace(currency))
+	currency = domainaccount.NormalizeCurrency(currency)
 	if currency == "" {
 		return "RUB"
 	}
@@ -528,36 +525,17 @@ func normalizePrimaryCurrency(currency string) string {
 }
 
 func validateCurrency(currency string) error {
-	if len(currency) != 3 {
+	if !domainaccount.ValidCurrency(currency) {
 		return validationError("invalid currency: " + currency)
-	}
-	for _, r := range currency {
-		if r < 'A' || r > 'Z' {
-			return validationError("invalid currency: " + currency)
-		}
 	}
 	return nil
 }
 
 func validatePasswordPolicy(password, email string) error {
-	if len(password) < 12 {
-		return validationError("password must be at least 12 characters")
-	}
-
-	strength := zxcvbn.PasswordStrength(password, passwordUserInputs(email))
-	if strength.Score < 3 {
-		return validationError("password is too weak")
+	if err := domainauth.ValidatePassword(password, email); err != nil {
+		return validationError(err.Error())
 	}
 	return nil
-}
-
-func passwordUserInputs(email string) []string {
-	inputs := []string{email}
-	local, domain, found := strings.Cut(email, "@")
-	if found {
-		inputs = append(inputs, local, domain)
-	}
-	return inputs
 }
 
 func (s *AuthService) auditEvent(ctx context.Context, eventType, email string, userID *string, success bool, reason string) {

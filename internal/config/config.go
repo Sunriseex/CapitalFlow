@@ -2,6 +2,7 @@ package config
 
 import (
 	"log/slog"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -14,6 +15,7 @@ import (
 )
 
 type Config struct {
+	AppEnv                    string
 	TelegramToken             string
 	TelegramUserID            int64
 	AppVersion                string
@@ -24,6 +26,11 @@ type Config struct {
 	JWTSecret                 string
 	AccessTokenTTL            time.Duration
 	RefreshTokenTTL           time.Duration
+	PublicOrigin              string
+	PublicOriginHost          string
+	CookieSecure              bool
+	CookieSameSite            string
+	AllowDirectIPLogin        bool
 	CORSAllowedOrigins        []string
 	RateLimitRequests         int
 	RateLimitWindow           time.Duration
@@ -82,6 +89,7 @@ func Init() error {
 	}
 
 	AppConfig = &Config{
+		AppEnv:           getEnv("APP_ENV", "development"),
 		TelegramToken:    getEnv("TELEGRAM_BOT_TOKEN", ""),
 		TelegramUserID:   getEnvInt64("TELEGRAM_USER_ID", 0),
 		AppVersion:       getEnv("APP_VERSION", "0.1.0-dev"),
@@ -93,6 +101,8 @@ func Init() error {
 		JWTSecret:        getEnv("JWT_SECRET", ""),
 		AccessTokenTTL:   getEnvDuration("ACCESS_TOKEN_TTL", 15*time.Minute),
 		RefreshTokenTTL:  getEnvDuration("REFRESH_TOKEN_TTL", 30*24*time.Hour),
+		PublicOrigin:     getEnv("PUBLIC_ORIGIN", ""),
+		CookieSameSite:   getEnv("COOKIE_SAMESITE", "Strict"),
 		CORSAllowedOrigins: getEnvList("CORS_ALLOWED_ORIGINS", []string{
 			"http://localhost:5173",
 			"http://127.0.0.1:5173",
@@ -104,6 +114,29 @@ func Init() error {
 		MutationRateLimitRequests: getEnvInt("MUTATION_RATE_LIMIT_REQUESTS", 60),
 		MutationRateLimitWindow:   getEnvDuration("MUTATION_RATE_LIMIT_WINDOW", time.Minute),
 		TrustedProxies:            getEnvList("TRUSTED_PROXIES", nil),
+	}
+	AppConfig.AppEnv, err = normalizeAppEnv(AppConfig.AppEnv)
+	if err != nil {
+		return err
+	}
+	AppConfig.CookieSecure = getEnvBool("COOKIE_SECURE", true)
+	AppConfig.AllowDirectIPLogin = getEnvBool("ALLOW_DIRECT_IP_LOGIN", !AppConfig.IsProduction())
+
+	publicOrigin, publicOriginHost, err := parsePublicOrigin(AppConfig.PublicOrigin)
+	if err != nil {
+		return err
+	}
+	AppConfig.PublicOrigin = publicOrigin
+	AppConfig.PublicOriginHost = publicOriginHost
+	AppConfig.CookieSameSite, err = normalizeCookieSameSite(AppConfig.CookieSameSite)
+	if err != nil {
+		return err
+	}
+	if err := AppConfig.ValidateCookiePolicy(); err != nil {
+		return err
+	}
+	if err := AppConfig.ValidateSecurity(); err != nil {
+		return err
 	}
 
 	initLogger(logLevel)
@@ -119,6 +152,36 @@ func Init() error {
 func ValidateAuthSecret(name, value string) error {
 	if len(strings.TrimSpace(value)) < MinAuthSecretLength {
 		return errors.NewConfigurationError(name+" must be at least 32 characters", nil)
+	}
+	return nil
+}
+
+func (c *Config) IsProduction() bool {
+	return strings.EqualFold(strings.TrimSpace(c.AppEnv), "production")
+}
+
+func (c *Config) ValidateSecurity() error {
+	if c == nil || !c.IsProduction() {
+		return nil
+	}
+	if c.PublicOrigin == "" {
+		return errors.NewConfigurationError("PUBLIC_ORIGIN is required in production", nil)
+	}
+	if err := ValidateAuthSecret("JWT_SECRET", c.JWTSecret); err != nil {
+		return err
+	}
+	if isPlaceholderSecret(c.JWTSecret) {
+		return errors.NewConfigurationError("JWT_SECRET must not use a placeholder value in production", nil)
+	}
+	return nil
+}
+
+func (c *Config) ValidateCookiePolicy() error {
+	if c == nil {
+		return nil
+	}
+	if c.CookieSameSite == "None" && !c.CookieSecure {
+		return errors.NewConfigurationError("COOKIE_SAMESITE=None requires COOKIE_SECURE=true", nil)
 	}
 	return nil
 }
@@ -196,6 +259,17 @@ func getEnvDuration(key string, defaultValue time.Duration) time.Duration {
 	return defaultValue
 }
 
+func getEnvBool(key string, defaultValue bool) bool {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return defaultValue
+	}
+	if parsed, err := strconv.ParseBool(value); err == nil {
+		return parsed
+	}
+	return defaultValue
+}
+
 func getEnvList(key string, defaultValue []string) []string {
 	value := strings.TrimSpace(os.Getenv(key))
 	if value == "" {
@@ -213,4 +287,82 @@ func getEnvList(key string, defaultValue []string) []string {
 		return defaultValue
 	}
 	return items
+}
+
+func normalizeAppEnv(value string) (string, error) {
+	value = strings.ToLower(strings.TrimSpace(value))
+	switch value {
+	case "", "development":
+		return "development", nil
+	case "production":
+		return "production", nil
+	default:
+		return "", errors.NewConfigurationError("APP_ENV must be development or production", nil)
+	}
+}
+
+func parsePublicOrigin(value string) (origin, host string, err error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", "", nil
+	}
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" || parsed.User != nil ||
+		parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return "", "", errors.NewConfigurationError("PUBLIC_ORIGIN must be a full origin without path, query, or fragment", err)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", "", errors.NewConfigurationError("PUBLIC_ORIGIN scheme must be http or https", nil)
+	}
+	origin = canonicalOrigin(parsed.Scheme, parsed.Host)
+	originURL, err := url.Parse(origin)
+	if err != nil {
+		return "", "", errors.NewConfigurationError("PUBLIC_ORIGIN must be a valid origin", err)
+	}
+	return origin, originURL.Host, nil
+}
+
+func normalizeCookieSameSite(value string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "", "strict":
+		return "Strict", nil
+	case "lax":
+		return "Lax", nil
+	case "none":
+		return "None", nil
+	default:
+		return "", errors.NewConfigurationError("COOKIE_SAMESITE must be Strict, Lax, or None", nil)
+	}
+}
+
+func isPlaceholderSecret(value string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	if normalized == "" {
+		return true
+	}
+	placeholders := []string{
+		"change-me",
+		"change-me-to-at-least-32-random-bytes",
+		"change-me-to-a-long-random-secret",
+		"your-jwt-secret",
+		"secret",
+	}
+	for _, placeholder := range placeholders {
+		if normalized == placeholder {
+			return true
+		}
+	}
+	return false
+}
+
+func canonicalOrigin(scheme, host string) string {
+	scheme = strings.ToLower(strings.TrimSpace(scheme))
+	host = strings.ToLower(strings.TrimSpace(host))
+	switch {
+	case scheme == "https" && strings.HasSuffix(host, ":443"):
+		host = strings.TrimSuffix(host, ":443")
+	case scheme == "http" && strings.HasSuffix(host, ":80"):
+		host = strings.TrimSuffix(host, ":80")
+	}
+	return scheme + "://" + host
 }

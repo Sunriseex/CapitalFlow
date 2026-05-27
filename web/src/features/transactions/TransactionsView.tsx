@@ -70,7 +70,7 @@ export function TransactionsView({
         <Input type="date" value={to} onChange={(event) => setTo(event.target.value)} />
       </div>
       {!transactions.isLoading && !transactions.error ? (
-        <TransactionsTable transactions={filtered} accounts={accounts} categories={categories} allowDelete />
+        <TransactionsTable transactions={filtered} accounts={accounts} categories={categories} />
       ) : null}
       {createOpen ? (
         <Dialog title="Create adjustment" onClose={() => setCreateOpen(false)}>
@@ -80,4 +80,6 @@ export function TransactionsView({
     </Panel>
   );
 }
+
+
 

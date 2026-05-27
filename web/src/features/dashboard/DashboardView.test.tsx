@@ -26,14 +26,14 @@ const summary: DashboardSummary = {
   generated_at: "2026-05-19T00:00:00Z",
   accounts_count: 1,
   active_accounts_count: 1,
-  balances: [{ currency: "RUB", amount_minor: 0 }],
+  balances: [{ currency: "RUB", amount: "0" }],
   monthly_income: [],
   monthly_expense: [],
   monthly_interest_income: [],
   account_balances: [
     {
       account_id: "account-1",
-      balance_minor: 0,
+      balance: "0",
       transaction_count: 0,
       name: "Card",
       bank: "Bank",
@@ -132,8 +132,8 @@ describe("DashboardView", () => {
     mocks.dashboardSummary.mockResolvedValueOnce({
       ...summary,
       balances: [
-        { currency: "RUB", amount_minor: 100_000 },
-        { currency: "USD", amount_minor: 100_00 },
+        { currency: "RUB", amount: "1000.00" },
+        { currency: "USD", amount: "100.00" },
       ],
     } satisfies DashboardSummary);
 
@@ -227,3 +227,5 @@ it("opens account details when clicking account balance row cells", async () => 
   expect(onOpenAccount).toHaveBeenCalledWith("account-1");
 });
 });
+
+

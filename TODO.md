@@ -1,1605 +1,805 @@
-# v0.1 — Stabilize current Deposit Manager
+# CapitalFlow Roadmap
 
-## Цель
+Этот файл описывает актуальный порядок разработки CapitalFlow. Он не должен быть архивом всех старых идей. Старые завершенные этапы оставлены только как краткий контекст, чтобы было понятно, откуда проект пришел и что уже не нужно планировать заново.
 
-Привести текущий CLI `deposit-manager` в устойчивое состояние перед крупным рефакторингом.
+## Product goal
 
-## Что уже есть
+CapitalFlow — self-hosted сервис для личного учета финансов. Главная цель: приватный финансовый центр, который можно запустить у себя в Docker/NixOS, вести счета, карты, наличные, вклады, накопительные счета, переводы, доходы и расходы, а позже расширить до инвестиций, мультивалютности и локального LLM-помощника.
 
-* CLI-команды для вкладов.
-* Модель `Deposit`.
-* Расчет доходности.
-* Начисление процентов для `savings`.
-* JSON-хранилище.
+До v1.0 проект должен быть не экспериментом, а приложением, которым можно пользоваться каждый день.
 
-## TODO
+## Development rules
 
-### CLI
+* Финансовая корректность важнее количества фич.
+* Баланс должен объясняться операциями, а не храниться как неаудируемое число.
+* Все денежные значения — только `amount_minor int64` или `shopspring/decimal` там, где нужен decimal math. Не использовать `float` для денег.
+* Ставки хранить в basis points, например `1700` = `17.00%`.
+* Любая изменяющая денежная операция должна быть идемпотентной или явно защищенной от повторного выполнения.
+* Любой перевод должен быть атомарным: обе стороны перевода созданы или не создано ничего.
+* Cross-currency transfer должен сохранять applied exchange rate, provider/date и связь двух transaction legs.
+* LLM, Telegram bot, investments и advanced analytics не делать до стабильного core.
+* Каждый крупный этап должен иметь tests, docs и acceptance criteria.
 
-* [x] Проверить все текущие команды:
+## Current status
 
-  * [x] `list`
-  * [x] `create`
-  * [x] `topup`
-  * [x] `calculate`
-  * [x] `update`
-  * [x] `accrue-interest`
-  * [x] `find`
-  * [x] `help`
-* [x] Убрать из help команды, которые реально не реализованы.
-* [x] Добавить команду `version`.
-* [x] Добавить команду `doctor` для проверки файлов данных и конфига.
-* [x] Добавить более понятные ошибки для пользователя.
+### Done / mostly done
 
-### Деньги и ставки
+* [x] Legacy deposit CLI stabilized.
+* [x] Core domain added: accounts, transactions, categories, interest rules.
+* [x] PostgreSQL storage added.
+* [x] Goose migrations added.
+* [x] Thin HTTP API added.
+* [x] React + Vite + TypeScript WebUI added.
+* [x] Basic dashboard/accounts/transactions/transfer flows added.
+* [x] Auth setup/login/refresh/logout added.
+* [x] Refresh-token rotation and session revocation added.
+* [x] Basic auth hardening added: password hashing, rate limits, audit events, sessions.
+* [x] OpenAPI contract added.
+* [x] CI exists for backend and WebUI checks.
 
-* [x] Проверить все места, где суммы переводятся из рублей в копейки.
-* [x] Заменить `int` на `int64` для денежных значений.
-* [x] Подготовить миграцию ставок с `float64` на decimal/basis-points helpers.
-* [x] Добавить helper:
+### Needs verification before v1.0
 
-```go
-func RubToKopecks(input string) (int64, error)
-func KopecksToRubString(amount int64) string
-func PercentToBps(input string) (int64, error)
-func BpsToPercentString(bps int64) string
-```
+* [ ] README and run docs match the real current auth flow.
+* [ ] WebUI dev proxy and API port are documented consistently.
+* [x] Transfer audit model is good enough for cross-currency operations.
+* [x] Idempotency behavior is tested for all financial mutations.
+* [ ] E2E tests cover critical user flows.
+* [ ] Backup/restore is available before the app is used with real data.
+* [ ] Production/self-host deployment path is documented.
 
-### Тесты
+## Roadmap order
 
-* [x] Добавить unit-тесты на парсинг суммы.
-* [x] Добавить unit-тесты на парсинг ставки.
-* [x] Добавить unit-тесты на расчет ежедневного дохода.
-* [x] Добавить table-driven tests для разных сценариев:
+* [x] v0.5.5 Architecture Stabilization.
+* [x] v0.5.6 Financial Auditability & Idempotency.
+* [x] v0.5.7 Security Baseline Before Passkeys.
+* [ ] v0.5.8 Passkey Login / WebAuthn.
+* [ ] v0.5.9 E2E Testing Baseline.
+* [ ] v0.6 Deposit & Capitalization Engine.
+* [ ] v0.6.1 Backup / Restore / Operations.
+* [ ] v0.6.2 Performance & Observability.
+* [ ] v0.7 Import / Export.
+* [ ] v0.8 Budgeting / Goals.
+* [ ] v0.9 Analytics / Forecasts.
+* [ ] v1.0 Personal CapitalFlow Core Release.
+* [ ] v1.x LLM, investments, Telegram bot, advanced multi-currency.
 
-  * [x] обычная ставка
-  * [x] промо-ставка
-  * [x] окончание промо-периода
-  * [x] нулевая сумма
-  * [x] отрицательная сумма
-  * [x] високосный год
-
-### Данные
-
-* [x] Добавить backup перед записью JSON.
-* [x] Добавить проверку целостности JSON-файлов.
-* [x] Добавить команду `export`.
-* [x] Добавить команду `backup`.
-
-## Acceptance Criteria
-
-* [x] Проверенные CLI-команды работают без panic (`version`, `help`, `doctor`).
-* [x] Все денежные значения внутри бизнес-логики используют `int64`.
-* [x] Покрыты тестами базовые расчеты процентов.
-* [x] Есть резервная копия данных перед изменением файлов.
-* [x] CLI можно использовать как раньше.
+Причина такого порядка: для финансового приложения опасно расширять функциональность поверх неполностью зафиксированных инвариантов. Сначала нужны auditability, idempotency, E2E, backup/restore и эксплуатационная надежность.
 
 ---
 
-# v0.2 — Core MVP: Accounts, Transactions, Balances, Interest Rules
+# v0.5.5 — Architecture Stabilization
 
-## Цель
+## Goal
 
-Сделать минимальное надежное ядро продукта: счет + операция + правило процентов + расчет баланса из операций.
+Зафиксировать архитектурные границы до дальнейшего роста и не допустить превращения сервисного слоя в неструктурированную смесь бизнес-правил.
 
-Это главный MVP до PostgreSQL, API, WebUI, budgeting и LLM.
+## Scope
 
-## Главная идея
-
-`Deposit` должен стать частным случаем `Account`, а баланс должен объясняться списком операций.
-
-## Новые сущности
-
-### Account
-
-* [x] Добавить модель `Account`.
-
-```go
-type Account struct {
-    ID        string
-    Name      string
-    Bank      string
-    Type      AccountType
-    Currency  string
-    IsActive  bool
-    OpenedAt  time.Time
-    CreatedAt time.Time
-    UpdatedAt time.Time
-}
-```
-
-Типы счетов:
-
-* [x] `cash`
-* [x] `card`
-* [x] `savings`
-* [x] `term_deposit`
-* [x] `broker`
-* [x] `other`
-
-### Transaction
-
-* [x] Добавить модель `Transaction`.
-
-```go
-type Transaction struct {
-    ID               string
-    AccountID        string
-    RelatedAccountID *string
-    Type             TransactionType
-    AmountMinor      int64
-    CategoryID       *string
-    Description      string
-    OccurredAt       time.Time
-    CreatedAt        time.Time
-}
-```
-
-Типы операций:
-
-* [x] `initial_balance`
-* [x] `income`
-* [x] `expense`
-* [x] `transfer_in`
-* [x] `transfer_out`
-* [x] `interest_income`
-* [x] `adjustment`
-
-### InterestRule
-
-* [x] Добавить модель `InterestRule`.
-
-```go
-type InterestRule struct {
-    ID                      string
-    AccountID               string
-    AnnualRateBps           int64
-    PromoRateBps            *int64
-    PromoEndDate            *time.Time
-    AccrualFrequency        AccrualFrequency
-    CapitalizationFrequency CapitalizationFrequency
-    DayCountConvention      DayCountConvention
-    IsActive                bool
-    StartDate               time.Time
-    EndDate                 *time.Time
-}
-```
-
-Поддерживаемые значения:
-
-* [x] `accrual_frequency = daily | monthly | end_of_term`
-* [x] `capitalization_frequency = daily | monthly | end_of_term | none`
-* [x] `day_count_convention = actual_365 | actual_366 | actual_actual`
-
-### Category
-
-* [x] Добавить модель `Category`.
-
-Категории по умолчанию:
-
-* [x] Зарплата
-* [x] Проценты по вкладам
-* [x] Еда
-* [x] Транспорт
-* [x] Подписки
-* [x] Жилье
-* [x] Здоровье
-* [x] Обучение
-* [x] Инвестиции
-* [x] Финансовая подушка
-* [x] Развлечения
-* [x] Прочее
-
-## Сервисы
-
-* [x] `AccountService`
-* [x] `TransactionService`
-* [x] `TransferService`
-* [x] `InterestRuleService`
-* [x] `BalanceService`
-
-## Правила
-
-* [x] Баланс счета считается из операций.
-* [x] Перевод создает две операции:
-
-  * [x] `transfer_out` на исходном счете
-  * [x] `transfer_in` на целевом счете
-* [x] Начисление процентов создает операцию `interest_income`.
-* [x] Ручная правка баланса создает `adjustment`.
-
-## Acceptance Criteria
-
-* [x] Можно создать `Account` без WebUI.
-* [x] Можно создать `Transaction` без WebUI.
-* [x] Можно посчитать баланс счета через список транзакций.
-* [x] Можно создать накопительный счет с правилом процентов.
-* [x] Можно начислить проценты как отдельную транзакцию.
-* [x] Повторное начисление за тот же день не создает дубль на уровне сервиса.
-* [x] Старый `Deposit` еще не удален, но новая модель уже работает отдельно.
-* [x] Написаны unit-тесты на баланс.
-* [x] Написаны unit-тесты на проценты через `InterestRule`.
-
----
-
-# v0.3 — PostgreSQL Storage
-
-## Цель
-
-Перейти с JSON-файлов на PostgreSQL как основное хранилище.
-
-## Зависимости
-
-* [x] Добавить `pgx`.
-* [x] Добавить инструмент миграций:
-
-  * [x] `goose`
-  * или [ ] `golang-migrate`
-* [x] Добавить Docker Compose для локального PostgreSQL.
-
-## Таблицы
-
-* [x] `accounts`
-* [x] `transactions`
-* [x] `categories`
-* [x] `interest_rules`
-* [x] `interest_accruals`
-* [x] `balance_snapshots`
-* [x] `settings`
-
-## Миграции
-
-* [x] `000002_create_accounts.sql`
-* [x] `000003_create_categories.sql`
-* [x] `000004_create_transactions.sql`
-* [x] `000005_create_interest_rules.sql`
-* [x] `000006_create_interest_accruals.sql`
-* [x] `000007_create_balance_snapshots.sql`
-* [x] `000008_create_settings.sql`
-
-## Индексы
-
-* [x] `transactions(account_id, occurred_at)`
-* [x] `transactions(type)`
-* [x] `interest_rules(account_id, is_active)`
-* [x] `interest_accruals(account_id, accrual_date)`
-* [x] unique index для защиты от повторного начисления:
-
-```sql
-UNIQUE(account_id, accrual_date, rule_id)
-```
-
-## Репозитории
-
-* [x] `AccountRepository`
-* [x] `TransactionRepository`
-* [x] `CategoryRepository`
-* [x] `InterestRuleRepository`
-* [x] `InterestAccrualRepository`
-
-## Миграция старых JSON-данных
-
-* [x] Написать команду:
-
-```bash
-capitalflow migrate-json
-```
-
-Она должна:
-
-* [x] прочитать текущие вклады из JSON
-* [x] создать `accounts`
-* [x] создать `interest_rules`
-* [x] создать `initial_balance` транзакции
-* [x] сохранить старые ID как `legacy_id`
-* [x] сформировать отчет миграции
-
-## Acceptance Criteria
-
-* [x] PostgreSQL поднимается через Docker Compose.
-* [x] Миграции применяются одной командой.
-* [x] Старые JSON-вклады переносятся без потери сумм.
-* [x] Балансы после миграции совпадают со старыми значениями.
-* [x] JSON-хранилище больше не является основным источником данных.
-
----
-
-# v0.4 — Thin HTTP API
-
-## Цель
-
-Добавить минимальный backend API для будущего WebUI.
-
-API на этом этапе не должен закрывать все будущие сценарии. Он должен показать core-flow: счета, операции, переводы, баланс, ручное начисление процентов.
-
-## Стек
-
-* [x] Go
-* [x] `chi`
-* [x] `slog`
-* [x] `pgx`
-* [x] PostgreSQL
-
-## Структура
+Существующую структуру не обязательно переименовывать сразу, но логические роли должны быть явными:
 
 ```text
-cmd/server/main.go
-internal/http/handlers
-internal/http/middleware
-internal/http/dto
-internal/service
-internal/repository
-internal/domain
+internal/
+  domain/
+    money/
+    account/
+    transaction/
+    transfer/
+    interest/
+    auth/
+  services/
+  repository/
+  postgres/
+  http/
 ```
 
-## Endpoints
-
-### Health
-
-* [x] `GET /health`
-* [x] `GET /ready`
-
-### Accounts
-
-* [x] `GET /api/accounts`
-* [x] `POST /api/accounts`
-* [x] `GET /api/accounts/{id}`
-* [x] `PATCH /api/accounts/{id}`
-* [x] `POST /api/accounts/{id}/archive`
-
-### Transactions
-
-* [x] `GET /api/transactions`
-* [x] `POST /api/transactions`
-* [x] `GET /api/transactions/{id}`
-* [x] `DELETE /api/transactions/{id}`
-* [x] Добавить pagination для `GET /api/transactions` (`limit`, `cursor` или `page`).
-* [x] Добавить server-side filtering для `GET /api/transactions`:
-
-  * [x] счет
-  * [x] категория
-  * [x] тип операции
-  * [x] период дат
-  * [x] поиск по описанию
-
-### Transfers
-
-* [x] `POST /api/transfers`
-
-### Interest Rules
-
-* [x] `GET /api/accounts/{id}/interest-rules`
-* [x] `POST /api/accounts/{id}/interest-rules`
-* [x] `PATCH /api/interest-rules/{id}`
-* [x] `POST /api/accounts/{id}/accrue-interest`
-* [x] `POST /api/accounts/{id}/recalculate-interest`
-
-### Dashboard
-
-* [x] `GET /api/dashboard/summary`
-* [x] `GET /api/dashboard/net-worth`
-* [x] `GET /api/dashboard/cashflow`
-* [x] `GET /api/dashboard/interest-income`
-
-### API Contract
-
-* [x] Добавить OpenAPI spec для всех `/api/*` endpoints.
-* [x] Описать DTO, ошибки, auth, pagination и filtering.
-* [x] Добавить проверку OpenAPI spec в CI после стабилизации контракта.
-
-Не делать до стабильного core:
-
-* [ ] advanced reports
-* [ ] smart budget recommendations
-* [ ] LLM insights
-* [ ] full import/export UI
-
-## Ошибки API
-
-Единый формат ошибки:
-
-```json
-{
-  "error": {
-    "code": "validation_error",
-    "message": "Invalid amount",
-    "details": {}
-  }
-}
-```
-
-## Acceptance Criteria
-
-* [x] API запускается локально.
-* [x] Можно создать счет через API.
-* [x] Можно создать транзакцию через API.
-* [x] Можно получить баланс через API.
-* [x] Можно начислить проценты через API.
-* [x] Ошибки возвращаются в едином формате.
-* [x] API покрывает только core-flow и не раздувается до analytics suite.
-
----
-
-# v0.5 — WebUI MVP
-
-## Цель
-
-Сделать первый рабочий WebUI поверх API.
-
-Первый экран должен быть рабочим инструментом, а не landing page. WebUI MVP показывает только то, что доказывает core value: счета, балансы, операции, проценты и последние изменения.
-
-## Рекомендуемый стек
-
-Вариант для полноценного pet-project:
-
-* [x] React
-* [x] Vite
-* [x] TypeScript
-* [x] TanStack Query
-* [x] shadcn-style local components
-* [x] Recharts
-
-Упрощенный вариант:
-
-* [ ] Go templates
-* [ ] HTMX
-* [ ] Alpine.js
-
-Рекомендуемый выбор: `React + Vite + TypeScript`, потому что это лучше покажет full-stack развитие проекта.
-
-## Страницы
-
-### Product UX
-
-* [x] Добавить переключение светлой/темной темы.
-* [x] Сделать современное premium-оформление для dashboard, таблиц, форм и empty states.
-* [x] Сохранить выбранную тему в `localStorage`.
-* [x] Проверить контраст, hover/focus states и mobile layout.
-
-### Frontend Architecture
-
-* [x] Разбить `web/src/App.tsx` на feature-модули:
-
-  * [x] `features/dashboard`
-  * [x] `features/accounts`
-  * [x] `features/transactions`
-  * [x] `shared/ui`
-  * [x] `shared/api`
-* [x] Оставить `App.tsx` только для layout, routing/view state и composition.
-* [x] Не менять поведение при рефакторинге без отдельной задачи.
-
-### Dashboard
-
-* [x] Общий капитал.
-* [x] Список счетов с балансами.
-* [x] Доходы за месяц.
-* [x] Расходы за месяц.
-* [x] Проценты за месяц.
-* [x] Последние операции.
-* [x] Быстрые действия:
-
-  * [x] добавить доход
-  * [x] добавить расход
-  * [x] сделать перевод
-  * [x] создать счет
-
-### Accounts
-
-* [x] Таблица счетов.
-* [x] Фильтр по типу счета.
-* [x] Баланс.
-* [x] Банк.
-* [x] Ставка, если есть.
-* [x] Статус счета.
-
-### Account Details
-
-* [x] Карточка счета.
-* [x] Текущий баланс.
-* [x] История операций.
-* [x] График баланса.
-* [x] Правила процентов.
-* [x] Кнопка ручного начисления процентов.
-
-### Transactions
-
-* [x] Таблица операций.
-* [x] Фильтр по дате.
-* [x] Фильтр по счету.
-* [x] Фильтр по категории.
-* [x] Фильтр по типу операции.
-
-### Create Transaction
-
-* [x] Доход.
-* [x] Расход.
-* [x] Перевод.
-* [x] Корректировка.
-
-### Create Account
-
-* [x] Название.
-* [x] Тип.
-* [x] Банк.
-* [x] Валюта.
-* [x] Начальный баланс.
-* [x] Ставка.
-* [x] Капитализация.
-* [x] Промо-ставка.
-* [x] Дата окончания промо.
-
-## Acceptance Criteria
-
-* [x] WebUI открывается локально.
-* [x] Можно создать счет через форму.
-* [x] Можно добавить доход/расход.
-* [x] Можно сделать перевод между счетами.
-* [x] Можно увидеть балансы.
-* [x] Можно увидеть последние транзакции.
-* [x] Можно увидеть, из каких операций получился баланс.
-* [x] Можно увидеть начисленные проценты по счету.
-* [x] Нет smart budget, goals и LLM в первом WebUI MVP.
-* [x] WebUI проходит CI job: `npm ci`, `npm run lint`, `npm run build`.
-
----
-
-# v0.5.1 — Auth & Secure Local User
-
-## Цель
-
-Сделать вход пользователя в сам CapitalFlow, чтобы дальнейшая работа с данными шла через личную сессию, а не через общий Bearer token.
-
-## Security Requirements
-
-* [x] Регистрация пользователя при первом заходе в сервис.
-* [x] После первого пользователя закрыть публичную регистрацию или требовать admin invite/setup token.
-* [x] Хешировать пароль через `argon2id`.
-* [x] Не хранить plaintext password, reset tokens или JWT secrets в репозитории.
-* [x] Использовать access JWT с коротким TTL.
-* [x] Использовать refresh token с rotation и server-side revocation.
-* [x] Хранить refresh token безопасно: httpOnly cookie или hashed token в БД.
-* [x] Добавить logout с отзывом refresh token.
-* [x] Добавить защиту от brute force:
-
-  * [x] rate limit на login/register
-  * [x] одинаковые сообщения для неверного email/password
-  * [x] audit log для auth-событий
-* [x] Продумать CSRF модель, если refresh хранится в cookie.
-* [x] Не отдавать чувствительные auth-ошибки в UI.
-
-## Backend
-
-* [x] Таблица пользователей.
-* [x] Таблица refresh sessions/tokens.
-* [x] `POST /auth/setup` для первого пользователя.
-* [x] `POST /auth/login`.
-* [x] `POST /auth/refresh`.
-* [x] `POST /auth/logout`.
-* [x] Middleware auth через JWT claims.
-* [x] Основная валюта пользователя хранится в профиле.
-* [x] Привязать пользовательские данные к owner/user id до multi-user сценариев.
-
-## Frontend
-
-* [x] Первый экран setup/register, если пользователей нет.
-* [x] Login screen.
-* [x] Session bootstrap при открытии приложения.
-* [x] Авто-refresh access token.
-* [x] Выбор основной валюты при setup/register.
-* [x] Настройка основной валюты в Settings.
-* [x] Ясные, но безопасные сообщения об ошибках входа.
-
-## Acceptance Criteria
-
-* [x] Новый пользователь может настроить сервис при первом запуске.
-* [x] После setup dashboard доступен только после login.
-* [x] Пароли хранятся только как Argon2id hash.
-* [x] JWT нельзя использовать после logout/refresh rotation revoke.
-* [x] Auth покрыт unit и handler tests.
-
----
-
----
-
-# v0.5.2 — Auth Security Hardening
-
-## Цель
-
-Довести auth-систему до production-grade security baseline:
-защитить refresh flow, сессии, password policy, audit trail и observability.
-
-## Security Hardening
-
-* [x] Reuse Detection для refresh token
-* [x] Политика сложности пароля (`zxcvbn`)
-* [x] Account lockout с нарастающей задержкой
-* [x] Смена пароля + выход со всех устройств
-* [x] Управление сессиями (список, отзыв)
-* [x] Подготовка email-поля и верификации (схема)
-* [x] Audit log таблица и запись всех событий
-* [x] Secure cookie:
-  * [x] `Secure`
-  * [x] `HttpOnly`
-  * [x] `SameSite`
-  * [x] `Path`
-* [x] Middleware JWT -> `userID` в context
-* [x] Unit + handler + security tests (включая reuse)
-* [ ] Observability:
-  * [x] метрики для auth
-  * [x] алерты для auth incidents
-* [x] Документация:
-  * [x] Security Model
-  * [x] Runbook
-  * [x] ADR
-
-## Acceptance Criteria
-
-* [x] Reused refresh token немедленно инвалидирует session family
-* [x] Password policy блокирует слабые и компрометированные пароли
-* [x] Suspicious login attempts приводят к progressive lockout
-* [x] Пользователь может завершить все активные сессии
-* [x] Все auth-события попадают в audit log
-* [x] Auth security покрыт тестами и метриками
-* [x] Есть документация для эксплуатации и incident response
-
----
-
-# v0.5.3 — Passkey Login / WebAuthn
-
-## Цель
-
-Добавить вход по passkey как более безопасный и удобный способ авторизации поверх уже существующей auth-системы.
-
-На этом этапе passkey не должен ломать текущий password login. Сначала passkey добавляется как дополнительный способ входа для существующего пользователя, а password login остается fallback-механизмом до появления полноценного recovery-flow.
-
-## Security Requirements
-
-* [ ] Использовать WebAuthn / passkeys через `PublicKeyCredential`.
-* [ ] Не хранить приватные ключи пользователя на сервере.
-* [ ] Хранить только публичный ключ credential, credential ID, user ID, sign counter и технические metadata.
-* [ ] Привязать passkey к конкретному `rpID` и разрешенным origins.
-* [ ] Генерировать challenge только на backend.
-* [ ] Challenge должен быть одноразовым и иметь короткий TTL.
-* [ ] Нельзя повторно использовать старый challenge.
-* [ ] Нельзя зарегистрировать passkey без активной authenticated session.
-* [ ] Для добавления первого passkey к существующему аккаунту требовать повторное подтверждение пароля или свежую сессию.
-* [ ] Поддержать несколько passkeys на одного пользователя.
-* [ ] Добавить удаление passkey из Settings.
-* [ ] Добавить audit log для passkey-событий:
-
-  * [ ] registration started
-  * [ ] registration completed
-  * [ ] registration failed
-  * [ ] login completed
-  * [ ] login failed
-  * [ ] credential removed
-* [ ] Добавить rate limit на passkey registration/login endpoints.
-* [ ] В production требовать HTTPS; `localhost` разрешить только для dev.
-* [ ] Не раскрывать в UI чувствительные причины ошибки WebAuthn.
-
-## Backend
-
-* [ ] Добавить WebAuthn config:
-
-```go
-type WebAuthnConfig struct {
-    RPID           string
-    RPName         string
-    AllowedOrigins []string
-}
-```
-
-* [ ] Добавить таблицу `passkey_credentials`.
-
-Пример полей:
-
-```sql
-id
-user_id
-credential_id
-public_key
-sign_count
-aaguid
-name
-transports
-backup_eligible
-backup_state
-created_at
-last_used_at
-revoked_at
-```
-
-* [ ] Добавить таблицу или storage для одноразовых WebAuthn challenges.
-* [ ] Добавить repository для passkey credentials.
-* [ ] Добавить service для registration flow.
-* [ ] Добавить service для authentication flow.
-* [ ] Интегрировать успешный passkey login в текущий access/refresh token flow.
-* [ ] После passkey login создавать обычную refresh session.
-* [ ] При logout/revoke sessions поведение должно остаться единым для password и passkey login.
-
-## API Endpoints
-
-### Passkey Registration
-
-* [ ] `POST /auth/passkeys/register/options`
-* [ ] `POST /auth/passkeys/register/verify`
-
-### Passkey Login
-
-* [ ] `POST /auth/passkeys/login/options`
-* [ ] `POST /auth/passkeys/login/verify`
-
-### Passkey Management
-
-* [ ] `GET /auth/passkeys`
-* [ ] `PATCH /auth/passkeys/{id}` для переименования passkey.
-* [ ] `DELETE /auth/passkeys/{id}` для удаления passkey.
-
-## Frontend
-
-* [ ] Добавить кнопку `Sign in with passkey` на login screen.
-* [ ] Добавить блок `Settings -> Security -> Passkeys`.
-* [ ] Добавить кнопку `Add passkey`.
-* [ ] Показать список passkeys пользователя.
-* [ ] Добавить rename passkey.
-* [ ] Добавить delete passkey.
-* [ ] Добавить fallback-сообщение, если браузер не поддерживает passkeys.
-* [ ] Добавить понятные, но безопасные ошибки:
-
-  * [ ] passkey cancelled
-  * [ ] browser not supported
-  * [ ] credential not found
-  * [ ] login failed
+* [x] `models` содержит данные.
+* [x] `domain` содержит правила и инварианты для уже вынесенных областей.
+* [x] `services` содержит сценарии использования.
+* [x] `repository` содержит контракты доступа к БД.
+* [x] `postgres` содержит реализацию доступа к PostgreSQL.
+* [x] `handlers` содержит только HTTP-слой.
+* [x] Проверки вроде «нельзя перевести деньги на тот же счет» живут в `TransferService` или domain validator, а не только в handler.
+* [x] Полный domain scope ещё не завершён: `money`, `interest`, `auth` пока не выделены как отдельные domain packages.
+
+## Architecture invariants
+
+* [x] Любая user-facing финансовая операция принадлежит `user_id`.
+* [x] Handler не содержит бизнес-правил.
+* [x] Service не знает про HTTP DTO.
+* [x] Repository не принимает HTTP DTO.
+* [x] Money хранится как `decimal.Decimal` в Go и `NUMERIC` в PostgreSQL.
+* [x] Currency scale валидируется на domain/service boundary.
+* [x] Sub-minor значения запрещены для user-created financial operations.
+* [x] Currency всегда нормализована и валидируется.
+* [x] Все write-операции проходят через транзакцию БД.
+* [x] Все опасные операции имеют audit/event trail.
+* [x] Удаление финансовых данных либо запрещено, либо soft-delete/audit.
+
+## Edge cases
+
+* [x] Account принадлежит другому `user_id`.
+* [x] Account archived, но по нему пытаются создать transaction.
+* [x] Transaction с `amount = 0`.
+* [x] Transaction с отрицательной суммой там, где это запрещено.
+* [x] Currency в lowercase: `rub`, `usd`.
+* [x] Currency нестандартная: `RUR`, `BTC`, `USDT` отклоняется в stable core.
+* [x] Дата операции в будущем.
+* [x] Дата операции до даты открытия счета.
+* [x] Удаление transaction, которая участвует в transfer.
+* [x] Повторный запрос после timeout.
+* [x] Одновременное создание двух операций по одному счету.
+* [x] Прямая service-level попытка создать `transfer_in` / `transfer_out` transaction вне transfer flow.
 
 ## Tests
 
-* [ ] Unit tests для challenge lifecycle.
-* [ ] Unit tests для credential storage.
-* [ ] Handler tests для registration options.
-* [ ] Handler tests для registration verify.
-* [ ] Handler tests для login options.
-* [ ] Handler tests для login verify.
-* [ ] Security tests:
+* [x] Unit tests для domain validators.
+* [x] Service tests без HTTP.
+* [x] Handler tests только на контракт API.
+* [x] Integration tests с PostgreSQL для write-flow.
+* [x] Regression tests на найденные audit/concurrency bugs.
+* [x] Architecture boundary tests / lint rules, которые не дают handler-слою снова начать решать финансовые правила.
 
-  * [ ] replayed challenge rejected
-  * [ ] expired challenge rejected
-  * [ ] wrong origin rejected
-  * [ ] wrong rpID rejected
-  * [ ] revoked credential rejected
-  * [ ] credential from another user rejected
+## Acceptance criteria
 
-## Acceptance Criteria
-
-* [ ] Пользователь может добавить passkey в Settings.
-* [ ] Пользователь может войти через passkey без ввода пароля.
-* [ ] Password login остается рабочим fallback-способом входа.
-* [ ] Один пользователь может иметь несколько passkeys.
-* [ ] Пользователь может удалить passkey.
-* [ ] Успешный passkey login создает обычную refresh session.
-* [ ] Passkey-события попадают в audit log.
-* [ ] Повторный, просроченный или чужой challenge отклоняется.
-* [ ] Passkey flow покрыт unit, handler и security tests.
+* [x] Основные user-facing write-flow имеют понятный service-level сценарий.
+* [x] Handler не решает финансовые правила.
+* [x] Есть `docs/architecture/layers.md`.
+* [x] Есть `docs/architecture/invariants.md`.
+* [x] Новая фича добавляется по шаблону: model -> domain rule -> service -> repo -> handler -> tests.
+* [x] Hard delete финансовых данных заменён на запрет, soft-delete или audit-backed deletion.
+* [x] Legacy/internal write paths либо переведены на транзакции БД, либо явно задокументированы как исключения.
 
 ---
 
-# v0.5.4 — E2E Testing Baseline
+# v0.5.6 — Financial Auditability & Idempotency
 
-## Цель
+## Goal
 
-Добавить end-to-end тестирование, которое проверяет реальные пользовательские сценарии через браузер: от открытия WebUI до изменения данных через backend и PostgreSQL.
+Сделать финансовые write-flow воспроизводимыми, атомарными и безопасными при повторных запросах до passkey, LLM, бюджетов и импорта.
 
-E2E не заменяет unit, handler и integration tests. Его задача — проверять, что основные product flows работают вместе: frontend, API, auth, database и routing.
+## Transfer model
 
-## Стек
+Текущая модель "перевод = две transaction rows" рабочая для MVP, но слабая для аудита. Нужна отдельная сущность `transfers`, где transfer — это одно business event, а две transaction rows — accounting legs.
 
-* [ ] Playwright.
-* [ ] TypeScript.
-* [ ] Chromium как обязательный browser target.
-* [ ] Firefox/WebKit как optional browser targets после стабилизации.
-* [ ] Docker Compose для тестовой PostgreSQL.
-* [ ] Отдельная test database.
-
-## Test Environment
-
-* [ ] Добавить `docker-compose.e2e.yml`.
-* [ ] Поднимать PostgreSQL для E2E отдельно от dev DB.
-* [ ] Применять миграции перед запуском E2E.
-* [ ] Очищать test DB перед каждым test suite или worker.
-* [ ] Добавить seed для базовых категорий.
-* [ ] Запускать backend в `e2e`/`test` mode.
-* [ ] Запускать WebUI с `VITE_API_URL`, указывающим на test backend.
-* [ ] Не использовать production secrets.
-* [ ] Добавить стабильные test users через setup helper.
-
-## Scripts
-
-```json
-{
-  "test:e2e": "playwright test",
-  "test:e2e:ui": "playwright test --ui",
-  "test:e2e:headed": "playwright test --headed",
-  "test:e2e:report": "playwright show-report"
-}
+```text
+transfers
+  id
+  user_id
+  from_account_id
+  to_account_id
+  from_transaction_id
+  to_transaction_id
+  from_amount_minor
+  to_amount_minor
+  from_currency
+  to_currency
+  exchange_rate
+  exchange_rate_scale
+  rate_provider
+  rate_date
+  fee_amount_minor
+  fee_currency
+  status
+  idempotency_key
+  created_at
+  updated_at
 ```
+
+### User cases
+
+* [x] Перевод между двумя RUB-счетами.
+* [x] Перевод RUB -> USD.
+* [x] Перевод USD -> RUB.
+* [x] Перевод RUB -> USDT.
+* [x] Перевод с комиссией.
+* [x] Перевод между своими счетами в разных банках.
+* [x] Перевод на брокерский счет.
+* [x] Перевод между archived и active account должен быть запрещен или явно ограничен.
+
+### Transfer edge cases
+
+* [x] `from_account_id == to_account_id`.
+* [x] `from_amount <= 0`.
+* [x] `to_amount <= 0`.
+* [x] `exchange_rate` отсутствует при разных валютах.
+* [x] `exchange_rate` указан при одинаковых валютах.
+* [x] `exchange_rate = 0`.
+* [x] `exchange_rate` слишком большой.
+* [x] Потеря точности при конвертации.
+* [x] Создалась только одна leg из двух.
+* [x] Повторный запрос создает дубль.
+* [x] Удаление одной leg ломает transfer.
+* [x] Один account принадлежит другому `user_id`.
+
+### Transfer tests
+
+* [x] Same-currency transfer persists transfer row.
+* [x] Cross-currency transfer persists rate and both legs.
+* [x] Transfer rollback: если вторая leg не создалась, первая тоже не сохраняется.
+* [x] Idempotent retry returns previous result.
+* [x] Same idempotency key + different payload returns conflict.
+* [x] Transfer cannot be partially deleted.
+* [x] Transfer list shows both business event and legs.
+
+## Idempotency keys
+
+Для финансового приложения idempotency — обязательное свойство, а не nice-to-have.
+
+```text
+idempotency_keys
+  id
+  user_id
+  key
+  request_hash
+  endpoint
+  status
+  response_status
+  response_body
+  locked_until
+  created_at
+  updated_at
+  expires_at
+```
+
+### Endpoints
+
+* [x] `POST /api/transactions`.
+* [x] `POST /api/transfers`.
+* [x] `POST /api/accounts/{id}/accrue-interest`.
+* [x] `POST /api/accounts/{id}/recalculate-interest`.
+* [ ] Future: import.
+* [ ] Future: bulk operations.
+
+### Idempotency edge cases
+
+* [x] Клиент отправил один и тот же request дважды.
+* [x] Первый request успел записать данные, но клиент получил timeout.
+* [x] Два одинаковых request пришли одновременно.
+* [x] Один idempotency key используется с другим body.
+* [x] Idempotency key истек.
+* [x] Request упал до commit.
+* [x] Request упал после commit, но до ответа.
+
+## Acceptance criteria
+
+* [x] Повтор POST-запроса не создает дубль.
+* [x] Concurrent retry безопасен.
+* [x] Idempotency работает на уровне БД, а не только в памяти.
+* [x] Cross-currency transfer audit не зависит от текущего курса валют.
+* [x] Есть `docs/architecture/idempotency.md`.
+
+---
+
+# v0.5.7 — Security Baseline Before Passkeys
+
+## Goal
+
+Проверить и задокументировать security baseline до WebAuthn, особенно для self-hosted запуска за Nginx/Traefik.
+
+## Scope
+
+* [x] JWT secret не имеет дефолтного production значения.
+* [x] Access token TTL короткий.
+* [x] Refresh token хранится только hashed.
+* [x] Refresh cookie: Secure, HttpOnly, SameSite, Path.
+* [x] Logout отзывает refresh session.
+* [x] Password change отзывает все refresh sessions.
+* [x] Setup первого пользователя нельзя вызвать повторно.
+* [x] Rate limit работает за reverse proxy.
+* [x] Реальный client IP корректно определяется через trusted proxy config.
+* [x] CORS не разрешает wildcard credentials.
+* [x] CSRF модель явно описана.
+* [x] Security headers добавлены.
+
+## Self-host configuration
+
+```env
+TRUSTED_PROXIES=127.0.0.1,172.16.0.0/12
+PUBLIC_ORIGIN=https://capitalflow.example.com
+COOKIE_SECURE=true
+COOKIE_SAMESITE=strict
+WEBAUTHN_RP_ID=capitalflow.example.com
+WEBAUTHN_ORIGINS=https://capitalflow.example.com
+```
+
+## Edge cases
+
+* [x] Login через reverse proxy.
+* [x] Login напрямую по IP должен быть запрещен или явно dev-only.
+* [x] Неверный `X-Forwarded-For` не должен обходить rate limit.
+* [x] CORS preflight не ломает auth.
+* [x] Refresh cookie не отправляется на `/api/*`, если `Path=/auth`.
+* [x] Access token expired, refresh успешен.
+* [x] Refresh token reused после rotation.
+* [x] Пользователь сменил пароль на одном устройстве, остальные сессии умерли.
+
+## Acceptance criteria
+
+* [x] Есть `docs/security/reverse-proxy.md`.
+* [x] Есть `docs/security/csrf.md`.
+* [x] Есть integration tests для auth за trusted proxy.
+* [x] Есть security tests на refresh reuse, logout, password change, CORS, CSRF.
+
+---
+
+# v0.5.8 — Passkey Login / WebAuthn
+
+## Goal
+
+Добавить passkey login как дополнительный способ входа после security baseline. Password login остается fallback до появления нормального recovery flow.
+
+## Backend tasks
+
+* [ ] Добавить WebAuthn config.
+* [ ] Добавить `passkey_credentials`.
+* [ ] Добавить `webauthn_challenges`.
+* [ ] Добавить `PasskeyService`.
+* [ ] Добавить `PasskeyRepository`.
+* [ ] Добавить registration options endpoint.
+* [ ] Добавить registration verify endpoint.
+* [ ] Добавить login options endpoint.
+* [ ] Добавить login verify endpoint.
+* [ ] Интегрировать successful passkey login в текущий refresh session flow.
+
+## Frontend tasks
+
+* [ ] Login screen: Sign in with passkey.
+* [ ] Settings -> Security -> Passkeys.
+* [ ] Add passkey.
+* [ ] Rename passkey.
+* [ ] Delete passkey.
+* [ ] Browser not supported state.
+* [ ] User cancelled state.
+* [ ] Safe generic error state.
+
+## Security edge cases
+
+* [ ] Replayed challenge rejected.
+* [ ] Expired challenge rejected.
+* [ ] Challenge from another user rejected.
+* [ ] Wrong origin rejected.
+* [ ] Wrong rpID rejected.
+* [ ] Revoked credential rejected.
+* [ ] Credential ID collision rejected.
+* [ ] Passkey registration without active session rejected.
+* [ ] First passkey add requires fresh session/password confirmation.
+* [ ] Deleted passkey cannot login.
+
+## Acceptance criteria
+
+* [ ] Пользователь может добавить passkey.
+* [ ] Пользователь может войти по passkey.
+* [ ] Password login остается fallback.
+* [ ] Можно иметь несколько passkeys.
+* [ ] Можно удалить passkey.
+* [ ] Passkey login создает обычную refresh session.
+* [ ] Все passkey-события пишутся в auth audit log.
+* [ ] Есть unit, handler, security и E2E smoke tests.
+
+---
+
+# v0.5.9 — E2E Testing Baseline
+
+## Goal
+
+Добавить end-to-end тесты до активного расширения фич, чтобы проверять реальные пользовательские сценарии через браузер, API, auth, PostgreSQL и routing вместе.
+
+## P0 E2E
+
+* [ ] First setup user.
+* [ ] Login.
+* [ ] Session bootstrap after reload.
+* [ ] Logout.
+* [ ] Create account.
+* [ ] Create income transaction.
+* [ ] Create expense transaction.
+* [ ] Create transfer.
+* [ ] Dashboard updates after operations.
+* [ ] Manual interest accrual.
+* [ ] Duplicate interest accrual does not duplicate data.
+
+## P1 E2E
+
+* [ ] Passkey add/login/delete через virtual authenticator.
+* [ ] Theme persistence.
+* [ ] Mobile dashboard smoke.
+* [ ] Empty state without accounts.
+* [ ] Archived account behavior.
+* [ ] Transaction filters.
+* [ ] Date filters.
+* [ ] Account details chart.
+
+## Test infrastructure
+
+* [ ] `docker-compose.e2e.yml`.
+* [ ] `web/playwright.config.ts`.
+* [ ] `web/tests/e2e/`.
+* [ ] `docs/testing/e2e.md`.
 
 ## CI
 
-* [ ] Добавить отдельный CI job `e2e`.
-* [ ] Запускать backend tests, frontend tests и E2E отдельными checks.
-* [ ] Сохранять Playwright report как CI artifact.
-* [ ] Сохранять trace/screenshot/video только при падении теста.
-* [ ] E2E job должен запускаться после успешного backend/frontend build.
-* [ ] Добавить timeout для E2E job.
-* [ ] Не блокировать локальную разработку слишком медленными test suites.
+* [ ] `backend-tests`.
+* [ ] `frontend-lint-build`.
+* [ ] `migration-check`.
+* [ ] `e2e`.
 
-## Test Scenarios
+## Acceptance criteria
 
-### Auth
-
-* [ ] Первый setup пользователя.
-* [ ] Login по email/password.
-* [ ] Logout.
-* [ ] Session bootstrap после reload страницы.
-* [ ] Access token refresh flow.
-* [ ] Redirect на login screen без активной сессии.
-* [ ] Неверный пароль показывает безопасную ошибку.
-
-### Passkey
-
-* [ ] Добавление passkey из Settings.
-* [ ] Login через passkey.
-* [ ] Удаление passkey.
-* [ ] Fallback на password login.
-* [ ] Smoke-test passkey flow через virtual authenticator.
-
-### Accounts
-
-* [ ] Создание счета.
-* [ ] Просмотр списка счетов.
-* [ ] Открытие account details.
-* [ ] Архивация счета.
-* [ ] Проверка empty state без счетов.
-
-### Transactions
-
-* [ ] Создание income transaction.
-* [ ] Создание expense transaction.
-* [ ] Создание adjustment transaction.
-* [ ] Удаление transaction.
-* [ ] Фильтр по счету.
-* [ ] Фильтр по категории.
-* [ ] Фильтр по дате.
-* [ ] Поиск по описанию.
-
-### Transfers
-
-* [ ] Перевод между двумя счетами.
-* [ ] Проверка списания с исходного счета.
-* [ ] Проверка зачисления на целевой счет.
-* [ ] Проверка истории операций после transfer.
-* [ ] Ошибка при переводе на тот же счет.
-
-### Interest / Deposits
-
-* [ ] Создание накопительного счета со ставкой.
-* [ ] Ручное начисление процентов.
-* [ ] Повторное начисление за тот же день не создает дубль.
-* [ ] Forecast отображается в UI.
-
-### Dashboard
-
-* [ ] Net worth обновляется после создания счета.
-* [ ] Доходы/расходы за месяц обновляются после операций.
-* [ ] Последние операции отображаются после создания transaction.
-* [ ] Быстрые действия открывают нужные формы.
-
-### UI Stability
-
-* [ ] Переключение light/dark theme.
-* [ ] Theme сохраняется после reload.
-* [ ] Основные страницы не имеют critical console errors.
-* [ ] Mobile viewport smoke test для dashboard и transactions.
-
-## Test Data Rules
-
-* [ ] Каждый тест создает свои данные или использует изолированный seed.
-* [ ] Тесты не зависят от порядка выполнения.
-* [ ] Тесты можно запускать параллельно после стабилизации isolation.
-* [ ] Деньги в тестах проверяются через точные значения minor units.
-* [ ] Даты фиксируются через controlled clock/test helpers там, где это возможно.
-
-## Acceptance Criteria
-
-* [ ] `npm run test:e2e` запускает E2E локально.
-* [ ] E2E поднимает или использует отдельную test database.
-* [ ] CI имеет отдельный `e2e` check.
-* [ ] Покрыты P0 flows: setup, login, account, transaction, transfer, dashboard.
-* [ ] Passkey flow покрыт smoke E2E через virtual authenticator.
-* [ ] При падении тестов сохраняется Playwright report.
-* [ ] E2E тесты не используют production secrets и production database.
-* [ ] Добавлена документация `docs/testing/e2e.md`.
+* [ ] `npm run test:e2e` работает локально.
+* [ ] E2E использует отдельную PostgreSQL DB.
+* [ ] CI сохраняет trace/screenshot/video только при падении.
+* [ ] E2E не зависит от порядка тестов.
+* [ ] Деньги проверяются точными minor units.
+* [ ] Даты фиксируются через controlled clock/test helpers.
 
 ---
 
 # v0.6 — Deposit & Capitalization Engine
 
-## Цель
+## Goal
 
-Сделать сильное ядро расчета процентов и капитализации.
+Сделать объяснимый engine для процентов, вкладов, капитализации, пересчета и background jobs.
 
-## Сценарии
+## Domain cases
 
-### Накопительный счет
+* [ ] Накопительный счет с daily accrual + daily capitalization.
+* [ ] Накопительный счет с monthly capitalization.
+* [ ] Срочный вклад без пополнения.
+* [ ] Срочный вклад с пополнением до даты.
+* [ ] Срочный вклад с выплатой процентов в конце срока.
+* [ ] Промо-ставка до даты, потом базовая.
+* [ ] Закрытие вклада в дату окончания.
+* [ ] Forecast без записи в БД.
+* [ ] Recalculate с удалением/пересозданием generated accruals.
 
-* [x] Ставка годовая.
-* [x] Расчет каждый день.
-* [x] Начисление каждый день.
-* [x] Капитализация каждый день.
+## Edge cases
 
-### Срочный вклад
+* [ ] Leap year: 2024/2028.
+* [ ] `actual_365` vs `actual_366` vs `actual_actual`.
+* [ ] Promo end date совпадает с accrual date.
+* [ ] Rule start date в будущем.
+* [ ] Rule end date раньше start date.
+* [ ] Несколько active rules пересекаются.
+* [ ] Баланс отрицательный.
+* [ ] Balance changed after interest was already accrued.
+* [ ] Recalculate после удаления transaction.
+* [ ] Повторный запуск daily job.
+* [ ] Два job запущены одновременно.
 
-* [x] Ставка годовая.
-* [x] Срок вклада.
-* [ ] Пополнение до определенной даты.
-* [ ] Начисление процентов:
+## Job architecture
 
-  * [x] ежедневно
-  * [x] ежемесячно
-  * [x] в конце срока
-* [x] Капитализация:
+```text
+job_runs
+  id
+  job_name
+  run_date
+  status
+  started_at
+  finished_at
+  error
 
-  * [x] ежедневно
-  * [x] ежемесячно
-  * [x] в конце срока
-  * [x] без капитализации
+job_locks
+  job_name
+  locked_until
+  locked_by
+```
 
-### Промо-ставка
+## Acceptance criteria
 
-* [x] Промо-ставка до даты.
-* [x] Базовая ставка после промо.
-* [x] Корректное разбиение периода расчета на части.
-
-## Идемпотентность
-
-* [x] Нельзя дважды начислить проценты за один день по одному правилу.
-* [ ] Повторный запуск job должен быть безопасным.
-* [x] Должна быть таблица `interest_accruals`.
-
-## Фоновые задачи
-
-* [ ] `daily_interest_accrual_job`
-* [ ] `monthly_interest_accrual_job`
-* [ ] `deposit_maturity_check_job`
-
-## Команды
-
-* [x] `capitalflow accrue --date YYYY-MM-DD`
-* [x] `capitalflow accrue --account <id>`
-* [x] `capitalflow forecast --account <id> --days 365`
-* [x] `capitalflow recalculate --account <id> --from YYYY-MM-DD`
-
-## Acceptance Criteria
-
-* [x] Яндекс-like накопительный счет с 12% и daily capitalization считается корректно.
-* [x] Альфа-like накопительный счет с 10% считается корректно.
-* [x] Повторное начисление за тот же день не создает дубль.
-* [x] Все начисления видны в истории операций.
-* [x] Можно построить прогноз на 30/90/365 дней.
+* [ ] `daily_interest_accrual_job` idempotent.
+* [ ] `monthly_interest_accrual_job` idempotent.
+* [ ] `deposit_maturity_check_job` idempotent.
+* [ ] Повторный запуск job безопасен.
+* [ ] Concurrent job не создает дубли.
+* [ ] Recalculate объясним и обратим.
+* [ ] Есть `docs/domain/interest-engine.md`.
 
 ---
 
-# v0.7 — Manual Diversification / Allocation Calculator
+# v0.6.1 — Backup / Restore / Operations
 
-## Цель
+## Goal
 
-Добавить ручной калькулятор распределения дохода: пользователь вводит сумму дохода, а система показывает, сколько куда нужно отправить по заданным процентам.
+Поднять backup/restore и эксплуатационные задачи выше бюджетов, LLM и инвестиций. Финансовый сервис без restore-теста нельзя считать готовым к реальным данным.
 
-Название в коде лучше сделать не `diversion`, а `allocation` или `income_distribution`.
+## Tasks
 
-## Пример сценария
+* [ ] `pg_dump` backup command.
+* [ ] Restore command на отдельную test DB.
+* [ ] Manual backup button in Settings.
+* [ ] Backup before import.
+* [ ] Backup before bulk delete.
+* [ ] Backup before restore.
+* [ ] Retention policy.
+* [ ] Docker volumes documented.
+* [ ] NixOS systemd service example.
+* [ ] NixOS backup timer example.
+* [ ] Production docker-compose.
+* [ ] Healthcheck for backend container.
 
-Пользователь вводит:
+## Edge cases
 
-```text
-Income: 100000 RUB
-```
+* [ ] Backup directory is not writable.
+* [ ] PostgreSQL unavailable.
+* [ ] Backup file corrupted.
+* [ ] Restore version older than current migrations.
+* [ ] Restore into non-empty DB.
+* [ ] Backup contains secrets.
+* [ ] Backup contains personal financial data.
+* [ ] Disk full during backup.
 
-Система показывает:
+## Acceptance criteria
 
-```text
-50% обязательные расходы: 50000 RUB
-20% финансовая подушка: 20000 RUB
-15% инвестиции: 15000 RUB
-10% обучение: 10000 RUB
-5% развлечения: 5000 RUB
-```
-
-## Сущности
-
-### AllocationPreset
-
-```go
-type AllocationPreset struct {
-    ID          string
-    Name        string
-    Description string
-    IsDefault   bool
-    CreatedAt   time.Time
-    UpdatedAt   time.Time
-}
-```
-
-### AllocationRule
-
-```go
-type AllocationRule struct {
-    ID              string
-    PresetID        string
-    TargetCategoryID string
-    PercentBps      int64
-    Priority         int
-}
-```
-
-### AllocationSimulation
-
-```go
-type AllocationSimulation struct {
-    IncomeAmountMinor int64
-    PresetID          string
-    Results           []AllocationResult
-}
-```
-
-## WebUI
-
-Страница: `Allocation Calculator`
-
-* [ ] Поле ввода дохода.
-* [ ] Выбор пресета.
-* [ ] Таблица распределения.
-* [ ] Кнопка “создать план операций”.
-* [ ] Кнопка “применить как транзакции”.
-* [ ] Настройка процентов.
-
-## Пресеты
-
-* [ ] `Balanced`
-* [ ] `Aggressive Saving`
-* [ ] `Debt Payoff`
-* [ ] `Low Income Survival`
-* [ ] `Custom`
-
-## Валидация
-
-* [ ] Сумма процентов должна быть 100%.
-* [ ] Доход должен быть положительным.
-* [ ] Все категории должны существовать.
-
-## Acceptance Criteria
-
-* [ ] Пользователь вводит доход.
-* [ ] Система показывает распределение по категориям.
-* [ ] Пользователь может настроить проценты.
-* [ ] Пользователь может сохранить пресет.
-* [ ] Пользователь может создать план операций на основе результата.
+* [ ] Можно создать backup одной командой.
+* [ ] Можно восстановить backup на чистую DB.
+* [ ] Restore регулярно проверяется в CI или локальном script.
+* [ ] Есть `docs/operations/backup-restore.md`.
+* [ ] Production docker-compose не хранит secrets в image.
 
 ---
 
-# v0.8 — Smart Budget Calculator
+# v0.6.2 — Performance & Observability
 
-## Цель
+## Goal
 
-Добавить умную версию калькулятора, которая анализирует реальные расходы пользователя и предлагает более реалистичное распределение дохода.
+Не оптимизировать преждевременно, но заранее защититься от плохих query, list и observability-паттернов.
 
-## Идея
+## Performance risks
 
-Ручной калькулятор работает по фиксированным процентам.
+* [ ] Dashboard может начать делать много тяжелых SUM-запросов.
+* [ ] Account balance может пересчитываться из всех transactions каждый раз.
+* [ ] Long transaction history может замедлить UI.
+* [ ] Recalculate interest может блокировать account.
+* [ ] Import может создать много duplicate checks.
+* [ ] FX conversion может дергать внешний provider слишком часто.
 
-Умный калькулятор должен учитывать:
+## Scope
 
-* сколько пользователь реально тратит в месяц
-* какие категории обязательные
-* какие категории можно сократить
-* сколько уже лежит в финансовой подушке
-* есть ли цель накопления
-* какой доход был за последние месяцы
-* какие расходы регулярные
+* [ ] Cursor pagination везде, где есть списки.
+* [ ] Индексы под реальные query patterns.
+* [ ] `EXPLAIN ANALYZE` для dashboard queries.
+* [ ] Balance snapshots для тяжелых периодов.
+* [ ] Ограничение max `limit`.
+* [ ] Timeout на DB queries.
+* [ ] Context propagation.
+* [ ] Metrics: request duration, DB duration, auth failures, job duration.
+* [ ] Structured logs с `request_id`.
+* [ ] Audit logs отдельно от application logs.
 
-## Входные данные
+## Load tests
 
-* [ ] Доход пользователя за месяц.
-* [ ] Средние расходы по категориям за 1/3/6 месяцев.
-* [ ] Текущие балансы счетов.
-* [ ] Цель по финансовой подушке.
-* [ ] Цель инвестирования.
-* [ ] Минимальные обязательные расходы.
+* [ ] 10 accounts, 1_000 transactions.
+* [ ] 50 accounts, 10_000 transactions.
+* [ ] 100 accounts, 100_000 transactions.
+* [ ] Dashboard p95 latency.
+* [ ] Transaction list p95 latency.
+* [ ] Balance calculation p95 latency.
+* [ ] Import 10_000 rows.
 
-## Расчетные показатели
+## Acceptance criteria
 
-* [ ] Средний месячный расход.
-* [ ] Средний обязательный расход.
-* [ ] Средний необязательный расход.
-* [ ] Savings rate.
-* [ ] Emergency fund coverage.
-* [ ] Процент дохода, уходящий на каждую категорию.
-* [ ] Отклонение от желаемого бюджета.
-
-## Логика рекомендаций
-
-Система должна уметь:
-
-* [ ] определить базовый обязательный минимум
-* [ ] рассчитать, сколько можно безопасно отложить
-* [ ] предложить сумму в финансовую подушку
-* [ ] предложить сумму в инвестиции
-* [ ] предупредить о слишком больших тратах в категории
-* [ ] предложить лимит на категорию в следующем месяце
-
-## Пример вывода
-
-```text
-Доход: 100000 RUB
-Средние обязательные расходы: 62000 RUB
-Средние необязательные расходы: 18000 RUB
-Свободный остаток: 20000 RUB
-
-Рекомендация:
-- 62000 RUB оставить на обязательные расходы
-- 12000 RUB отправить в финансовую подушку
-- 5000 RUB отправить в инвестиции
-- 3000 RUB оставить на развлечения
-
-Комментарий:
-Категория “Еда вне дома” выше среднего на 23%.
-Рекомендуемый лимит на следующий месяц: 7000 RUB.
-```
-
-## WebUI
-
-Страница: `Smart Budget`
-
-* [ ] Выбор периода анализа.
-* [ ] Ввод ожидаемого дохода.
-* [ ] Автоматический расчет средних расходов.
-* [ ] Карточки рекомендаций.
-* [ ] График расходов по категориям.
-* [ ] Сравнение текущего бюджета с рекомендуемым.
-* [ ] Кнопка “создать бюджет на месяц”.
-
-## Acceptance Criteria
-
-* [ ] Система считает средние расходы по категориям.
-* [ ] Система предлагает распределение дохода на основе истории.
-* [ ] Пользователь видит, какие категории тянут бюджет вниз.
-* [ ] Пользователь может создать месячный бюджет из рекомендации.
+* [ ] Dashboard не деградирует резко на 10k transactions.
+* [ ] Все list endpoints имеют pagination.
+* [ ] Есть `docs/performance/query-patterns.md`.
+* [ ] Есть Prometheus metrics или хотя бы `/metrics`-compatible design.
 
 ---
 
-# v0.9 — Budgeting & Goals
+# v0.7 — Import / Export
 
-## Цель
+## Goal
 
-Добавить полноценное планирование бюджета и финансовые цели.
+Добавить import/export раньше budgeting и analytics, чтобы новые продуктовые функции работали на реальных данных.
 
-## Budget
+## Import cases
 
-* [ ] Создание бюджета на месяц.
-* [ ] Лимиты по категориям.
-* [ ] Отображение прогресса.
-* [ ] Перенос остатка лимита на следующий месяц.
-* [ ] Предупреждение при превышении лимита.
+* [ ] CSV from bank.
+* [ ] Manual CSV.
+* [ ] Custom column mapping.
+* [ ] Preview before import.
+* [ ] Category auto-suggestion.
+* [ ] Duplicate detection.
+* [ ] Import rollback.
+* [ ] Import report.
 
-## Goals
+## Import edge cases
 
-Цели:
+* [ ] Different date formats.
+* [ ] Decimal comma: `123,45`.
+* [ ] Decimal dot: `123.45`.
+* [ ] Negative expense format.
+* [ ] Separate debit/credit columns.
+* [ ] Currency missing.
+* [ ] Unknown account.
+* [ ] Duplicate operation.
+* [ ] Encoding: UTF-8 / Windows-1251.
+* [ ] Huge file.
 
+## Export cases
+
+* [ ] CSV transactions export.
+* [ ] JSON full export.
+* [ ] Markdown monthly report.
+* [ ] Backup export.
+
+## Acceptance criteria
+
+* [ ] Import always has preview.
+* [ ] Import can be cancelled before write.
+* [ ] Import creates audit event.
+* [ ] Import can be traced by `import_batch_id`.
+* [ ] Duplicate detection works.
+* [ ] Export does not leak secrets.
+
+---
+
+# v0.8 — Budgeting / Goals
+
+## Goal
+
+Сначала реализовать обычные budgets/goals, а smart recommendations оставить на потом.
+
+## Entities
+
+* [ ] `budgets`.
+* [ ] `budget_categories`.
+* [ ] `goals`.
+* [ ] `goal_contributions`.
+
+## User cases
+
+* [ ] Месячный бюджет по категориям.
+* [ ] Лимит на еду.
+* [ ] Лимит на транспорт.
 * [ ] Финансовая подушка.
-* [ ] Инвестиции.
-* [ ] Крупная покупка.
-* [ ] Отпуск.
-* [ ] Обучение.
+* [ ] Цель "квартира".
+* [ ] Цель "обучение".
+* [ ] Связать goal с account.
+* [ ] Видеть progress на dashboard.
 
-Поля цели:
+## Edge cases
 
-* [ ] название
-* [ ] целевая сумма
-* [ ] текущая сумма
-* [ ] дедлайн
-* [ ] связанный счет
-* [ ] ежемесячный план пополнения
+* [ ] Budget category deleted.
+* [ ] Category renamed.
+* [ ] Transaction moved to another category.
+* [ ] Month boundary.
+* [ ] Timezone issue near midnight.
+* [ ] Refund reduces expense.
+* [ ] Transfer не считается расходом.
+* [ ] Goal linked account archived.
 
-## WebUI
-
-* [ ] Страница бюджетов.
-* [ ] Страница целей.
-* [ ] Виджет прогресса целей на dashboard.
-* [ ] Рекомендации по ежемесячному пополнению цели.
-
-## Acceptance Criteria
+## Acceptance criteria
 
 * [ ] Можно создать бюджет на месяц.
 * [ ] Можно задать лимиты по категориям.
-* [ ] Можно создать финансовую цель.
-* [ ] Dashboard показывает прогресс целей.
+* [ ] Dashboard показывает budget progress.
+* [ ] Transfer не ломает spending analytics.
+* [ ] Goal progress считается объяснимо.
 
 ---
 
-# v0.10 — Analytics, Reports, Forecasts
+# v0.9 — Analytics / Forecasts
 
-## Цель
+## Goal
 
-Сделать систему полезной для анализа, а не только для ввода данных.
+Добавить отчеты и forecasts после budgets/goals/import. Analytics must be reproducible: отчет за май, построенный 1 июня, должен совпадать 15 июня, если пользователь не менял данные вручную.
 
-## Отчеты
+## Reports
 
-* [ ] Доходы и расходы по месяцам.
-* [ ] Расходы по категориям.
-* [ ] Рост капитала.
-* [ ] Доход от процентов.
-* [ ] Прогноз финансовой подушки.
-* [ ] Прогноз вкладов.
-* [ ] Cashflow.
-* [ ] Savings rate.
-
-## Графики
-
+* [ ] Income vs expense by month.
+* [ ] Category spending.
 * [ ] Net worth over time.
-* [ ] Category spending pie/bar chart.
-* [ ] Income vs expenses.
-* [ ] Interest income over time.
-* [ ] Goal progress.
-
-## Экспорт
-
-* [ ] CSV export.
-* [ ] JSON backup.
-* [ ] Markdown monthly report.
-
-## Acceptance Criteria
-
-* [ ] Пользователь видит динамику капитала.
-* [ ] Пользователь видит, какие категории самые дорогие.
-* [ ] Пользователь может экспортировать отчет.
-* [ ] Пользователь может увидеть прогноз на 3/6/12 месяцев.
-
----
-
-# v0.11 — Import, Backup, Sync Helpers
-
-## Цель
-
-Упростить наполнение системы данными и защитить данные от потери.
-
-## Import
-
-* [ ] Импорт CSV.
-* [ ] Импорт ручных таблиц.
-* [ ] Настраиваемый mapping колонок:
-
-  * [ ] дата
-  * [ ] сумма
-  * [ ] описание
-  * [ ] категория
-  * [ ] счет
-* [ ] Preview перед импортом.
-* [ ] Дедупликация операций.
-
-## Backup
-
-* [ ] Автоматический ежедневный backup БД.
-* [ ] Ручной backup из WebUI.
-* [ ] Restore из backup.
-* [ ] Backup перед опасными операциями: import, bulk delete, restore, migrations.
-* [ ] Настроить retention policy:
-
-  * [ ] ежедневные backup за 7 дней
-  * [ ] еженедельные backup за 4 недели
-  * [ ] ручные backup без автоудаления
-* [ ] Шифровать backup или хранить в защищенной директории.
-* [ ] Проверять restore на тестовой БД.
-* [ ] Документировать команды backup/restore.
-
-## NixOS integration
-
-* [ ] devShell.
-* [ ] systemd service.
-* [ ] local reverse proxy option.
-* [ ] backup timer.
-
-## Docker
-
-* [ ] Добавить Dockerfile для backend.
-* [ ] Добавить Dockerfile для web.
-* [ ] Добавить production docker-compose для backend + web + PostgreSQL.
-* [ ] Добавить healthcheck для backend container.
-* [ ] Не запекать secrets в image.
-
-## Acceptance Criteria
-
-* [ ] Можно импортировать CSV.
-* [ ] Можно сделать backup через UI.
-* [ ] Можно восстановить данные из backup.
-* [ ] Приложение можно запустить как сервис на NixOS.
-
----
-
-# v0.12 — LLM Assistant Foundation
-
-## Цель
-
-Подготовить безопасную архитектуру для LLM-рекомендаций, но не делать LLM главным источником финансовых решений.
-
-LLM должна объяснять, анализировать и предлагать идеи, но не должна самостоятельно менять данные без подтверждения пользователя.
-
-## Возможные задачи LLM
-
-* [ ] Объяснить, почему бюджет просел.
-* [ ] Найти категории, где расходы выросли.
-* [ ] Сформировать месячный финансовый отчет обычным языком.
-* [ ] Дать рекомендации по снижению расходов.
-* [ ] Объяснить прогноз по вкладам.
-* [ ] Предложить распределение дохода.
-* [ ] Найти аномалии в тратах.
-* [ ] Ответить на вопрос пользователя по его данным.
-
-## Ограничения
-
-* [ ] LLM не должна иметь прямой доступ к сырой БД.
-* [ ] LLM получает только подготовленный безопасный summary.
-* [ ] Пользователь должен явно включить LLM-интеграцию.
-* [ ] Cloud-модели не должны получать чувствительные данные без предупреждения.
-* [ ] Все советы должны сопровождаться дисклеймером: это не финансовая рекомендация.
-* [ ] Любое действие по изменению данных требует подтверждения пользователя.
-
-## LLM Provider Interface
-
-```go
-type LLMProvider interface {
-    Generate(ctx context.Context, req LLMRequest) (*LLMResponse, error)
-}
-```
-
-Провайдеры:
-
-* [ ] Ollama local.
-* [ ] Ollama cloud.
-* [ ] OpenAI-compatible API.
-* [ ] Mock provider for tests.
-
-## Data Context Builder
-
-* [ ] `MonthlyFinancialSummaryBuilder`
-* [ ] `CategorySpendingSummaryBuilder`
-* [ ] `GoalProgressSummaryBuilder`
-* [ ] `DepositForecastSummaryBuilder`
-
-LLM должна получать примерно такой контекст:
-
-```json
-{
-  "period": "2026-05",
-  "income_total": 100000,
-  "expense_total": 72000,
-  "savings_rate": 28,
-  "top_categories": [
-    {"name": "Food", "amount": 23000, "change_percent": 18},
-    {"name": "Subscriptions", "amount": 4500, "change_percent": 0}
-  ],
-  "goals": [
-    {"name": "Emergency Fund", "progress_percent": 22}
-  ]
-}
-```
-
-## WebUI
-
-Страница: `AI Insights`
-
-* [ ] Кнопка “Analyze my month”.
-* [ ] Кнопка “Explain my spending”.
-* [ ] Кнопка “Suggest next month budget”.
-* [ ] История LLM-ответов.
-* [ ] Настройка провайдера.
-* [ ] Настройка уровня приватности.
-
-## Acceptance Criteria
-
-* [ ] Можно подключить mock LLM provider.
-* [ ] Можно получить summary без отправки сырых транзакций.
-* [ ] Можно сгенерировать месячный текстовый отчет.
-* [ ] LLM не может менять данные без подтверждения.
-
----
-
-# v0.13 — WebUI Design Realisation
-
-## Цель
-
-Перенести конкретный roadmap из `DESIGN.md` в рабочий TODO для реализации Nordic WebUI, не меняя уже завершенную историю `v0.5`.
-
-## PR Roadmap
-
-### PR 1 — Web App Shell
-
-Branch:
-
-```text
-feature/web-app-shell
-```
-
-Scope:
-
-* [ ] AppShell.
-* [ ] Sidebar.
-* [ ] Topbar.
-* [ ] Page container.
-* [ ] Card component.
-* [ ] Button component.
-* [ ] CSS variables / design tokens.
-* [ ] Light Nordic theme.
-* [ ] Basic responsive behavior.
-
-### PR 2 — Dashboard Foundation
-
-Scope:
-
-* [ ] Net worth summary.
-* [ ] Metric cards.
-* [ ] Account cards.
-* [ ] Quick actions.
-* [ ] Recent transactions block.
-* [ ] Static chart placeholders.
-* [ ] Loading/empty/error states.
-
-### PR 3 — Transactions UX
-
-Scope:
-
-* [ ] Transaction list/table.
-* [ ] Search input.
-* [ ] Filter chips.
-* [ ] Status chips.
-* [ ] Mobile transaction layout.
-* [ ] Empty filtered state.
-
-### PR 4 — Transfers UX
-
-Scope:
-
-* [ ] Transfer form.
-* [ ] Account selectors.
-* [ ] Validation.
-* [ ] Review step.
-* [ ] Submit state.
-* [ ] Success/error feedback.
-
-### PR 5 — Savings / Deposits UX
-
-Scope:
-
-* [ ] Savings overview.
-* [ ] APY/rate display.
-* [ ] Earned interest.
-* [ ] Projected value chart.
-* [ ] Goal progress.
-* [ ] Deposit/withdraw actions.
-
-## Acceptance Criteria
-
-* [ ] TODO reflects `DESIGN.md` implementation priority.
-* [ ] Completed `v0.5` checklist stays unchanged.
-* [ ] New tasks are unchecked and ready for feature realisation.
+* [ ] Savings rate.
+* [ ] Interest income.
+* [ ] Goal forecast.
+* [ ] Emergency fund coverage.
+* [ ] Deposit forecast.
+
+## Edge cases
+
+* [ ] Cross-currency totals.
+* [ ] Historical FX rate missing.
+* [ ] Transaction backdated.
+* [ ] Category changed after report.
+* [ ] Archived account.
+* [ ] Investment account excluded/included.
+* [ ] Refund.
+* [ ] Internal transfer.
+
+## Acceptance criteria
+
+* [ ] Отчеты отделяют income/expense от transfers.
+* [ ] Base currency conversion использует persisted historical rates.
+* [ ] Есть monthly report snapshot или reproducible query strategy.
+* [ ] User может понять, из каких данных получился отчет.
 
 ---
 
 # v1.0 — Personal CapitalFlow Core Release
 
-## Цель
+## Goal
 
-Собрать стабильную локальную версию приложения, которой можно пользоваться каждый день.
+v1.0 — стабильная версия для ежедневного личного использования. Она не должна включать все будущие идеи.
 
-## В v1.0 core должно быть
+## Minimum scope
 
-* [ ] WebUI.
-* [ ] PostgreSQL.
-* [ ] Счета.
-* [ ] Транзакции.
-* [ ] Переводы.
-* [ ] Категории.
-* [ ] Вклады.
-* [ ] Накопительные счета.
-* [ ] Капитализация.
-* [ ] Отчеты.
+* [ ] Accounts.
+* [ ] Transactions.
+* [ ] Transfers with auditability.
+* [ ] Categories.
+* [ ] Interest rules.
+* [ ] Deposit/capitalization engine.
+* [ ] Dashboard.
+* [ ] Reports basic.
+* [ ] Auth.
+* [ ] Optional passkey.
+* [ ] E2E critical flows.
 * [ ] Backup/restore.
-* [ ] Passkey login как optional secure login method.
-* [ ] E2E тесты для critical user flows.
-* [ ] NixOS-friendly запуск.
+* [ ] Docker production compose.
+* [ ] NixOS-friendly service example.
+* [ ] Reverse proxy docs.
+* [ ] Operations docs.
 
-## После v1.0 / v1.x
+## Out of v1.0 scope
 
-* [ ] Бюджеты.
-* [ ] Цели.
-* [ ] Ручной калькулятор распределения дохода.
-* [ ] Умный калькулятор бюджета.
-* [ ] LLM insights.
+* [ ] LLM assistant.
 * [ ] Telegram bot.
-* [ ] Investments.
-* [ ] Multi-currency.
-
-## Что можно показать работодателю
-
-* [ ] Чистая архитектура Go-проекта.
-* [ ] Работа с PostgreSQL.
-* [ ] Финансовая доменная модель.
-* [ ] Идемпотентные background jobs.
-* [ ] Безопасная работа с деньгами.
-* [ ] Web API.
-* [ ] WebUI.
-* [ ] Миграции.
-* [ ] Тестирование.
-* [ ] E2E testing через браузер.
-* [ ] Passkey/WebAuthn security flow.
-* [ ] Docker/NixOS окружение.
-
-## CI/CD до v1.0
-
-* [x] Добавить frontend CI job:
-
-  * [x] `npm ci`
-  * [x] `npm run lint`
-  * [x] `npm run build`
-* [x] Backend CI и frontend CI должны быть отдельными checks.
-* [x] Добавить OpenAPI validation check, когда spec станет обязательной.
-* [ ] Добавить Playwright E2E CI job.
-* [ ] Сохранять Playwright report как CI artifact.
+* [ ] Advanced investments.
+* [ ] Smart budget AI-like recommendations.
+* [ ] Public multi-user SaaS behavior.
+* [ ] Complex broker integrations.
 
 ---
 
-# Future Ideas After v1.0
+# v1.x — LLM, investments, Telegram bot, advanced multi-currency
 
-## Telegram Bot
+## Goal
 
-* [ ] Дневной финансовый дайджест.
-* [ ] Уведомление о начислении процентов.
-* [ ] Быстрое добавление расхода.
-* [ ] Уведомление о превышении бюджета.
+Развивать расширенные возможности только после auditability, backup, E2E и reports.
 
-## Investments
+## LLM assistant foundation
 
-* [ ] Учет брокерского счета.
-* [ ] Акции.
-* [ ] ETF/фонды.
-* [ ] Дивиденды.
-* [ ] Доходность портфеля.
+LLM не должна иметь прямой доступ к сырой БД. Она должна получать подготовленный safe summary. Пользователь должен явно включать интеграцию, cloud-модели не должны получать sensitive data без предупреждения, любые изменения требуют подтверждения.
 
-## Multi-currency
+```text
+LLMProvider
+  OllamaProvider
+  OpenAICompatibleProvider
+  MockProvider
 
-* [ ] RUB.
-* [ ] USD.
-* [ ] EUR.
-* [ ] USDT.
-* [x] Fiat FX endpoint for ISO currency rates.
-* [x] Cross-currency transfer conversion.
-* [x] Dashboard base-currency tabs and converted totals.
-* [ ] Persist historical FX rates for repeatable reports.
-* [ ] Курсы валют.
-* [ ] Курсы криптовалют.
-* [ ] Курсы металлов.
-* [ ] Переоценка капитала.
+ContextBuilder
+  MonthlyFinancialSummaryBuilder
+  CategorySpendingSummaryBuilder
+  GoalProgressSummaryBuilder
+  DepositForecastSummaryBuilder
+```
 
-## HomeLab Integration
+### Forbidden
 
-* [ ] Запуск в Docker.
-* [ ] Nginx reverse proxy.
-* [ ] Auth proxy.
-* [ ] Grafana metrics.
-* [ ] Prometheus endpoint.
+* [ ] LLM напрямую вызывает repository.
+* [ ] LLM сама создает transaction.
+* [ ] LLM видит raw transaction descriptions без privacy mode.
+* [ ] LLM отправляет данные в cloud без явного consent.
 
-# Notes
+### Allowed
 
-* `Actual Budget` можно использовать как источник идей по UX и budget flow, но не нужно копировать его архитектуру один в один.
-* Главная уникальность проекта: учет вкладов, накопительных счетов, капитализации, объяснимых балансов и приватной аналитики.
-* Сначала проект должен стать надежным инструментом для личного учета, а уже потом красивым приложением.
-* Не позиционировать проект как startup до проверки ICP на 5-10 реальных пользователях.
-* Allocation, smart budget и LLM остаются важными, но идут после надежного core.
+* [ ] Explain my month.
+* [ ] Explain spending growth.
+* [ ] Suggest next budget.
+* [ ] Generate monthly report.
+* [ ] Find anomalies.
+* [ ] Explain deposit forecast.
+
+### Acceptance criteria
+
+* [ ] Mock provider работает в tests.
+* [ ] Ollama local работает без cloud.
+* [ ] Cloud provider требует explicit opt-in.
+* [ ] LLM получает summary, а не raw DB dump.
+* [ ] Любое write-action требует user confirmation.
+
+## Other v1.x directions
+
+* [ ] Investments and portfolio tracking.
+* [ ] Advanced multi-currency and historical FX management.
+* [ ] Telegram bot for daily digest, notifications and quick entry.

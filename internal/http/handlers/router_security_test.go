@@ -82,6 +82,91 @@ func TestRouterCORSAllowsCredentialsForConfiguredOrigin(t *testing.T) {
 	}
 }
 
+func TestRouterCORSPreflightDoesNotRequireAuth(t *testing.T) {
+	router := NewRouter(newTestProfileStore(), &RouterConfig{
+		CORSAllowedOrigins: []string{"https://capitalflow.home.arpa"},
+	})
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodOptions, "/api/v1/settings/profile", http.NoBody)
+	req.Header.Set("Origin", "https://capitalflow.home.arpa")
+	req.Header.Set("Access-Control-Request-Method", http.MethodGet)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNoContent)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "https://capitalflow.home.arpa" {
+		t.Fatalf("Access-Control-Allow-Origin = %q", got)
+	}
+}
+
+func TestRouterSecurityHeadersOnSuccessAndError(t *testing.T) {
+	router := NewRouter(newTestProfileStore(), &RouterConfig{
+		AppEnv:           "production",
+		PublicOrigin:     "https://capitalflow.home.arpa",
+		PublicOriginHost: "capitalflow.home.arpa",
+		CookieSecure:     true,
+	})
+
+	successReq := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/health", http.NoBody)
+	successRec := httptest.NewRecorder()
+	router.ServeHTTP(successRec, successReq)
+	assertSecurityHeaders(t, successRec, true)
+
+	errorReq := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/categories", http.NoBody)
+	errorReq.Host = "capitalflow.home.arpa"
+	errorRec := httptest.NewRecorder()
+	router.ServeHTTP(errorRec, errorReq)
+	if errorRec.Code != http.StatusServiceUnavailable && errorRec.Code != http.StatusUnauthorized {
+		t.Fatalf("error status = %d", errorRec.Code)
+	}
+	assertSecurityHeaders(t, errorRec, true)
+}
+
+func TestRouterAuthHostPolicyAllowsConfiguredPrivateDNS(t *testing.T) {
+	router := NewRouter(newTestProfileStore(), &RouterConfig{
+		AppEnv:           "production",
+		APIAuthToken:     "test-token",
+		PublicOrigin:     "https://capitalflow.home.arpa",
+		PublicOriginHost: "capitalflow.home.arpa",
+		CookieSecure:     true,
+	})
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/login", strings.NewReader(`{}`))
+	req.Host = "capitalflow.home.arpa"
+	req.Header.Set("Origin", "https://capitalflow.home.arpa")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code == http.StatusForbidden {
+		t.Fatalf("configured private DNS host was blocked: %s", rec.Body.String())
+	}
+}
+
+func TestRouterAuthHostPolicyBlocksDirectIPInProduction(t *testing.T) {
+	router := NewRouter(newTestProfileStore(), &RouterConfig{
+		AppEnv:             "production",
+		APIAuthToken:       "test-token",
+		PublicOrigin:       "https://capitalflow.home.arpa",
+		PublicOriginHost:   "capitalflow.home.arpa",
+		CookieSecure:       true,
+		AllowDirectIPLogin: false,
+	})
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/login", strings.NewReader(`{}`))
+	req.Host = "192.168.1.10"
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusForbidden)
+	}
+}
+
 func TestRouterLimitsAuthEndpoints(t *testing.T) {
 	router := NewRouter(newTestProfileStore(), &RouterConfig{
 		APIAuthToken:          "01234567890123456789012345678901",
@@ -126,6 +211,56 @@ func TestRouterRateLimitUsesTrustedProxyConfig(t *testing.T) {
 
 		if rec.Code == http.StatusTooManyRequests {
 			t.Fatalf("request from forwarded client %s was rate limited", forwardedFor)
+		}
+	}
+}
+
+func TestRouterRateLimitIgnoresSpoofedForwardedHeaders(t *testing.T) {
+	router := NewRouter(newTestProfileStore(), &RouterConfig{
+		APIAuthToken:          "test-token",
+		AuthRateLimitRequests: 1,
+		AuthRateLimitWindow:   time.Minute,
+		TrustedProxies:        []string{"192.0.2.10"},
+	})
+
+	for i, forwardedFor := range []string{"198.51.100.1", "198.51.100.2"} {
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/login", strings.NewReader(`{}`))
+		req.RemoteAddr = "203.0.113.10:1234"
+		req.Header.Set("X-Forwarded-For", forwardedFor)
+		rec := httptest.NewRecorder()
+
+		router.ServeHTTP(rec, req)
+
+		if i == 0 && rec.Code == http.StatusTooManyRequests {
+			t.Fatal("first request must not be rate limited")
+		}
+		if i == 1 && rec.Code != http.StatusTooManyRequests {
+			t.Fatalf("second status = %d, want %d", rec.Code, http.StatusTooManyRequests)
+		}
+	}
+}
+
+func TestRouterRateLimitIgnoresInvalidForwardedHeaders(t *testing.T) {
+	router := NewRouter(newTestProfileStore(), &RouterConfig{
+		APIAuthToken:          "test-token",
+		AuthRateLimitRequests: 1,
+		AuthRateLimitWindow:   time.Minute,
+		TrustedProxies:        []string{"192.0.2.10"},
+	})
+
+	for i := range 2 {
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/login", strings.NewReader(`{}`))
+		req.RemoteAddr = "192.0.2.10:1234"
+		req.Header.Set("X-Forwarded-For", "not-an-ip")
+		rec := httptest.NewRecorder()
+
+		router.ServeHTTP(rec, req)
+
+		if i == 0 && rec.Code == http.StatusTooManyRequests {
+			t.Fatal("first request must not be rate limited")
+		}
+		if i == 1 && rec.Code != http.StatusTooManyRequests {
+			t.Fatalf("second status = %d, want %d", rec.Code, http.StatusTooManyRequests)
 		}
 	}
 }
@@ -244,7 +379,7 @@ func TestFinanceMutationIdempotencyReplaysStoredResponse(t *testing.T) {
 	body := `{
 		"account_id":"11111111-1111-1111-1111-111111111111",
 		"type":"income",
-		"amount_minor":1000
+		"amount":"1000"
 	}`
 	var firstBody string
 	for i := range 2 {
@@ -329,5 +464,25 @@ func assertJSONErrorEnvelope(t *testing.T, rec *httptest.ResponseRecorder, wantC
 	}
 	if body.Error.Details == nil {
 		t.Fatalf("error details = nil, want empty object; body = %s", rec.Body.String())
+	}
+}
+
+func assertSecurityHeaders(t *testing.T, rec *httptest.ResponseRecorder, wantHSTS bool) {
+	t.Helper()
+
+	if got := rec.Header().Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Fatalf("X-Content-Type-Options = %q", got)
+	}
+	if got := rec.Header().Get("Referrer-Policy"); got == "" {
+		t.Fatal("missing Referrer-Policy")
+	}
+	if got := rec.Header().Get("X-Frame-Options"); got != "DENY" {
+		t.Fatalf("X-Frame-Options = %q", got)
+	}
+	if got := rec.Header().Get("Content-Security-Policy"); got == "" {
+		t.Fatal("missing Content-Security-Policy")
+	}
+	if got := rec.Header().Get("Strict-Transport-Security"); wantHSTS && got == "" {
+		t.Fatal("missing Strict-Transport-Security")
 	}
 }

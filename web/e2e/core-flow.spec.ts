@@ -18,7 +18,7 @@ type Transaction = {
   related_account_id?: string | null;
   transfer_id?: string | null;
   type: string;
-  amount_minor: number;
+  amount: number;
   category_id?: string | null;
   description: string;
   occurred_at: string;
@@ -90,7 +90,7 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
         id: `transaction-${++transactionSeq}`,
         account_id: input.account_id,
         type: input.type,
-        amount_minor: input.amount_minor,
+        amount: input.amount,
         category_id: input.category_id,
         description: input.description,
         occurred_at: input.occurred_at,
@@ -112,7 +112,7 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
       related_account_id: input.to_account_id,
       transfer_id: transferID,
       type: "transfer_out",
-      amount_minor: input.amount_minor,
+      amount: input.amount,
       category_id: null,
       description: input.description,
       occurred_at: "2026-05-19",
@@ -124,7 +124,7 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
       related_account_id: input.from_account_id,
       transfer_id: transferID,
       type: "transfer_in",
-      amount_minor: input.amount_minor,
+      amount: input.amount,
       category_id: null,
       description: input.description,
       occurred_at: "2026-05-19",
@@ -185,8 +185,8 @@ function dashboardResponse(accounts: Account[], transactions: Transaction[], now
   for (const transaction of transactions) {
     const current = balanceByAccount.get(transaction.account_id) ?? 0;
     const signed = transaction.type === "expense" || transaction.type === "transfer_out"
-      ? -transaction.amount_minor
-      : transaction.amount_minor;
+      ? -transaction.amount
+      : transaction.amount;
     balanceByAccount.set(transaction.account_id, current + signed);
   }
   const total = [...balanceByAccount.values()].reduce((sum, value) => sum + value, 0);
@@ -195,13 +195,13 @@ function dashboardResponse(accounts: Account[], transactions: Transaction[], now
     generated_at: now,
     accounts_count: accounts.length,
     active_accounts_count: accounts.filter((account) => account.is_active).length,
-    balances: [{ currency: "RUB", amount_minor: total }],
-    monthly_income: [{ currency: "RUB", amount_minor: sumByType(transactions, "income") }],
-    monthly_expense: [{ currency: "RUB", amount_minor: sumByType(transactions, "expense") }],
-    monthly_interest_income: [{ currency: "RUB", amount_minor: 0 }],
+    balances: [{ currency: "RUB", amount: total }],
+    monthly_income: [{ currency: "RUB", amount: sumByType(transactions, "income") }],
+    monthly_expense: [{ currency: "RUB", amount: sumByType(transactions, "expense") }],
+    monthly_interest_income: [{ currency: "RUB", amount: "0" }],
     account_balances: accounts.map((account) => ({
       account_id: account.id,
-      balance_minor: balanceByAccount.get(account.id) ?? 0,
+      balance: balanceByAccount.get(account.id) ?? 0,
       transaction_count: transactions.filter((transaction) => transaction.account_id === account.id).length,
       name: account.name,
       bank: account.bank,
@@ -213,7 +213,7 @@ function dashboardResponse(accounts: Account[], transactions: Transaction[], now
     recent_transactions_limit: 10,
     recent_transactions_returned: Math.min(transactions.length, 10),
     months: 6,
-    total: [{ currency: "RUB", amount_minor: 0 }],
+    total: [{ currency: "RUB", amount: "0" }],
     buckets: [],
   };
 }
@@ -221,5 +221,6 @@ function dashboardResponse(accounts: Account[], transactions: Transaction[], now
 function sumByType(transactions: Transaction[], type: string) {
   return transactions
     .filter((transaction) => transaction.type === type)
-    .reduce((sum, transaction) => sum + transaction.amount_minor, 0);
+    .reduce((sum, transaction) => sum + transaction.amount, 0);
 }
+

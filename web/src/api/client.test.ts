@@ -168,7 +168,7 @@ describe("api client", () => {
     await expect(api.createTransaction({
       account_id: "account-1",
       type: "income",
-      amount_minor: 1000,
+      amount: "1000",
       description: "Salary",
       occurred_at: "2026-05-11",
     })).rejects.toMatchObject({
@@ -212,3 +212,5 @@ function jsonResponse(body: unknown, status = 200) {
     headers: { "Content-Type": "application/json" },
   });
 }
+
+

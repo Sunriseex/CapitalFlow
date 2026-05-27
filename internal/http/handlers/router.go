@@ -28,17 +28,25 @@ type Store interface {
 }
 
 type Handler struct {
-	store         Store
-	tokens        *auth.TokenService
-	accounts      *services.AccountService
-	transactions  *services.TransactionService
-	transfers     *services.TransferService
-	interestRules *services.InterestRuleService
+	store          Store
+	tokens         *auth.TokenService
+	cookieSecure   bool
+	cookieSameSite http.SameSite
+	accounts       *services.AccountService
+	transactions   *services.TransactionService
+	transfers      *services.TransferService
+	interestRules  *services.InterestRuleService
 }
 
 type RouterConfig struct {
+	AppEnv                    string
 	APIAuthToken              string
 	TokenService              *auth.TokenService
+	PublicOrigin              string
+	PublicOriginHost          string
+	CookieSecure              bool
+	CookieSameSite            string
+	AllowDirectIPLogin        bool
 	CORSAllowedOrigins        []string
 	RateLimitRequests         int
 	RateLimitWindow           time.Duration
@@ -56,22 +64,32 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 
 	var accountRepo repository.AccountRepository
 	var transactionRepo repository.TransactionRepository
+	var categoryRepo repository.CategoryRepository
 	var interestRuleRepo repository.InterestRuleRepository
 	var interestAccrualRepo repository.InterestAccrualRepository
 	if store != nil {
 		accountRepo = store.Accounts()
 		transactionRepo = store.Transactions()
+		categoryRepo = store.Categories()
 		interestRuleRepo = store.InterestRules()
 		interestAccrualRepo = store.InterestAccruals()
 	}
 
-	transactionService := services.NewTransactionService(transactionRepo)
+	transactionService := services.NewTransactionService(transactionRepo).
+		WithAccountRepository(accountRepo).
+		WithCategoryRepository(categoryRepo)
+	cookieSecure := cfg.CookieSecure
+	if cfg.AppEnv == "" && cfg.CookieSameSite == "" {
+		cookieSecure = true
+	}
 	h := &Handler{
-		store:        store,
-		tokens:       cfg.TokenService,
-		accounts:     services.NewAccountService(accountRepo),
-		transactions: transactionService,
-		transfers:    services.NewTransferService(transactionService),
+		store:          store,
+		tokens:         cfg.TokenService,
+		cookieSecure:   cookieSecure,
+		cookieSameSite: cookieSameSiteMode(cfg.CookieSameSite),
+		accounts:       services.NewAccountService(accountRepo),
+		transactions:   transactionService,
+		transfers:      services.NewTransferService(transactionService),
 		interestRules: services.NewInterestRuleService(
 			transactionService,
 			services.WithInterestRuleRepository(interestRuleRepo),
@@ -82,6 +100,10 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 	r.Use(chimiddleware.RequestID)
 	r.Use(appmiddleware.RequestLogger)
 	r.Use(chimiddleware.Recoverer)
+	r.Use(appmiddleware.SecurityHeaders(appmiddleware.SecurityHeadersConfig{
+		PublicOrigin: cfg.PublicOrigin,
+		CookieSecure: cfg.CookieSecure,
+	}))
 	r.Use(appmiddleware.CORS(&appmiddleware.CORSConfig{
 		AllowedOrigins: cfg.CORSAllowedOrigins,
 		AllowedMethods: []string{
@@ -93,6 +115,12 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 		},
 		AllowedHeaders:   []string{"Authorization", "Content-Type", appmiddleware.IdempotencyKeyHeader},
 		AllowCredentials: true,
+	}))
+	r.Use(appmiddleware.AuthHostPolicy(appmiddleware.HostPolicyConfig{
+		AppEnv:             cfg.AppEnv,
+		PublicOrigin:       cfg.PublicOrigin,
+		PublicOriginHost:   cfg.PublicOriginHost,
+		AllowDirectIPLogin: cfg.AllowDirectIPLogin,
 	}))
 
 	authRateLimit := appmiddleware.RateLimitByIPWithTrustedProxies(
@@ -131,7 +159,6 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 			r.Patch("/accounts/{id}", h.updateAccount)
 			r.Post("/accounts/{id}/archive", h.archiveAccount)
 			r.With(appmiddleware.RequireIdempotencyKey).Post("/transactions", h.createTransaction)
-			r.Delete("/transactions/{id}", h.deleteTransaction)
 			r.With(appmiddleware.RequireIdempotencyKey).Post("/transfers", h.createTransfer)
 			r.Post("/accounts/{id}/interest-rules", h.createInterestRule)
 			r.Patch("/interest-rules/{id}", h.updateInterestRule)
@@ -150,6 +177,7 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 
 		r.Get("/transactions", h.listTransactions)
 		r.Get("/transactions/{id}", h.getTransaction)
+		r.Get("/transfers", h.listTransfers)
 
 		r.Get("/interest-rules", h.listUserInterestRules)
 		r.Get("/accounts/{id}/interest-rules", h.listInterestRules)

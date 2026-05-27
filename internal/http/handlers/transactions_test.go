@@ -14,56 +14,13 @@ import (
 	"github.com/sunriseex/capitalflow/internal/repository"
 )
 
-func TestIsTransferTransaction(t *testing.T) {
-	tests := []struct {
-		name            string
-		transactionType models.TransactionType
-		want            bool
-	}{
-		{
-			name:            "transfer in",
-			transactionType: models.TransactionTypeTransferIn,
-			want:            true,
-		},
-		{
-			name:            "transfer out",
-			transactionType: models.TransactionTypeTransferOut,
-			want:            true,
-		},
-		{
-			name:            "income",
-			transactionType: models.TransactionTypeIncome,
-			want:            false,
-		},
-		{
-			name:            "expense",
-			transactionType: models.TransactionTypeExpense,
-			want:            false,
-		},
-		{
-			name:            "interest income",
-			transactionType: models.TransactionTypeInterestIncome,
-			want:            false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := isTransferTransaction(tt.transactionType)
-			if got != tt.want {
-				t.Fatalf("isTransferTransaction(%q) = %t, want %t", tt.transactionType, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestApplyTransactionListFilter(t *testing.T) {
 	categoryID := "11111111-1111-1111-1111-111111111111"
 	transactions := []models.Transaction{
 		{
 			ID:          "old-income",
 			Type:        models.TransactionTypeIncome,
-			AmountMinor: 10_000,
+			Amount:      dec("100"),
 			CategoryID:  &categoryID,
 			Description: "Salary May",
 			OccurredAt:  time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC),
@@ -71,14 +28,14 @@ func TestApplyTransactionListFilter(t *testing.T) {
 		{
 			ID:          "expense",
 			Type:        models.TransactionTypeExpense,
-			AmountMinor: 3_000,
+			Amount:      dec("30"),
 			Description: "Food",
 			OccurredAt:  time.Date(2026, 5, 2, 12, 0, 0, 0, time.UTC),
 		},
 		{
 			ID:          "new-income",
 			Type:        models.TransactionTypeIncome,
-			AmountMinor: 20_000,
+			Amount:      dec("200"),
 			CategoryID:  &categoryID,
 			Description: "Salary June",
 			OccurredAt:  time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC),
@@ -141,7 +98,7 @@ func TestListTransactionsUsesRepositoryFiltering(t *testing.T) {
 				ID:          "33333333-3333-3333-3333-333333333333",
 				AccountID:   "11111111-1111-1111-1111-111111111111",
 				Type:        models.TransactionTypeIncome,
-				AmountMinor: 100,
+				Amount:      dec("1"),
 				CategoryID:  &categoryID,
 				Description: "Salary June",
 				OccurredAt:  time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC),
@@ -194,52 +151,24 @@ func TestCreateTransactionRejectsTransferTypes(t *testing.T) {
 
 	for _, transactionType := range tests {
 		t.Run(string(transactionType), func(t *testing.T) {
-			if !isTransferTransaction(transactionType) {
-				t.Fatalf("expected %q to be recognized as transfer transaction", transactionType)
-			}
-		})
-	}
-}
+			tokens, pair := testProfileTokenPair(t)
+			store := newTestProfileStore()
+			store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
 
-func TestRejectDirectTransferTransaction(t *testing.T) {
-	tests := []struct {
-		name            string
-		transactionType models.TransactionType
-		wantRejected    bool
-		wantStatus      int
-	}{
-		{
-			name:            "transfer in",
-			transactionType: models.TransactionTypeTransferIn,
-			wantRejected:    true,
-			wantStatus:      http.StatusBadRequest,
-		},
-		{
-			name:            "transfer out",
-			transactionType: models.TransactionTypeTransferOut,
-			wantRejected:    true,
-			wantStatus:      http.StatusBadRequest,
-		},
-		{
-			name:            "income",
-			transactionType: models.TransactionTypeIncome,
-			wantRejected:    false,
-			wantStatus:      http.StatusOK,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+			router := NewRouter(store, &RouterConfig{TokenService: tokens})
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/transactions", strings.NewReader(`{
+				"account_id":"11111111-1111-1111-1111-111111111111",
+				"type":"`+string(transactionType)+`",
+				"amount":"100"
+			}`))
+			req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
+			req.Header.Set("Idempotency-Key", "reject-direct-"+string(transactionType))
 			rec := httptest.NewRecorder()
 
-			gotRejected := rejectDirectTransferTransaction(rec, tt.transactionType)
+			router.ServeHTTP(rec, req)
 
-			if gotRejected != tt.wantRejected {
-				t.Fatalf("rejected = %t, want %t", gotRejected, tt.wantRejected)
-			}
-
-			if tt.wantRejected && rec.Code != tt.wantStatus {
-				t.Fatalf("status = %d, want %d", rec.Code, tt.wantStatus)
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 			}
 		})
 	}
@@ -256,7 +185,7 @@ func TestCreateTransactionUsesUserScopedCreate(t *testing.T) {
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/transactions", strings.NewReader(`{
 		"account_id":"11111111-1111-1111-1111-111111111111",
 		"type":"income",
-		"amount_minor":100
+		"amount":"100"
 	}`))
 	req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
 	req.Header.Set("Idempotency-Key", "create-transaction-user-scoped")
@@ -285,7 +214,7 @@ func TestCreateTransactionForOtherUsersAccountReturnsNotFound(t *testing.T) {
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/transactions", strings.NewReader(`{
 		"account_id":"22222222-2222-2222-2222-222222222222",
 		"type":"income",
-		"amount_minor":100
+		"amount":"100"
 	}`))
 	req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
 	req.Header.Set("Idempotency-Key", "create-transaction-other-account")
@@ -295,6 +224,23 @@ func TestCreateTransactionForOtherUsersAccountReturnsNotFound(t *testing.T) {
 
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusNotFound, rec.Body.String())
+	}
+}
+
+func TestDeleteTransactionRouteIsRemoved(t *testing.T) {
+	tokens, pair := testProfileTokenPair(t)
+	store := newTestProfileStore()
+	store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
+
+	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/transactions/33333333-3333-3333-3333-333333333333", nil)
+	req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusMethodNotAllowed, rec.Body.String())
 	}
 }
 

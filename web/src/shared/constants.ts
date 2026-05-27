@@ -9,3 +9,5 @@ export const accountTypes: AccountType[] = ["cash", "card", "savings", "term_dep
 export const transactionTypes: TransactionType[] = ["income", "expense", "adjustment"];
 export const themeStorageKey = "capitalflow_theme";
 
+
+

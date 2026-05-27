@@ -17,6 +17,8 @@ const (
 	defaultExchangeRateTTL = 6 * time.Hour
 )
 
+var maxExchangeRate = decimal.RequireFromString("1000000000000")
+
 type ExchangeRates struct {
 	Base      string
 	Date      string
@@ -52,27 +54,30 @@ func (s *CurrencyService) Latest(ctx context.Context, base string) (*ExchangeRat
 	return rates, nil
 }
 
-func (s *CurrencyService) ConvertMinor(ctx context.Context, amountMinor int64, from, to string) (int64, decimal.Decimal, error) {
+func (s *CurrencyService) ConvertDecimalAmount(ctx context.Context, amount decimal.Decimal, from, to string) (converted, rate decimal.Decimal, err error) {
 	from = normalizeCurrency(from)
 	to = normalizeCurrency(to)
 	if from == "" || to == "" {
-		return 0, decimal.Zero, validationError("currency is required")
+		return decimal.Zero, decimal.Zero, validationError("currency is required")
 	}
 	if from == to {
-		return amountMinor, decimal.NewFromInt(1), nil
+		return amount, decimal.NewFromInt(1), nil
 	}
 
 	rates, err := s.Latest(ctx, from)
 	if err != nil {
-		return 0, decimal.Zero, err
+		return decimal.Zero, decimal.Zero, err
 	}
 
 	rate, ok := rates.Rates[to]
 	if !ok || !rate.IsPositive() {
-		return 0, decimal.Zero, validationError("exchange rate not found for " + from + "/" + to)
+		return decimal.Zero, decimal.Zero, validationError("exchange rate not found for " + from + "/" + to)
+	}
+	if rate.GreaterThan(maxExchangeRate) {
+		return decimal.Zero, decimal.Zero, validationError("exchange rate is too large for " + from + "/" + to)
 	}
 
-	converted := decimal.NewFromInt(amountMinor).Mul(rate).Round(0).IntPart()
+	converted = amount.Mul(rate)
 	return converted, rate, nil
 }
 

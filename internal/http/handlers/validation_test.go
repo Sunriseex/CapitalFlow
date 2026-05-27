@@ -8,67 +8,6 @@ import (
 	"github.com/sunriseex/capitalflow/internal/models"
 )
 
-func TestValidateAccountRejectsInvalidCurrency(t *testing.T) {
-	tests := []struct {
-		name     string
-		currency string
-		wantErr  bool
-	}{
-		{
-			name:     "valid RUB",
-			currency: "RUB",
-		},
-		{
-			name:     "valid USD",
-			currency: "USD",
-		},
-		{
-			name:     "too short",
-			currency: "RU",
-			wantErr:  true,
-		},
-		{
-			name:     "too long",
-			currency: "RUBL",
-			wantErr:  true,
-		},
-		{
-			name:     "contains digits",
-			currency: "R1B",
-			wantErr:  true,
-		},
-		{
-			name:     "contains symbol",
-			currency: "12$",
-			wantErr:  true,
-		},
-		{
-			name:     "lowercase is rejected at validation level",
-			currency: "rub",
-			wantErr:  true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			account := validTestAccount()
-			account.Currency = tt.currency
-
-			err := validateAccount(account)
-			if tt.wantErr {
-				if err == nil {
-					t.Fatal("expected error, got nil")
-				}
-				return
-			}
-
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-		})
-	}
-}
-
 func TestValidateInterestRuleAppliesDefaults(t *testing.T) {
 	rule := validTestInterestRule()
 	rule.AccrualFrequency = ""
@@ -229,20 +168,6 @@ func TestValidateInterestRuleRejectsInvalidPromoConfig(t *testing.T) {
 	}
 }
 
-func validTestAccount() *models.Account {
-	now := time.Date(2026, 5, 6, 0, 0, 0, 0, time.UTC)
-	return &models.Account{
-		ID:        "account-1",
-		Name:      "Main account",
-		Type:      models.AccountTypeSavings,
-		Currency:  "RUB",
-		IsActive:  true,
-		OpenedAt:  now,
-		CreatedAt: now,
-		UpdatedAt: now,
-	}
-}
-
 func validTestInterestRule() *models.InterestRule {
 	return &models.InterestRule{
 		ID:                      "rule-1",
@@ -358,22 +283,22 @@ func TestLatestApplicableInterestRuleIgnoresRulesOutsideAccrualDate(t *testing.T
 func TestTransactionsUpToDateFiltersFutureTransactions(t *testing.T) {
 	transactions := []models.Transaction{
 		{
-			ID:          "tx-before",
-			AccountID:   "account-1",
-			AmountMinor: 100_000,
-			OccurredAt:  time.Date(2026, 5, 1, 10, 0, 0, 0, time.UTC),
+			ID:         "tx-before",
+			AccountID:  "account-1",
+			Amount:     dec("1000"),
+			OccurredAt: time.Date(2026, 5, 1, 10, 0, 0, 0, time.UTC),
 		},
 		{
-			ID:          "tx-same-day",
-			AccountID:   "account-1",
-			AmountMinor: 50_000,
-			OccurredAt:  time.Date(2026, 5, 5, 23, 59, 59, 0, time.UTC),
+			ID:         "tx-same-day",
+			AccountID:  "account-1",
+			Amount:     dec("500"),
+			OccurredAt: time.Date(2026, 5, 5, 23, 59, 59, 0, time.UTC),
 		},
 		{
-			ID:          "tx-after",
-			AccountID:   "account-1",
-			AmountMinor: 200_000,
-			OccurredAt:  time.Date(2026, 5, 6, 0, 0, 0, 0, time.UTC),
+			ID:         "tx-after",
+			AccountID:  "account-1",
+			Amount:     dec("2000"),
+			OccurredAt: time.Date(2026, 5, 6, 0, 0, 0, 0, time.UTC),
 		},
 	}
 

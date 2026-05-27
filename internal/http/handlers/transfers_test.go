@@ -23,7 +23,7 @@ func TestTransferRouteCreatesOwnedTransfer(t *testing.T) {
 	req := newTestTransferRequest(t, token, "create-owned-transfer", `{
 		"from_account_id":"`+testTransferFromAccountID+`",
 		"to_account_id":"`+testTransferToAccountID+`",
-		"amount_minor":12500,
+		"amount":"12500",
 		"description":"Move savings"
 	}`)
 	rec := httptest.NewRecorder()
@@ -56,8 +56,80 @@ func TestTransferRouteCreatesOwnedTransfer(t *testing.T) {
 	if response.In.AccountID != testTransferToAccountID || response.In.Type != models.TransactionTypeTransferIn {
 		t.Fatalf("in transaction = %+v", response.In)
 	}
-	if response.Out.AmountMinor != 12500 || response.In.AmountMinor != 12500 {
-		t.Fatalf("amounts = out %d in %d, want 12500", response.Out.AmountMinor, response.In.AmountMinor)
+	if !response.Out.Amount.Equal(dec("12500")) || !response.In.Amount.Equal(dec("12500")) {
+		t.Fatalf("amounts = out %s in %s, want 12500", response.Out.Amount.Decimal, response.In.Amount.Decimal)
+	}
+}
+
+func TestTransferRouteCreatesTransferWithFee(t *testing.T) {
+	router, transactions, token := newTestTransferRouter(t)
+	req := newTestTransferRequest(t, token, "create-fee-transfer", `{
+		"from_account_id":"`+testTransferFromAccountID+`",
+		"to_account_id":"`+testTransferToAccountID+`",
+		"amount":"12500",
+		"fee_amount":"12.50",
+		"description":"Move savings"
+	}`)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+	if len(transactions.createTransferTransactions) != 3 {
+		t.Fatalf("created transactions = %d, want 3", len(transactions.createTransferTransactions))
+	}
+	if transactions.createTransferTransactions[2].Type != models.TransactionTypeExpense {
+		t.Fatalf("fee transaction = %+v", transactions.createTransferTransactions[2])
+	}
+
+	var response dto.TransferResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if response.Fee == nil || response.Fee.Type != models.TransactionTypeExpense {
+		t.Fatalf("fee response = %+v", response.Fee)
+	}
+}
+
+func TestTransferRouteListsTransferEvents(t *testing.T) {
+	router, transactions, token := newTestTransferRouter(t)
+	now := time.Date(2026, 5, 25, 12, 0, 0, 0, time.UTC)
+	transactions.listTransfersByUser = []models.Transfer{{
+		ID:                   "44444444-4444-4444-4444-444444444444",
+		UserID:               "user-1",
+		FromAccountID:        testTransferFromAccountID,
+		ToAccountID:          testTransferToAccountID,
+		FromTransactionID:    "55555555-5555-5555-5555-555555555555",
+		ToTransactionID:      "66666666-6666-6666-6666-666666666666",
+		FromAmount:           dec("12500"),
+		ToAmount:             dec("12500"),
+		FromCurrency:         "RUB",
+		ToCurrency:           "RUB",
+		ExchangeRate:         "1",
+		ExchangeRateScale:    18,
+		ExchangeRateProvider: "internal",
+		ExchangeRateDate:     now,
+		Status:               "completed",
+		CreatedAt:            now,
+		UpdatedAt:            now,
+	}}
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/transfers", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var response []dto.TransferEventResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(response) != 1 || response[0].ID != "44444444-4444-4444-4444-444444444444" {
+		t.Fatalf("response = %+v", response)
 	}
 }
 
@@ -66,7 +138,7 @@ func TestTransferRouteRejectsForeignAccount(t *testing.T) {
 	req := newTestTransferRequest(t, token, "reject-foreign-transfer", `{
 		"from_account_id":"`+testTransferFromAccountID+`",
 		"to_account_id":"`+testForeignAccountID+`",
-		"amount_minor":12500
+		"amount":"12500"
 	}`)
 	rec := httptest.NewRecorder()
 
@@ -105,7 +177,7 @@ func TestTransferRouteRejectsValidationErrors(t *testing.T) {
 			body: `{
 				"from_account_id":"not-a-uuid",
 				"to_account_id":"` + testTransferToAccountID + `",
-				"amount_minor":12500
+				"amount":"12500"
 			}`,
 		},
 		{
@@ -113,7 +185,7 @@ func TestTransferRouteRejectsValidationErrors(t *testing.T) {
 			body: `{
 				"from_account_id":"` + testTransferFromAccountID + `",
 				"to_account_id":"` + testTransferFromAccountID + `",
-				"amount_minor":12500
+				"amount":"12500"
 			}`,
 		},
 		{
@@ -121,7 +193,7 @@ func TestTransferRouteRejectsValidationErrors(t *testing.T) {
 			body: `{
 				"from_account_id":"` + testTransferFromAccountID + `",
 				"to_account_id":"` + testTransferToAccountID + `",
-				"amount_minor":0
+				"amount":"0"
 			}`,
 		},
 	}
@@ -149,7 +221,7 @@ func TestTransferRouteIdempotentRetryReplaysResponse(t *testing.T) {
 	body := `{
 		"from_account_id":"` + testTransferFromAccountID + `",
 		"to_account_id":"` + testTransferToAccountID + `",
-		"amount_minor":12500,
+		"amount":"12500",
 		"description":"Move savings"
 	}`
 

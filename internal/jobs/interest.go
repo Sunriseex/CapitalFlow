@@ -150,7 +150,8 @@ func (j *InterestJob) accrueTarget(ctx context.Context, target *repository.Inter
 
 		response, err := services.NewInterestRuleService(nil).Accrue(ctx, &services.AccrueRuleInterestRequest{
 			Rule:             target.Rule,
-			BalanceMinor:     balance.BalanceMinor,
+			Currency:         target.AccountCurrency,
+			Balance:          balance.Balance,
 			AccrualDate:      accrualDate,
 			Transactions:     principal,
 			ExistingAccruals: accruals,
