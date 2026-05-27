@@ -344,6 +344,7 @@ func isPlaceholderSecret(value string) bool {
 		"change-me",
 		"change-me-to-at-least-32-random-bytes",
 		"change-me-to-a-long-random-secret",
+		"replace-with-32-plus-random-characters",
 		"your-jwt-secret",
 		"secret",
 	}

@@ -142,6 +142,7 @@ func TestInitProductionRequiresPublicOriginAndStrongJWTSecret(t *testing.T) {
 		{name: "missing origin", jwtSecret: "01234567890123456789012345678901"},
 		{name: "short secret", publicOrigin: "https://capitalflow.home.arpa", jwtSecret: "short"},
 		{name: "placeholder secret", publicOrigin: "https://capitalflow.home.arpa", jwtSecret: "change-me-to-at-least-32-random-bytes"},
+		{name: "example env placeholder secret", publicOrigin: "https://capitalflow.home.arpa", jwtSecret: "replace-with-32-plus-random-characters"},
 	}
 
 	for _, tt := range tests {
