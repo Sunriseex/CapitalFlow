@@ -135,6 +135,60 @@ func TestAuthSetupSetsSecureRefreshCookie(t *testing.T) {
 	if cookie.Path != "/auth" {
 		t.Fatalf("Path = %q, want /auth", cookie.Path)
 	}
+
+	refreshReq := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/refresh", http.NoBody)
+	refreshReq.AddCookie(cookie)
+	refreshRec := httptest.NewRecorder()
+	router.ServeHTTP(refreshRec, refreshReq)
+	if refreshRec.Code != http.StatusOK {
+		t.Fatalf("refresh status = %d, want %d: %s", refreshRec.Code, http.StatusOK, refreshRec.Body.String())
+	}
+}
+
+func TestAuthSetupUsesConfiguredRefreshCookiePolicy(t *testing.T) {
+	tokens, err := auth.NewTokenService(testJWTSecret, "capitalflow", time.Minute, time.Hour)
+	if err != nil {
+		t.Fatalf("new token service: %v", err)
+	}
+	router := NewRouter(newTestProfileStore(), &RouterConfig{
+		AppEnv:         "development",
+		TokenService:   tokens,
+		CookieSecure:   false,
+		CookieSameSite: "Lax",
+	})
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/setup", strings.NewReader(`{
+		"email":"user@example.com",
+		"password":"correct horse battery staple",
+		"primary_currency":"RUB"
+	}`))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+	cookie := requireRefreshCookie(t, rec.Result().Cookies())
+	if cookie.Name != insecureRefreshCookieName {
+		t.Fatalf("refresh cookie name = %q, want %q", cookie.Name, insecureRefreshCookieName)
+	}
+	if cookie.Secure {
+		t.Fatal("refresh cookie Secure = true, want false")
+	}
+	if cookie.SameSite != http.SameSiteLaxMode {
+		t.Fatalf("SameSite = %v, want Lax", cookie.SameSite)
+	}
+	if cookie.Path != "/auth" {
+		t.Fatalf("Path = %q, want /auth", cookie.Path)
+	}
+
+	refreshReq := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/refresh", http.NoBody)
+	refreshReq.AddCookie(cookie)
+	refreshRec := httptest.NewRecorder()
+	router.ServeHTTP(refreshRec, refreshReq)
+	if refreshRec.Code != http.StatusOK {
+		t.Fatalf("refresh status = %d, want %d: %s", refreshRec.Code, http.StatusOK, refreshRec.Body.String())
+	}
 }
 
 func TestAuthRefreshAcceptsRefreshCookieFallback(t *testing.T) {
@@ -458,10 +512,10 @@ func requireRefreshCookie(t *testing.T, cookies []*http.Cookie) *http.Cookie {
 	t.Helper()
 
 	for _, cookie := range cookies {
-		if cookie.Name == refreshCookieName {
+		if cookie.Name == refreshCookieName || cookie.Name == insecureRefreshCookieName {
 			return cookie
 		}
 	}
-	t.Fatalf("missing %s cookie in %v", refreshCookieName, cookies)
+	t.Fatalf("missing refresh cookie in %v", cookies)
 	return nil
 }

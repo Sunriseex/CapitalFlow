@@ -32,6 +32,7 @@ Minimal local values:
 ```env
 APP_VERSION=0.1.0-dev
 LOG_LEVEL=debug
+APP_ENV=development
 
 DATABASE_URL=postgres://capitalflow:capitalflow@localhost:5432/capitalflow?sslmode=disable
 API_AUTH_TOKEN=change-me-to-a-long-random-token
@@ -39,6 +40,10 @@ JWT_SECRET=change-me-to-a-long-random-secret
 
 ACCESS_TOKEN_TTL=15m
 REFRESH_TOKEN_TTL=720h
+PUBLIC_ORIGIN=
+COOKIE_SECURE=true
+COOKIE_SAMESITE=Strict
+ALLOW_DIRECT_IP_LOGIN=true
 
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 RATE_LIMIT_REQUESTS=120
@@ -65,6 +70,20 @@ openssl rand -hex 64
 Use the first value for `API_AUTH_TOKEN` and the second value for `JWT_SECRET`.
 
 Do not commit `configs/.env`.
+
+For self-hosted production behind a reverse proxy, use a real origin and disable direct IP login:
+
+```env
+APP_ENV=production
+PUBLIC_ORIGIN=https://capitalflow.home.arpa
+COOKIE_SECURE=true
+COOKIE_SAMESITE=Strict
+ALLOW_DIRECT_IP_LOGIN=false
+TRUSTED_PROXIES=127.0.0.1/32,172.16.0.0/12
+CORS_ALLOWED_ORIGINS=https://capitalflow.home.arpa
+```
+
+See `docs/security/reverse-proxy.md` and `docs/security/csrf.md`.
 
 ## 3. Start PostgreSQL
 

@@ -51,7 +51,7 @@ CapitalFlow — self-hosted сервис для личного учета фин
 
 * [x] v0.5.5 Architecture Stabilization.
 * [x] v0.5.6 Financial Auditability & Idempotency.
-* [ ] v0.5.7 Security Baseline Before Passkeys.
+* [x] v0.5.7 Security Baseline Before Passkeys.
 * [ ] v0.5.8 Passkey Login / WebAuthn.
 * [ ] v0.5.9 E2E Testing Baseline.
 * [ ] v0.6 Deposit & Capitalization Engine.
@@ -278,18 +278,18 @@ idempotency_keys
 
 ## Scope
 
-* [ ] JWT secret не имеет дефолтного production значения.
-* [ ] Access token TTL короткий.
-* [ ] Refresh token хранится только hashed.
-* [ ] Refresh cookie: Secure, HttpOnly, SameSite, Path.
-* [ ] Logout отзывает refresh session.
-* [ ] Password change отзывает все refresh sessions.
-* [ ] Setup первого пользователя нельзя вызвать повторно.
-* [ ] Rate limit работает за reverse proxy.
-* [ ] Реальный client IP корректно определяется через trusted proxy config.
-* [ ] CORS не разрешает wildcard credentials.
-* [ ] CSRF модель явно описана.
-* [ ] Security headers добавлены.
+* [x] JWT secret не имеет дефолтного production значения.
+* [x] Access token TTL короткий.
+* [x] Refresh token хранится только hashed.
+* [x] Refresh cookie: Secure, HttpOnly, SameSite, Path.
+* [x] Logout отзывает refresh session.
+* [x] Password change отзывает все refresh sessions.
+* [x] Setup первого пользователя нельзя вызвать повторно.
+* [x] Rate limit работает за reverse proxy.
+* [x] Реальный client IP корректно определяется через trusted proxy config.
+* [x] CORS не разрешает wildcard credentials.
+* [x] CSRF модель явно описана.
+* [x] Security headers добавлены.
 
 ## Self-host configuration
 
@@ -304,21 +304,21 @@ WEBAUTHN_ORIGINS=https://capitalflow.example.com
 
 ## Edge cases
 
-* [ ] Login через reverse proxy.
-* [ ] Login напрямую по IP должен быть запрещен или явно dev-only.
-* [ ] Неверный `X-Forwarded-For` не должен обходить rate limit.
-* [ ] CORS preflight не ломает auth.
-* [ ] Refresh cookie не отправляется на `/api/*`, если `Path=/auth`.
-* [ ] Access token expired, refresh успешен.
-* [ ] Refresh token reused после rotation.
-* [ ] Пользователь сменил пароль на одном устройстве, остальные сессии умерли.
+* [x] Login через reverse proxy.
+* [x] Login напрямую по IP должен быть запрещен или явно dev-only.
+* [x] Неверный `X-Forwarded-For` не должен обходить rate limit.
+* [x] CORS preflight не ломает auth.
+* [x] Refresh cookie не отправляется на `/api/*`, если `Path=/auth`.
+* [x] Access token expired, refresh успешен.
+* [x] Refresh token reused после rotation.
+* [x] Пользователь сменил пароль на одном устройстве, остальные сессии умерли.
 
 ## Acceptance criteria
 
-* [ ] Есть `docs/security/reverse-proxy.md`.
-* [ ] Есть `docs/security/csrf.md`.
-* [ ] Есть integration tests для auth за trusted proxy.
-* [ ] Есть security tests на refresh reuse, logout, password change, CORS, CSRF.
+* [x] Есть `docs/security/reverse-proxy.md`.
+* [x] Есть `docs/security/csrf.md`.
+* [x] Есть integration tests для auth за trusted proxy.
+* [x] Есть security tests на refresh reuse, logout, password change, CORS, CSRF.
 
 ---
 
