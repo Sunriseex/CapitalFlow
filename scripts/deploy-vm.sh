@@ -59,6 +59,20 @@ origin_host() {
   printf '%s\n' "${origin}"
 }
 
+set_env_var() {
+  local key="$1"
+  local value="$2"
+  local env_file="deploy/.env"
+  local tmp
+  tmp="$(mktemp)"
+  if [ -f "${env_file}" ]; then
+    grep -v "^${key}=" "${env_file}" > "${tmp}" || true
+  fi
+  printf '%s=%s\n' "${key}" "${value}" >> "${tmp}"
+  mv "${tmp}" "${env_file}"
+  chmod 600 "${env_file}"
+}
+
 cd "$REMOTE_DIR"
 mkdir -p deploy
 echo "Deploying CapitalFlow ${DEPLOY_COMMIT}"
@@ -115,16 +129,21 @@ print(f"postgres://{user}:{password}@postgres:5432/{database}?sslmode=disable")
 PY
 )"
 export DATABASE_URL
+set_env_var CAPITALFLOW_HOST "${CAPITALFLOW_HOST}"
+set_env_var CAPITALFLOW_PROXY_NETWORK "${CAPITALFLOW_PROXY_NETWORK}"
+set_env_var DATABASE_URL "${DATABASE_URL}"
 
 if ! docker network inspect "${CAPITALFLOW_PROXY_NETWORK}" >/dev/null 2>&1; then
   docker network create "${CAPITALFLOW_PROXY_NETWORK}" >/dev/null
 fi
 
-docker compose -f deploy/compose.yaml --profile tools build api web migrate
-docker compose -f deploy/compose.yaml up -d postgres
-docker compose -f deploy/compose.yaml --profile tools run -T --rm migrate </dev/null
-docker compose -f deploy/compose.yaml up -d --no-build api web
-docker compose -f deploy/compose.yaml ps
+cd deploy
+
+docker compose --profile tools build api web migrate
+docker compose up -d postgres
+docker compose --profile tools run -T --rm migrate </dev/null
+docker compose up -d --no-build api web
+docker compose ps
 
 curl -fsS "http://127.0.0.1:${CAPITALFLOW_API_PORT}/health" >/dev/null
 curl -fsS "http://127.0.0.1:${CAPITALFLOW_API_PORT}/ready" >/dev/null
