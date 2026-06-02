@@ -124,11 +124,21 @@ set -a
 . deploy/.env
 set +a
 
-[ -z "${requested_public_origin}" ] || PUBLIC_ORIGIN="${requested_public_origin}"
-[ -z "${requested_capitalflow_host}" ] || CAPITALFLOW_HOST="${requested_capitalflow_host}"
-[ -z "${requested_proxy_network}" ] || CAPITALFLOW_PROXY_NETWORK="${requested_proxy_network}"
-[ -z "${requested_api_image}" ] || CAPITALFLOW_API_IMAGE="${requested_api_image}"
-[ -z "${requested_web_image}" ] || CAPITALFLOW_WEB_IMAGE="${requested_web_image}"
+if [ -n "${requested_public_origin}" ]; then
+  PUBLIC_ORIGIN="${requested_public_origin}"
+fi
+if [ -n "${requested_capitalflow_host}" ]; then
+  CAPITALFLOW_HOST="${requested_capitalflow_host}"
+fi
+if [ -n "${requested_proxy_network}" ]; then
+  CAPITALFLOW_PROXY_NETWORK="${requested_proxy_network}"
+fi
+if [ -n "${requested_api_image}" ]; then
+  CAPITALFLOW_API_IMAGE="${requested_api_image}"
+fi
+if [ -n "${requested_web_image}" ]; then
+  CAPITALFLOW_WEB_IMAGE="${requested_web_image}"
+fi
 
 CAPITALFLOW_API_PORT="${CAPITALFLOW_API_PORT:-18080}"
 CAPITALFLOW_WEB_PORT="${CAPITALFLOW_WEB_PORT:-18081}"

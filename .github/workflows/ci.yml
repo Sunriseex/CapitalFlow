@@ -228,7 +228,7 @@ jobs:
       - web
       - openapi
       - migrations
-    if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'master')
+    if: github.event_name == 'push' && contains(fromJSON('["main", "master"]'), github.ref_name)
     permissions:
       contents: read
       packages: write
@@ -283,7 +283,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - build-images
-    if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'master')
+    if: github.event_name == 'push' && contains(fromJSON('["main", "master"]'), github.ref_name)
     environment: production
     permissions:
       contents: read
