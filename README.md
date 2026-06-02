@@ -469,7 +469,10 @@ Required GitHub Actions secrets for production deploy:
 VM_SSH_HOST
 VM_SSH_USER
 VM_SSH_PRIVATE_KEY
+VM_SSH_KNOWN_HOSTS
 ```
+
+`VM_SSH_KNOWN_HOSTS` must contain the pinned VM SSH host key line, for example the reviewed output of `ssh-keyscan <host>`.
 
 Optional deploy settings can be stored as repository or environment variables:
 

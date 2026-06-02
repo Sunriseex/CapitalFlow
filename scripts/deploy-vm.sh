@@ -3,7 +3,12 @@ set -euo pipefail
 
 VM_HOST="${VM_HOST:-VM}"
 REMOTE_DIR="${REMOTE_DIR:-/home/sunriseex/projects/CapitalFlow}"
-PUBLIC_ORIGIN="${PUBLIC_ORIGIN:-https://capitalflow.home.arpa}"
+requested_public_origin="${PUBLIC_ORIGIN-}"
+requested_capitalflow_host="${CAPITALFLOW_HOST-}"
+requested_proxy_network="${CAPITALFLOW_PROXY_NETWORK-}"
+requested_api_image="${CAPITALFLOW_API_IMAGE-}"
+requested_web_image="${CAPITALFLOW_WEB_IMAGE-}"
+PUBLIC_ORIGIN="${requested_public_origin:-https://capitalflow.home.arpa}"
 origin_host() {
   local origin="$1"
   origin="${origin#*://}"
@@ -15,10 +20,10 @@ origin_host() {
   printf '%s\n' "${origin}"
 }
 
-CAPITALFLOW_HOST="${CAPITALFLOW_HOST:-$(origin_host "${PUBLIC_ORIGIN}")}"
-CAPITALFLOW_PROXY_NETWORK="${CAPITALFLOW_PROXY_NETWORK:-proxy}"
-CAPITALFLOW_API_IMAGE="${CAPITALFLOW_API_IMAGE:-capitalflow-api:local}"
-CAPITALFLOW_WEB_IMAGE="${CAPITALFLOW_WEB_IMAGE:-capitalflow-web:local}"
+CAPITALFLOW_HOST="${requested_capitalflow_host:-$(origin_host "${PUBLIC_ORIGIN}")}"
+CAPITALFLOW_PROXY_NETWORK="${requested_proxy_network:-proxy}"
+CAPITALFLOW_API_IMAGE="${requested_api_image:-capitalflow-api:local}"
+CAPITALFLOW_WEB_IMAGE="${requested_web_image:-capitalflow-web:local}"
 DEPLOY_MODE="${DEPLOY_MODE:-build}"
 DEPLOY_REF="${DEPLOY_REF:-HEAD}"
 
@@ -56,7 +61,7 @@ rsync -az --delete \
   --exclude "web/playwright-report" \
   "${archive_dir}/" "${VM_HOST}:${REMOTE_DIR}/"
 
-ssh "${VM_HOST}" "REMOTE_DIR='${REMOTE_DIR}' PUBLIC_ORIGIN='${PUBLIC_ORIGIN}' CAPITALFLOW_HOST='${CAPITALFLOW_HOST}' CAPITALFLOW_PROXY_NETWORK='${CAPITALFLOW_PROXY_NETWORK}' CAPITALFLOW_API_IMAGE='${CAPITALFLOW_API_IMAGE}' CAPITALFLOW_WEB_IMAGE='${CAPITALFLOW_WEB_IMAGE}' DEPLOY_MODE='${DEPLOY_MODE}' DEPLOY_COMMIT='${deploy_commit}' bash -s" <<'EOF'
+ssh "${VM_HOST}" "REMOTE_DIR='${REMOTE_DIR}' PUBLIC_ORIGIN='${PUBLIC_ORIGIN}' CAPITALFLOW_HOST='${CAPITALFLOW_HOST}' CAPITALFLOW_PROXY_NETWORK='${CAPITALFLOW_PROXY_NETWORK}' CAPITALFLOW_API_IMAGE='${CAPITALFLOW_API_IMAGE}' CAPITALFLOW_WEB_IMAGE='${CAPITALFLOW_WEB_IMAGE}' REQUESTED_PUBLIC_ORIGIN='${requested_public_origin}' REQUESTED_CAPITALFLOW_HOST='${requested_capitalflow_host}' REQUESTED_PROXY_NETWORK='${requested_proxy_network}' REQUESTED_API_IMAGE='${requested_api_image}' REQUESTED_WEB_IMAGE='${requested_web_image}' DEPLOY_MODE='${DEPLOY_MODE}' DEPLOY_COMMIT='${deploy_commit}' bash -s" <<'EOF'
 set -euo pipefail
 
 origin_host() {
@@ -84,11 +89,11 @@ set_env_var() {
   chmod 600 "${env_file}"
 }
 
-requested_public_origin="${PUBLIC_ORIGIN:-}"
-requested_capitalflow_host="${CAPITALFLOW_HOST:-}"
-requested_proxy_network="${CAPITALFLOW_PROXY_NETWORK:-}"
-requested_api_image="${CAPITALFLOW_API_IMAGE:-}"
-requested_web_image="${CAPITALFLOW_WEB_IMAGE:-}"
+requested_public_origin="${REQUESTED_PUBLIC_ORIGIN:-}"
+requested_capitalflow_host="${REQUESTED_CAPITALFLOW_HOST:-}"
+requested_proxy_network="${REQUESTED_PROXY_NETWORK:-}"
+requested_api_image="${REQUESTED_API_IMAGE:-}"
+requested_web_image="${REQUESTED_WEB_IMAGE:-}"
 
 cd "$REMOTE_DIR"
 mkdir -p deploy
