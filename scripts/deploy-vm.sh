@@ -140,9 +140,9 @@ fi
 cd deploy
 
 docker compose --profile tools build api web migrate
-docker compose up -d postgres
+docker compose up -d --wait postgres
 docker compose --profile tools run -T --rm migrate </dev/null
-docker compose up -d --no-build api web
+docker compose up -d --wait --no-build api web
 docker compose ps
 
 curl -fsS "http://127.0.0.1:${CAPITALFLOW_API_PORT}/health" >/dev/null
