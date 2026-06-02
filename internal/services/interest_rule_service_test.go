@@ -86,6 +86,7 @@ func TestInterestRuleServiceCreateDefaults(t *testing.T) {
 
 func TestInterestRuleServiceCreateNormalizesDatePointers(t *testing.T) {
 	promoRate := int64(2_400)
+	startDate := time.Date(2026, 5, 1, 23, 59, 59, 0, time.Local)
 	promoEndDate := time.Date(2026, 5, 31, 23, 59, 59, 0, time.Local)
 	endDate := time.Date(2026, 12, 31, 23, 59, 59, 0, time.Local)
 
@@ -94,6 +95,7 @@ func TestInterestRuleServiceCreateNormalizesDatePointers(t *testing.T) {
 		AnnualRateBps: 1_200,
 		PromoRateBps:  &promoRate,
 		PromoEndDate:  &promoEndDate,
+		StartDate:     startDate,
 		EndDate:       &endDate,
 	})
 	if err != nil {

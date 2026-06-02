@@ -1,0 +1,9 @@
+.git
+.github
+.DS_Store
+configs/.env
+deploy/.env
+web/dist
+web/node_modules
+web/test-results
+web/playwright-report
