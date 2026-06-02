@@ -30,9 +30,9 @@ services:
       dockerfile: Dockerfile.api
     image: capitalflow-api:local
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      DATABASE_URL: ${DATABASE_URL:?database url required}
     entrypoint: ["/usr/local/bin/goose"]
-    command: ["-dir", "/app/migrations", "postgres", "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable", "up"]
+    command: ["-dir", "/app/migrations", "postgres", "${DATABASE_URL:?database url required}", "up"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -55,7 +55,7 @@ services:
         max-file: "3"
     environment:
       APP_ENV: production
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+      DATABASE_URL: ${DATABASE_URL:?database url required}
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?public origin required}
       CORS_ALLOWED_ORIGINS: ${PUBLIC_ORIGIN:?public origin required}
       JWT_SECRET: ${JWT_SECRET:?jwt secret required}
