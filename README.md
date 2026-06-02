@@ -457,6 +457,28 @@ gofmt -l $(git ls-files '*.go')
 
 The GitHub Actions CI pipeline runs backend and WebUI checks, including tests, race tests, linting, builds, migration checks, `go mod tidy` verification and frontend build checks.
 
+Pushes to `main` or `master` deploy only after CI is green:
+
+1. Run all CI checks.
+2. Build and push immutable API and Web images to GHCR with `sha-<commit>` tags.
+3. SSH to the VM, pull those images, run migrations, and restart services with health waits.
+
+Required GitHub Actions secrets for production deploy:
+
+```text
+VM_SSH_HOST
+VM_SSH_USER
+VM_SSH_PRIVATE_KEY
+```
+
+Optional deploy settings can be stored as repository or environment variables:
+
+```text
+VM_REMOTE_DIR=/home/sunriseex/projects/CapitalFlow
+PUBLIC_ORIGIN=https://capitalflow.home.arpa
+CAPITALFLOW_PROXY_NETWORK=proxy
+```
+
 ## Security
 
 Auth responses return access-token metadata and set a `__Secure-capitalflow_refresh` cookie for refresh-token rotation. The cookie is scoped to `/auth` and uses `Secure`, `HttpOnly`, and `SameSite=Strict`. `/auth/refresh` and `/auth/logout` use the refresh cookie.

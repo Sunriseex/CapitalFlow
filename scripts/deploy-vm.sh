@@ -17,7 +17,18 @@ origin_host() {
 
 CAPITALFLOW_HOST="${CAPITALFLOW_HOST:-$(origin_host "${PUBLIC_ORIGIN}")}"
 CAPITALFLOW_PROXY_NETWORK="${CAPITALFLOW_PROXY_NETWORK:-proxy}"
+CAPITALFLOW_API_IMAGE="${CAPITALFLOW_API_IMAGE:-capitalflow-api:local}"
+CAPITALFLOW_WEB_IMAGE="${CAPITALFLOW_WEB_IMAGE:-capitalflow-web:local}"
+DEPLOY_MODE="${DEPLOY_MODE:-build}"
 DEPLOY_REF="${DEPLOY_REF:-HEAD}"
+
+case "${DEPLOY_MODE}" in
+  build | images) ;;
+  *)
+    echo "DEPLOY_MODE must be build or images" >&2
+    exit 1
+    ;;
+esac
 
 archive_dir="$(mktemp -d)"
 cleanup() {
@@ -45,7 +56,7 @@ rsync -az --delete \
   --exclude "web/playwright-report" \
   "${archive_dir}/" "${VM_HOST}:${REMOTE_DIR}/"
 
-ssh "${VM_HOST}" "REMOTE_DIR='${REMOTE_DIR}' PUBLIC_ORIGIN='${PUBLIC_ORIGIN}' CAPITALFLOW_HOST='${CAPITALFLOW_HOST}' CAPITALFLOW_PROXY_NETWORK='${CAPITALFLOW_PROXY_NETWORK}' DEPLOY_COMMIT='${deploy_commit}' bash -s" <<'EOF'
+ssh "${VM_HOST}" "REMOTE_DIR='${REMOTE_DIR}' PUBLIC_ORIGIN='${PUBLIC_ORIGIN}' CAPITALFLOW_HOST='${CAPITALFLOW_HOST}' CAPITALFLOW_PROXY_NETWORK='${CAPITALFLOW_PROXY_NETWORK}' CAPITALFLOW_API_IMAGE='${CAPITALFLOW_API_IMAGE}' CAPITALFLOW_WEB_IMAGE='${CAPITALFLOW_WEB_IMAGE}' DEPLOY_MODE='${DEPLOY_MODE}' DEPLOY_COMMIT='${deploy_commit}' bash -s" <<'EOF'
 set -euo pipefail
 
 origin_host() {
@@ -72,6 +83,12 @@ set_env_var() {
   mv "${tmp}" "${env_file}"
   chmod 600 "${env_file}"
 }
+
+requested_public_origin="${PUBLIC_ORIGIN:-}"
+requested_capitalflow_host="${CAPITALFLOW_HOST:-}"
+requested_proxy_network="${CAPITALFLOW_PROXY_NETWORK:-}"
+requested_api_image="${CAPITALFLOW_API_IMAGE:-}"
+requested_web_image="${CAPITALFLOW_WEB_IMAGE:-}"
 
 cd "$REMOTE_DIR"
 mkdir -p deploy
@@ -102,10 +119,18 @@ set -a
 . deploy/.env
 set +a
 
+[ -z "${requested_public_origin}" ] || PUBLIC_ORIGIN="${requested_public_origin}"
+[ -z "${requested_capitalflow_host}" ] || CAPITALFLOW_HOST="${requested_capitalflow_host}"
+[ -z "${requested_proxy_network}" ] || CAPITALFLOW_PROXY_NETWORK="${requested_proxy_network}"
+[ -z "${requested_api_image}" ] || CAPITALFLOW_API_IMAGE="${requested_api_image}"
+[ -z "${requested_web_image}" ] || CAPITALFLOW_WEB_IMAGE="${requested_web_image}"
+
 CAPITALFLOW_API_PORT="${CAPITALFLOW_API_PORT:-18080}"
 CAPITALFLOW_WEB_PORT="${CAPITALFLOW_WEB_PORT:-18081}"
 CAPITALFLOW_PROXY_NETWORK="${CAPITALFLOW_PROXY_NETWORK:-proxy}"
 CAPITALFLOW_HOST="${CAPITALFLOW_HOST:-$(origin_host "${PUBLIC_ORIGIN}")}"
+CAPITALFLOW_API_IMAGE="${CAPITALFLOW_API_IMAGE:-capitalflow-api:local}"
+CAPITALFLOW_WEB_IMAGE="${CAPITALFLOW_WEB_IMAGE:-capitalflow-web:local}"
 PUBLIC_ORIGIN_HOST="$(origin_host "${PUBLIC_ORIGIN}")"
 
 if [ "${CAPITALFLOW_HOST}" != "${PUBLIC_ORIGIN_HOST}" ]; then
@@ -129,8 +154,11 @@ print(f"postgres://{user}:{password}@postgres:5432/{database}?sslmode=disable")
 PY
 )"
 export DATABASE_URL
+set_env_var PUBLIC_ORIGIN "${PUBLIC_ORIGIN}"
 set_env_var CAPITALFLOW_HOST "${CAPITALFLOW_HOST}"
 set_env_var CAPITALFLOW_PROXY_NETWORK "${CAPITALFLOW_PROXY_NETWORK}"
+set_env_var CAPITALFLOW_API_IMAGE "${CAPITALFLOW_API_IMAGE}"
+set_env_var CAPITALFLOW_WEB_IMAGE "${CAPITALFLOW_WEB_IMAGE}"
 set_env_var DATABASE_URL "${DATABASE_URL}"
 
 if ! docker network inspect "${CAPITALFLOW_PROXY_NETWORK}" >/dev/null 2>&1; then
@@ -139,7 +167,11 @@ fi
 
 cd deploy
 
-docker compose --profile tools build api web migrate
+if [ "${DEPLOY_MODE}" = "images" ]; then
+  docker compose --profile tools pull api web migrate
+else
+  docker compose --profile tools build api web migrate
+fi
 docker compose up -d --wait postgres
 docker compose --profile tools run -T --rm migrate </dev/null
 docker compose up -d --wait --no-build api web

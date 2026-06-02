@@ -1,7 +1,7 @@
 SHELL := bash
 .DEFAULT_GOAL := help
 
-.PHONY: help test race lint check check-race check-all web-api-types web-lint web-test web-build web-check db-up db-down db-migrate db-rollback deploy-vm install-vm-autodeploy
+.PHONY: help test race lint check check-race check-all web-api-types web-lint web-test web-build web-check db-up db-down db-migrate db-rollback deploy-vm
 
 help:
 	@echo "Targets:"
@@ -20,7 +20,6 @@ help:
 	@echo "  db-migrate  - run PostgreSQL migrations"
 	@echo "  db-rollback - rollback one PostgreSQL migration"
 	@echo "  deploy-vm   - sync, build, migrate, and run on VM"
-	@echo "  install-vm-autodeploy - deploy to VM after each local commit"
 
 test:
 	@go list ./... | grep -v '/web/' | xargs go test
@@ -66,6 +65,3 @@ db-rollback:
 
 deploy-vm:
 	@./scripts/deploy-vm.sh
-
-install-vm-autodeploy:
-	@./scripts/install-vm-autodeploy-hook.sh
