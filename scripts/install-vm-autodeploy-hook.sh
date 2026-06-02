@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-git_dir="$(git rev-parse --git-dir)"
-mkdir -p "${git_dir}/hooks"
-hook_path="${git_dir}/hooks/post-commit"
+hook_path="$(git rev-parse --git-path hooks/post-commit)"
+mkdir -p "$(dirname "${hook_path}")"
 
 if [ -e "${hook_path}" ] &&
   ! grep -q "CapitalFlow VM autodeploy hook" "${hook_path}" &&

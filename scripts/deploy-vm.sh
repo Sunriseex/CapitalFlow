@@ -5,6 +5,7 @@ VM_HOST="${VM_HOST:-VM}"
 REMOTE_DIR="${REMOTE_DIR:-/home/sunriseex/projects/CapitalFlow}"
 PUBLIC_ORIGIN="${PUBLIC_ORIGIN:-https://capitalflow.home.arpa}"
 CAPITALFLOW_HOST="${CAPITALFLOW_HOST:-capitalflow.home.arpa}"
+CAPITALFLOW_PROXY_NETWORK="${CAPITALFLOW_PROXY_NETWORK:-proxy}"
 DEPLOY_REF="${DEPLOY_REF:-HEAD}"
 
 archive_dir="$(mktemp -d)"
@@ -31,7 +32,7 @@ rsync -az --delete \
   --exclude "web/playwright-report" \
   "${archive_dir}/" "${VM_HOST}:${REMOTE_DIR}/"
 
-ssh "${VM_HOST}" "REMOTE_DIR='${REMOTE_DIR}' PUBLIC_ORIGIN='${PUBLIC_ORIGIN}' CAPITALFLOW_HOST='${CAPITALFLOW_HOST}' DEPLOY_COMMIT='${deploy_commit}' bash -s" <<'EOF'
+ssh "${VM_HOST}" "REMOTE_DIR='${REMOTE_DIR}' PUBLIC_ORIGIN='${PUBLIC_ORIGIN}' CAPITALFLOW_HOST='${CAPITALFLOW_HOST}' CAPITALFLOW_PROXY_NETWORK='${CAPITALFLOW_PROXY_NETWORK}' DEPLOY_COMMIT='${deploy_commit}' bash -s" <<'EOF'
 set -euo pipefail
 
 cd "$REMOTE_DIR"
@@ -50,6 +51,7 @@ JWT_SECRET=${jwt_secret}
 API_AUTH_TOKEN=${api_auth_token}
 PUBLIC_ORIGIN=${PUBLIC_ORIGIN}
 CAPITALFLOW_HOST=${CAPITALFLOW_HOST}
+CAPITALFLOW_PROXY_NETWORK=${CAPITALFLOW_PROXY_NETWORK}
 CAPITALFLOW_API_PORT=18080
 CAPITALFLOW_WEB_PORT=18081
 TRUSTED_PROXIES=127.0.0.1/32,172.16.0.0/12
@@ -64,6 +66,11 @@ set +a
 
 CAPITALFLOW_API_PORT="${CAPITALFLOW_API_PORT:-18080}"
 CAPITALFLOW_WEB_PORT="${CAPITALFLOW_WEB_PORT:-18081}"
+CAPITALFLOW_PROXY_NETWORK="${CAPITALFLOW_PROXY_NETWORK:-proxy}"
+
+if ! docker network inspect "${CAPITALFLOW_PROXY_NETWORK}" >/dev/null 2>&1; then
+  docker network create "${CAPITALFLOW_PROXY_NETWORK}" >/dev/null
+fi
 
 docker compose -f deploy/compose.yaml up -d --build postgres
 docker compose -f deploy/compose.yaml --profile tools build migrate

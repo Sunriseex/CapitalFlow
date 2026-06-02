@@ -106,7 +106,7 @@ services:
       - proxy
     labels:
       - traefik.enable=true
-      - traefik.docker.network=proxy
+      - traefik.docker.network=${CAPITALFLOW_PROXY_NETWORK:-proxy}
       - traefik.http.routers.capitalflow.rule=Host(`${CAPITALFLOW_HOST:-capitalflow.home.arpa}`)
       - traefik.http.routers.capitalflow.entrypoints=websecure
       - traefik.http.routers.capitalflow.tls=true
@@ -119,3 +119,4 @@ networks:
   backend:
   proxy:
     external: true
+    name: ${CAPITALFLOW_PROXY_NETWORK:-proxy}
