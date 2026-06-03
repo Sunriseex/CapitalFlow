@@ -92,7 +92,7 @@ func (s *Store) WithAdvisoryLock(ctx context.Context, lockName string, fn func(c
 		if committed {
 			return
 		}
-		rollbackCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer cancel()
 		if rollbackErr := tx.Rollback(rollbackCtx); rollbackErr != nil && !errors.Is(rollbackErr, pgx.ErrTxClosed) {
 			err = errors.Join(err, fmt.Errorf("rollback advisory lock transaction: %w", rollbackErr))
