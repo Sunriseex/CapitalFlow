@@ -1,0 +1,198 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+VM_HOST="${VM_HOST:-VM}"
+REMOTE_DIR="${REMOTE_DIR:-/home/sunriseex/projects/CapitalFlow}"
+requested_public_origin="${PUBLIC_ORIGIN-}"
+requested_capitalflow_host="${CAPITALFLOW_HOST-}"
+requested_proxy_network="${CAPITALFLOW_PROXY_NETWORK-}"
+requested_api_image="${CAPITALFLOW_API_IMAGE-}"
+requested_web_image="${CAPITALFLOW_WEB_IMAGE-}"
+PUBLIC_ORIGIN="${requested_public_origin:-https://capitalflow.home.arpa}"
+origin_host() {
+  local origin="$1"
+  origin="${origin#*://}"
+  origin="${origin%%/*}"
+  origin="${origin%%:*}"
+  if [ -z "${origin}" ]; then
+    return 1
+  fi
+  printf '%s\n' "${origin}"
+}
+
+CAPITALFLOW_HOST="${requested_capitalflow_host:-$(origin_host "${PUBLIC_ORIGIN}")}"
+CAPITALFLOW_PROXY_NETWORK="${requested_proxy_network:-proxy}"
+CAPITALFLOW_API_IMAGE="${requested_api_image:-capitalflow-api:local}"
+CAPITALFLOW_WEB_IMAGE="${requested_web_image:-capitalflow-web:local}"
+DEPLOY_MODE="${DEPLOY_MODE:-build}"
+DEPLOY_REF="${DEPLOY_REF:-HEAD}"
+
+case "${DEPLOY_MODE}" in
+  build | images) ;;
+  *)
+    echo "DEPLOY_MODE must be build or images" >&2
+    exit 1
+    ;;
+esac
+
+archive_dir="$(mktemp -d)"
+cleanup() {
+  rm -rf "${archive_dir}"
+}
+trap cleanup EXIT
+
+git archive --format=tar "${DEPLOY_REF}" | tar -xf - -C "${archive_dir}"
+deploy_commit="$(git rev-parse --short "${DEPLOY_REF}")"
+
+ssh "${VM_HOST}" "mkdir -p '${REMOTE_DIR}'"
+
+rsync -az --delete \
+  --exclude ".git" \
+  --exclude ".env" \
+  --exclude ".env.*" \
+  --exclude "configs/.env" \
+  --exclude "deploy/.env" \
+  --exclude "web/.env" \
+  --exclude "web/.env.local" \
+  --exclude "web/.env.*.local" \
+  --exclude "web/node_modules" \
+  --exclude "web/dist" \
+  --exclude "web/test-results" \
+  --exclude "web/playwright-report" \
+  "${archive_dir}/" "${VM_HOST}:${REMOTE_DIR}/"
+
+ssh "${VM_HOST}" "REMOTE_DIR='${REMOTE_DIR}' PUBLIC_ORIGIN='${PUBLIC_ORIGIN}' CAPITALFLOW_HOST='${CAPITALFLOW_HOST}' CAPITALFLOW_PROXY_NETWORK='${CAPITALFLOW_PROXY_NETWORK}' CAPITALFLOW_API_IMAGE='${CAPITALFLOW_API_IMAGE}' CAPITALFLOW_WEB_IMAGE='${CAPITALFLOW_WEB_IMAGE}' REQUESTED_PUBLIC_ORIGIN='${requested_public_origin}' REQUESTED_CAPITALFLOW_HOST='${requested_capitalflow_host}' REQUESTED_PROXY_NETWORK='${requested_proxy_network}' REQUESTED_API_IMAGE='${requested_api_image}' REQUESTED_WEB_IMAGE='${requested_web_image}' DEPLOY_MODE='${DEPLOY_MODE}' DEPLOY_COMMIT='${deploy_commit}' bash -s" <<'EOF'
+set -euo pipefail
+
+origin_host() {
+  local origin="$1"
+  origin="${origin#*://}"
+  origin="${origin%%/*}"
+  origin="${origin%%:*}"
+  if [ -z "${origin}" ]; then
+    return 1
+  fi
+  printf '%s\n' "${origin}"
+}
+
+set_env_var() {
+  local key="$1"
+  local value="$2"
+  local env_file="deploy/.env"
+  local tmp
+  tmp="$(mktemp)"
+  if [ -f "${env_file}" ]; then
+    grep -v "^${key}=" "${env_file}" > "${tmp}" || true
+  fi
+  printf '%s=%s\n' "${key}" "${value}" >> "${tmp}"
+  mv "${tmp}" "${env_file}"
+  chmod 600 "${env_file}"
+}
+
+requested_public_origin="${REQUESTED_PUBLIC_ORIGIN:-}"
+requested_capitalflow_host="${REQUESTED_CAPITALFLOW_HOST:-}"
+requested_proxy_network="${REQUESTED_PROXY_NETWORK:-}"
+requested_api_image="${REQUESTED_API_IMAGE:-}"
+requested_web_image="${REQUESTED_WEB_IMAGE:-}"
+
+cd "$REMOTE_DIR"
+mkdir -p deploy
+echo "Deploying CapitalFlow ${DEPLOY_COMMIT}"
+
+if [ ! -f deploy/.env ]; then
+  db_password="$(openssl rand -hex 24)"
+  jwt_secret="$(openssl rand -hex 64)"
+  api_auth_token="$(openssl rand -hex 32)"
+  cat > deploy/.env <<ENV
+POSTGRES_DB=capitalflow
+POSTGRES_USER=capitalflow
+POSTGRES_PASSWORD=${db_password}
+JWT_SECRET=${jwt_secret}
+API_AUTH_TOKEN=${api_auth_token}
+PUBLIC_ORIGIN=${PUBLIC_ORIGIN}
+CAPITALFLOW_HOST=${CAPITALFLOW_HOST}
+CAPITALFLOW_PROXY_NETWORK=${CAPITALFLOW_PROXY_NETWORK}
+CAPITALFLOW_API_PORT=18080
+CAPITALFLOW_WEB_PORT=18081
+TRUSTED_PROXIES=127.0.0.1/32,172.16.0.0/12
+LOG_LEVEL=info
+ENV
+  chmod 600 deploy/.env
+fi
+
+set -a
+. deploy/.env
+set +a
+
+if [ -n "${requested_public_origin}" ]; then
+  PUBLIC_ORIGIN="${requested_public_origin}"
+fi
+if [ -n "${requested_capitalflow_host}" ]; then
+  CAPITALFLOW_HOST="${requested_capitalflow_host}"
+fi
+if [ -n "${requested_proxy_network}" ]; then
+  CAPITALFLOW_PROXY_NETWORK="${requested_proxy_network}"
+fi
+if [ -n "${requested_api_image}" ]; then
+  CAPITALFLOW_API_IMAGE="${requested_api_image}"
+fi
+if [ -n "${requested_web_image}" ]; then
+  CAPITALFLOW_WEB_IMAGE="${requested_web_image}"
+fi
+
+CAPITALFLOW_API_PORT="${CAPITALFLOW_API_PORT:-18080}"
+CAPITALFLOW_WEB_PORT="${CAPITALFLOW_WEB_PORT:-18081}"
+CAPITALFLOW_PROXY_NETWORK="${CAPITALFLOW_PROXY_NETWORK:-proxy}"
+CAPITALFLOW_HOST="${CAPITALFLOW_HOST:-$(origin_host "${PUBLIC_ORIGIN}")}"
+CAPITALFLOW_API_IMAGE="${CAPITALFLOW_API_IMAGE:-capitalflow-api:local}"
+CAPITALFLOW_WEB_IMAGE="${CAPITALFLOW_WEB_IMAGE:-capitalflow-web:local}"
+PUBLIC_ORIGIN_HOST="$(origin_host "${PUBLIC_ORIGIN}")"
+
+if [ "${CAPITALFLOW_HOST}" != "${PUBLIC_ORIGIN_HOST}" ]; then
+  echo "CAPITALFLOW_HOST (${CAPITALFLOW_HOST}) must match PUBLIC_ORIGIN host (${PUBLIC_ORIGIN_HOST})" >&2
+  exit 1
+fi
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "python3 is required to encode DATABASE_URL credentials" >&2
+  exit 1
+fi
+
+DATABASE_URL="$(POSTGRES_USER="${POSTGRES_USER}" POSTGRES_PASSWORD="${POSTGRES_PASSWORD}" POSTGRES_DB="${POSTGRES_DB}" python3 - <<'PY'
+import os
+from urllib.parse import quote
+
+user = quote(os.environ["POSTGRES_USER"], safe="")
+password = quote(os.environ["POSTGRES_PASSWORD"], safe="")
+database = quote(os.environ["POSTGRES_DB"], safe="")
+print(f"postgres://{user}:{password}@postgres:5432/{database}?sslmode=disable")
+PY
+)"
+export DATABASE_URL
+set_env_var PUBLIC_ORIGIN "${PUBLIC_ORIGIN}"
+set_env_var CAPITALFLOW_HOST "${CAPITALFLOW_HOST}"
+set_env_var CAPITALFLOW_PROXY_NETWORK "${CAPITALFLOW_PROXY_NETWORK}"
+set_env_var CAPITALFLOW_API_IMAGE "${CAPITALFLOW_API_IMAGE}"
+set_env_var CAPITALFLOW_WEB_IMAGE "${CAPITALFLOW_WEB_IMAGE}"
+set_env_var DATABASE_URL "${DATABASE_URL}"
+
+if ! docker network inspect "${CAPITALFLOW_PROXY_NETWORK}" >/dev/null 2>&1; then
+  docker network create "${CAPITALFLOW_PROXY_NETWORK}" >/dev/null
+fi
+
+cd deploy
+
+if [ "${DEPLOY_MODE}" = "images" ]; then
+  docker compose --profile tools pull api web migrate
+else
+  docker compose --profile tools build api web migrate
+fi
+docker compose up -d --wait postgres
+docker compose --profile tools run -T --rm migrate </dev/null
+docker compose up -d --wait --no-build api web
+docker compose ps
+
+curl -fsS "http://127.0.0.1:${CAPITALFLOW_API_PORT}/health" >/dev/null
+curl -fsS "http://127.0.0.1:${CAPITALFLOW_API_PORT}/ready" >/dev/null
+curl -fsS "http://127.0.0.1:${CAPITALFLOW_WEB_PORT}/health" >/dev/null
+EOF

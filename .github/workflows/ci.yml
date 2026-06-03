@@ -180,3 +180,181 @@ jobs:
             -dir migrations \
             postgres "$DATABASE_URL" \
             status
+
+  validate-production-images:
+    name: Validate production images
+    runs-on: ubuntu-latest
+    needs:
+      - test
+      - race
+      - lint
+      - web
+      - openapi
+      - migrations
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.api
+          push: false
+          tags: capitalflow-api:pr-${{ github.event.pull_request.head.sha }}
+          cache-from: type=gha,scope=api
+
+      - name: Build Web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: web/Dockerfile
+          push: false
+          tags: capitalflow-web:pr-${{ github.event.pull_request.head.sha }}
+          cache-from: type=gha,scope=web
+
+  build-images:
+    name: Build production images
+    runs-on: ubuntu-latest
+    needs:
+      - test
+      - race
+      - lint
+      - web
+      - openapi
+      - migrations
+    if: github.event_name == 'push' && contains(fromJSON('["main", "master"]'), github.ref_name)
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      api_image: ${{ steps.names.outputs.api_image }}
+      web_image: ${{ steps.names.outputs.web_image }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set image names
+        id: names
+        shell: bash
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "api_image=ghcr.io/${owner}/capitalflow-api:sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "web_image=ghcr.io/${owner}/capitalflow-web:sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.api
+          push: true
+          tags: ${{ steps.names.outputs.api_image }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+
+      - name: Build and push Web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: web/Dockerfile
+          push: true
+          tags: ${{ steps.names.outputs.web_image }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
+
+  deploy-vm:
+    name: Deploy VM
+    runs-on: ubuntu-latest
+    needs:
+      - build-images
+    if: github.event_name == 'push' && contains(fromJSON('["main", "master"]'), github.ref_name)
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+    concurrency:
+      group: deploy-vm-production
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Check deploy secrets
+        shell: bash
+        env:
+          VM_SSH_HOST: ${{ secrets.VM_SSH_HOST }}
+          VM_SSH_USER: ${{ secrets.VM_SSH_USER }}
+          VM_SSH_PRIVATE_KEY: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+          VM_SSH_KNOWN_HOSTS: ${{ secrets.VM_SSH_KNOWN_HOSTS }}
+        run: |
+          test -n "$VM_SSH_HOST"
+          test -n "$VM_SSH_USER"
+          test -n "$VM_SSH_PRIVATE_KEY"
+          test -n "$VM_SSH_KNOWN_HOSTS"
+
+      - name: Configure SSH
+        shell: bash
+        env:
+          VM_SSH_HOST: ${{ secrets.VM_SSH_HOST }}
+          VM_SSH_USER: ${{ secrets.VM_SSH_USER }}
+          VM_SSH_PRIVATE_KEY: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+          VM_SSH_KNOWN_HOSTS: ${{ secrets.VM_SSH_KNOWN_HOSTS }}
+          VM_SSH_PORT: ${{ secrets.VM_SSH_PORT }}
+        run: |
+          port="${VM_SSH_PORT:-22}"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$VM_SSH_PRIVATE_KEY" > ~/.ssh/capitalflow_vm
+          chmod 600 ~/.ssh/capitalflow_vm
+          printf '%s\n' "$VM_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          {
+            echo "Host capitalflow-vm"
+            echo "  HostName $VM_SSH_HOST"
+            echo "  User $VM_SSH_USER"
+            echo "  Port $port"
+            echo "  IdentityFile ~/.ssh/capitalflow_vm"
+            echo "  IdentitiesOnly yes"
+            echo "  StrictHostKeyChecking yes"
+          } >> ~/.ssh/config
+
+      - name: Login VM to GHCR
+        shell: bash
+        env:
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ github.token }}
+        run: |
+          printf '%s' "$GHCR_TOKEN" | ssh capitalflow-vm \
+            "docker login ghcr.io -u '$GHCR_USERNAME' --password-stdin"
+
+      - name: Deploy images to VM
+        shell: bash
+        env:
+          VM_HOST: capitalflow-vm
+          DEPLOY_MODE: images
+          DEPLOY_REF: ${{ github.sha }}
+          REMOTE_DIR: ${{ vars.VM_REMOTE_DIR }}
+          PUBLIC_ORIGIN: ${{ vars.PUBLIC_ORIGIN }}
+          CAPITALFLOW_PROXY_NETWORK: ${{ vars.CAPITALFLOW_PROXY_NETWORK }}
+          CAPITALFLOW_API_IMAGE: ${{ needs.build-images.outputs.api_image }}
+          CAPITALFLOW_WEB_IMAGE: ${{ needs.build-images.outputs.web_image }}
+        run: |
+          REMOTE_DIR="${REMOTE_DIR:-/home/sunriseex/projects/CapitalFlow}" \
+          ./scripts/deploy-vm.sh

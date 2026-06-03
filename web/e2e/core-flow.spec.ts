@@ -18,7 +18,7 @@ type Transaction = {
   related_account_id?: string | null;
   transfer_id?: string | null;
   type: string;
-  amount: number;
+  amount: string;
   category_id?: string | null;
   description: string;
   occurred_at: string;
@@ -138,23 +138,25 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
   await page.getByLabel("Email").fill("user@example.com");
   await page.getByLabel("Password").fill("password");
   await page.getByRole("button", { name: "Login" }).click();
+  await expect(page.getByRole("heading", { name: "Dashboard" }).first()).toBeVisible();
+  await expect(createAccountButton(page)).toBeVisible();
 
   await createAccount(page, "Cash", "Wallet", "1000");
   await createAccount(page, "Savings", "Bank", "0");
 
-  await page.getByTitle("Income").click();
+  await page.getByRole("button", { name: "Income" }).click();
   await page.getByLabel("Amount").fill("250");
   await page.getByLabel("Description").fill("Salary");
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Create income" })).toBeHidden();
 
-  await page.getByTitle("Expense").click();
+  await page.getByRole("button", { name: "Expense" }).click();
   await page.getByLabel("Amount").fill("50");
   await page.getByLabel("Description").fill("Groceries");
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Create expense" })).toBeHidden();
 
-  await page.getByTitle("Transfer").click();
+  await page.getByRole("button", { name: "Transfer" }).click();
   await page.getByLabel("Amount").fill("100");
   await page.getByLabel("Description").fill("Move to savings");
   await page.getByRole("button", { name: "Create", exact: true }).click();
@@ -169,12 +171,17 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
 });
 
 async function createAccount(page: import("@playwright/test").Page, name: string, bank: string, initialBalance: string) {
-  await page.getByTitle("Create account").click();
+  await createAccountButton(page).dispatchEvent("click");
+  await expect(page.getByRole("dialog", { name: "Create account" })).toBeVisible();
   await page.getByLabel("Name", { exact: true }).fill(name);
   await page.getByLabel("Bank", { exact: true }).fill(bank);
   await page.getByLabel("Initial balance", { exact: true }).fill(initialBalance);
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Create account" })).toBeHidden();
+}
+
+function createAccountButton(page: import("@playwright/test").Page) {
+  return page.locator('.quick-actions button[aria-label="Create account"]');
 }
 
 function dashboardResponse(accounts: Account[], transactions: Transaction[], now: string) {
@@ -184,9 +191,10 @@ function dashboardResponse(accounts: Account[], transactions: Transaction[], now
   }
   for (const transaction of transactions) {
     const current = balanceByAccount.get(transaction.account_id) ?? 0;
+    const amount = Number(transaction.amount);
     const signed = transaction.type === "expense" || transaction.type === "transfer_out"
-      ? -transaction.amount
-      : transaction.amount;
+      ? -amount
+      : amount;
     balanceByAccount.set(transaction.account_id, current + signed);
   }
   const total = [...balanceByAccount.values()].reduce((sum, value) => sum + value, 0);
@@ -195,13 +203,13 @@ function dashboardResponse(accounts: Account[], transactions: Transaction[], now
     generated_at: now,
     accounts_count: accounts.length,
     active_accounts_count: accounts.filter((account) => account.is_active).length,
-    balances: [{ currency: "RUB", amount: total }],
-    monthly_income: [{ currency: "RUB", amount: sumByType(transactions, "income") }],
-    monthly_expense: [{ currency: "RUB", amount: sumByType(transactions, "expense") }],
+    balances: [{ currency: "RUB", amount: String(total) }],
+    monthly_income: [{ currency: "RUB", amount: String(sumByType(transactions, "income")) }],
+    monthly_expense: [{ currency: "RUB", amount: String(sumByType(transactions, "expense")) }],
     monthly_interest_income: [{ currency: "RUB", amount: "0" }],
     account_balances: accounts.map((account) => ({
       account_id: account.id,
-      balance: balanceByAccount.get(account.id) ?? 0,
+      balance: String(balanceByAccount.get(account.id) ?? 0),
       transaction_count: transactions.filter((transaction) => transaction.account_id === account.id).length,
       name: account.name,
       bank: account.bank,
@@ -221,6 +229,5 @@ function dashboardResponse(accounts: Account[], transactions: Transaction[], now
 function sumByType(transactions: Transaction[], type: string) {
   return transactions
     .filter((transaction) => transaction.type === type)
-    .reduce((sum, transaction) => sum + transaction.amount, 0);
+    .reduce((sum, transaction) => sum + Number(transaction.amount), 0);
 }
-

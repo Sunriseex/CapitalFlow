@@ -1,0 +1,27 @@
+FROM golang:1.26.2-alpine AS build
+
+WORKDIR /src
+
+RUN apk add --no-cache ca-certificates
+
+COPY go.mod go.sum ./
+RUN go mod download
+RUN mkdir -p /out && go install github.com/pressly/goose/v3/cmd/goose@v3.27.1 && cp /go/bin/goose /out/goose
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/capitalflow-server ./cmd/server
+
+FROM alpine:3.23
+
+RUN apk add --no-cache ca-certificates tzdata
+
+WORKDIR /app
+
+COPY --from=build /out/capitalflow-server /usr/local/bin/capitalflow-server
+COPY --from=build /out/goose /usr/local/bin/goose
+COPY migrations ./migrations
+
+EXPOSE 8080
+
+ENTRYPOINT ["/usr/local/bin/capitalflow-server"]
+CMD ["--addr", ":8080"]

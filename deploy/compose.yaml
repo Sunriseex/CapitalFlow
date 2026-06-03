@@ -1,0 +1,122 @@
+name: capitalflow
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: capitalflow-postgres
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?postgres db required}
+      POSTGRES_USER: ${POSTGRES_USER:?postgres user required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?postgres password required}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - backend
+
+  migrate:
+    build:
+      context: ..
+      dockerfile: Dockerfile.api
+    image: ${CAPITALFLOW_API_IMAGE:-capitalflow-api:local}
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?database url required}
+    entrypoint: ["/usr/local/bin/goose"]
+    command: ["-dir", "/app/migrations", "postgres", "${DATABASE_URL:?database url required}", "up"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+    profiles:
+      - tools
+
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile.api
+    image: ${CAPITALFLOW_API_IMAGE:-capitalflow-api:local}
+    container_name: capitalflow-api
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      APP_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?database url required}
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?public origin required}
+      CORS_ALLOWED_ORIGINS: ${PUBLIC_ORIGIN:?public origin required}
+      JWT_SECRET: ${JWT_SECRET:?jwt secret required}
+      API_AUTH_TOKEN: ${API_AUTH_TOKEN:-}
+      COOKIE_SECURE: "true"
+      COOKIE_SAMESITE: Strict
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-127.0.0.1/32,172.16.0.0/12}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "127.0.0.1:${CAPITALFLOW_API_PORT:-18080}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+
+  web:
+    build:
+      context: ..
+      dockerfile: web/Dockerfile
+    image: ${CAPITALFLOW_WEB_IMAGE:-capitalflow-web:local}
+    container_name: capitalflow-web
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    ports:
+      - "127.0.0.1:${CAPITALFLOW_WEB_PORT:-18081}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - backend
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${CAPITALFLOW_PROXY_NETWORK:-proxy}
+      - traefik.http.routers.capitalflow.rule=Host(`${CAPITALFLOW_HOST:-capitalflow.home.arpa}`)
+      - traefik.http.routers.capitalflow.entrypoints=websecure
+      - traefik.http.routers.capitalflow.tls=true
+      - traefik.http.services.capitalflow.loadbalancer.server.port=8080
+
+volumes:
+  postgres-data:
+
+networks:
+  backend:
+  proxy:
+    external: true
+    name: ${CAPITALFLOW_PROXY_NETWORK:-proxy}

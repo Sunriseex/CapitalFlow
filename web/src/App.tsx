@@ -166,24 +166,25 @@ export function App() {
           <div className="quick-actions">
             <IconButton
               title={theme === "dark" ? "Light theme" : "Dark theme"}
+              aria-label={theme === "dark" ? "Light theme" : "Dark theme"}
               onClick={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
             >
               {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             </IconButton>
 
-            <IconButton title="Income" disabled={transactionActionsDisabled} onClick={() => setQuickAction("income")}>
+            <IconButton title="Income" aria-label="Income" disabled={transactionActionsDisabled} onClick={() => setQuickAction("income")}>
               <ArrowDownLeft size={18} />
             </IconButton>
 
-            <IconButton title="Expense" disabled={transactionActionsDisabled} onClick={() => setQuickAction("expense")}>
+            <IconButton title="Expense" aria-label="Expense" disabled={transactionActionsDisabled} onClick={() => setQuickAction("expense")}>
               <ArrowUpRight size={18} />
             </IconButton>
 
-            <IconButton title="Transfer" disabled={transactionActionsDisabled} onClick={() => setQuickAction("transfer")}>
+            <IconButton title="Transfer" aria-label="Transfer" disabled={transactionActionsDisabled} onClick={() => setQuickAction("transfer")}>
               <ArrowRightLeft size={18} />
             </IconButton>
 
-            <IconButton title="Create account" onClick={() => setQuickAction("account")}>
+            <IconButton title="Create account" aria-label="Create account" onClick={() => setQuickAction("account")}>
               <Plus size={18} />
             </IconButton>
           </div>
@@ -369,6 +370,7 @@ function AuthScreen({
 
           <IconButton
             title={theme === "dark" ? "Light theme" : "Dark theme"}
+            aria-label={theme === "dark" ? "Light theme" : "Dark theme"}
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
             type="button"
           >
@@ -506,5 +508,4 @@ function storedTheme(): Theme {
 
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
-
 

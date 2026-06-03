@@ -1,7 +1,7 @@
-SHELL := /usr/bin/env bash
+SHELL := bash
 .DEFAULT_GOAL := help
 
-.PHONY: help test race lint check check-race check-all web-api-types web-lint web-test web-build web-check db-up db-down db-migrate db-rollback
+.PHONY: help test race lint check check-race check-all web-api-types web-lint web-test web-build web-check db-up db-down db-migrate db-rollback deploy-vm
 
 help:
 	@echo "Targets:"
@@ -19,16 +19,17 @@ help:
 	@echo "  db-down     - stop local PostgreSQL"
 	@echo "  db-migrate  - run PostgreSQL migrations"
 	@echo "  db-rollback - rollback one PostgreSQL migration"
+	@echo "  deploy-vm   - sync, build, migrate, and run on VM"
 
 test:
-	@go test ./...
+	@go list ./... | grep -v '/web/' | xargs go test
 
 lint:
 	@gofumpt -w .
 	@golangci-lint run ./...
 
 race:
-	@go test ./... -race
+	@go list ./... | grep -v '/web/' | xargs go test -race
 
 check-race: lint test race
 
@@ -61,3 +62,6 @@ db-migrate:
 
 db-rollback:
 	@go run github.com/pressly/goose/v3/cmd/goose@v3.27.1 -dir migrations postgres "$${DATABASE_URL:-postgres://capitalflow:capitalflow@localhost:5432/capitalflow?sslmode=disable}" down
+
+deploy-vm:
+	@./scripts/deploy-vm.sh
