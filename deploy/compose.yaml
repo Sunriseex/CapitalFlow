@@ -82,6 +82,12 @@ services:
       CAPITALFLOW_INTEREST_JOB_TIMEOUT: ${CAPITALFLOW_INTEREST_JOB_TIMEOUT:-30m}
       TZ: ${TZ:-Europe/Moscow}
     entrypoint: ["/usr/local/bin/capitalflow-interest-scheduler"]
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/capitalflow-interest-scheduler.heartbeat"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     depends_on:
       postgres:
         condition: service_healthy

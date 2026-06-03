@@ -239,10 +239,11 @@ else
   docker compose --profile tools build api web migrate
 fi
 docker compose up -d --wait postgres
+docker compose stop api web interest-scheduler >/dev/null 2>&1 || true
 docker compose --profile tools run -T --rm migrate </dev/null
 docker compose up -d --wait --no-build api web
 if [ "${CAPITALFLOW_INTEREST_JOBS_ENABLED}" = "true" ]; then
-  docker compose up -d --no-build interest-scheduler
+  docker compose up -d --wait --no-build interest-scheduler
 else
   docker compose rm -sf interest-scheduler >/dev/null 2>&1 || true
 fi
