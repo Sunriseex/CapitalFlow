@@ -335,14 +335,17 @@ jobs:
             echo "  StrictHostKeyChecking yes"
           } >> ~/.ssh/config
 
-      - name: Login VM to GHCR
+      - name: Configure VM GHCR auth
         shell: bash
         env:
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_TOKEN: ${{ github.token }}
         run: |
-          printf '%s' "$GHCR_TOKEN" | ssh capitalflow-vm \
-            "docker login ghcr.io -u '$GHCR_USERNAME' --password-stdin"
+          auth="$(printf '%s:%s' "$GHCR_USERNAME" "$GHCR_TOKEN" | base64 | tr -d '\n')"
+          timeout 60s ssh -T capitalflow-vm \
+            'mkdir -p ~/.docker && chmod 700 ~/.docker && cat > ~/.docker/config.json && chmod 600 ~/.docker/config.json' <<EOF
+          {"auths":{"ghcr.io":{"auth":"${auth}"}}}
+          EOF
 
       - name: Deploy images to VM
         shell: bash
