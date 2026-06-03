@@ -288,6 +288,9 @@ jobs:
     permissions:
       contents: read
       packages: read
+    concurrency:
+      group: deploy-vm-production
+      cancel-in-progress: false
 
     steps:
       - name: Checkout
@@ -354,6 +357,4 @@ jobs:
           CAPITALFLOW_WEB_IMAGE: ${{ needs.build-images.outputs.web_image }}
         run: |
           REMOTE_DIR="${REMOTE_DIR:-/home/sunriseex/projects/CapitalFlow}" \
-          PUBLIC_ORIGIN="${PUBLIC_ORIGIN:-https://capitalflow.home.arpa}" \
-          CAPITALFLOW_PROXY_NETWORK="${CAPITALFLOW_PROXY_NETWORK:-proxy}" \
           ./scripts/deploy-vm.sh
