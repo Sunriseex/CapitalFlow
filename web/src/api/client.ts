@@ -16,6 +16,10 @@ import type {
   DashboardSummary,
   CurrencyRateTable,
   InterestRule,
+  PasskeyCredential,
+  PasskeyCredentialsResponse,
+  PasskeyRegistrationOptionsRequest,
+  PasskeyRenameRequest,
   Profile,
   TransferEvent,
   TransferResponse,
@@ -232,6 +236,11 @@ export const api = {
   login: async (input: AuthLoginRequest) =>
     storeSession(await authFetch<AuthResponse>("/auth/login", { method: "POST", body: JSON.stringify(input) })),
 
+  passkeyLoginOptions: () => authFetch<{ publicKey: PublicKeyCredentialRequestOptions }>("/auth/passkeys/login/options", { method: "POST" }),
+
+  passkeyLoginVerify: async (input: unknown) =>
+    storeSession(await authFetch<AuthResponse>("/auth/passkeys/login/verify", { method: "POST", body: JSON.stringify(input) })),
+
   logout: async () => {
     await authFetch<void>("/auth/logout", {
       method: "POST",
@@ -240,6 +249,25 @@ export const api = {
   },
 
   profile: () => apiFetch<Profile>("/settings/profile"),
+
+  passkeys: async () => (await apiFetch<PasskeyCredentialsResponse>("/auth/passkeys")).passkeys,
+
+  passkeyRegistrationOptions: (input: PasskeyRegistrationOptionsRequest) =>
+    apiFetch<{ publicKey: PublicKeyCredentialCreationOptions }>("/auth/passkeys/registration/options", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  passkeyRegistrationVerify: (input: unknown) =>
+    apiFetch<PasskeyCredential>("/auth/passkeys/registration/verify", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  renamePasskey: (id: string, input: PasskeyRenameRequest) =>
+    apiFetch<PasskeyCredential>(`/auth/passkeys/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+
+  deletePasskey: (id: string) => apiFetch<void>(`/auth/passkeys/${id}`, { method: "DELETE" }),
 
   updateProfile: (input: UpdateProfileRequest) =>
     apiFetch<Profile>("/settings/profile", { method: "PATCH", body: JSON.stringify(input) }),
@@ -293,5 +321,4 @@ export const api = {
       body: JSON.stringify({ date } satisfies AccrueInterestRequest),
     }),
 };
-
 

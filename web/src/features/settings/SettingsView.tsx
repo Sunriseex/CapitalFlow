@@ -5,6 +5,7 @@ import type { Profile } from "../../api/types";
 import { errorMessage } from "../../shared/api/query";
 import { currencyOptions } from "../../shared/currencies";
 import { Button, Field, Input, Panel, Select } from "../../shared/ui";
+import { PasskeysPanel } from "./PasskeysPanel";
 
 export function SettingsView({ profile }: { profile?: Profile }) {
   const queryClient = useQueryClient();
@@ -75,7 +76,8 @@ export function SettingsView({ profile }: { profile?: Profile }) {
           <Button disabled={!profile}>Save settings</Button>
         </form>
       </Panel>
+
+      <PasskeysPanel />
     </div>
   );
 }
-

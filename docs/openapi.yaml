@@ -108,6 +108,49 @@ paths:
                 $ref: "#/components/schemas/AuthResponse"
         default:
           $ref: "#/components/responses/APIError"
+  /auth/passkeys/login/options:
+    servers:
+      - url: http://localhost:8080
+    post:
+      tags: [Auth]
+      summary: Start a passkey login ceremony
+      security: []
+      responses:
+        "200":
+          description: WebAuthn login options
+          content:
+            application/json:
+              schema:
+                type: object
+        default:
+          $ref: "#/components/responses/APIError"
+  /auth/passkeys/login/verify:
+    servers:
+      - url: http://localhost:8080
+    post:
+      tags: [Auth]
+      summary: Verify a passkey login response and start a session
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Started session
+          headers:
+            Set-Cookie:
+              description: HttpOnly refresh-token cookie.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        default:
+          $ref: "#/components/responses/APIError"
   /auth/logout:
     servers:
       - url: http://localhost:8080
@@ -182,6 +225,88 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthSessionsResponse"
+        default:
+          $ref: "#/components/responses/APIError"
+  /auth/passkeys:
+    get:
+      tags: [Auth]
+      summary: List current user passkeys
+      responses:
+        "200":
+          description: User passkeys
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasskeyCredentialsResponse"
+        default:
+          $ref: "#/components/responses/APIError"
+  /auth/passkeys/registration/options:
+    post:
+      tags: [Auth]
+      summary: Start passkey registration
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasskeyRegistrationOptionsRequest"
+      responses:
+        "200":
+          description: WebAuthn registration options
+          content:
+            application/json:
+              schema:
+                type: object
+        default:
+          $ref: "#/components/responses/APIError"
+  /auth/passkeys/registration/verify:
+    post:
+      tags: [Auth]
+      summary: Verify passkey registration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Created passkey
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasskeyCredential"
+        default:
+          $ref: "#/components/responses/APIError"
+  /auth/passkeys/{id}:
+    patch:
+      tags: [Auth]
+      summary: Rename a passkey
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasskeyRenameRequest"
+      responses:
+        "200":
+          description: Renamed passkey
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasskeyCredential"
+        default:
+          $ref: "#/components/responses/APIError"
+    delete:
+      tags: [Auth]
+      summary: Delete a passkey
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      responses:
+        "204":
+          description: Deleted passkey
         default:
           $ref: "#/components/responses/APIError"
   /auth/sessions/{id}:
@@ -775,6 +900,47 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AuthSessionInfo"
+    PasskeyCredential:
+      type: object
+      required: [id, name, backup_eligible, backup_state, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        backup_eligible:
+          type: boolean
+        backup_state:
+          type: boolean
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+    PasskeyCredentialsResponse:
+      type: object
+      required: [passkeys]
+      properties:
+        passkeys:
+          type: array
+          items:
+            $ref: "#/components/schemas/PasskeyCredential"
+    PasskeyRegistrationOptionsRequest:
+      type: object
+      properties:
+        password:
+          type: string
+    PasskeyRenameRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
     Profile:
       type: object
       required: [user]

@@ -208,6 +208,10 @@ func (s *testInterestAccrualStore) AuthAuditEvents() repository.AuthAuditReposit
 	return nil
 }
 
+func (s *testInterestAccrualStore) Passkeys() repository.PasskeyRepository {
+	return nil
+}
+
 func (s *testInterestAccrualStore) Idempotency() repository.IdempotencyRepository {
 	return nil
 }

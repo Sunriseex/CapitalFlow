@@ -5,6 +5,7 @@ import {
   ArrowRightLeft,
   ArrowUpRight,
   Landmark,
+  KeyRound,
   LogIn,
   LogOut,
   Moon,
@@ -21,6 +22,7 @@ import { SettingsView } from "./features/settings/SettingsView";
 import { TransactionForm } from "./features/transactions/TransactionForm";
 import { TransactionsView } from "./features/transactions/TransactionsView";
 import { TransferForm } from "./features/transactions/TransferForm";
+import { browserSupportsPasskeys, passkeyErrorMessage, signInWithPasskey } from "./features/auth/passkeys";
 import type { QuickAction, Theme, View } from "./shared/constants";
 import { themeStorageKey } from "./shared/constants";
 import { currencyOptions } from "./shared/currencies";
@@ -273,9 +275,12 @@ function AuthScreen({
   const [password, setPassword] = useState("");
   const [primaryCurrency, setPrimaryCurrency] = useState("RUB");
   const [error, setError] = useState("");
+  const [passkeyError, setPasskeyError] = useState("");
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
 
   const setupRequired = status.data?.setup_required;
   const isSetup = setupRequired === true;
+  const passkeysSupported = browserSupportsPasskeys();
 
   async function submit() {
     setError("");
@@ -290,6 +295,21 @@ function AuthScreen({
       onAuthenticated();
     } catch (err) {
       setError(errorText(err));
+    }
+  }
+
+  async function submitPasskey() {
+    setError("");
+    setPasskeyError("");
+    setPasskeyLoading(true);
+
+    try {
+      await signInWithPasskey();
+      onAuthenticated();
+    } catch (err) {
+      setPasskeyError(passkeyErrorMessage(err));
+    } finally {
+      setPasskeyLoading(false);
     }
   }
 
@@ -416,6 +436,24 @@ function AuthScreen({
           {isSetup ? <ShieldCheck size={16} /> : <LogIn size={16} />}
           {isSetup ? "Create account" : "Login"}
         </Button>
+
+        {!isSetup ? (
+          <>
+            {passkeyError ? <div className="error">{passkeyError}</div> : null}
+            <Button
+              className="muted-button"
+              disabled={!passkeysSupported || passkeyLoading}
+              type="button"
+              onClick={() => {
+                void submitPasskey();
+              }}
+            >
+              <KeyRound size={16} />
+              {passkeyLoading ? "Checking passkey" : "Sign in with passkey"}
+            </Button>
+            {!passkeysSupported ? <div className="error">This browser does not support passkeys</div> : null}
+          </>
+        ) : null}
       </form>
     </div>
   );
@@ -508,4 +546,3 @@ function storedTheme(): Theme {
 
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
-

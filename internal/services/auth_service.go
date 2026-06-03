@@ -484,6 +484,21 @@ func (s *AuthService) issueSession(ctx context.Context, user *models.User) (*Aut
 	return session, nil
 }
 
+// IssueSessionForUser creates a normal access/refresh session for an existing user.
+func (s *AuthService) IssueSessionForUser(ctx context.Context, userID string) (*AuthSession, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("issue session for user: %w", err)
+	}
+	if s.users == nil || s.refresh == nil || s.tokens == nil {
+		return nil, fmt.Errorf("auth service is not configured")
+	}
+	user, err := s.users.GetByID(ctx, strings.TrimSpace(userID))
+	if err != nil {
+		return nil, fmt.Errorf("get user: %w", err)
+	}
+	return s.issueSession(ctx, user)
+}
+
 func (s *AuthService) buildSession(user *models.User) (*AuthSession, *models.RefreshToken, error) {
 	now := s.now()
 	pair, err := s.tokens.IssuePair(user.ID, user.Email, now)

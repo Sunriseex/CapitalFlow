@@ -64,9 +64,19 @@ Successful login clears failed attempt state.
 
 Users can list refresh sessions and revoke a specific session. Password change revokes all active refresh sessions.
 
+## Passkeys
+
+Passkey login uses WebAuthn with server-side one-use challenges.
+
+* Registration requires an active access-token session.
+* Adding the first passkey requires password confirmation.
+* Login creates the same refresh session type as password login.
+* `WEBAUTHN_RP_ID` and `WEBAUTHN_ORIGINS` must match the browser origin served by the reverse proxy.
+* Production passkey origins must be HTTPS.
+
 ## Audit Trail
 
-All auth-sensitive flows write events to `auth_audit_events`, including setup, login, refresh, logout, password changes, session listing, session revocation, and refresh token reuse detection.
+All auth-sensitive flows write events to `auth_audit_events`, including setup, login, refresh, logout, password changes, passkey ceremonies, session listing, session revocation, and refresh token reuse detection.
 
 ## Observability
 
