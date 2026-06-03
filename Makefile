@@ -19,7 +19,7 @@ help:
 	@echo "  db-down     - stop local PostgreSQL"
 	@echo "  db-migrate  - run PostgreSQL migrations"
 	@echo "  db-rollback - rollback one PostgreSQL migration"
-	@echo "  deploy-vm   - sync, build, migrate, and run on VM"
+	@echo "  deploy-vm   - manually sync, migrate, and run on VM"
 
 test:
 	@go list ./... | grep -v '/web/' | xargs go test

@@ -457,24 +457,33 @@ gofmt -l $(git ls-files '*.go')
 
 The GitHub Actions CI pipeline runs backend and WebUI checks, including tests, race tests, linting, builds, migration checks, `go mod tidy` verification and frontend build checks.
 
-Pushes to `main` or `master` deploy only after CI is green:
-
-1. Run all CI checks.
-2. Build and push immutable API and Web images to GHCR with `sha-<commit>` tags.
-3. Run the deploy job on the VM self-hosted runner, pull those images, run migrations, and restart services with health waits.
-
-Production deploy requires a GitHub Actions self-hosted runner on the VM with these labels:
+Pushes to `main` or `master` do not deploy to any VM. After CI is green, GitHub Actions builds and pushes API and Web images to GHCR with these tags:
 
 ```text
-self-hosted
-linux
-capitalflow-vm
+ghcr.io/<owner>/capitalflow-api:sha-<commit>
+ghcr.io/<owner>/capitalflow-web:sha-<commit>
+ghcr.io/<owner>/capitalflow-api:<branch>
+ghcr.io/<owner>/capitalflow-web:<branch>
 ```
 
-Optional deploy settings can be stored as repository or environment variables:
+Use the immutable `sha-<commit>` tags for pinned production deploys. Use the branch tags, such as `master`, only for opt-in auto-update setups.
+
+Deploy is intentionally manual and instance-owned. From a checkout that can reach the target VM, run:
+
+```bash
+DEPLOY_MODE=images \
+CAPITALFLOW_API_IMAGE=ghcr.io/sunriseex/capitalflow-api:sha-<commit> \
+CAPITALFLOW_WEB_IMAGE=ghcr.io/sunriseex/capitalflow-web:sha-<commit> \
+./scripts/deploy-vm.sh
+```
+
+When running the script directly on the target VM, add `VM_HOST=local`.
+
+Optional deploy settings:
 
 ```text
-VM_REMOTE_DIR=/home/sunriseex/projects/CapitalFlow
+VM_HOST=VM
+REMOTE_DIR=/home/sunriseex/projects/CapitalFlow
 PUBLIC_ORIGIN=https://capitalflow.home.arpa
 CAPITALFLOW_PROXY_NETWORK=proxy
 ```
