@@ -68,3 +68,29 @@ func (s *Store) Ping(ctx context.Context) error {
 	}
 	return nil
 }
+
+func (s *Store) WithAdvisoryLock(ctx context.Context, lockName string, fn func(context.Context) error) (bool, error) {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return false, fmt.Errorf("begin advisory lock transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	var acquired bool
+	if err := tx.QueryRow(ctx, `SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0))`, lockName).Scan(&acquired); err != nil {
+		return false, fmt.Errorf("acquire advisory lock: %w", err)
+	}
+	if !acquired {
+		return false, nil
+	}
+
+	if err := fn(ctx); err != nil {
+		return true, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return true, fmt.Errorf("commit advisory lock transaction: %w", err)
+	}
+	return true, nil
+}

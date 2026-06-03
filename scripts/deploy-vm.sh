@@ -8,6 +8,10 @@ requested_capitalflow_host="${CAPITALFLOW_HOST-}"
 requested_proxy_network="${CAPITALFLOW_PROXY_NETWORK-}"
 requested_api_image="${CAPITALFLOW_API_IMAGE-}"
 requested_web_image="${CAPITALFLOW_WEB_IMAGE-}"
+requested_interest_jobs_enabled="${CAPITALFLOW_INTEREST_JOBS_ENABLED-}"
+requested_interest_jobs_time="${CAPITALFLOW_INTEREST_JOBS_TIME-}"
+requested_interest_job_timeout="${CAPITALFLOW_INTEREST_JOB_TIMEOUT-}"
+requested_timezone="${TZ-}"
 PUBLIC_ORIGIN="${requested_public_origin:-https://capitalflow.home.arpa}"
 origin_host() {
   local origin="$1"
@@ -113,6 +117,10 @@ requested_capitalflow_host="${REQUESTED_CAPITALFLOW_HOST:-}"
 requested_proxy_network="${REQUESTED_PROXY_NETWORK:-}"
 requested_api_image="${REQUESTED_API_IMAGE:-}"
 requested_web_image="${REQUESTED_WEB_IMAGE:-}"
+requested_interest_jobs_enabled="${REQUESTED_INTEREST_JOBS_ENABLED:-}"
+requested_interest_jobs_time="${REQUESTED_INTEREST_JOBS_TIME:-}"
+requested_interest_job_timeout="${REQUESTED_INTEREST_JOB_TIMEOUT:-}"
+requested_timezone="${REQUESTED_TIMEZONE:-}"
 
 cd "$REMOTE_DIR"
 mkdir -p deploy
@@ -135,6 +143,10 @@ CAPITALFLOW_API_PORT=18080
 CAPITALFLOW_WEB_PORT=18081
 TRUSTED_PROXIES=127.0.0.1/32,172.16.0.0/12
 LOG_LEVEL=info
+CAPITALFLOW_INTEREST_JOBS_ENABLED=true
+CAPITALFLOW_INTEREST_JOBS_TIME=03:15
+CAPITALFLOW_INTEREST_JOB_TIMEOUT=30m
+TZ=Europe/Moscow
 ENV
   chmod 600 deploy/.env
 fi
@@ -158,6 +170,18 @@ fi
 if [ -n "${requested_web_image}" ]; then
   CAPITALFLOW_WEB_IMAGE="${requested_web_image}"
 fi
+if [ -n "${requested_interest_jobs_enabled}" ]; then
+  CAPITALFLOW_INTEREST_JOBS_ENABLED="${requested_interest_jobs_enabled}"
+fi
+if [ -n "${requested_interest_jobs_time}" ]; then
+  CAPITALFLOW_INTEREST_JOBS_TIME="${requested_interest_jobs_time}"
+fi
+if [ -n "${requested_interest_job_timeout}" ]; then
+  CAPITALFLOW_INTEREST_JOB_TIMEOUT="${requested_interest_job_timeout}"
+fi
+if [ -n "${requested_timezone}" ]; then
+  TZ="${requested_timezone}"
+fi
 
 CAPITALFLOW_API_PORT="${CAPITALFLOW_API_PORT:-18080}"
 CAPITALFLOW_WEB_PORT="${CAPITALFLOW_WEB_PORT:-18081}"
@@ -165,6 +189,10 @@ CAPITALFLOW_PROXY_NETWORK="${CAPITALFLOW_PROXY_NETWORK:-proxy}"
 CAPITALFLOW_HOST="${CAPITALFLOW_HOST:-$(origin_host "${PUBLIC_ORIGIN}")}"
 CAPITALFLOW_API_IMAGE="${CAPITALFLOW_API_IMAGE:-capitalflow-api:local}"
 CAPITALFLOW_WEB_IMAGE="${CAPITALFLOW_WEB_IMAGE:-capitalflow-web:local}"
+CAPITALFLOW_INTEREST_JOBS_ENABLED="${CAPITALFLOW_INTEREST_JOBS_ENABLED:-true}"
+CAPITALFLOW_INTEREST_JOBS_TIME="${CAPITALFLOW_INTEREST_JOBS_TIME:-03:15}"
+CAPITALFLOW_INTEREST_JOB_TIMEOUT="${CAPITALFLOW_INTEREST_JOB_TIMEOUT:-30m}"
+TZ="${TZ:-Europe/Moscow}"
 PUBLIC_ORIGIN_HOST="$(origin_host "${PUBLIC_ORIGIN}")"
 
 if [ "${CAPITALFLOW_HOST}" != "${PUBLIC_ORIGIN_HOST}" ]; then
@@ -194,6 +222,10 @@ set_env_var CAPITALFLOW_PROXY_NETWORK "${CAPITALFLOW_PROXY_NETWORK}"
 set_env_var CAPITALFLOW_API_IMAGE "${CAPITALFLOW_API_IMAGE}"
 set_env_var CAPITALFLOW_WEB_IMAGE "${CAPITALFLOW_WEB_IMAGE}"
 set_env_var DATABASE_URL "${DATABASE_URL}"
+set_env_var CAPITALFLOW_INTEREST_JOBS_ENABLED "${CAPITALFLOW_INTEREST_JOBS_ENABLED}"
+set_env_var CAPITALFLOW_INTEREST_JOBS_TIME "${CAPITALFLOW_INTEREST_JOBS_TIME}"
+set_env_var CAPITALFLOW_INTEREST_JOB_TIMEOUT "${CAPITALFLOW_INTEREST_JOB_TIMEOUT}"
+set_env_var TZ "${TZ}"
 
 if ! docker network inspect "${CAPITALFLOW_PROXY_NETWORK}" >/dev/null 2>&1; then
   docker network create "${CAPITALFLOW_PROXY_NETWORK}" >/dev/null
@@ -209,6 +241,11 @@ fi
 docker compose up -d --wait postgres
 docker compose --profile tools run -T --rm migrate </dev/null
 docker compose up -d --wait --no-build api web
+if [ "${CAPITALFLOW_INTEREST_JOBS_ENABLED}" = "true" ]; then
+  docker compose up -d --no-build interest-scheduler
+else
+  docker compose rm -sf interest-scheduler >/dev/null 2>&1 || true
+fi
 docker compose ps
 
 curl -fsS "http://127.0.0.1:${CAPITALFLOW_API_PORT}/health" >/dev/null
@@ -228,6 +265,10 @@ deploy_env=(
   "REQUESTED_PROXY_NETWORK=${requested_proxy_network}"
   "REQUESTED_API_IMAGE=${requested_api_image}"
   "REQUESTED_WEB_IMAGE=${requested_web_image}"
+  "REQUESTED_INTEREST_JOBS_ENABLED=${requested_interest_jobs_enabled}"
+  "REQUESTED_INTEREST_JOBS_TIME=${requested_interest_jobs_time}"
+  "REQUESTED_INTEREST_JOB_TIMEOUT=${requested_interest_job_timeout}"
+  "REQUESTED_TIMEZONE=${requested_timezone}"
   "DEPLOY_MODE=${DEPLOY_MODE}"
   "DEPLOY_COMMIT=${deploy_commit}"
 )

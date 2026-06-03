@@ -2241,8 +2241,18 @@ func TestInterestRuleRepositoryListActiveForAccrual(t *testing.T) {
 		IsActive:                true,
 		StartDate:               now.AddDate(0, 0, 1),
 	}
+	monthlyRule := &models.InterestRule{
+		ID:                      uuid.NewString(),
+		AccountID:               account.ID,
+		AnnualRateBps:           1_300,
+		AccrualFrequency:        models.AccrualFrequencyMonthly,
+		CapitalizationFrequency: models.CapitalizationFrequencyMonthly,
+		DayCountConvention:      models.DayCountConventionActual365,
+		IsActive:                true,
+		StartDate:               now.AddDate(0, 0, -2),
+	}
 
-	rules := []*models.InterestRule{rule1, rule2, rule3, rule4, rule5}
+	rules := []*models.InterestRule{rule1, rule2, rule3, rule4, rule5, monthlyRule}
 	for _, r := range rules {
 		if err := store.InterestRules().Create(ctx, r); err != nil {
 			t.Fatalf("create rule %s: %v", r.ID, err)
@@ -2266,13 +2276,19 @@ func TestInterestRuleRepositoryListActiveForAccrual(t *testing.T) {
 	if gotIDs[rule3.ID] || gotIDs[rule4.ID] || gotIDs[rule5.ID] {
 		t.Fatalf("inactive, expired, or future rules returned: %+v", gotIDs)
 	}
+	if gotIDs[monthlyRule.ID] {
+		t.Fatalf("monthly rule returned for daily accrual: %+v", gotIDs)
+	}
 
 	monthlyTargets, err := store.InterestRules().(*InterestRuleRepository).ListActiveForAccrual(ctx, models.AccrualFrequencyMonthly, now)
 	if err != nil {
 		t.Fatalf("ListActiveForAccrual monthly: %v", err)
 	}
-	if len(monthlyTargets) != 0 {
-		t.Fatalf("expected 0 monthly rules, got %d", len(monthlyTargets))
+	if len(monthlyTargets) != 1 {
+		t.Fatalf("expected 1 monthly rule, got %d", len(monthlyTargets))
+	}
+	if monthlyTargets[0].Rule.ID != monthlyRule.ID {
+		t.Fatalf("monthly target id = %s, want %s", monthlyTargets[0].Rule.ID, monthlyRule.ID)
 	}
 
 	pastDate := now.AddDate(0, 0, -10)
@@ -2306,6 +2322,57 @@ func TestInterestRuleRepositoryListByUserScopesRulesToOwnedAccounts(t *testing.T
 	}
 	if got[0].ID != rule.ID {
 		t.Fatalf("rule id = %s, want %s", got[0].ID, rule.ID)
+	}
+}
+
+func TestStoreWithAdvisoryLockSkipsConcurrentSameName(t *testing.T) {
+	ctx := t.Context()
+	store := newTestStore(t)
+
+	locked := make(chan struct{})
+	release := make(chan struct{})
+	done := make(chan error, 1)
+
+	go func() {
+		acquired, err := store.WithAdvisoryLock(ctx, "test-interest-job", func(context.Context) error {
+			close(locked)
+			<-release
+			return nil
+		})
+		if err != nil {
+			done <- err
+			return
+		}
+		if !acquired {
+			done <- fmt.Errorf("first lock was not acquired")
+			return
+		}
+		done <- nil
+	}()
+
+	select {
+	case <-locked:
+	case <-time.After(5 * time.Second):
+		close(release)
+		t.Fatal("timed out waiting for first advisory lock")
+	}
+
+	acquired, err := store.WithAdvisoryLock(ctx, "test-interest-job", func(context.Context) error {
+		t.Fatal("second lock callback should not run")
+		return nil
+	})
+	if err != nil {
+		close(release)
+		t.Fatalf("second advisory lock: %v", err)
+	}
+	if acquired {
+		close(release)
+		t.Fatal("second lock acquired while first lock was held")
+	}
+
+	close(release)
+	if err := <-done; err != nil {
+		t.Fatalf("first advisory lock: %v", err)
 	}
 }
 

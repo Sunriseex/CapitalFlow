@@ -10,16 +10,20 @@ RUN mkdir -p /out && go install github.com/pressly/goose/v3/cmd/goose@v3.27.1 &&
 
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/capitalflow-server ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/capitalflow ./cmd/capitalflow
 
 FROM alpine:3.23
 
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates coreutils tzdata
 
 WORKDIR /app
 
 COPY --from=build /out/capitalflow-server /usr/local/bin/capitalflow-server
+COPY --from=build /out/capitalflow /usr/local/bin/capitalflow
 COPY --from=build /out/goose /usr/local/bin/goose
 COPY migrations ./migrations
+COPY scripts/interest-scheduler.sh /usr/local/bin/capitalflow-interest-scheduler
+RUN chmod +x /usr/local/bin/capitalflow-interest-scheduler
 
 EXPOSE 8080
 
