@@ -486,7 +486,32 @@ VM_HOST=VM
 REMOTE_DIR=/home/sunriseex/projects/CapitalFlow
 PUBLIC_ORIGIN=https://capitalflow.home.arpa
 CAPITALFLOW_PROXY_NETWORK=proxy
+CAPITALFLOW_INTEREST_JOBS_ENABLED=true
+CAPITALFLOW_INTEREST_JOBS_TIME=03:15
+CAPITALFLOW_INTEREST_JOB_TIMEOUT=30m
+TZ=Europe/Moscow
 ```
+
+The VM deploy runs interest jobs inside Docker Compose, not through NixOS timers. When
+`CAPITALFLOW_INTEREST_JOBS_ENABLED=true`, the `interest-scheduler` container runs once
+per day at `CAPITALFLOW_INTEREST_JOBS_TIME` and starts:
+
+```text
+daily_interest_accrual_job
+monthly_interest_accrual_job
+deposit_maturity_check_job
+```
+
+Manual VM run:
+
+```bash
+cd /home/sunriseex/projects/CapitalFlow/deploy
+docker compose --profile tools run -T --rm job-runner jobs run --name daily_interest_accrual_job
+```
+
+Each job takes a PostgreSQL advisory lock by job name. A second concurrent run exits
+successfully with `already running`. Daily, monthly and end-of-term jobs only load
+rules with their matching `accrual_frequency`.
 
 ## Security
 

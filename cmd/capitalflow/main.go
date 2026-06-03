@@ -467,29 +467,18 @@ func runJobsRun(ctx context.Context, args []string) error {
 	}
 	defer closeStore()
 
-	rules, ok := store.InterestRules().(repository.InterestRuleJobRepository)
-	if !ok {
-		return fmt.Errorf("interest rule repository does not support jobs")
-	}
-	accruals, ok := store.InterestAccruals().(repository.InterestAccrualTransactionalRepository)
-	if !ok {
-		return fmt.Errorf("interest accrual repository does not support transactional jobs")
-	}
-
-	job := &jobs.InterestJob{
-		Rules:    rules,
-		Accruals: accruals,
-		Now:      func() time.Time { return jobDate },
-	}
-
 	var result *jobs.InterestJobRunResult
-	switch jobName {
-	case jobs.DailyInterestAccrualJobName:
-		result, err = job.RunDailyInterestAccrual(ctx)
-	case jobs.MonthlyInterestAccrualJobName:
-		result, err = job.RunMonthlyInterestAccrual(ctx)
-	case jobs.DepositMaturityCheckJobName:
-		result, err = job.RunDepositMaturityCheck(ctx)
+	acquired, err := store.WithAdvisoryLock(ctx, "capitalflow:"+jobName, func(ctx context.Context) error {
+		var runErr error
+		result, runErr = runInterestJob(ctx, store, jobName, jobDate)
+		return runErr
+	})
+	if err != nil {
+		return err
+	}
+	if !acquired {
+		fmt.Printf("%s\talready running\n", jobName)
+		return nil
 	}
 	if result != nil {
 		fmt.Printf(
@@ -502,7 +491,36 @@ func runJobsRun(ctx context.Context, args []string) error {
 			result.Failed,
 		)
 	}
-	return err
+	return nil
+}
+
+func runInterestJob(ctx context.Context, store *postgres.Store, jobName string, jobDate time.Time) (*jobs.InterestJobRunResult, error) {
+	rules, ok := store.InterestRules().(repository.InterestRuleJobRepository)
+	if !ok {
+		return nil, fmt.Errorf("interest rule repository does not support jobs")
+	}
+	accruals, ok := store.InterestAccruals().(repository.InterestAccrualTransactionalRepository)
+	if !ok {
+		return nil, fmt.Errorf("interest accrual repository does not support transactional jobs")
+	}
+
+	job := &jobs.InterestJob{
+		Rules:    rules,
+		Accruals: accruals,
+		Now:      func() time.Time { return jobDate },
+	}
+
+	var result *jobs.InterestJobRunResult
+	var err error
+	switch jobName {
+	case jobs.DailyInterestAccrualJobName:
+		result, err = job.RunDailyInterestAccrual(ctx)
+	case jobs.MonthlyInterestAccrualJobName:
+		result, err = job.RunMonthlyInterestAccrual(ctx)
+	case jobs.DepositMaturityCheckJobName:
+		result, err = job.RunDepositMaturityCheck(ctx)
+	}
+	return result, err
 }
 
 func runAccrue(ctx context.Context, args []string) error {

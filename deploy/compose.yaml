@@ -41,6 +41,59 @@ services:
     profiles:
       - tools
 
+  job-runner:
+    build:
+      context: ..
+      dockerfile: Dockerfile.api
+    image: ${CAPITALFLOW_API_IMAGE:-capitalflow-api:local}
+    environment:
+      APP_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?database url required}
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?public origin required}
+      JWT_SECRET: ${JWT_SECRET:?jwt secret required}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      TZ: ${TZ:-Europe/Moscow}
+    entrypoint: ["/usr/local/bin/capitalflow"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+    profiles:
+      - tools
+
+  interest-scheduler:
+    image: ${CAPITALFLOW_API_IMAGE:-capitalflow-api:local}
+    container_name: capitalflow-interest-scheduler
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      APP_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?database url required}
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?public origin required}
+      JWT_SECRET: ${JWT_SECRET:?jwt secret required}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      CAPITALFLOW_INTEREST_JOBS_ENABLED: ${CAPITALFLOW_INTEREST_JOBS_ENABLED:-true}
+      CAPITALFLOW_INTEREST_JOBS_TIME: ${CAPITALFLOW_INTEREST_JOBS_TIME:-03:15}
+      CAPITALFLOW_INTEREST_JOB_TIMEOUT: ${CAPITALFLOW_INTEREST_JOB_TIMEOUT:-30m}
+      TZ: ${TZ:-Europe/Moscow}
+    entrypoint: ["/usr/local/bin/capitalflow-interest-scheduler"]
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/capitalflow-interest-scheduler.heartbeat"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+
   api:
     build:
       context: ..
