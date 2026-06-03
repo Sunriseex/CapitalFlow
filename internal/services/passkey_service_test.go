@@ -1,6 +1,7 @@
 package services
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -336,7 +337,7 @@ func (r *fakePasskeyRP) BeginDiscoverableLogin(_ ...webauthn.LoginOption) (*prot
 	}, nil
 }
 
-func (r *fakePasskeyRP) ValidatePasskeyLogin(handler webauthn.DiscoverableUserHandler, _ webauthn.SessionData, _ *protocol.ParsedCredentialAssertionData) (webauthn.User, *webauthn.Credential, error) {
+func (r *fakePasskeyRP) ValidatePasskeyLogin(handler webauthn.DiscoverableUserHandler, _ webauthn.SessionData, _ *protocol.ParsedCredentialAssertionData) (webauthn.User, *webauthn.Credential, error) { //nolint:gocritic // Interface requires value session data.
 	user, err := handler(r.loginRawID, r.loginUserHandle)
 	if err != nil {
 		return nil, nil, err
@@ -371,7 +372,7 @@ type fakePasskeyRepo struct {
 
 func (r *fakePasskeyRepo) CreateCredential(_ context.Context, credential *models.PasskeyCredential) error {
 	for _, existing := range r.credentialsByID {
-		if string(existing.CredentialID) == string(credential.CredentialID) {
+		if bytes.Equal(existing.CredentialID, credential.CredentialID) {
 			return repository.ErrConflict
 		}
 	}
@@ -399,7 +400,7 @@ func (r *fakePasskeyRepo) GetCredentialByIDForUser(_ context.Context, id, userID
 
 func (r *fakePasskeyRepo) GetCredentialByCredentialID(_ context.Context, credentialID []byte) (*models.PasskeyCredential, error) {
 	for _, credential := range r.credentialsByID {
-		if string(credential.CredentialID) == string(credentialID) {
+		if bytes.Equal(credential.CredentialID, credentialID) {
 			return credential, nil
 		}
 	}
@@ -416,8 +417,8 @@ func (r *fakePasskeyRepo) CountActiveCredentialsByUser(_ context.Context, userID
 	return count, nil
 }
 
-func (r *fakePasskeyRepo) UpdateCredentialAfterLogin(_ context.Context, credentialID []byte, signCount uint32, cloneWarning, backupState bool, lastUsedAt time.Time) error {
-	credential, err := r.GetCredentialByCredentialID(context.Background(), credentialID)
+func (r *fakePasskeyRepo) UpdateCredentialAfterLogin(ctx context.Context, credentialID []byte, signCount uint32, cloneWarning, backupState bool, lastUsedAt time.Time) error {
+	credential, err := r.GetCredentialByCredentialID(ctx, credentialID)
 	if err != nil {
 		return err
 	}
@@ -428,8 +429,8 @@ func (r *fakePasskeyRepo) UpdateCredentialAfterLogin(_ context.Context, credenti
 	return nil
 }
 
-func (r *fakePasskeyRepo) RenameCredential(_ context.Context, id, userID, name string, updatedAt time.Time) error {
-	credential, err := r.GetCredentialByIDForUser(context.Background(), id, userID)
+func (r *fakePasskeyRepo) RenameCredential(ctx context.Context, id, userID, name string, updatedAt time.Time) error {
+	credential, err := r.GetCredentialByIDForUser(ctx, id, userID)
 	if err != nil {
 		return err
 	}
@@ -438,8 +439,8 @@ func (r *fakePasskeyRepo) RenameCredential(_ context.Context, id, userID, name s
 	return nil
 }
 
-func (r *fakePasskeyRepo) RevokeCredential(_ context.Context, id, userID string, revokedAt time.Time) error {
-	credential, err := r.GetCredentialByIDForUser(context.Background(), id, userID)
+func (r *fakePasskeyRepo) RevokeCredential(ctx context.Context, id, userID string, revokedAt time.Time) error {
+	credential, err := r.GetCredentialByIDForUser(ctx, id, userID)
 	if err != nil {
 		return err
 	}

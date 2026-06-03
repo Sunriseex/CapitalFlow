@@ -91,7 +91,7 @@ func (h *Handler) passkeyRegistrationVerify(w http.ResponseWriter, r *http.Reque
 		writeServiceError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, passkeyCredentialResponse(*credential))
+	writeJSON(w, http.StatusCreated, passkeyCredentialResponse(credential))
 }
 
 func (h *Handler) renamePasskey(w http.ResponseWriter, r *http.Request) {
@@ -114,7 +114,7 @@ func (h *Handler) renamePasskey(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, passkeyCredentialResponse(*credential))
+	writeJSON(w, http.StatusOK, passkeyCredentialResponse(credential))
 }
 
 func (h *Handler) deletePasskey(w http.ResponseWriter, r *http.Request) {
@@ -154,13 +154,13 @@ func (h *Handler) passkeyService() *services.PasskeyService {
 
 func passkeyCredentialsResponse(credentials []models.PasskeyCredential) dto.PasskeyCredentialsResponse {
 	response := dto.PasskeyCredentialsResponse{Passkeys: make([]dto.PasskeyCredentialResponse, 0, len(credentials))}
-	for _, credential := range credentials {
-		response.Passkeys = append(response.Passkeys, passkeyCredentialResponse(credential))
+	for i := range credentials {
+		response.Passkeys = append(response.Passkeys, passkeyCredentialResponse(&credentials[i]))
 	}
 	return response
 }
 
-func passkeyCredentialResponse(credential models.PasskeyCredential) dto.PasskeyCredentialResponse {
+func passkeyCredentialResponse(credential *models.PasskeyCredential) dto.PasskeyCredentialResponse {
 	return dto.PasskeyCredentialResponse{
 		ID:             credential.ID,
 		Name:           credential.Name,

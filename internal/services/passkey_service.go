@@ -270,7 +270,7 @@ func (s *PasskeyService) discoverableUserHandler(ctx context.Context) webauthn.D
 	return func(rawID, userHandle []byte) (webauthn.User, error) {
 		credential, err := s.passkeys.GetCredentialByCredentialID(ctx, rawID)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("get passkey credential: %w", err)
 		}
 		if !credential.IsActive() {
 			return nil, repository.ErrNotFound
@@ -280,7 +280,7 @@ func (s *PasskeyService) discoverableUserHandler(ctx context.Context) webauthn.D
 		}
 		user, err := s.users.GetByID(ctx, credential.UserID)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("get passkey user: %w", err)
 		}
 		return passkeyUser{user: user, credentials: []models.PasskeyCredential{*credential}}, nil
 	}
@@ -411,7 +411,7 @@ func credentialModelFromWebAuthn(credential *webauthn.Credential, userID, name s
 	}
 }
 
-func webAuthnCredentialFromModel(credential models.PasskeyCredential) webauthn.Credential {
+func webAuthnCredentialFromModel(credential *models.PasskeyCredential) webauthn.Credential {
 	transports := make([]protocol.AuthenticatorTransport, 0, len(credential.Transports))
 	for _, transport := range credential.Transports {
 		transports = append(transports, protocol.AuthenticatorTransport(transport))
@@ -458,9 +458,9 @@ func (u passkeyUser) WebAuthnDisplayName() string {
 
 func (u passkeyUser) WebAuthnCredentials() []webauthn.Credential {
 	credentials := make([]webauthn.Credential, 0, len(u.credentials))
-	for _, credential := range u.credentials {
-		if credential.IsActive() {
-			credentials = append(credentials, webAuthnCredentialFromModel(credential))
+	for i := range u.credentials {
+		if u.credentials[i].IsActive() {
+			credentials = append(credentials, webAuthnCredentialFromModel(&u.credentials[i]))
 		}
 	}
 	return credentials

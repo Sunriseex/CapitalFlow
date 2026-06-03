@@ -13,6 +13,8 @@ import (
 	"github.com/sunriseex/capitalflow/internal/repository"
 )
 
+const maxUint32 = int64(1<<32 - 1)
+
 // PasskeyRepository stores passkey credentials and WebAuthn challenges in PostgreSQL.
 type PasskeyRepository struct {
 	pool *pgxpool.Pool
@@ -212,7 +214,10 @@ func scanPasskeyCredential(row interface {
 		&credential.CreatedAt,
 		&credential.UpdatedAt,
 	); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("scan passkey credential: %w", err)
+	}
+	if signCount < 0 || signCount > maxUint32 {
+		return nil, fmt.Errorf("scan passkey credential: sign count out of range")
 	}
 	credential.SignCount = uint32(signCount)
 	return &credential, nil
@@ -233,7 +238,7 @@ func scanWebAuthnChallenge(row interface {
 		&challenge.UsedAt,
 		&challenge.CreatedAt,
 	); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("scan webauthn challenge: %w", err)
 	}
 	return &challenge, nil
 }

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"net/http"
 	"net/http/httptest"
@@ -334,7 +335,7 @@ func (r *testProfilePasskeyRepo) GetCredentialByIDForUser(_ context.Context, id,
 
 func (r *testProfilePasskeyRepo) GetCredentialByCredentialID(_ context.Context, credentialID []byte) (*models.PasskeyCredential, error) {
 	for _, credential := range r.credentialsByID {
-		if string(credential.CredentialID) == string(credentialID) {
+		if bytes.Equal(credential.CredentialID, credentialID) {
 			return credential, nil
 		}
 	}
@@ -351,8 +352,8 @@ func (r *testProfilePasskeyRepo) CountActiveCredentialsByUser(_ context.Context,
 	return count, nil
 }
 
-func (r *testProfilePasskeyRepo) UpdateCredentialAfterLogin(_ context.Context, credentialID []byte, signCount uint32, cloneWarning, backupState bool, lastUsedAt time.Time) error {
-	credential, err := r.GetCredentialByCredentialID(context.Background(), credentialID)
+func (r *testProfilePasskeyRepo) UpdateCredentialAfterLogin(ctx context.Context, credentialID []byte, signCount uint32, cloneWarning, backupState bool, lastUsedAt time.Time) error {
+	credential, err := r.GetCredentialByCredentialID(ctx, credentialID)
 	if err != nil {
 		return err
 	}
@@ -363,8 +364,8 @@ func (r *testProfilePasskeyRepo) UpdateCredentialAfterLogin(_ context.Context, c
 	return nil
 }
 
-func (r *testProfilePasskeyRepo) RenameCredential(_ context.Context, id, userID, name string, updatedAt time.Time) error {
-	credential, err := r.GetCredentialByIDForUser(context.Background(), id, userID)
+func (r *testProfilePasskeyRepo) RenameCredential(ctx context.Context, id, userID, name string, updatedAt time.Time) error {
+	credential, err := r.GetCredentialByIDForUser(ctx, id, userID)
 	if err != nil {
 		return err
 	}
@@ -373,8 +374,8 @@ func (r *testProfilePasskeyRepo) RenameCredential(_ context.Context, id, userID,
 	return nil
 }
 
-func (r *testProfilePasskeyRepo) RevokeCredential(_ context.Context, id, userID string, revokedAt time.Time) error {
-	credential, err := r.GetCredentialByIDForUser(context.Background(), id, userID)
+func (r *testProfilePasskeyRepo) RevokeCredential(ctx context.Context, id, userID string, revokedAt time.Time) error {
+	credential, err := r.GetCredentialByIDForUser(ctx, id, userID)
 	if err != nil {
 		return err
 	}

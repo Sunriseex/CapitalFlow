@@ -23,7 +23,7 @@ type PasskeyCredential struct {
 }
 
 // IsActive reports whether the credential can be used for login.
-func (c PasskeyCredential) IsActive() bool {
+func (c *PasskeyCredential) IsActive() bool {
 	return c.RevokedAt == nil
 }
 
