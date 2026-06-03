@@ -26,6 +26,12 @@ CAPITALFLOW_API_IMAGE="${requested_api_image:-capitalflow-api:local}"
 CAPITALFLOW_WEB_IMAGE="${requested_web_image:-capitalflow-web:local}"
 DEPLOY_MODE="${DEPLOY_MODE:-build}"
 DEPLOY_REF="${DEPLOY_REF:-HEAD}"
+local_deploy=false
+case "${VM_HOST}" in
+  local | localhost | 127.0.0.1)
+    local_deploy=true
+    ;;
+esac
 
 case "${DEPLOY_MODE}" in
   build | images) ;;
@@ -44,24 +50,37 @@ trap cleanup EXIT
 git archive --format=tar "${DEPLOY_REF}" | tar -xf - -C "${archive_dir}"
 deploy_commit="$(git rev-parse --short "${DEPLOY_REF}")"
 
-ssh "${VM_HOST}" "mkdir -p '${REMOTE_DIR}'"
+if [ "${local_deploy}" = true ]; then
+  mkdir -p "${REMOTE_DIR}"
+else
+  ssh "${VM_HOST}" "mkdir -p '${REMOTE_DIR}'"
+fi
 
-rsync -az --delete \
-  --exclude ".git" \
-  --exclude ".env" \
-  --exclude ".env.*" \
-  --exclude "configs/.env" \
-  --exclude "deploy/.env" \
-  --exclude "web/.env" \
-  --exclude "web/.env.local" \
-  --exclude "web/.env.*.local" \
-  --exclude "web/node_modules" \
-  --exclude "web/dist" \
-  --exclude "web/test-results" \
-  --exclude "web/playwright-report" \
-  "${archive_dir}/" "${VM_HOST}:${REMOTE_DIR}/"
+rsync_args=(
+  -az
+  --delete
+  --exclude ".git"
+  --exclude ".env"
+  --exclude ".env.*"
+  --exclude "configs/.env"
+  --exclude "deploy/.env"
+  --exclude "web/.env"
+  --exclude "web/.env.local"
+  --exclude "web/.env.*.local"
+  --exclude "web/node_modules"
+  --exclude "web/dist"
+  --exclude "web/test-results"
+  --exclude "web/playwright-report"
+)
 
-ssh "${VM_HOST}" "REMOTE_DIR='${REMOTE_DIR}' PUBLIC_ORIGIN='${PUBLIC_ORIGIN}' CAPITALFLOW_HOST='${CAPITALFLOW_HOST}' CAPITALFLOW_PROXY_NETWORK='${CAPITALFLOW_PROXY_NETWORK}' CAPITALFLOW_API_IMAGE='${CAPITALFLOW_API_IMAGE}' CAPITALFLOW_WEB_IMAGE='${CAPITALFLOW_WEB_IMAGE}' REQUESTED_PUBLIC_ORIGIN='${requested_public_origin}' REQUESTED_CAPITALFLOW_HOST='${requested_capitalflow_host}' REQUESTED_PROXY_NETWORK='${requested_proxy_network}' REQUESTED_API_IMAGE='${requested_api_image}' REQUESTED_WEB_IMAGE='${requested_web_image}' DEPLOY_MODE='${DEPLOY_MODE}' DEPLOY_COMMIT='${deploy_commit}' bash -s" <<'EOF'
+if [ "${local_deploy}" = true ]; then
+  rsync "${rsync_args[@]}" "${archive_dir}/" "${REMOTE_DIR}/"
+else
+  rsync "${rsync_args[@]}" "${archive_dir}/" "${VM_HOST}:${REMOTE_DIR}/"
+fi
+
+remote_script="${archive_dir}/deploy-remote.sh"
+cat > "${remote_script}" <<'EOF'
 set -euo pipefail
 
 origin_host() {
@@ -196,3 +215,29 @@ curl -fsS "http://127.0.0.1:${CAPITALFLOW_API_PORT}/health" >/dev/null
 curl -fsS "http://127.0.0.1:${CAPITALFLOW_API_PORT}/ready" >/dev/null
 curl -fsS "http://127.0.0.1:${CAPITALFLOW_WEB_PORT}/health" >/dev/null
 EOF
+
+deploy_env=(
+  "REMOTE_DIR=${REMOTE_DIR}"
+  "PUBLIC_ORIGIN=${PUBLIC_ORIGIN}"
+  "CAPITALFLOW_HOST=${CAPITALFLOW_HOST}"
+  "CAPITALFLOW_PROXY_NETWORK=${CAPITALFLOW_PROXY_NETWORK}"
+  "CAPITALFLOW_API_IMAGE=${CAPITALFLOW_API_IMAGE}"
+  "CAPITALFLOW_WEB_IMAGE=${CAPITALFLOW_WEB_IMAGE}"
+  "REQUESTED_PUBLIC_ORIGIN=${requested_public_origin}"
+  "REQUESTED_CAPITALFLOW_HOST=${requested_capitalflow_host}"
+  "REQUESTED_PROXY_NETWORK=${requested_proxy_network}"
+  "REQUESTED_API_IMAGE=${requested_api_image}"
+  "REQUESTED_WEB_IMAGE=${requested_web_image}"
+  "DEPLOY_MODE=${DEPLOY_MODE}"
+  "DEPLOY_COMMIT=${deploy_commit}"
+)
+
+if [ "${local_deploy}" = true ]; then
+  env "${deploy_env[@]}" bash "${remote_script}"
+else
+  remote_command=""
+  for assignment in "${deploy_env[@]}"; do
+    remote_command+=" $(printf "%q" "${assignment}")"
+  done
+  ssh "${VM_HOST}" "${remote_command# } bash -s" < "${remote_script}"
+fi

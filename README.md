@@ -461,18 +461,15 @@ Pushes to `main` or `master` deploy only after CI is green:
 
 1. Run all CI checks.
 2. Build and push immutable API and Web images to GHCR with `sha-<commit>` tags.
-3. SSH to the VM, pull those images, run migrations, and restart services with health waits.
+3. Run the deploy job on the VM self-hosted runner, pull those images, run migrations, and restart services with health waits.
 
-Required GitHub Actions secrets for production deploy:
+Production deploy requires a GitHub Actions self-hosted runner on the VM with these labels:
 
 ```text
-VM_SSH_HOST
-VM_SSH_USER
-VM_SSH_PRIVATE_KEY
-VM_SSH_KNOWN_HOSTS
+self-hosted
+linux
+capitalflow-vm
 ```
-
-`VM_SSH_KNOWN_HOSTS` must contain the pinned VM SSH host key line, for example the reviewed output of `ssh-keyscan <host>`.
 
 Optional deploy settings can be stored as repository or environment variables:
 
