@@ -280,7 +280,10 @@ jobs:
 
   deploy-vm:
     name: Deploy VM
-    runs-on: ubuntu-latest
+    runs-on:
+      - self-hosted
+      - linux
+      - capitalflow-vm
     needs:
       - build-images
     if: github.event_name == 'push' && contains(fromJSON('["main", "master"]'), github.ref_name)
@@ -296,60 +299,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Check deploy secrets
-        shell: bash
-        env:
-          VM_SSH_HOST: ${{ secrets.VM_SSH_HOST }}
-          VM_SSH_USER: ${{ secrets.VM_SSH_USER }}
-          VM_SSH_PRIVATE_KEY: ${{ secrets.VM_SSH_PRIVATE_KEY }}
-          VM_SSH_KNOWN_HOSTS: ${{ secrets.VM_SSH_KNOWN_HOSTS }}
-        run: |
-          test -n "$VM_SSH_HOST"
-          test -n "$VM_SSH_USER"
-          test -n "$VM_SSH_PRIVATE_KEY"
-          test -n "$VM_SSH_KNOWN_HOSTS"
-
-      - name: Configure SSH
-        shell: bash
-        env:
-          VM_SSH_HOST: ${{ secrets.VM_SSH_HOST }}
-          VM_SSH_USER: ${{ secrets.VM_SSH_USER }}
-          VM_SSH_PRIVATE_KEY: ${{ secrets.VM_SSH_PRIVATE_KEY }}
-          VM_SSH_KNOWN_HOSTS: ${{ secrets.VM_SSH_KNOWN_HOSTS }}
-          VM_SSH_PORT: ${{ secrets.VM_SSH_PORT }}
-        run: |
-          port="${VM_SSH_PORT:-22}"
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          printf '%s\n' "$VM_SSH_PRIVATE_KEY" > ~/.ssh/capitalflow_vm
-          chmod 600 ~/.ssh/capitalflow_vm
-          printf '%s\n' "$VM_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts
-          {
-            echo "Host capitalflow-vm"
-            echo "  HostName $VM_SSH_HOST"
-            echo "  User $VM_SSH_USER"
-            echo "  Port $port"
-            echo "  IdentityFile ~/.ssh/capitalflow_vm"
-            echo "  IdentitiesOnly yes"
-            echo "  StrictHostKeyChecking yes"
-          } >> ~/.ssh/config
-
-      - name: Configure VM GHCR auth
-        shell: bash
-        env:
-          GHCR_USERNAME: ${{ github.actor }}
-          GHCR_TOKEN: ${{ github.token }}
-        run: |
-          auth="$(printf '%s:%s' "$GHCR_USERNAME" "$GHCR_TOKEN" | base64 | tr -d '\n')"
-          auth_json="$(printf '{"auths":{"ghcr.io":{"auth":"%s"}}}' "$auth")"
-          timeout 30s ssh -n -T capitalflow-vm \
-            "mkdir -p ~/.docker && chmod 700 ~/.docker && printf '%s\n' '${auth_json}' > ~/.docker/config.json && chmod 600 ~/.docker/config.json"
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
 
       - name: Deploy images to VM
         shell: bash
         env:
-          VM_HOST: capitalflow-vm
+          VM_HOST: local
           DEPLOY_MODE: images
           DEPLOY_REF: ${{ github.sha }}
           REMOTE_DIR: ${{ vars.VM_REMOTE_DIR }}
