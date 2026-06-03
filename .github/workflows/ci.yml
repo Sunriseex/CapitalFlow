@@ -342,10 +342,9 @@ jobs:
           GHCR_TOKEN: ${{ github.token }}
         run: |
           auth="$(printf '%s:%s' "$GHCR_USERNAME" "$GHCR_TOKEN" | base64 | tr -d '\n')"
-          timeout 60s ssh -T capitalflow-vm \
-            'mkdir -p ~/.docker && chmod 700 ~/.docker && cat > ~/.docker/config.json && chmod 600 ~/.docker/config.json' <<EOF
-          {"auths":{"ghcr.io":{"auth":"${auth}"}}}
-          EOF
+          auth_json="$(printf '{"auths":{"ghcr.io":{"auth":"%s"}}}' "$auth")"
+          timeout 30s ssh -n -T capitalflow-vm \
+            "mkdir -p ~/.docker && chmod 700 ~/.docker && printf '%s\n' '${auth_json}' > ~/.docker/config.json && chmod 600 ~/.docker/config.json"
 
       - name: Deploy images to VM
         shell: bash
