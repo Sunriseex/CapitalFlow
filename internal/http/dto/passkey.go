@@ -2,10 +2,12 @@ package dto
 
 import "time"
 
+// PasskeyRegistrationOptionsRequest starts a passkey registration ceremony.
 type PasskeyRegistrationOptionsRequest struct {
 	Password string `json:"password"`
 }
 
+// PasskeyCredentialResponse is a user-visible passkey record.
 type PasskeyCredentialResponse struct {
 	ID             string     `json:"id"`
 	Name           string     `json:"name"`
@@ -15,10 +17,12 @@ type PasskeyCredentialResponse struct {
 	CreatedAt      time.Time  `json:"created_at"`
 }
 
+// PasskeyCredentialsResponse lists user-visible passkeys.
 type PasskeyCredentialsResponse struct {
 	Passkeys []PasskeyCredentialResponse `json:"passkeys"`
 }
 
+// PasskeyRenameRequest renames a passkey.
 type PasskeyRenameRequest struct {
 	Name string `json:"name"`
 }

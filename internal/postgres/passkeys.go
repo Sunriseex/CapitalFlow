@@ -13,10 +13,12 @@ import (
 	"github.com/sunriseex/capitalflow/internal/repository"
 )
 
+// PasskeyRepository stores passkey credentials and WebAuthn challenges in PostgreSQL.
 type PasskeyRepository struct {
 	pool *pgxpool.Pool
 }
 
+// NewPasskeyRepository creates a PostgreSQL passkey repository.
 func NewPasskeyRepository(pool *pgxpool.Pool) *PasskeyRepository {
 	return &PasskeyRepository{pool: pool}
 }

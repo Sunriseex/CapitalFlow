@@ -129,6 +129,7 @@ type AuthAuditRepository interface {
 	Create(ctx context.Context, event *models.AuthAuditEvent) error
 }
 
+// PasskeyRepository persists WebAuthn passkey credentials and one-use challenges.
 type PasskeyRepository interface {
 	CreateCredential(ctx context.Context, credential *models.PasskeyCredential) error
 	ListCredentialsByUser(ctx context.Context, userID string, includeRevoked bool) ([]models.PasskeyCredential, error)

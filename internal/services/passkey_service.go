@@ -50,14 +50,23 @@ type PasskeyDeleteRequest struct {
 
 // PasskeyService manages WebAuthn passkey registration and login.
 type PasskeyService struct {
-	users        repository.UserRepository
-	passkeys     repository.PasskeyRepository
-	auth         *AuthService
-	audit        repository.AuthAuditRepository
-	webAuthn     *webauthn.WebAuthn
-	verifyFunc   func(string, string) (bool, error)
-	now          func() time.Time
-	challengeTTL time.Duration
+	users          repository.UserRepository
+	passkeys       repository.PasskeyRepository
+	auth           *AuthService
+	audit          repository.AuthAuditRepository
+	webAuthn       passkeyRelyingParty
+	verifyFunc     func(string, string) (bool, error)
+	parseCreation  func([]byte) (*protocol.ParsedCredentialCreationData, error)
+	parseAssertion func([]byte) (*protocol.ParsedCredentialAssertionData, error)
+	now            func() time.Time
+	challengeTTL   time.Duration
+}
+
+type passkeyRelyingParty interface {
+	BeginRegistration(user webauthn.User, opts ...webauthn.RegistrationOption) (*protocol.CredentialCreation, *webauthn.SessionData, error)
+	CreateCredential(user webauthn.User, session webauthn.SessionData, parsedResponse *protocol.ParsedCredentialCreationData) (*webauthn.Credential, error)
+	BeginDiscoverableLogin(opts ...webauthn.LoginOption) (*protocol.CredentialAssertion, *webauthn.SessionData, error)
+	ValidatePasskeyLogin(handler webauthn.DiscoverableUserHandler, session webauthn.SessionData, parsedResponse *protocol.ParsedCredentialAssertionData) (webauthn.User, *webauthn.Credential, error)
 }
 
 // NewPasskeyService creates a PasskeyService.
@@ -83,14 +92,16 @@ func NewPasskeyService(users repository.UserRepository, passkeys repository.Pass
 		return nil, fmt.Errorf("create webauthn: %w", err)
 	}
 	return &PasskeyService{
-		users:        users,
-		passkeys:     passkeys,
-		auth:         authService,
-		audit:        audit,
-		webAuthn:     webAuthn,
-		verifyFunc:   authService.verifyFunc,
-		now:          time.Now,
-		challengeTTL: passkeyChallengeTTL,
+		users:          users,
+		passkeys:       passkeys,
+		auth:           authService,
+		audit:          audit,
+		webAuthn:       webAuthn,
+		verifyFunc:     authService.verifyFunc,
+		parseCreation:  protocol.ParseCredentialCreationResponseBytes,
+		parseAssertion: protocol.ParseCredentialRequestResponseBytes,
+		now:            time.Now,
+		challengeTTL:   passkeyChallengeTTL,
 	}, nil
 }
 
@@ -163,7 +174,7 @@ func (s *PasskeyService) VerifyRegistration(ctx context.Context, userID string, 
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
 	}
-	parsed, err := protocol.ParseCredentialCreationResponseBytes(body)
+	parsed, err := s.parseCreation(body)
 	if err != nil {
 		s.auditEvent(ctx, "passkey_registration_failed", user.Email, &user.ID, false, "invalid_response")
 		return nil, validationError("passkey registration failed")
@@ -221,7 +232,7 @@ func (s *PasskeyService) LoginOptions(ctx context.Context) (any, error) {
 
 // VerifyLogin verifies a passkey login response and creates a normal auth session.
 func (s *PasskeyService) VerifyLogin(ctx context.Context, body []byte) (*AuthSession, error) {
-	parsed, err := protocol.ParseCredentialRequestResponseBytes(body)
+	parsed, err := s.parseAssertion(body)
 	if err != nil {
 		s.auditEvent(ctx, "passkey_login_failed", "", nil, false, "invalid_response")
 		return nil, validationError("passkey login failed")
@@ -235,24 +246,7 @@ func (s *PasskeyService) VerifyLogin(ctx context.Context, body []byte) (*AuthSes
 	if err != nil {
 		return nil, err
 	}
-	handler := func(rawID, userHandle []byte) (webauthn.User, error) {
-		credential, err := s.passkeys.GetCredentialByCredentialID(ctx, rawID)
-		if err != nil {
-			return nil, err
-		}
-		if !credential.IsActive() {
-			return nil, repository.ErrNotFound
-		}
-		if string(userHandle) != credential.UserID {
-			return nil, repository.ErrNotFound
-		}
-		user, err := s.users.GetByID(ctx, credential.UserID)
-		if err != nil {
-			return nil, err
-		}
-		return passkeyUser{user: user, credentials: []models.PasskeyCredential{*credential}}, nil
-	}
-	webUser, credential, err := s.webAuthn.ValidatePasskeyLogin(handler, sessionData, parsed)
+	webUser, credential, err := s.webAuthn.ValidatePasskeyLogin(s.discoverableUserHandler(ctx), sessionData, parsed)
 	if err != nil {
 		s.auditEvent(ctx, "passkey_login_failed", "", nil, false, "verification_failed")
 		return nil, validationError("passkey login failed")
@@ -270,6 +264,26 @@ func (s *PasskeyService) VerifyLogin(ctx context.Context, body []byte) (*AuthSes
 	}
 	s.auditEvent(ctx, "passkey_login_success", user.Email, &user.ID, true, "")
 	return authSession, nil
+}
+
+func (s *PasskeyService) discoverableUserHandler(ctx context.Context) webauthn.DiscoverableUserHandler {
+	return func(rawID, userHandle []byte) (webauthn.User, error) {
+		credential, err := s.passkeys.GetCredentialByCredentialID(ctx, rawID)
+		if err != nil {
+			return nil, err
+		}
+		if !credential.IsActive() {
+			return nil, repository.ErrNotFound
+		}
+		if string(userHandle) != credential.UserID {
+			return nil, repository.ErrNotFound
+		}
+		user, err := s.users.GetByID(ctx, credential.UserID)
+		if err != nil {
+			return nil, err
+		}
+		return passkeyUser{user: user, credentials: []models.PasskeyCredential{*credential}}, nil
+	}
 }
 
 // Rename renames a passkey.

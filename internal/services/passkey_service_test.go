@@ -2,10 +2,13 @@ package services
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
+	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
 
 	"github.com/sunriseex/capitalflow/internal/models"
@@ -13,7 +16,7 @@ import (
 )
 
 func TestPasskeyRegistrationOptionsRequiresPasswordForFirstPasskey(t *testing.T) {
-	service, users, passkeys := newTestPasskeyService(t)
+	service, users, _, passkeys := newTestPasskeyService(t)
 	users.byID["user-1"] = &models.User{ID: "user-1", Email: "user@example.com", PasswordHash: "hash:correct password"}
 
 	_, err := service.RegistrationOptions(t.Context(), PasskeyRegistrationOptionsRequest{UserID: "user-1"})
@@ -37,7 +40,7 @@ func TestPasskeyRegistrationOptionsRequiresPasswordForFirstPasskey(t *testing.T)
 }
 
 func TestPasskeyRegistrationOptionsSkipsPasswordWhenPasskeyExists(t *testing.T) {
-	service, users, passkeys := newTestPasskeyService(t)
+	service, users, _, passkeys := newTestPasskeyService(t)
 	users.byID["user-1"] = &models.User{ID: "user-1", Email: "user@example.com", PasswordHash: "hash:correct password"}
 	passkeys.credentialsByID["passkey-1"] = &models.PasskeyCredential{
 		ID:           "passkey-1",
@@ -132,9 +135,163 @@ func TestPasskeyChallengeSecurityCases(t *testing.T) {
 	}
 }
 
-func newTestPasskeyService(t *testing.T) (*PasskeyService, *fakeUserRepo, *fakePasskeyRepo) {
+func TestPasskeyProtocolRejectsWrongOriginAndRPID(t *testing.T) {
+	t.Run("wrong origin rejected", func(t *testing.T) {
+		clientData := protocol.CollectedClientData{
+			Type:      protocol.AssertCeremony,
+			Challenge: "challenge",
+			Origin:    "https://evil.example",
+		}
+
+		err := clientData.Verify(
+			"challenge",
+			protocol.AssertCeremony,
+			[]string{"https://capitalflow.example"},
+			nil,
+			protocol.TopOriginIgnoreVerificationMode,
+		)
+		if err == nil {
+			t.Fatal("expected wrong origin to be rejected")
+		}
+	})
+
+	t.Run("wrong rpID rejected", func(t *testing.T) {
+		expected := sha256.Sum256([]byte("capitalflow.example"))
+		wrong := sha256.Sum256([]byte("evil.example"))
+		authData := protocol.AuthenticatorData{RPIDHash: wrong[:]}
+
+		if err := authData.Verify(expected[:], nil, false, false); err == nil {
+			t.Fatal("expected wrong rpID hash to be rejected")
+		}
+	})
+}
+
+func TestPasskeyVerifyRegistrationRejectsCredentialCollision(t *testing.T) {
+	service, users, _, passkeys := newTestPasskeyService(t)
+	users.byID["user-1"] = &models.User{ID: "user-1", Email: "user@example.com", PasswordHash: "hash:correct password"}
+	fakeRP := &fakePasskeyRP{
+		registrationChallenge: "registration-challenge",
+		registrationCredential: &webauthn.Credential{
+			ID:        []byte("credential-1"),
+			PublicKey: []byte("public-key"),
+		},
+	}
+	service.webAuthn = fakeRP
+	service.parseCreation = fakeParseCreation("registration-challenge")
+	passkeys.credentialsByID["existing"] = &models.PasskeyCredential{
+		ID:           "existing",
+		UserID:       "user-1",
+		CredentialID: []byte("credential-1"),
+		PublicKey:    []byte("existing-public-key"),
+		Name:         "Existing",
+	}
+
+	if _, err := service.RegistrationOptions(t.Context(), PasskeyRegistrationOptionsRequest{
+		UserID:   "user-1",
+		Password: "correct password",
+	}); err != nil {
+		t.Fatalf("registration options: %v", err)
+	}
+
+	_, err := service.VerifyRegistration(t.Context(), "user-1", []byte(`{}`))
+	if !IsValidationError(err) {
+		t.Fatalf("expected validation error for credential collision, got %v", err)
+	}
+}
+
+func TestPasskeyDiscoverableUserHandlerRejectsRevokedDeletedAndWrongUser(t *testing.T) {
+	service, users, _, passkeys := newTestPasskeyService(t)
+	users.byID["user-1"] = &models.User{ID: "user-1", Email: "user@example.com"}
+	revokedAt := service.now()
+	passkeys.credentialsByID["credential-1"] = &models.PasskeyCredential{
+		ID:           "credential-1",
+		UserID:       "user-1",
+		CredentialID: []byte("raw-credential-1"),
+		PublicKey:    []byte("public-key"),
+		Name:         "Deleted",
+		RevokedAt:    &revokedAt,
+	}
+
+	handler := service.discoverableUserHandler(t.Context())
+	if _, err := handler([]byte("raw-credential-1"), []byte("user-1")); !errors.Is(err, repository.ErrNotFound) {
+		t.Fatalf("revoked credential error = %v, want ErrNotFound", err)
+	}
+
+	passkeys.credentialsByID["credential-1"].RevokedAt = nil
+	if _, err := handler([]byte("raw-credential-1"), []byte("user-2")); !errors.Is(err, repository.ErrNotFound) {
+		t.Fatalf("wrong user handle error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestPasskeyE2ESmokeInMemoryCreatesRefreshSession(t *testing.T) {
+	service, users, refresh, passkeys := newTestPasskeyService(t)
+	users.byID["user-1"] = &models.User{
+		ID:              "user-1",
+		Email:           "user@example.com",
+		PasswordHash:    "hash:correct password",
+		PrimaryCurrency: "RUB",
+	}
+	fakeRP := &fakePasskeyRP{
+		registrationChallenge: "registration-challenge",
+		loginChallenge:        "login-challenge",
+		registrationCredential: &webauthn.Credential{
+			ID:        []byte("credential-1"),
+			PublicKey: []byte("public-key"),
+			Flags: webauthn.CredentialFlags{
+				BackupEligible: true,
+				BackupState:    true,
+			},
+			Authenticator: webauthn.Authenticator{SignCount: 1},
+		},
+		loginRawID:      []byte("credential-1"),
+		loginUserHandle: []byte("user-1"),
+		loginCredential: &webauthn.Credential{
+			ID:            []byte("credential-1"),
+			PublicKey:     []byte("public-key"),
+			Flags:         webauthn.CredentialFlags{BackupEligible: true, BackupState: true},
+			Authenticator: webauthn.Authenticator{SignCount: 2},
+		},
+	}
+	service.webAuthn = fakeRP
+	service.parseCreation = fakeParseCreation("registration-challenge")
+	service.parseAssertion = fakeParseAssertion("login-challenge")
+
+	if _, err := service.RegistrationOptions(t.Context(), PasskeyRegistrationOptionsRequest{
+		UserID:   "user-1",
+		Password: "correct password",
+	}); err != nil {
+		t.Fatalf("registration options: %v", err)
+	}
+	if _, err := service.VerifyRegistration(t.Context(), "user-1", []byte(`{}`)); err != nil {
+		t.Fatalf("verify registration: %v", err)
+	}
+	if len(passkeys.credentialsByID) != 1 {
+		t.Fatalf("passkeys = %d, want 1", len(passkeys.credentialsByID))
+	}
+
+	if _, err := service.LoginOptions(t.Context()); err != nil {
+		t.Fatalf("login options: %v", err)
+	}
+	session, err := service.VerifyLogin(t.Context(), []byte(`{}`))
+	if err != nil {
+		t.Fatalf("verify login: %v", err)
+	}
+	if session.AccessToken == "" || session.RefreshToken == "" {
+		t.Fatal("expected normal auth session tokens")
+	}
+	if len(refresh.byHash) != 1 {
+		t.Fatalf("refresh tokens = %d, want 1", len(refresh.byHash))
+	}
+	for _, credential := range passkeys.credentialsByID {
+		if credential.SignCount != 2 || credential.LastUsedAt == nil {
+			t.Fatalf("credential after login = %+v, want sign count 2 and last used", credential)
+		}
+	}
+}
+
+func newTestPasskeyService(t *testing.T) (*PasskeyService, *fakeUserRepo, *fakeRefreshRepo, *fakePasskeyRepo) {
 	t.Helper()
-	authService, users, _, audit := newTestAuthService(t)
+	authService, users, refresh, audit := newTestAuthService(t)
 	passkeys := &fakePasskeyRepo{
 		credentialsByID: map[string]*models.PasskeyCredential{},
 		challenges:      map[string]*models.WebAuthnChallenge{},
@@ -148,7 +305,63 @@ func newTestPasskeyService(t *testing.T) (*PasskeyService, *fakeUserRepo, *fakeP
 		t.Fatalf("new passkey service: %v", err)
 	}
 	service.now = authService.now
-	return service, users, passkeys
+	return service, users, refresh, passkeys
+}
+
+type fakePasskeyRP struct {
+	registrationChallenge  string
+	registrationCredential *webauthn.Credential
+	loginChallenge         string
+	loginRawID             []byte
+	loginUserHandle        []byte
+	loginCredential        *webauthn.Credential
+}
+
+func (r *fakePasskeyRP) BeginRegistration(user webauthn.User, _ ...webauthn.RegistrationOption) (*protocol.CredentialCreation, *webauthn.SessionData, error) {
+	return &protocol.CredentialCreation{}, &webauthn.SessionData{
+		Challenge: r.registrationChallenge,
+		UserID:    user.WebAuthnID(),
+		Expires:   time.Now().Add(time.Minute),
+	}, nil
+}
+
+func (r *fakePasskeyRP) CreateCredential(webauthn.User, webauthn.SessionData, *protocol.ParsedCredentialCreationData) (*webauthn.Credential, error) {
+	return r.registrationCredential, nil
+}
+
+func (r *fakePasskeyRP) BeginDiscoverableLogin(_ ...webauthn.LoginOption) (*protocol.CredentialAssertion, *webauthn.SessionData, error) {
+	return &protocol.CredentialAssertion{}, &webauthn.SessionData{
+		Challenge: r.loginChallenge,
+		Expires:   time.Now().Add(time.Minute),
+	}, nil
+}
+
+func (r *fakePasskeyRP) ValidatePasskeyLogin(handler webauthn.DiscoverableUserHandler, _ webauthn.SessionData, _ *protocol.ParsedCredentialAssertionData) (webauthn.User, *webauthn.Credential, error) {
+	user, err := handler(r.loginRawID, r.loginUserHandle)
+	if err != nil {
+		return nil, nil, err
+	}
+	return user, r.loginCredential, nil
+}
+
+func fakeParseCreation(challenge string) func([]byte) (*protocol.ParsedCredentialCreationData, error) {
+	return func([]byte) (*protocol.ParsedCredentialCreationData, error) {
+		return &protocol.ParsedCredentialCreationData{
+			Response: protocol.ParsedAttestationResponse{
+				CollectedClientData: protocol.CollectedClientData{Challenge: challenge},
+			},
+		}, nil
+	}
+}
+
+func fakeParseAssertion(challenge string) func([]byte) (*protocol.ParsedCredentialAssertionData, error) {
+	return func([]byte) (*protocol.ParsedCredentialAssertionData, error) {
+		return &protocol.ParsedCredentialAssertionData{
+			Response: protocol.ParsedAssertionResponse{
+				CollectedClientData: protocol.CollectedClientData{Challenge: challenge},
+			},
+		}, nil
+	}
 }
 
 type fakePasskeyRepo struct {
