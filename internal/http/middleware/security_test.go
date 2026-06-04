@@ -66,25 +66,38 @@ func TestAuthHostPolicyAllowsConfiguredHost(t *testing.T) {
 }
 
 func TestAuthHostPolicyRejectsDirectIPInProduction(t *testing.T) {
-	handler := AuthHostPolicy(HostPolicyConfig{
-		AppEnv:             "production",
-		PublicOrigin:       "https://capitalflow.home.arpa",
-		PublicOriginHost:   "capitalflow.home.arpa",
-		AllowDirectIPLogin: false,
-	})(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
+	tests := []struct {
+		name string
+		path string
+	}{
+		{name: "password login", path: "/auth/login"},
+		{name: "passkey login options", path: "/auth/passkeys/login/options"},
+		{name: "passkey login verify", path: "/auth/passkeys/login/verify"},
+	}
 
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/login", http.NoBody)
-	req.Host = "192.168.1.10"
-	req.Header.Set("Origin", "https://192.168.1.10")
-	req.Header.Set("Referer", "https://192.168.1.10/login")
-	rec := httptest.NewRecorder()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := AuthHostPolicy(HostPolicyConfig{
+				AppEnv:             "production",
+				PublicOrigin:       "https://capitalflow.home.arpa",
+				PublicOriginHost:   "capitalflow.home.arpa",
+				AllowDirectIPLogin: false,
+			})(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			}))
 
-	handler.ServeHTTP(rec, req)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, tt.path, http.NoBody)
+			req.Host = "192.168.1.10"
+			req.Header.Set("Origin", "https://192.168.1.10")
+			req.Header.Set("Referer", "https://192.168.1.10/login")
+			rec := httptest.NewRecorder()
 
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusForbidden)
+			handler.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusForbidden {
+				t.Fatalf("status = %d, want %d", rec.Code, http.StatusForbidden)
+			}
+		})
 	}
 }
 

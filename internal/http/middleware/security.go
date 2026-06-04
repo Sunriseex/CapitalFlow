@@ -79,6 +79,7 @@ func AuthHostPolicy(cfg HostPolicyConfig) func(http.Handler) http.Handler {
 func authSensitivePath(path string) bool {
 	switch path {
 	case "/auth/setup", "/auth/login", "/auth/refresh", "/auth/logout",
+		"/auth/passkeys/login/options", "/auth/passkeys/login/verify",
 		"/api/v1/auth/password", "/api/v1/auth/sessions":
 		return true
 	default:

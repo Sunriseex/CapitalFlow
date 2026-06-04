@@ -52,6 +52,10 @@ func (s *Store) AuthAuditEvents() repository.AuthAuditRepository {
 	return NewAuthAuditRepository(s.pool)
 }
 
+func (s *Store) Passkeys() repository.PasskeyRepository {
+	return NewPasskeyRepository(s.pool)
+}
+
 func (s *Store) Idempotency() repository.IdempotencyRepository {
 	return NewIdempotencyRepository(s.pool)
 }

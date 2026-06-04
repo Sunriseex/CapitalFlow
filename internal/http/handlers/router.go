@@ -23,38 +23,51 @@ type Store interface {
 	Users() repository.UserRepository
 	RefreshTokens() repository.RefreshTokenRepository
 	AuthAuditEvents() repository.AuthAuditRepository
+	Passkeys() repository.PasskeyRepository
 	Idempotency() repository.IdempotencyRepository
 	Ping(ctx context.Context) error
 }
 
 type Handler struct {
-	store          Store
-	tokens         *auth.TokenService
-	cookieSecure   bool
-	cookieSameSite http.SameSite
-	accounts       *services.AccountService
-	transactions   *services.TransactionService
-	transfers      *services.TransferService
-	interestRules  *services.InterestRuleService
+	store                 Store
+	appVersion            string
+	tokens                *auth.TokenService
+	cookieSecure          bool
+	cookieSameSite        http.SameSite
+	webAuthnRPDisplayName string
+	webAuthnRPID          string
+	webAuthnOrigins       []string
+	auth                  *services.AuthService
+	passkeys              *services.PasskeyService
+	accounts              *services.AccountService
+	transactions          *services.TransactionService
+	transfers             *services.TransferService
+	interestRules         *services.InterestRuleService
 }
 
 type RouterConfig struct {
-	AppEnv                    string
-	APIAuthToken              string
-	TokenService              *auth.TokenService
-	PublicOrigin              string
-	PublicOriginHost          string
-	CookieSecure              bool
-	CookieSameSite            string
-	AllowDirectIPLogin        bool
-	CORSAllowedOrigins        []string
-	RateLimitRequests         int
-	RateLimitWindow           time.Duration
-	AuthRateLimitRequests     int
-	AuthRateLimitWindow       time.Duration
-	MutationRateLimitRequests int
-	MutationRateLimitWindow   time.Duration
-	TrustedProxies            []string
+	AppEnv                          string
+	AppVersion                      string
+	APIAuthToken                    string
+	TokenService                    *auth.TokenService
+	PublicOrigin                    string
+	PublicOriginHost                string
+	WebAuthnRPDisplayName           string
+	WebAuthnRPID                    string
+	WebAuthnOrigins                 []string
+	CookieSecure                    bool
+	CookieSameSite                  string
+	AllowDirectIPLogin              bool
+	CORSAllowedOrigins              []string
+	RateLimitRequests               int
+	RateLimitWindow                 time.Duration
+	AuthRateLimitRequests           int
+	AuthRateLimitWindow             time.Duration
+	PasskeyOptionsRateLimitRequests int
+	PasskeyOptionsRateLimitWindow   time.Duration
+	MutationRateLimitRequests       int
+	MutationRateLimitWindow         time.Duration
+	TrustedProxies                  []string
 }
 
 func NewRouter(store Store, cfg *RouterConfig) http.Handler {
@@ -78,18 +91,26 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 	transactionService := services.NewTransactionService(transactionRepo).
 		WithAccountRepository(accountRepo).
 		WithCategoryRepository(categoryRepo)
+	authService := newRouterAuthService(store, cfg.TokenService)
+	passkeyService := newRouterPasskeyService(store, authService, cfg)
 	cookieSecure := cfg.CookieSecure
 	if cfg.AppEnv == "" && cfg.CookieSameSite == "" {
 		cookieSecure = true
 	}
 	h := &Handler{
-		store:          store,
-		tokens:         cfg.TokenService,
-		cookieSecure:   cookieSecure,
-		cookieSameSite: cookieSameSiteMode(cfg.CookieSameSite),
-		accounts:       services.NewAccountService(accountRepo),
-		transactions:   transactionService,
-		transfers:      services.NewTransferService(transactionService),
+		store:                 store,
+		appVersion:            firstNonEmpty(cfg.AppVersion, "v0.5.8"),
+		tokens:                cfg.TokenService,
+		cookieSecure:          cookieSecure,
+		cookieSameSite:        cookieSameSiteMode(cfg.CookieSameSite),
+		webAuthnRPDisplayName: firstNonEmpty(cfg.WebAuthnRPDisplayName, "CapitalFlow"),
+		webAuthnRPID:          firstNonEmpty(cfg.WebAuthnRPID, "localhost"),
+		webAuthnOrigins:       defaultWebAuthnOrigins(cfg.WebAuthnOrigins),
+		auth:                  authService,
+		passkeys:              passkeyService,
+		accounts:              services.NewAccountService(accountRepo),
+		transactions:          transactionService,
+		transfers:             services.NewTransferService(transactionService),
 		interestRules: services.NewInterestRuleService(
 			transactionService,
 			services.WithInterestRuleRepository(interestRuleRepo),
@@ -128,6 +149,11 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 		firstPositiveDuration(cfg.AuthRateLimitWindow, cfg.RateLimitWindow),
 		cfg.TrustedProxies,
 	)
+	passkeyOptionsRateLimit := appmiddleware.RateLimitByIPWithTrustedProxies(
+		firstPositive(cfg.PasskeyOptionsRateLimitRequests, cfg.AuthRateLimitRequests),
+		firstPositiveDuration(cfg.PasskeyOptionsRateLimitWindow, cfg.AuthRateLimitWindow),
+		cfg.TrustedProxies,
+	)
 
 	mutationRateLimit := appmiddleware.RateLimitByIPWithTrustedProxies(
 		firstPositive(cfg.MutationRateLimitRequests, cfg.RateLimitRequests),
@@ -143,6 +169,8 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 	r.With(authRateLimit).Post("/auth/login", h.authLogin)
 	r.With(authRateLimit).Post("/auth/refresh", h.authRefresh)
 	r.With(authRateLimit).Post("/auth/logout", h.authLogout)
+	r.With(passkeyOptionsRateLimit).Post("/auth/passkeys/login/options", h.passkeyLoginOptions)
+	r.With(authRateLimit).Post("/auth/passkeys/login/verify", h.passkeyLoginVerify)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		if cfg.TokenService != nil {
@@ -154,6 +182,10 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 		r.With(appmiddleware.MutationOnly(mutationRateLimit), appmiddleware.Idempotency(h.idempotency())).Group(func(r chi.Router) {
 			r.Post("/auth/password", h.changePassword)
 			r.Delete("/auth/sessions/{id}", h.revokeSession)
+			r.Post("/auth/passkeys/registration/options", h.passkeyRegistrationOptions)
+			r.Post("/auth/passkeys/registration/verify", h.passkeyRegistrationVerify)
+			r.Patch("/auth/passkeys/{id}", h.renamePasskey)
+			r.Delete("/auth/passkeys/{id}", h.deletePasskey)
 			r.Patch("/settings/profile", h.updateProfile)
 			r.Post("/accounts", h.createAccount)
 			r.Patch("/accounts/{id}", h.updateAccount)
@@ -168,6 +200,7 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 
 		r.Get("/categories", h.listCategories)
 		r.Get("/auth/sessions", h.listSessions)
+		r.Get("/auth/passkeys", h.listPasskeys)
 		r.Get("/currency-rates", h.getCurrencyRates)
 		r.Get("/settings/profile", h.getProfile)
 
@@ -189,6 +222,53 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 	})
 
 	return r
+}
+
+func newRouterAuthService(store Store, tokens *auth.TokenService) *services.AuthService {
+	if store == nil {
+		return nil
+	}
+	return services.NewAuthService(
+		store.Users(),
+		store.RefreshTokens(),
+		tokens,
+		store.AuthAuditEvents(),
+	).WithAccountRepository(store.Accounts())
+}
+
+func newRouterPasskeyService(store Store, authService *services.AuthService, cfg *RouterConfig) *services.PasskeyService {
+	if store == nil || authService == nil || cfg.TokenService == nil {
+		return nil
+	}
+	service, err := services.NewPasskeyService(
+		store.Users(),
+		store.Passkeys(),
+		authService,
+		store.AuthAuditEvents(),
+		services.WebAuthnConfig{
+			RPDisplayName: firstNonEmpty(cfg.WebAuthnRPDisplayName, "CapitalFlow"),
+			RPID:          firstNonEmpty(cfg.WebAuthnRPID, "localhost"),
+			Origins:       defaultWebAuthnOrigins(cfg.WebAuthnOrigins),
+		},
+	)
+	if err != nil {
+		panic("passkey service is not configured: " + err.Error())
+	}
+	return service
+}
+
+func firstNonEmpty(value, fallback string) string {
+	if value != "" {
+		return value
+	}
+	return fallback
+}
+
+func defaultWebAuthnOrigins(origins []string) []string {
+	if len(origins) > 0 {
+		return origins
+	}
+	return []string{"http://localhost:5173"}
 }
 
 func (h *Handler) idempotency() repository.IdempotencyRepository {

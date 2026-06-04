@@ -101,6 +101,35 @@ describe("api client", () => {
     expect(localStorage.getItem("capitalflow_refresh_token")).toBeNull();
   });
 
+  it("calls passkey auth and settings endpoints", async () => {
+    setStoredToken("access");
+    const fetchMock = vi.mocked(fetch);
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ publicKey: { challenge: "login-challenge" } }))
+      .mockResolvedValueOnce(jsonResponse(session))
+      .mockResolvedValueOnce(jsonResponse({ passkeys: [{ id: "passkey-1", name: "Laptop", backup_eligible: true, backup_state: true, created_at: "2026-06-04T10:00:00Z" }] }))
+      .mockResolvedValueOnce(jsonResponse({ publicKey: { challenge: "registration-challenge" } }))
+      .mockResolvedValueOnce(jsonResponse({ id: "passkey-1", name: "Laptop", backup_eligible: true, backup_state: true, created_at: "2026-06-04T10:00:00Z" }))
+      .mockResolvedValueOnce(jsonResponse({ id: "passkey-1", name: "Phone", backup_eligible: true, backup_state: true, created_at: "2026-06-04T10:00:00Z" }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    await api.passkeyLoginOptions();
+    await api.passkeyLoginVerify({ id: "credential" });
+    await api.passkeys();
+    await api.passkeyRegistrationOptions({ password: "correct password" });
+    await api.passkeyRegistrationVerify({ id: "credential" });
+    await api.renamePasskey("passkey-1", { name: "Phone" });
+    await api.deletePasskey("passkey-1");
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/auth/passkeys/login/options", expect.objectContaining({ method: "POST", credentials: "include" }));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/auth/passkeys/login/verify", expect.objectContaining({ method: "POST", credentials: "include" }));
+    expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/v1/auth/passkeys", expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(4, "/api/v1/auth/passkeys/registration/options", expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(5, "/api/v1/auth/passkeys/registration/verify", expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(6, "/api/v1/auth/passkeys/passkey-1", expect.objectContaining({ method: "PATCH" }));
+    expect(fetchMock).toHaveBeenNthCalledWith(7, "/api/v1/auth/passkeys/passkey-1", expect.objectContaining({ method: "DELETE" }));
+  });
+
   it("keeps local session when cookie logout fails", async () => {
     setStoredToken("access");
     localStorage.setItem("capitalflow_refresh_token", "legacy-refresh");
@@ -212,5 +241,4 @@ function jsonResponse(body: unknown, status = 200) {
     headers: { "Content-Type": "application/json" },
   });
 }
-
 

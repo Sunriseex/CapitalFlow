@@ -35,6 +35,11 @@ export type AuthStatusResponse = {
   "setup_required": boolean;
 };
 
+export type ServiceStatus = {
+  "status": string;
+  "version": string;
+};
+
 export type ChangePasswordRequest = {
   "current_password": string;
   "new_password": string;
@@ -51,6 +56,27 @@ export type AuthSessionInfo = {
 
 export type AuthSessionsResponse = {
   "sessions": AuthSessionInfo[];
+};
+
+export type PasskeyCredential = {
+  "id": string;
+  "name": string;
+  "backup_eligible": boolean;
+  "backup_state": boolean;
+  "last_used_at"?: string | null;
+  "created_at": string;
+};
+
+export type PasskeyCredentialsResponse = {
+  "passkeys": PasskeyCredential[];
+};
+
+export type PasskeyRegistrationOptionsRequest = {
+  "password": string;
+};
+
+export type PasskeyRenameRequest = {
+  "name": string;
 };
 
 export type Profile = {

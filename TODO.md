@@ -52,11 +52,12 @@ CapitalFlow — self-hosted сервис для личного учета фин
 * [x] v0.5.5 Architecture Stabilization.
 * [x] v0.5.6 Financial Auditability & Idempotency.
 * [x] v0.5.7 Security Baseline Before Passkeys.
-* [ ] v0.5.8 Passkey Login / WebAuthn.
-* [ ] v0.5.9 E2E Testing Baseline.
-* [ ] v0.6 Deposit & Capitalization Engine.
-* [ ] v0.6.1 Backup / Restore / Operations.
-* [ ] v0.6.2 Performance & Observability.
+* [x] v0.5.8 Passkey Login / WebAuthn.
+* [ ] v0.5.9 Frontend Reference Refactor.
+* [ ] v0.6.0 E2E Testing Baseline.
+* [ ] v0.6.1 Deposit & Capitalization Engine.
+* [ ] v0.6.2 Backup / Restore / Operations.
+* [ ] v0.6.3 Performance & Observability.
 * [ ] v0.7 Import / Export.
 * [ ] v0.8 Budgeting / Goals.
 * [ ] v0.9 Analytics / Forecasts.
@@ -330,55 +331,81 @@ WEBAUTHN_ORIGINS=https://capitalflow.example.com
 
 ## Backend tasks
 
-* [ ] Добавить WebAuthn config.
-* [ ] Добавить `passkey_credentials`.
-* [ ] Добавить `webauthn_challenges`.
-* [ ] Добавить `PasskeyService`.
-* [ ] Добавить `PasskeyRepository`.
-* [ ] Добавить registration options endpoint.
-* [ ] Добавить registration verify endpoint.
-* [ ] Добавить login options endpoint.
-* [ ] Добавить login verify endpoint.
-* [ ] Интегрировать successful passkey login в текущий refresh session flow.
+* [x] Добавить WebAuthn config.
+* [x] Добавить `passkey_credentials`.
+* [x] Добавить `webauthn_challenges`.
+* [x] Добавить `PasskeyService`.
+* [x] Добавить `PasskeyRepository`.
+* [x] Добавить registration options endpoint.
+* [x] Добавить registration verify endpoint.
+* [x] Добавить login options endpoint.
+* [x] Добавить login verify endpoint.
+* [x] Интегрировать successful passkey login в текущий refresh session flow.
 
 ## Frontend tasks
 
-* [ ] Login screen: Sign in with passkey.
-* [ ] Settings -> Security -> Passkeys.
-* [ ] Add passkey.
-* [ ] Rename passkey.
-* [ ] Delete passkey.
-* [ ] Browser not supported state.
-* [ ] User cancelled state.
-* [ ] Safe generic error state.
+* [x] Login screen: Sign in with passkey.
+* [x] Settings -> Security -> Passkeys.
+* [x] Add passkey.
+* [x] Rename passkey.
+* [x] Delete passkey.
+* [x] Browser not supported state.
+* [x] User cancelled state.
+* [x] Safe generic error state.
 
 ## Security edge cases
 
-* [ ] Replayed challenge rejected.
-* [ ] Expired challenge rejected.
-* [ ] Challenge from another user rejected.
-* [ ] Wrong origin rejected.
-* [ ] Wrong rpID rejected.
-* [ ] Revoked credential rejected.
-* [ ] Credential ID collision rejected.
-* [ ] Passkey registration without active session rejected.
-* [ ] First passkey add requires fresh session/password confirmation.
-* [ ] Deleted passkey cannot login.
+* [x] Replayed challenge rejected.
+* [x] Expired challenge rejected.
+* [x] Challenge from another user rejected.
+* [x] Wrong origin rejected.
+* [x] Wrong rpID rejected.
+* [x] Revoked credential rejected.
+* [x] Credential ID collision rejected.
+* [x] Passkey registration without active session rejected.
+* [x] First passkey add requires fresh session/password confirmation.
+* [x] Deleted passkey cannot login.
 
 ## Acceptance criteria
 
-* [ ] Пользователь может добавить passkey.
-* [ ] Пользователь может войти по passkey.
-* [ ] Password login остается fallback.
-* [ ] Можно иметь несколько passkeys.
-* [ ] Можно удалить passkey.
-* [ ] Passkey login создает обычную refresh session.
-* [ ] Все passkey-события пишутся в auth audit log.
-* [ ] Есть unit, handler, security и E2E smoke tests.
+* [x] Пользователь может добавить passkey.
+* [x] Пользователь может войти по passkey.
+* [x] Password login остается fallback.
+* [x] Можно иметь несколько passkeys.
+* [x] Можно удалить passkey.
+* [x] Passkey login создает обычную refresh session.
+* [x] Все passkey-события пишутся в auth audit log.
+* [x] Есть unit, handler, security и E2E smoke tests.
 
 ---
 
-# v0.5.9 — E2E Testing Baseline
+# v0.5.9 — Frontend Reference Refactor
+
+## Goal
+
+Привести WebUI к выбранным `.lazyweb` references до расширения E2E и новых фич, чтобы тесты закрепляли уже целевой UX, а не временный интерфейс.
+
+## Scope
+
+* [ ] Login screen по `.lazyweb/quick-references/auth-finance-login-2026-05-10`.
+* [ ] Initial setup screen по `.lazyweb/quick-references/auth-finance-login-2026-05-10`.
+* [ ] Dashboard по `.lazyweb/quick-references/finance-dashboard-2026-05-10`.
+* [ ] Any new pages use the same finance app layout language.
+* [ ] Keep existing auth, passkey, dashboard, account, transaction and settings flows working.
+* [ ] Avoid large product scope changes during the refactor.
+
+## Acceptance criteria
+
+* [ ] Login and setup are visually separate states, not a cramped mode toggle.
+* [ ] Dashboard leads with balance, useful actions, account overview and recent activity.
+* [ ] Mobile layout stays usable.
+* [ ] Dark theme remains supported.
+* [ ] Existing frontend tests pass and are updated for new layout.
+* [ ] New UI states have focused tests where behavior changes.
+
+---
+
+# v0.6.0 — E2E Testing Baseline
 
 ## Goal
 
@@ -434,7 +461,7 @@ WEBAUTHN_ORIGINS=https://capitalflow.example.com
 
 ---
 
-# v0.6 — Deposit & Capitalization Engine
+# v0.6.1 — Deposit & Capitalization Engine
 
 ## Goal
 
@@ -496,7 +523,7 @@ job_locks
 
 ---
 
-# v0.6.1 — Backup / Restore / Operations
+# v0.6.2 — Backup / Restore / Operations
 
 ## Goal
 
@@ -538,7 +565,7 @@ job_locks
 
 ---
 
-# v0.6.2 — Performance & Observability
+# v0.6.3 — Performance & Observability
 
 ## Goal
 

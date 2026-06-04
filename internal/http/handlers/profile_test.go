@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"net/http"
 	"net/http/httptest"
@@ -139,6 +140,7 @@ type testProfileStore struct {
 	rules        repository.InterestRuleRepository
 	users        *testProfileUserRepo
 	refresh      *testProfileRefreshRepo
+	passkeys     *testProfilePasskeyRepo
 	idem         *testIdempotencyRepo
 }
 
@@ -147,7 +149,11 @@ func newTestProfileStore() *testProfileStore {
 	return &testProfileStore{
 		users:   &testProfileUserRepo{byID: map[string]*models.User{}, refresh: refresh},
 		refresh: refresh,
-		idem:    newTestIdempotencyRepo(),
+		passkeys: &testProfilePasskeyRepo{
+			credentialsByID: map[string]*models.PasskeyCredential{},
+			challenges:      map[string]*models.WebAuthnChallenge{},
+		},
+		idem: newTestIdempotencyRepo(),
 	}
 }
 
@@ -181,6 +187,10 @@ func (s *testProfileStore) RefreshTokens() repository.RefreshTokenRepository {
 
 func (s *testProfileStore) AuthAuditEvents() repository.AuthAuditRepository {
 	return nil
+}
+
+func (s *testProfileStore) Passkeys() repository.PasskeyRepository {
+	return s.passkeys
 }
 
 func (s *testProfileStore) Idempotency() repository.IdempotencyRepository {
@@ -293,6 +303,116 @@ func (r *testProfileUserRepo) UpdatePrimaryCurrency(_ context.Context, id, prima
 
 type testProfileRefreshRepo struct {
 	byID map[string]*models.RefreshToken
+}
+
+type testProfilePasskeyRepo struct {
+	credentialsByID map[string]*models.PasskeyCredential
+	challenges      map[string]*models.WebAuthnChallenge
+	deleteCalls     int
+}
+
+func (r *testProfilePasskeyRepo) CreateCredential(_ context.Context, credential *models.PasskeyCredential) error {
+	r.credentialsByID[credential.ID] = credential
+	return nil
+}
+
+func (r *testProfilePasskeyRepo) ListCredentialsByUser(_ context.Context, userID string, includeRevoked bool) ([]models.PasskeyCredential, error) {
+	credentials := []models.PasskeyCredential{}
+	for _, credential := range r.credentialsByID {
+		if credential.UserID == userID && (includeRevoked || credential.RevokedAt == nil) {
+			credentials = append(credentials, *credential)
+		}
+	}
+	return credentials, nil
+}
+
+func (r *testProfilePasskeyRepo) GetCredentialByIDForUser(_ context.Context, id, userID string) (*models.PasskeyCredential, error) {
+	credential, ok := r.credentialsByID[id]
+	if !ok || credential.UserID != userID {
+		return nil, repository.ErrNotFound
+	}
+	return credential, nil
+}
+
+func (r *testProfilePasskeyRepo) GetCredentialByCredentialID(_ context.Context, credentialID []byte) (*models.PasskeyCredential, error) {
+	for _, credential := range r.credentialsByID {
+		if bytes.Equal(credential.CredentialID, credentialID) {
+			return credential, nil
+		}
+	}
+	return nil, repository.ErrNotFound
+}
+
+func (r *testProfilePasskeyRepo) CountActiveCredentialsByUser(_ context.Context, userID string) (int64, error) {
+	var count int64
+	for _, credential := range r.credentialsByID {
+		if credential.UserID == userID && credential.RevokedAt == nil {
+			count++
+		}
+	}
+	return count, nil
+}
+
+func (r *testProfilePasskeyRepo) UpdateCredentialAfterLogin(ctx context.Context, credentialID []byte, signCount uint32, cloneWarning, backupState bool, lastUsedAt time.Time) error {
+	credential, err := r.GetCredentialByCredentialID(ctx, credentialID)
+	if err != nil {
+		return err
+	}
+	credential.SignCount = signCount
+	credential.CloneWarning = cloneWarning
+	credential.BackupState = backupState
+	credential.LastUsedAt = &lastUsedAt
+	return nil
+}
+
+func (r *testProfilePasskeyRepo) RenameCredential(ctx context.Context, id, userID, name string, updatedAt time.Time) error {
+	credential, err := r.GetCredentialByIDForUser(ctx, id, userID)
+	if err != nil {
+		return err
+	}
+	credential.Name = name
+	credential.UpdatedAt = updatedAt
+	return nil
+}
+
+func (r *testProfilePasskeyRepo) RevokeCredential(ctx context.Context, id, userID string, revokedAt time.Time) error {
+	credential, err := r.GetCredentialByIDForUser(ctx, id, userID)
+	if err != nil {
+		return err
+	}
+	credential.RevokedAt = &revokedAt
+	return nil
+}
+
+func (r *testProfilePasskeyRepo) CreateChallenge(_ context.Context, challenge *models.WebAuthnChallenge) error {
+	r.challenges[challenge.Challenge] = challenge
+	return nil
+}
+
+func (r *testProfilePasskeyRepo) ConsumeChallenge(_ context.Context, ceremony, challenge string, userID *string, usedAt time.Time) (*models.WebAuthnChallenge, error) {
+	record, ok := r.challenges[challenge]
+	if !ok || record.Ceremony != ceremony || record.UsedAt != nil || !usedAt.Before(record.ExpiresAt) {
+		return nil, repository.ErrNotFound
+	}
+	if userID == nil {
+		if record.UserID != nil {
+			return nil, repository.ErrNotFound
+		}
+	} else if record.UserID == nil || *record.UserID != *userID {
+		return nil, repository.ErrNotFound
+	}
+	record.UsedAt = &usedAt
+	return record, nil
+}
+
+func (r *testProfilePasskeyRepo) DeleteExpiredChallenges(_ context.Context, before time.Time) error {
+	r.deleteCalls++
+	for challenge, record := range r.challenges {
+		if record.ExpiresAt.Before(before) || record.UsedAt != nil {
+			delete(r.challenges, challenge)
+		}
+	}
+	return nil
 }
 
 func (r *testProfileRefreshRepo) Create(_ context.Context, token *models.RefreshToken) error {

@@ -145,6 +145,9 @@ func (h *Handler) revokeSession(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) authService() *services.AuthService {
+	if h.auth != nil {
+		return h.auth
+	}
 	return services.NewAuthService(
 		h.store.Users(),
 		h.store.RefreshTokens(),

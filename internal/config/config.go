@@ -15,31 +15,36 @@ import (
 )
 
 type Config struct {
-	AppEnv                    string
-	TelegramToken             string
-	TelegramUserID            int64
-	AppVersion                string
-	DataPath                  string
-	DepositsDataPath          string
-	DatabaseURL               string
-	APIAuthToken              string
-	JWTSecret                 string
-	AccessTokenTTL            time.Duration
-	RefreshTokenTTL           time.Duration
-	PublicOrigin              string
-	PublicOriginHost          string
-	CookieSecure              bool
-	CookieSameSite            string
-	AllowDirectIPLogin        bool
-	CORSAllowedOrigins        []string
-	RateLimitRequests         int
-	RateLimitWindow           time.Duration
-	AuthRateLimitRequests     int
-	AuthRateLimitWindow       time.Duration
-	MutationRateLimitRequests int
-	MutationRateLimitWindow   time.Duration
-	TrustedProxies            []string
-	LogLevel                  slog.Level
+	AppEnv                          string
+	TelegramToken                   string
+	TelegramUserID                  int64
+	AppVersion                      string
+	DataPath                        string
+	DepositsDataPath                string
+	DatabaseURL                     string
+	APIAuthToken                    string
+	JWTSecret                       string
+	AccessTokenTTL                  time.Duration
+	RefreshTokenTTL                 time.Duration
+	PublicOrigin                    string
+	PublicOriginHost                string
+	WebAuthnRPDisplayName           string
+	WebAuthnRPID                    string
+	WebAuthnOrigins                 []string
+	CookieSecure                    bool
+	CookieSameSite                  string
+	AllowDirectIPLogin              bool
+	CORSAllowedOrigins              []string
+	RateLimitRequests               int
+	RateLimitWindow                 time.Duration
+	AuthRateLimitRequests           int
+	AuthRateLimitWindow             time.Duration
+	PasskeyOptionsRateLimitRequests int
+	PasskeyOptionsRateLimitWindow   time.Duration
+	MutationRateLimitRequests       int
+	MutationRateLimitWindow         time.Duration
+	TrustedProxies                  []string
+	LogLevel                        slog.Level
 }
 
 var AppConfig *Config
@@ -89,31 +94,38 @@ func Init() error {
 	}
 
 	AppConfig = &Config{
-		AppEnv:           getEnv("APP_ENV", "development"),
-		TelegramToken:    getEnv("TELEGRAM_BOT_TOKEN", ""),
-		TelegramUserID:   getEnvInt64("TELEGRAM_USER_ID", 0),
-		AppVersion:       getEnv("APP_VERSION", "0.1.0-dev"),
-		DataPath:         dataPath,
-		DepositsDataPath: depositsDataPath,
-		DatabaseURL:      getEnv("DATABASE_URL", "postgres://capitalflow:capitalflow@localhost:5432/capitalflow?sslmode=disable"),
-		LogLevel:         logLevel,
-		APIAuthToken:     getEnv("API_AUTH_TOKEN", ""),
-		JWTSecret:        getEnv("JWT_SECRET", ""),
-		AccessTokenTTL:   getEnvDuration("ACCESS_TOKEN_TTL", 15*time.Minute),
-		RefreshTokenTTL:  getEnvDuration("REFRESH_TOKEN_TTL", 30*24*time.Hour),
-		PublicOrigin:     getEnv("PUBLIC_ORIGIN", ""),
-		CookieSameSite:   getEnv("COOKIE_SAMESITE", "Strict"),
+		AppEnv:                getEnv("APP_ENV", "development"),
+		TelegramToken:         getEnv("TELEGRAM_BOT_TOKEN", ""),
+		TelegramUserID:        getEnvInt64("TELEGRAM_USER_ID", 0),
+		AppVersion:            getEnv("APP_VERSION", "v0.5.8"),
+		DataPath:              dataPath,
+		DepositsDataPath:      depositsDataPath,
+		DatabaseURL:           getEnv("DATABASE_URL", "postgres://capitalflow:capitalflow@localhost:5432/capitalflow?sslmode=disable"),
+		LogLevel:              logLevel,
+		APIAuthToken:          getEnv("API_AUTH_TOKEN", ""),
+		JWTSecret:             getEnv("JWT_SECRET", ""),
+		AccessTokenTTL:        getEnvDuration("ACCESS_TOKEN_TTL", 15*time.Minute),
+		RefreshTokenTTL:       getEnvDuration("REFRESH_TOKEN_TTL", 30*24*time.Hour),
+		PublicOrigin:          getEnv("PUBLIC_ORIGIN", ""),
+		WebAuthnRPDisplayName: getEnv("WEBAUTHN_RP_DISPLAY_NAME", "CapitalFlow"),
+		WebAuthnRPID:          getEnv("WEBAUTHN_RP_ID", ""),
+		WebAuthnOrigins: getEnvList("WEBAUTHN_ORIGINS", []string{
+			"http://localhost:5173",
+		}),
+		CookieSameSite: getEnv("COOKIE_SAMESITE", "Strict"),
 		CORSAllowedOrigins: getEnvList("CORS_ALLOWED_ORIGINS", []string{
 			"http://localhost:5173",
 			"http://127.0.0.1:5173",
 		}),
-		RateLimitRequests:         getEnvInt("RATE_LIMIT_REQUESTS", 120),
-		RateLimitWindow:           getEnvDuration("RATE_LIMIT_WINDOW", time.Minute),
-		AuthRateLimitRequests:     getEnvInt("AUTH_RATE_LIMIT_REQUESTS", 5),
-		AuthRateLimitWindow:       getEnvDuration("AUTH_RATE_LIMIT_WINDOW", time.Minute),
-		MutationRateLimitRequests: getEnvInt("MUTATION_RATE_LIMIT_REQUESTS", 60),
-		MutationRateLimitWindow:   getEnvDuration("MUTATION_RATE_LIMIT_WINDOW", time.Minute),
-		TrustedProxies:            getEnvList("TRUSTED_PROXIES", nil),
+		RateLimitRequests:               getEnvInt("RATE_LIMIT_REQUESTS", 120),
+		RateLimitWindow:                 getEnvDuration("RATE_LIMIT_WINDOW", time.Minute),
+		AuthRateLimitRequests:           getEnvInt("AUTH_RATE_LIMIT_REQUESTS", 5),
+		AuthRateLimitWindow:             getEnvDuration("AUTH_RATE_LIMIT_WINDOW", time.Minute),
+		PasskeyOptionsRateLimitRequests: getEnvInt("PASSKEY_OPTIONS_RATE_LIMIT_REQUESTS", 3),
+		PasskeyOptionsRateLimitWindow:   getEnvDuration("PASSKEY_OPTIONS_RATE_LIMIT_WINDOW", time.Minute),
+		MutationRateLimitRequests:       getEnvInt("MUTATION_RATE_LIMIT_REQUESTS", 60),
+		MutationRateLimitWindow:         getEnvDuration("MUTATION_RATE_LIMIT_WINDOW", time.Minute),
+		TrustedProxies:                  getEnvList("TRUSTED_PROXIES", nil),
 	}
 	AppConfig.AppEnv, err = normalizeAppEnv(AppConfig.AppEnv)
 	if err != nil {
@@ -128,6 +140,7 @@ func Init() error {
 	}
 	AppConfig.PublicOrigin = publicOrigin
 	AppConfig.PublicOriginHost = publicOriginHost
+	AppConfig.normalizeWebAuthn()
 	AppConfig.CookieSameSite, err = normalizeCookieSameSite(AppConfig.CookieSameSite)
 	if err != nil {
 		return err
@@ -167,6 +180,15 @@ func (c *Config) ValidateSecurity() error {
 	if c.PublicOrigin == "" {
 		return errors.NewConfigurationError("PUBLIC_ORIGIN is required in production", nil)
 	}
+	if strings.TrimSpace(c.WebAuthnRPID) == "" {
+		return errors.NewConfigurationError("WEBAUTHN_RP_ID is required in production", nil)
+	}
+	for _, origin := range c.WebAuthnOrigins {
+		parsed, err := url.Parse(origin)
+		if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
+			return errors.NewConfigurationError("WEBAUTHN_ORIGINS must contain HTTPS origins in production", nil)
+		}
+	}
 	if err := ValidateAuthSecret("JWT_SECRET", c.JWTSecret); err != nil {
 		return err
 	}
@@ -174,6 +196,43 @@ func (c *Config) ValidateSecurity() error {
 		return errors.NewConfigurationError("JWT_SECRET must not use a placeholder value in production", nil)
 	}
 	return nil
+}
+
+func (c *Config) normalizeWebAuthn() {
+	if strings.TrimSpace(c.WebAuthnRPDisplayName) == "" {
+		c.WebAuthnRPDisplayName = "CapitalFlow"
+	}
+	if strings.TrimSpace(c.WebAuthnRPID) == "" {
+		if rpID := hostnameOnly(c.PublicOriginHost); rpID != "" {
+			c.WebAuthnRPID = rpID
+		} else {
+			c.WebAuthnRPID = "localhost"
+		}
+	}
+	if c.IsProduction() && os.Getenv("WEBAUTHN_ORIGINS") == "" && c.PublicOrigin != "" {
+		c.WebAuthnOrigins = []string{c.PublicOrigin}
+		return
+	}
+	if c.PublicOrigin != "" && !containsString(c.WebAuthnOrigins, c.PublicOrigin) {
+		c.WebAuthnOrigins = append([]string{c.PublicOrigin}, c.WebAuthnOrigins...)
+	}
+}
+
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if strings.EqualFold(strings.TrimSpace(value), strings.TrimSpace(target)) {
+			return true
+		}
+	}
+	return false
+}
+
+func hostnameOnly(host string) string {
+	parsed, err := url.Parse("//" + strings.TrimSpace(host))
+	if err != nil || parsed.Hostname() == "" {
+		return ""
+	}
+	return strings.ToLower(parsed.Hostname())
 }
 
 func (c *Config) ValidateCookiePolicy() error {

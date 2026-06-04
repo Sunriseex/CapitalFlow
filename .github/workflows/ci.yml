@@ -5,7 +5,8 @@ on:
   push:
     branches:
       - master
-      - main
+    tags:
+      - "v*"
 
 permissions:
   contents: read
@@ -218,8 +219,8 @@ jobs:
           tags: capitalflow-web:pr-${{ github.event.pull_request.head.sha }}
           cache-from: type=gha,scope=web
 
-  build-images:
-    name: Build production images
+  release-guard:
+    name: Release tag guard
     runs-on: ubuntu-latest
     needs:
       - test
@@ -228,7 +229,29 @@ jobs:
       - web
       - openapi
       - migrations
-    if: github.event_name == 'push' && contains(fromJSON('["main", "master"]'), github.ref_name)
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Require tag commit on master
+        shell: bash
+        run: |
+          git fetch origin master --no-tags
+          if ! git merge-base --is-ancestor "${GITHUB_SHA}" origin/master; then
+            echo "Release tag ${GITHUB_REF_NAME} points to ${GITHUB_SHA}, which is not on origin/master." >&2
+            exit 1
+          fi
+
+  build-images:
+    name: Build production images
+    runs-on: ubuntu-latest
+    needs:
+      - release-guard
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: read
       packages: write
@@ -246,12 +269,12 @@ jobs:
           web="ghcr.io/${owner}/capitalflow-web"
           {
             echo "api_tags<<EOF"
-            echo "${api}:sha-${GITHUB_SHA}"
             echo "${api}:${GITHUB_REF_NAME}"
+            echo "${api}:sha-${GITHUB_SHA}"
             echo "EOF"
             echo "web_tags<<EOF"
-            echo "${web}:sha-${GITHUB_SHA}"
             echo "${web}:${GITHUB_REF_NAME}"
+            echo "${web}:sha-${GITHUB_SHA}"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -284,3 +307,80 @@ jobs:
           tags: ${{ steps.names.outputs.web_tags }}
           cache-from: type=gha,scope=web
           cache-to: type=gha,scope=web,mode=max
+
+  create-release:
+    name: Create GitHub release
+    runs-on: ubuntu-latest
+    needs:
+      - build-images
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: gh release create "${TAG_NAME}" --repo "${GITHUB_REPOSITORY}" --title "${TAG_NAME}" --generate-notes
+
+  notify-release:
+    name: Notify Telegram
+    runs-on: ubuntu-latest
+    needs:
+      - release-guard
+      - build-images
+      - create-release
+    if: always() && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    env:
+      TELEGRAM_ENABLED: ${{ secrets.TELEGRAM_TOKEN != '' && secrets.TELEGRAM_TO != '' }}
+
+    steps:
+      - name: Build notification
+        id: message
+        shell: bash
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          api_image="ghcr.io/${owner}/capitalflow-api:${GITHUB_REF_NAME}"
+          web_image="ghcr.io/${owner}/capitalflow-web:${GITHUB_REF_NAME}"
+          release_url="https://github.com/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME}"
+          run_url="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+          status="success"
+          title="✅ CapitalFlow release ${GITHUB_REF_NAME} published"
+          if [ "${{ needs.release-guard.result }}" != "success" ]; then
+            status="failed"
+            title="❌ CapitalFlow release ${GITHUB_REF_NAME} rejected: tag is not on master"
+          elif [ "${{ needs.build-images.result }}" != "success" ] || [ "${{ needs.create-release.result }}" != "success" ]; then
+            status="failed"
+            title="❌ CapitalFlow release ${GITHUB_REF_NAME} failed"
+          fi
+
+          {
+            echo "status=${status}"
+            echo "text<<EOF"
+            echo "${title}"
+            echo ""
+            echo "Repository: ${GITHUB_REPOSITORY}"
+            echo "Actor: ${GITHUB_ACTOR}"
+            echo "Commit: ${GITHUB_SHA}"
+            echo "Release: ${release_url}"
+            echo "Actions: ${run_url}"
+            echo ""
+            echo "Images:"
+            echo "${api_image}"
+            echo "${web_image}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Send Telegram notification
+        if: env.TELEGRAM_ENABLED == 'true'
+        uses: appleboy/telegram-action@v1.0.1
+        with:
+          token: ${{ secrets.TELEGRAM_TOKEN }}
+          to: ${{ secrets.TELEGRAM_TO }}
+          message: ${{ steps.message.outputs.text }}
+
+      - name: Skip Telegram notification
+        if: env.TELEGRAM_ENABLED != 'true'
+        run: echo "TELEGRAM_TOKEN or TELEGRAM_TO is not configured; skipping Telegram notification."

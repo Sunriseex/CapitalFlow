@@ -118,6 +118,50 @@ func TestInitNormalizesPublicOriginDefaultPort(t *testing.T) {
 	}
 }
 
+func TestInitUsesHostnameOnlyForDefaultWebAuthnRPID(t *testing.T) {
+	oldConfig := AppConfig
+	t.Cleanup(func() {
+		AppConfig = oldConfig
+	})
+
+	t.Setenv("CAPITALFLOW_ENV_FILE", "missing-test-env-file")
+	t.Setenv("PUBLIC_ORIGIN", "https://CapitalFlow.home.arpa:8443")
+
+	if err := Init(); err != nil {
+		t.Fatalf("init config: %v", err)
+	}
+	if AppConfig.PublicOriginHost != "capitalflow.home.arpa:8443" {
+		t.Fatalf("public origin host = %q", AppConfig.PublicOriginHost)
+	}
+	if AppConfig.WebAuthnRPID != "capitalflow.home.arpa" {
+		t.Fatalf("webauthn rp id = %q", AppConfig.WebAuthnRPID)
+	}
+	if AppConfig.WebAuthnOrigins[0] != "https://capitalflow.home.arpa:8443" {
+		t.Fatalf("webauthn origins = %v", AppConfig.WebAuthnOrigins)
+	}
+}
+
+func TestInitDefaultWebAuthnOriginsMatchDefaultRPID(t *testing.T) {
+	oldConfig := AppConfig
+	t.Cleanup(func() {
+		AppConfig = oldConfig
+	})
+
+	t.Setenv("CAPITALFLOW_ENV_FILE", "missing-test-env-file")
+
+	if err := Init(); err != nil {
+		t.Fatalf("init config: %v", err)
+	}
+	if AppConfig.WebAuthnRPID != "localhost" {
+		t.Fatalf("webauthn rp id = %q", AppConfig.WebAuthnRPID)
+	}
+	for _, origin := range AppConfig.WebAuthnOrigins {
+		if origin == "http://127.0.0.1:5173" {
+			t.Fatalf("default webauthn origins include incompatible loopback IP: %v", AppConfig.WebAuthnOrigins)
+		}
+	}
+}
+
 func TestInitRejectsSameSiteNoneWithoutSecureCookie(t *testing.T) {
 	oldConfig := AppConfig
 	t.Cleanup(func() {
