@@ -63,6 +63,78 @@ func TestPasskeyRegistrationOptionsRequiresPasswordWhenPasskeyExists(t *testing.
 	}
 }
 
+func TestPasskeyRegistrationOptionsAppliesPasswordLockout(t *testing.T) {
+	service, users, _, _ := newTestPasskeyService(t)
+	users.byID["user-1"] = &models.User{
+		ID:                  "user-1",
+		Email:               "user@example.com",
+		PasswordHash:        "hash:correct password",
+		FailedLoginAttempts: loginLockoutThreshold - 1,
+	}
+
+	_, err := service.RegistrationOptions(t.Context(), PasskeyRegistrationOptionsRequest{
+		UserID:   "user-1",
+		Password: "wrong password",
+	})
+	if !IsValidationError(err) {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+	user := users.byID["user-1"]
+	if user.FailedLoginAttempts != loginLockoutThreshold || user.LockedUntil == nil {
+		t.Fatalf("user lockout = attempts %d locked %v", user.FailedLoginAttempts, user.LockedUntil)
+	}
+}
+
+func TestPasskeyRegistrationOptionsRejectsActiveLockout(t *testing.T) {
+	service, users, _, passkeys := newTestPasskeyService(t)
+	lockedUntil := service.now().Add(time.Minute)
+	users.byID["user-1"] = &models.User{
+		ID:                  "user-1",
+		Email:               "user@example.com",
+		PasswordHash:        "hash:correct password",
+		FailedLoginAttempts: loginLockoutThreshold,
+		LockedUntil:         &lockedUntil,
+	}
+
+	_, err := service.RegistrationOptions(t.Context(), PasskeyRegistrationOptionsRequest{
+		UserID:   "user-1",
+		Password: "correct password",
+	})
+	if !IsValidationError(err) {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+	if len(passkeys.challenges) != 0 {
+		t.Fatalf("challenges = %d, want 0", len(passkeys.challenges))
+	}
+}
+
+func TestNewPasskeyServiceRejectsNonOriginURLs(t *testing.T) {
+	authService, users, _, audit := newTestAuthService(t)
+	passkeys := &fakePasskeyRepo{
+		credentialsByID: map[string]*models.PasskeyCredential{},
+		challenges:      map[string]*models.WebAuthnChallenge{},
+	}
+	origins := []string{
+		"https://capitalflow.example.com/",
+		"https://capitalflow.example.com/app",
+		"https://capitalflow.example.com?debug=true",
+		"https://capitalflow.example.com#app",
+	}
+
+	for _, origin := range origins {
+		t.Run(origin, func(t *testing.T) {
+			_, err := NewPasskeyService(users, passkeys, authService, audit, WebAuthnConfig{
+				RPDisplayName: "CapitalFlow",
+				RPID:          "capitalflow.example.com",
+				Origins:       []string{origin},
+			})
+			if !IsValidationError(err) {
+				t.Fatalf("expected validation error, got %v", err)
+			}
+		})
+	}
+}
+
 func TestPasskeyChallengeCleanupIsOpportunisticAndThrottled(t *testing.T) {
 	service, users, _, passkeys := newTestPasskeyService(t)
 	now := time.Date(2026, 6, 4, 12, 0, 0, 0, time.UTC)
@@ -379,6 +451,52 @@ func newTestPasskeyService(t *testing.T) (*PasskeyService, *fakeUserRepo, *fakeR
 	}
 	service.now = authService.now
 	return service, users, refresh, passkeys
+}
+
+func TestPasskeyVerifyLoginRejectsActiveLockout(t *testing.T) {
+	service, users, refresh, passkeys := newTestPasskeyService(t)
+	lockedUntil := service.now().Add(time.Minute)
+	users.byID["user-1"] = &models.User{
+		ID:                  "user-1",
+		Email:               "user@example.com",
+		PasswordHash:        "hash:correct password",
+		FailedLoginAttempts: loginLockoutThreshold,
+		LockedUntil:         &lockedUntil,
+	}
+	passkeys.credentialsByID["credential-1"] = &models.PasskeyCredential{
+		ID:           "credential-1",
+		UserID:       "user-1",
+		CredentialID: []byte("credential-1"),
+		PublicKey:    []byte("public-key"),
+		Name:         "Laptop",
+		SignCount:    1,
+	}
+	service.webAuthn = &fakePasskeyRP{
+		loginChallenge:  "login-challenge",
+		loginRawID:      []byte("credential-1"),
+		loginUserHandle: []byte("user-1"),
+		loginCredential: &webauthn.Credential{
+			ID:            []byte("credential-1"),
+			PublicKey:     []byte("public-key"),
+			Authenticator: webauthn.Authenticator{SignCount: 2},
+		},
+	}
+	service.parseAssertion = fakeParseAssertion("login-challenge")
+
+	if _, err := service.LoginOptions(t.Context()); err != nil {
+		t.Fatalf("login options: %v", err)
+	}
+	_, err := service.VerifyLogin(t.Context(), []byte(`{}`))
+	if !IsValidationError(err) {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+	if len(refresh.byHash) != 0 {
+		t.Fatalf("refresh tokens = %d, want 0", len(refresh.byHash))
+	}
+	credential := passkeys.credentialsByID["credential-1"]
+	if credential.SignCount != 1 || credential.LastUsedAt != nil {
+		t.Fatalf("credential was updated despite lockout: %+v", credential)
+	}
 }
 
 type fakePasskeyRP struct {

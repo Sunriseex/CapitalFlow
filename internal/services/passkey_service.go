@@ -58,7 +58,6 @@ type PasskeyService struct {
 	auth           *AuthService
 	audit          repository.AuthAuditRepository
 	webAuthn       passkeyRelyingParty
-	verifyFunc     func(string, string) (bool, error)
 	parseCreation  func([]byte) (*protocol.ParsedCredentialCreationData, error)
 	parseAssertion func([]byte) (*protocol.ParsedCredentialAssertionData, error)
 	now            func() time.Time
@@ -77,6 +76,9 @@ type passkeyRelyingParty interface {
 
 // NewPasskeyService creates a PasskeyService.
 func NewPasskeyService(users repository.UserRepository, passkeys repository.PasskeyRepository, authService *AuthService, audit repository.AuthAuditRepository, cfg WebAuthnConfig) (*PasskeyService, error) {
+	if authService == nil {
+		return nil, validationError("auth service is required")
+	}
 	rpDisplayName := strings.TrimSpace(cfg.RPDisplayName)
 	if rpDisplayName == "" {
 		rpDisplayName = "CapitalFlow"
@@ -90,8 +92,9 @@ func NewPasskeyService(users repository.UserRepository, passkeys repository.Pass
 	}
 	for _, origin := range cfg.Origins {
 		parsed, err := url.Parse(origin)
-		if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
-			return nil, validationError("webauthn origins must be valid http or https origins")
+		if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") ||
+			parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.User != nil {
+			return nil, validationError("webauthn origins must be valid http or https origins without path, query, or fragment")
 		}
 	}
 	webAuthn, err := webauthn.New(&webauthn.Config{
@@ -116,7 +119,6 @@ func NewPasskeyService(users repository.UserRepository, passkeys repository.Pass
 		auth:           authService,
 		audit:          audit,
 		webAuthn:       webAuthn,
-		verifyFunc:     authService.verifyFunc,
 		parseCreation:  protocol.ParseCredentialCreationResponseBytes,
 		parseAssertion: protocol.ParseCredentialRequestResponseBytes,
 		now:            time.Now,
@@ -148,12 +150,16 @@ func (s *PasskeyService) RegistrationOptions(ctx context.Context, req PasskeyReg
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
 	}
-	ok, err := s.verifyFunc(req.Password, user.PasswordHash)
+	confirmation, err := s.auth.VerifyPasswordConfirmation(ctx, user, req.Password)
 	if err != nil {
-		return nil, fmt.Errorf("verify password: %w", err)
+		return nil, err
 	}
-	if !ok {
-		s.auditEvent(ctx, "passkey_registration_failed", user.Email, &user.ID, false, "fresh_session_required")
+	if !confirmation.OK {
+		reason := "fresh_session_required"
+		if confirmation.Locked {
+			reason = "account_locked"
+		}
+		s.auditEvent(ctx, "passkey_registration_failed", user.Email, &user.ID, false, reason)
 		return nil, validationError("passkey registration requires recent password confirmation")
 	}
 	s.cleanupChallenges(ctx)
@@ -268,6 +274,10 @@ func (s *PasskeyService) VerifyLogin(ctx context.Context, body []byte) (*AuthSes
 		return nil, validationError("passkey login failed")
 	}
 	user := webUser.(passkeyUser).user
+	if s.auth.UserLocked(user) {
+		s.auditEvent(ctx, "passkey_login_failed", user.Email, &user.ID, false, "account_locked")
+		return nil, validationError("passkey login failed")
+	}
 	now := s.now()
 	if err := s.passkeys.UpdateCredentialAfterLogin(ctx, credential.ID, credential.Authenticator.SignCount, credential.Authenticator.CloneWarning, credential.Flags.BackupState, now); err != nil {
 		s.auditEvent(ctx, "passkey_login_failed", user.Email, &user.ID, false, "credential_update_failed")

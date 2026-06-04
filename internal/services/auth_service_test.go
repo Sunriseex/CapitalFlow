@@ -287,6 +287,47 @@ func TestAuthServiceLoginClearsFailuresOnSuccess(t *testing.T) {
 	}
 }
 
+func TestAuthServiceIssueSessionForUserRejectsActiveLockout(t *testing.T) {
+	service, users, refresh, _ := newTestAuthService(t)
+	lockedUntil := service.now().Add(time.Minute)
+	users.byID["user-1"] = &models.User{
+		ID:                  "user-1",
+		Email:               "user@example.com",
+		FailedLoginAttempts: loginLockoutThreshold,
+		LockedUntil:         &lockedUntil,
+	}
+
+	_, err := service.IssueSessionForUser(t.Context(), "user-1")
+	if !IsValidationError(err) {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+	if len(refresh.byHash) != 0 {
+		t.Fatalf("refresh tokens = %d, want 0", len(refresh.byHash))
+	}
+}
+
+func TestAuthServiceVerifyPasswordConfirmationAppliesLockout(t *testing.T) {
+	service, users, _, _ := newTestAuthService(t)
+	users.byID["user-1"] = &models.User{
+		ID:                  "user-1",
+		Email:               "user@example.com",
+		PasswordHash:        "hash:correct horse battery staple",
+		FailedLoginAttempts: loginLockoutThreshold - 1,
+	}
+
+	result, err := service.VerifyPasswordConfirmation(t.Context(), users.byID["user-1"], "wrong password")
+	if err != nil {
+		t.Fatalf("verify password confirmation: %v", err)
+	}
+	if result.OK || !result.Locked {
+		t.Fatalf("result = %+v, want locked failure", result)
+	}
+	user := users.byID["user-1"]
+	if user.FailedLoginAttempts != loginLockoutThreshold || user.LockedUntil == nil {
+		t.Fatalf("user lockout = attempts %d locked %v", user.FailedLoginAttempts, user.LockedUntil)
+	}
+}
+
 func TestAuthServiceRefreshRotatesToken(t *testing.T) {
 	service, users, refresh, audit := newTestAuthService(t)
 	users.byID["user-1"] = &models.User{ID: "user-1", Email: "user@example.com"}

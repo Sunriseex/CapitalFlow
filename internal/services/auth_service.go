@@ -98,6 +98,12 @@ type SessionInfo struct {
 	Current   bool
 }
 
+// PasswordConfirmationResult describes password confirmation state for sensitive authenticated actions.
+type PasswordConfirmationResult struct {
+	OK     bool
+	Locked bool
+}
+
 func (s *AuthService) Setup(ctx context.Context, req AuthRequest) (*AuthSession, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("setup auth: %w", err)
@@ -196,7 +202,7 @@ func (s *AuthService) Login(ctx context.Context, req AuthRequest) (*AuthSession,
 	}
 
 	now := s.now()
-	if user.LockedUntil != nil && now.Before(*user.LockedUntil) {
+	if s.UserLocked(user) {
 		s.auditEvent(ctx, "login_failed", email, &user.ID, false, "account_locked")
 		return nil, validationError("invalid email or password")
 	}
@@ -234,6 +240,43 @@ func (s *AuthService) Login(ctx context.Context, req AuthRequest) (*AuthSession,
 	}
 	s.auditEvent(ctx, "login_success", email, &user.ID, true, "")
 	return session, nil
+}
+
+// VerifyPasswordConfirmation verifies a user's password for sensitive authenticated actions and applies lockout rules.
+func (s *AuthService) VerifyPasswordConfirmation(ctx context.Context, user *models.User, password string) (PasswordConfirmationResult, error) {
+	if err := ctx.Err(); err != nil {
+		return PasswordConfirmationResult{}, fmt.Errorf("verify password confirmation: %w", err)
+	}
+	if s.users == nil {
+		return PasswordConfirmationResult{}, fmt.Errorf("auth service is not configured")
+	}
+	if user == nil {
+		return PasswordConfirmationResult{}, validationError("invalid password confirmation")
+	}
+	now := s.now()
+	if s.UserLocked(user) {
+		return PasswordConfirmationResult{Locked: true}, nil
+	}
+	ok, err := s.verifyFunc(password, user.PasswordHash)
+	if err != nil {
+		return PasswordConfirmationResult{}, fmt.Errorf("verify password: %w", err)
+	}
+	if !ok {
+		_, lockedUntil, err := s.users.RecordLoginFailure(ctx, user.ID, loginLockoutThreshold, loginLockoutDelays, now)
+		if err != nil {
+			return PasswordConfirmationResult{}, fmt.Errorf("record login failure: %w", err)
+		}
+		return PasswordConfirmationResult{Locked: lockedUntil != nil}, nil
+	}
+	if user.FailedLoginAttempts > 0 || user.LockedUntil != nil {
+		if err := s.users.ClearLoginFailures(ctx, user.ID, now); err != nil {
+			return PasswordConfirmationResult{}, fmt.Errorf("clear login failures: %w", err)
+		}
+		user.FailedLoginAttempts = 0
+		user.LockedUntil = nil
+		user.UpdatedAt = now
+	}
+	return PasswordConfirmationResult{OK: true}, nil
 }
 
 func (s *AuthService) Refresh(ctx context.Context, rawRefreshToken string) (*AuthSession, error) {
@@ -496,7 +539,24 @@ func (s *AuthService) IssueSessionForUser(ctx context.Context, userID string) (*
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
 	}
+	if s.UserLocked(user) {
+		return nil, validationError("invalid email or password")
+	}
+	if user.FailedLoginAttempts > 0 || user.LockedUntil != nil {
+		now := s.now()
+		if err := s.users.ClearLoginFailures(ctx, user.ID, now); err != nil {
+			return nil, fmt.Errorf("clear login failures: %w", err)
+		}
+		user.FailedLoginAttempts = 0
+		user.LockedUntil = nil
+		user.UpdatedAt = now
+	}
 	return s.issueSession(ctx, user)
+}
+
+// UserLocked reports whether the user is currently inside an active auth lockout window.
+func (s *AuthService) UserLocked(user *models.User) bool {
+	return user != nil && user.LockedUntil != nil && s.now().Before(*user.LockedUntil)
 }
 
 func (s *AuthService) buildSession(user *models.User) (*AuthSession, *models.RefreshToken, error) {
