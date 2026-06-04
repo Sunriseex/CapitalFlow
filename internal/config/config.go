@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -407,12 +408,7 @@ func isPlaceholderSecret(value string) bool {
 		"your-jwt-secret",
 		"secret",
 	}
-	for _, placeholder := range placeholders {
-		if normalized == placeholder {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(placeholders, normalized)
 }
 
 func canonicalOrigin(scheme, host string) string {

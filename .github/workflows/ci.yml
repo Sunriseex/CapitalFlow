@@ -44,7 +44,6 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
-
       - name: Check go mod tidy
         run: |
           go mod tidy
@@ -93,6 +92,22 @@ jobs:
         with:
           version: v2.12.2
           args: --config=.golangci.yaml --timeout=5m
+
+  go-fix:
+    name: Go fix (check modernizations)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Run go fix check
+        run: make fix-check
 
   web:
     name: WebUI

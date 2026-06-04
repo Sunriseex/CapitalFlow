@@ -32,7 +32,7 @@ func TestInterestServiceProcessDepositAccrual(t *testing.T) {
 			deposit:     legacyInterestTestDeposit("deposit-1", "savings", 100_000, 36.5),
 			wantSuccess: true,
 			wantIncome:  decimal.NewFromInt(1),
-			wantAmount:  int64Ptr(100_100),
+			wantAmount:  new(int64(100_100)),
 		},
 		{
 			name: "term deposit is skipped",
@@ -42,7 +42,7 @@ func TestInterestServiceProcessDepositAccrual(t *testing.T) {
 			deposit:     legacyInterestTestDeposit("deposit-2", "term", 100_000, 36.5),
 			wantSuccess: true,
 			wantIncome:  decimal.Zero,
-			wantAmount:  int64Ptr(100_000),
+			wantAmount:  new(int64(100_000)),
 		},
 		{
 			name: "zero amount savings deposit is skipped",
@@ -52,7 +52,7 @@ func TestInterestServiceProcessDepositAccrual(t *testing.T) {
 			deposit:     legacyInterestTestDeposit("deposit-3", "savings", 0, 36.5),
 			wantSuccess: true,
 			wantIncome:  decimal.Zero,
-			wantAmount:  int64Ptr(0),
+			wantAmount:  new(int64(0)),
 		},
 		{
 			name: "negative amount savings deposit is skipped",
@@ -62,7 +62,7 @@ func TestInterestServiceProcessDepositAccrual(t *testing.T) {
 			deposit:     legacyInterestTestDeposit("deposit-4", "savings", -100_000, 36.5),
 			wantSuccess: true,
 			wantIncome:  decimal.Zero,
-			wantAmount:  int64Ptr(-100_000),
+			wantAmount:  new(int64(-100_000)),
 		},
 		{
 			name:          "storage update failure is reported",
@@ -215,8 +215,4 @@ func writeLegacyInterestDeposits(t *testing.T, path string, deposits []models.De
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatalf("write deposits: %v", err)
 	}
-}
-
-func int64Ptr(value int64) *int64 {
-	return &value
 }

@@ -77,7 +77,7 @@ func TestLatestApplicableInterestRuleSelectsRuleForResolvedEndDate(t *testing.T)
 		AccountID: "account-1",
 		IsActive:  true,
 		StartDate: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
-		EndDate:   ptrTime(time.Date(2026, 5, 10, 0, 0, 0, 0, time.UTC)),
+		EndDate:   new(time.Date(2026, 5, 10, 0, 0, 0, 0, time.UTC)),
 	}
 
 	currentRule := models.InterestRule{
@@ -130,10 +130,6 @@ func TestListUserInterestRulesUsesCurrentUserScope(t *testing.T) {
 	if rules.listByUserID != "user-1" {
 		t.Fatalf("ListByUser user id = %q, want user-1", rules.listByUserID)
 	}
-}
-
-func ptrTime(value time.Time) *time.Time {
-	return &value
 }
 
 const (

@@ -1,7 +1,7 @@
 SHELL := bash
 .DEFAULT_GOAL := help
 
-.PHONY: help test race lint check check-race check-all web-api-types web-lint web-test web-build web-check db-up db-down db-migrate db-rollback deploy-vm
+.PHONY: help test race lint check check-race check-all web-api-types web-lint web-test web-build web-check db-up db-down db-migrate db-rollback deploy-vm fix fix-check
 
 help:
 	@echo "Targets:"
@@ -33,9 +33,9 @@ race:
 
 check-race: lint test race
 
-check: lint test
+check: fix lint test 
 
-check-all: check web-check
+check-all: fix check web-check 
 
 web-api-types:
 	@cd web && npm run check:api-types
@@ -65,3 +65,20 @@ db-rollback:
 
 deploy-vm:
 	@./scripts/deploy-vm.sh
+
+fix-check:
+	@echo "Checking if 'go fix' suggests changes..."
+	@output=$$(go fix -diff ./... 2>&1); \
+	if [ -n "$$output" ]; then \
+		echo "❌ 'go fix' suggests changes:"; \
+		echo "$$output"; \
+		echo "Run 'make fix' locally and commit the changes."; \
+		exit 1; \
+	else \
+		echo "✅ 'go fix' found no suggestions."; \
+	fi
+
+fix:
+	@echo "Applying 'go fix'..."
+	@go fix ./...
+	@echo "Done. Please review and commit changes."

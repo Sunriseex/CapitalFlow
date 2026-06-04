@@ -59,7 +59,7 @@ func (s *DepositService) Create(req *CreateDepositRequest) (*CreateDepositRespon
 
 		return nil, errors.NewValidationError(
 			"некорректные параметры вклада",
-			map[string]interface{}{
+			map[string]any{
 				"name":          req.Name,
 				"bank":          req.Bank,
 				"type":          req.Type,
@@ -111,7 +111,7 @@ func (s *DepositService) Create(req *CreateDepositRequest) (*CreateDepositRespon
 
 		return nil, errors.NewValidationError(
 			"ошибка валидации данных вклада",
-			map[string]interface{}{
+			map[string]any{
 				"deposit_name":     deposit.Name,
 				"validation_error": err.Error(),
 			},
@@ -166,7 +166,7 @@ func (s *DepositService) TopUp(req *TopUpRequest) (*TopUpResponse, error) {
 
 		return nil, errors.NewValidationError(
 			"сумма пополнения должна быть положительной",
-			map[string]interface{}{
+			map[string]any{
 				"amount":     req.Amount,
 				"deposit_id": req.DepositID,
 			},
@@ -181,7 +181,7 @@ func (s *DepositService) TopUp(req *TopUpRequest) (*TopUpResponse, error) {
 
 		return nil, errors.NewValidationError(
 			"сумма пополнения слишком большая",
-			map[string]interface{}{
+			map[string]any{
 				"deposit_id":  req.DepositID,
 				"max_allowed": 10000000,
 				"amount":      req.Amount,
@@ -259,7 +259,7 @@ func (s *DepositService) CalculateIncome(req *CalculateIncomeRequest) (*Calculat
 
 		return nil, errors.NewValidationError(
 			"период расчета должен быть положительным",
-			map[string]interface{}{
+			map[string]any{
 				"days": req.Days,
 			},
 		)
@@ -344,7 +344,7 @@ func (s *DepositService) Update(req *UpdateDepositRequest) (*UpdateDepositRespon
 
 		return nil, errors.NewBusinessLogicError(
 			"только срочные вклады могут быть обновлены (пролонгированы)",
-			map[string]interface{}{
+			map[string]any{
 				"deposit_id":   req.DepositID,
 				"deposit_type": deposit.Type,
 			},
@@ -359,7 +359,7 @@ func (s *DepositService) Update(req *UpdateDepositRequest) (*UpdateDepositRespon
 
 		return nil, errors.NewBusinessLogicError(
 			"вклад не может быть пролонгирован в данный момент",
-			map[string]interface{}{
+			map[string]any{
 				"deposit_id": req.DepositID,
 				"end_date":   deposit.EndDate,
 			},
@@ -392,7 +392,7 @@ func (s *DepositService) Update(req *UpdateDepositRequest) (*UpdateDepositRespon
 
 		return nil, errors.NewValidationError(
 			"ошибка валидации данных после обновления",
-			map[string]interface{}{
+			map[string]any{
 				"deposit_name":     deposit.Name,
 				"validation_error": err.Error(),
 			},
