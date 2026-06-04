@@ -457,23 +457,47 @@ gofmt -l $(git ls-files '*.go')
 
 The GitHub Actions CI pipeline runs backend and WebUI checks, including tests, race tests, linting, builds, migration checks, `go mod tidy` verification and frontend build checks.
 
-Pushes to `main` or `master` do not deploy to any VM. After CI is green, GitHub Actions builds and pushes API and Web images to GHCR with these tags:
+Pushes to `master` run checks only. Production images and GitHub Releases are created only from release tags that point to commits already on `master`:
 
-```text
-ghcr.io/<owner>/capitalflow-api:sha-<commit>
-ghcr.io/<owner>/capitalflow-web:sha-<commit>
-ghcr.io/<owner>/capitalflow-api:<branch>
-ghcr.io/<owner>/capitalflow-web:<branch>
+```bash
+git checkout master
+git pull
+git tag -a v0.5.8 -m "v0.5.8"
+git push origin v0.5.8
 ```
 
-Use the immutable `sha-<commit>` tags for pinned production deploys. Use the branch tags, such as `master`, only for opt-in auto-update setups.
+If a `v*` tag points to a commit that is not on `master`, the release guard fails before images are published. A successful release tag builds and pushes API and Web images to GHCR with these tags:
+
+```text
+ghcr.io/<owner>/capitalflow-api:<tag>
+ghcr.io/<owner>/capitalflow-web:<tag>
+ghcr.io/<owner>/capitalflow-api:sha-<commit>
+ghcr.io/<owner>/capitalflow-web:sha-<commit>
+```
+
+Use the release tag, such as `v0.5.8`, for normal deploys. Use the immutable `sha-<commit>` tags for pinned rollback/debug deploys.
+
+Release Telegram notifications use `appleboy/telegram-action`. Add these repository secrets in GitHub:
+
+```text
+TELEGRAM_TOKEN=<BotFather token>
+TELEGRAM_TO=<chat id>
+```
+
+To get `TELEGRAM_TO`, send any message to the bot and open:
+
+```text
+https://api.telegram.org/bot<TELEGRAM_TOKEN>/getUpdates
+```
+
+Use `message.chat.id` from the response. Notifications are sent only for `v*` release tag workflows, including failed release guards or failed image builds.
 
 Deploy is intentionally manual and instance-owned. From a checkout that can reach the target VM, run:
 
 ```bash
 DEPLOY_MODE=images \
-CAPITALFLOW_API_IMAGE=ghcr.io/sunriseex/capitalflow-api:sha-<commit> \
-CAPITALFLOW_WEB_IMAGE=ghcr.io/sunriseex/capitalflow-web:sha-<commit> \
+CAPITALFLOW_API_IMAGE=ghcr.io/sunriseex/capitalflow-api:v0.5.8 \
+CAPITALFLOW_WEB_IMAGE=ghcr.io/sunriseex/capitalflow-web:v0.5.8 \
 ./scripts/deploy-vm.sh
 ```
 
