@@ -111,7 +111,6 @@ func Init() error {
 		WebAuthnRPID:          getEnv("WEBAUTHN_RP_ID", ""),
 		WebAuthnOrigins: getEnvList("WEBAUTHN_ORIGINS", []string{
 			"http://localhost:5173",
-			"http://127.0.0.1:5173",
 		}),
 		CookieSameSite: getEnv("COOKIE_SAMESITE", "Strict"),
 		CORSAllowedOrigins: getEnvList("CORS_ALLOWED_ORIGINS", []string{
@@ -204,8 +203,8 @@ func (c *Config) normalizeWebAuthn() {
 		c.WebAuthnRPDisplayName = "CapitalFlow"
 	}
 	if strings.TrimSpace(c.WebAuthnRPID) == "" {
-		if c.PublicOriginHost != "" {
-			c.WebAuthnRPID = c.PublicOriginHost
+		if rpID := hostnameOnly(c.PublicOriginHost); rpID != "" {
+			c.WebAuthnRPID = rpID
 		} else {
 			c.WebAuthnRPID = "localhost"
 		}
@@ -226,6 +225,14 @@ func containsString(values []string, target string) bool {
 		}
 	}
 	return false
+}
+
+func hostnameOnly(host string) string {
+	parsed, err := url.Parse("//" + strings.TrimSpace(host))
+	if err != nil || parsed.Hostname() == "" {
+		return ""
+	}
+	return strings.ToLower(parsed.Hostname())
 }
 
 func (c *Config) ValidateCookiePolicy() error {

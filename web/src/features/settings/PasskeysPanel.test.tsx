@@ -70,6 +70,16 @@ describe("PasskeysPanel", () => {
     await waitFor(() => expect(mocks.registerPasskey).toHaveBeenCalledWith("correct password"));
   });
 
+  it("preserves password confirmation whitespace", async () => {
+    const user = userEvent.setup();
+    renderPasskeysPanel();
+
+    await user.type(screen.getByPlaceholderText("Password confirmation"), " correct password ");
+    await user.click(screen.getByRole("button", { name: /Add passkey/ }));
+
+    await waitFor(() => expect(mocks.registerPasskey).toHaveBeenCalledWith(" correct password "));
+  });
+
   it("does not add a passkey without password confirmation", async () => {
     const user = userEvent.setup();
     renderPasskeysPanel();

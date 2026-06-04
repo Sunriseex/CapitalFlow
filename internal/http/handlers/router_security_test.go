@@ -186,6 +186,27 @@ func TestRouterAuthHostPolicyBlocksDirectIPInProduction(t *testing.T) {
 	}
 }
 
+func TestRouterAuthHostPolicyBlocksPasskeyDirectIPInProduction(t *testing.T) {
+	router := NewRouter(newTestProfileStore(), &RouterConfig{
+		AppEnv:             "production",
+		APIAuthToken:       "test-token",
+		PublicOrigin:       "https://capitalflow.home.arpa",
+		PublicOriginHost:   "capitalflow.home.arpa",
+		CookieSecure:       true,
+		AllowDirectIPLogin: false,
+	})
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/passkeys/login/options", http.NoBody)
+	req.Host = "192.168.1.10"
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusForbidden)
+	}
+}
+
 func TestRouterLimitsAuthEndpoints(t *testing.T) {
 	router := NewRouter(newTestProfileStore(), &RouterConfig{
 		APIAuthToken:          "01234567890123456789012345678901",

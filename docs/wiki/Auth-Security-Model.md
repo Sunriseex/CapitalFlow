@@ -73,6 +73,7 @@ Passkey login uses WebAuthn with server-side one-use challenges.
 * Login creates the same refresh session type as password login.
 * `WEBAUTHN_RP_ID` and `WEBAUTHN_ORIGINS` must match the browser origin served by the reverse proxy.
 * Local development can use `WEBAUTHN_RP_ID=localhost` with `http://localhost:5173` origins.
+* If the frontend is opened through `127.0.0.1`, set a matching `WEBAUTHN_RP_ID` and `WEBAUTHN_ORIGINS`; WebAuthn RP IDs must match the browser host.
 * Production should set `PUBLIC_ORIGIN=https://your-domain`, `WEBAUTHN_RP_ID=your-domain`, and `WEBAUTHN_ORIGINS=https://your-domain`.
 * Production passkey origins must be HTTPS.
 * Public passkey login options use a dedicated rate limit through `PASSKEY_OPTIONS_RATE_LIMIT_REQUESTS` and `PASSKEY_OPTIONS_RATE_LIMIT_WINDOW`.

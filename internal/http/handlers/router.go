@@ -268,7 +268,7 @@ func defaultWebAuthnOrigins(origins []string) []string {
 	if len(origins) > 0 {
 		return origins
 	}
-	return []string{"http://localhost:5173", "http://127.0.0.1:5173"}
+	return []string{"http://localhost:5173"}
 }
 
 func (h *Handler) idempotency() repository.IdempotencyRepository {
