@@ -427,7 +427,7 @@ func TestUserRepositoryRecordLoginFailureConcurrentLocksOnce(t *testing.T) {
 	var wg sync.WaitGroup
 	now := time.Now().UTC()
 
-	for i := 0; i < workers; i++ {
+	for i := range workers {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
@@ -502,7 +502,7 @@ func TestRefreshTokenRepositoryConcurrentRevokeOnlyOneSucceeds(t *testing.T) {
 	results := make(chan error, workers)
 	var wg sync.WaitGroup
 
-	for i := 0; i < workers; i++ {
+	for i := range workers {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()

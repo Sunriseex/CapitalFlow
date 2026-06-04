@@ -21,7 +21,7 @@ const (
 type AppError struct {
 	Code     ErrorCode
 	Message  string
-	Details  map[string]interface{}
+	Details  map[string]any
 	Original error
 }
 
@@ -48,7 +48,7 @@ func (e *AppError) Error() string {
 	return sb.String()
 }
 
-func NewValidationError(message string, details map[string]interface{}) *AppError {
+func NewValidationError(message string, details map[string]any) *AppError {
 	return &AppError{
 		Code:    ErrValidation,
 		Message: message,
@@ -56,7 +56,7 @@ func NewValidationError(message string, details map[string]interface{}) *AppErro
 	}
 }
 
-func NewBusinessLogicError(message string, details map[string]interface{}) *AppError {
+func NewBusinessLogicError(message string, details map[string]any) *AppError {
 	return &AppError{
 		Code:    ErrBusinessLogic,
 		Message: message,
@@ -76,7 +76,7 @@ func NewNotFoundError(resourceType, identifier string) *AppError {
 	return &AppError{
 		Code:    ErrNotFound,
 		Message: fmt.Sprintf("%s not found", resourceType),
-		Details: map[string]interface{}{
+		Details: map[string]any{
 			"resource": resourceType,
 			"id":       identifier,
 		},
@@ -87,7 +87,7 @@ func NewStorageError(operation string, original error) *AppError {
 	return &AppError{
 		Code:     ErrStorage,
 		Message:  fmt.Sprintf("Storage operation failed: %s", operation),
-		Details:  map[string]interface{}{"operation": operation},
+		Details:  map[string]any{"operation": operation},
 		Original: original,
 	}
 }

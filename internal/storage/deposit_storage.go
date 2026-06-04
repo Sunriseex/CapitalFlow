@@ -56,7 +56,7 @@ func CreateDeposit(deposit *models.Deposit, dataPath string) error {
 			if existingDeposit.Name == deposit.Name && existingDeposit.Bank == deposit.Bank {
 				domainErr = errors.NewValidationError(
 					"вклад с таким названием уже существует в этом банке",
-					map[string]interface{}{
+					map[string]any{
 						"name": deposit.Name,
 						"bank": deposit.Bank,
 					},
@@ -162,7 +162,7 @@ func UpdateDepositAmount(depositID string, amount int64, dataPath string) error 
 
 					domainErr = errors.NewBusinessLogicError(
 						"недостаточно средств на вкладе",
-						map[string]interface{}{
+						map[string]any{
 							"deposit_id":       depositID,
 							"current_amount":   data.Deposits[i].Amount,
 							"requested_change": amount,

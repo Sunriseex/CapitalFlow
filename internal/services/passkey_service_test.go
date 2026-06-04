@@ -149,7 +149,7 @@ func TestPasskeyChallengeCleanupIsOpportunisticAndThrottled(t *testing.T) {
 		Ceremony:  passkeyCeremonyLogin,
 		Challenge: "used",
 		ExpiresAt: now.Add(time.Minute),
-		UsedAt:    passkeyPtrTime(now.Add(-time.Second)),
+		UsedAt:    new(now.Add(-time.Second)),
 	}
 	passkeys.challenges["active"] = &models.WebAuthnChallenge{
 		Ceremony:  passkeyCeremonyLogin,
@@ -242,7 +242,7 @@ func TestPasskeyChallengeSecurityCases(t *testing.T) {
 			record: &models.WebAuthnChallenge{
 				Ceremony:  passkeyCeremonyRegistration,
 				Challenge: "challenge",
-				UserID:    ptr("user-2"),
+				UserID:    new("user-2"),
 				ExpiresAt: now.Add(time.Minute),
 			},
 			ceremony:  passkeyCeremonyRegistration,
@@ -257,7 +257,7 @@ func TestPasskeyChallengeSecurityCases(t *testing.T) {
 				Challenge: "challenge",
 				UserID:    &userID,
 				ExpiresAt: now.Add(time.Minute),
-				UsedAt:    passkeyPtrTime(now.Add(-time.Second)),
+				UsedAt:    new(now.Add(-time.Second)),
 			},
 			ceremony:  passkeyCeremonyRegistration,
 			userID:    &userID,
@@ -677,12 +677,4 @@ func (r *fakePasskeyRepo) DeleteExpiredChallenges(_ context.Context, before time
 		}
 	}
 	return nil
-}
-
-func ptr(value string) *string {
-	return &value
-}
-
-func passkeyPtrTime(value time.Time) *time.Time {
-	return &value
 }

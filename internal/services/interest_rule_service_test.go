@@ -736,8 +736,8 @@ func TestInterestRuleServiceCreateReturnsValidationError(t *testing.T) {
 			req: &CreateInterestRuleRequest{
 				AccountID:     "account-1",
 				AnnualRateBps: 1200,
-				PromoRateBps:  ptrInt64(-100),
-				PromoEndDate:  ptrTime(time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)),
+				PromoRateBps:  new(int64(-100)),
+				PromoEndDate:  new(time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)),
 			},
 		},
 		{
@@ -745,7 +745,7 @@ func TestInterestRuleServiceCreateReturnsValidationError(t *testing.T) {
 			req: &CreateInterestRuleRequest{
 				AccountID:     "account-1",
 				AnnualRateBps: 1200,
-				PromoRateBps:  ptrInt64(1500),
+				PromoRateBps:  new(int64(1500)),
 			},
 		},
 		{
@@ -753,7 +753,7 @@ func TestInterestRuleServiceCreateReturnsValidationError(t *testing.T) {
 			req: &CreateInterestRuleRequest{
 				AccountID:     "account-1",
 				AnnualRateBps: 1200,
-				PromoEndDate:  ptrTime(time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)),
+				PromoEndDate:  new(time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)),
 			},
 		},
 		{
@@ -786,7 +786,7 @@ func TestInterestRuleServiceCreateReturnsValidationError(t *testing.T) {
 				AccountID:     "account-1",
 				AnnualRateBps: 1200,
 				StartDate:     time.Date(2026, 6, 2, 0, 0, 0, 0, time.UTC),
-				EndDate:       ptrTime(time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)),
+				EndDate:       new(time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)),
 			},
 		},
 		{
@@ -794,9 +794,9 @@ func TestInterestRuleServiceCreateReturnsValidationError(t *testing.T) {
 			req: &CreateInterestRuleRequest{
 				AccountID:     "account-1",
 				AnnualRateBps: 1200,
-				PromoRateBps:  ptrInt64(1500),
+				PromoRateBps:  new(int64(1500)),
 				StartDate:     time.Date(2026, 6, 2, 0, 0, 0, 0, time.UTC),
-				PromoEndDate:  ptrTime(time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)),
+				PromoEndDate:  new(time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)),
 			},
 		},
 	}
@@ -1329,7 +1329,7 @@ func TestInterestRuleServiceRecalculateEndOfTermAccrual(t *testing.T) {
 	rule := validAccrualTestRule()
 	rule.AccrualFrequency = models.AccrualFrequencyEndOfTerm
 	rule.CapitalizationFrequency = models.CapitalizationFrequencyEndOfTerm
-	rule.EndDate = ptrTime(time.Date(2026, 5, 3, 0, 0, 0, 0, time.UTC))
+	rule.EndDate = new(time.Date(2026, 5, 3, 0, 0, 0, 0, time.UTC))
 
 	got, err := NewInterestRuleService(nil).Recalculate(t.Context(), &RecalculateRuleInterestRequest{
 		Rule: rule,
@@ -1360,7 +1360,7 @@ func TestInterestRuleServiceRecalculateSplitsPromoRate(t *testing.T) {
 	rule := validAccrualTestRule()
 	promoRate := int64(2400)
 	rule.PromoRateBps = &promoRate
-	rule.PromoEndDate = ptrTime(time.Date(2026, 5, 31, 0, 0, 0, 0, time.UTC))
+	rule.PromoEndDate = new(time.Date(2026, 5, 31, 0, 0, 0, 0, time.UTC))
 
 	got, err := NewInterestRuleService(nil).Recalculate(t.Context(), &RecalculateRuleInterestRequest{
 		Rule: rule,
@@ -1576,12 +1576,4 @@ func validAccrualTestRule() models.InterestRule {
 		DayCountConvention:      models.DayCountConventionActual365,
 		StartDate:               time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
 	}
-}
-
-func ptrInt64(value int64) *int64 {
-	return &value
-}
-
-func ptrTime(value time.Time) *time.Time {
-	return &value
 }

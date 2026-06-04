@@ -172,7 +172,7 @@ func (s *InterestService) CalculateProjectedIncome(req *CalculateProjectedIncome
 	if req.Days <= 0 {
 		return nil, errors.NewValidationError(
 			"период расчета должен быть положительным",
-			map[string]interface{}{
+			map[string]any{
 				"days": req.Days,
 			},
 		)

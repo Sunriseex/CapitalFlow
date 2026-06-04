@@ -268,7 +268,7 @@ func ParseRubles(amountStr string) (int64, error) {
 	if err != nil {
 		return 0, errors.NewValidationError(
 			"неверный формат суммы",
-			map[string]interface{}{
+			map[string]any{
 				"amount": amountStr,
 				"error":  err.Error(),
 			},
@@ -279,7 +279,7 @@ func ParseRubles(amountStr string) (int64, error) {
 	if err != nil {
 		return 0, errors.NewValidationError(
 			"сумма не может быть сохранена в копейках",
-			map[string]interface{}{
+			map[string]any{
 				"amount": amountStr,
 				"error":  err.Error(),
 			},
@@ -294,7 +294,7 @@ func ParseDays(daysStr string) (int, error) {
 	if err != nil {
 		return 0, errors.NewValidationError(
 			"неверный формат количества дней",
-			map[string]interface{}{
+			map[string]any{
 				"days":  daysStr,
 				"error": err.Error(),
 			},
@@ -303,7 +303,7 @@ func ParseDays(daysStr string) (int, error) {
 	if days <= 0 {
 		return 0, errors.NewValidationError(
 			"количество дней должно быть положительным",
-			map[string]interface{}{
+			map[string]any{
 				"days": days,
 			},
 		)
@@ -311,7 +311,7 @@ func ParseDays(daysStr string) (int, error) {
 	if days > 3650 {
 		return 0, errors.NewValidationError(
 			"количество дней слишком большое",
-			map[string]interface{}{
+			map[string]any{
 				"days":     days,
 				"max_days": 3650,
 			},
@@ -325,7 +325,7 @@ func ParseRate(rateStr string) (float64, error) {
 	if err != nil {
 		return 0, errors.NewValidationError(
 			"неверный формат процентной ставки",
-			map[string]interface{}{
+			map[string]any{
 				"rate":  rateStr,
 				"error": err.Error(),
 			},
@@ -341,7 +341,7 @@ func ParseTerm(termStr string) (int, error) {
 	if err != nil {
 		return 0, errors.NewValidationError(
 			"неверный формат срока",
-			map[string]interface{}{
+			map[string]any{
 				"term":  termStr,
 				"error": err.Error(),
 			},
@@ -350,7 +350,7 @@ func ParseTerm(termStr string) (int, error) {
 	if term <= 0 {
 		return 0, errors.NewValidationError(
 			"срок должен быть положительным",
-			map[string]interface{}{
+			map[string]any{
 				"term": term,
 			},
 		)
@@ -358,7 +358,7 @@ func ParseTerm(termStr string) (int, error) {
 	if term > 60 {
 		return 0, errors.NewValidationError(
 			"срок не может превышать 60 месяцев",
-			map[string]interface{}{
+			map[string]any{
 				"term":     term,
 				"max_term": 60,
 			},
