@@ -97,7 +97,7 @@ func Init() error {
 		AppEnv:                getEnv("APP_ENV", "development"),
 		TelegramToken:         getEnv("TELEGRAM_BOT_TOKEN", ""),
 		TelegramUserID:        getEnvInt64("TELEGRAM_USER_ID", 0),
-		AppVersion:            getEnv("APP_VERSION", "0.1.0-dev"),
+		AppVersion:            getEnv("APP_VERSION", "v0.5.8"),
 		DataPath:              dataPath,
 		DepositsDataPath:      depositsDataPath,
 		DatabaseURL:           getEnv("DATABASE_URL", "postgres://capitalflow:capitalflow@localhost:5432/capitalflow?sslmode=disable"),

@@ -53,6 +53,25 @@ func TestMetricsEndpointExposesAuthCounters(t *testing.T) {
 	}
 }
 
+func TestHealthEndpointReportsVersion(t *testing.T) {
+	router := NewRouter(newTestProfileStore(), &RouterConfig{AppVersion: "v0.5.8"})
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/health", http.NoBody)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	var response HealthResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode health response: %v", err)
+	}
+	if response.Status != "ok" || response.Version != "v0.5.8" {
+		t.Fatalf("health response = %+v", response)
+	}
+}
+
 func TestRouterCORSAllowsCredentialsForConfiguredOrigin(t *testing.T) {
 	tokens, err := auth.NewTokenService(testJWTSecret, "capitalflow", time.Minute, time.Hour)
 	if err != nil {

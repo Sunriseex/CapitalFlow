@@ -21,6 +21,7 @@ import type {
   PasskeyRegistrationOptionsRequest,
   PasskeyRenameRequest,
   Profile,
+  ServiceStatus,
   TransferEvent,
   TransferResponse,
   Transaction,
@@ -228,6 +229,8 @@ async function refreshSession() {
 }
 
 export const api = {
+  serviceStatus: () => authFetch<ServiceStatus>("/health"),
+
   authStatus: () => authFetch<AuthStatusResponse>("/auth/status"),
 
   setup: async (input: AuthSetupRequest) =>
@@ -321,4 +324,3 @@ export const api = {
       body: JSON.stringify({ date } satisfies AccrueInterestRequest),
     }),
 };
-

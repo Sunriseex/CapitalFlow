@@ -30,7 +30,7 @@ Then edit `configs/.env`.
 Minimal local values:
 
 ```env
-APP_VERSION=0.1.0-dev
+APP_VERSION=v0.5.8
 LOG_LEVEL=debug
 APP_ENV=development
 

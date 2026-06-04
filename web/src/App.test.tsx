@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   accounts: vi.fn(),
   categories: vi.fn(),
   profile: vi.fn(),
+  serviceStatus: vi.fn(),
   dashboardSummary: vi.fn(),
   interestRules: vi.fn(),
   transactions: vi.fn(),
@@ -26,6 +27,7 @@ vi.mock("./api/client", () => ({
     accounts: mocks.accounts,
     categories: mocks.categories,
     profile: mocks.profile,
+    serviceStatus: mocks.serviceStatus,
     dashboardSummary: mocks.dashboardSummary,
     interestRules: mocks.interestRules,
     transactions: mocks.transactions,
@@ -84,6 +86,7 @@ describe("App query states", () => {
     mocks.profile.mockResolvedValue({
       user: { id: "user-1", email: "user@example.com", primary_currency: "RUB" },
     });
+    mocks.serviceStatus.mockResolvedValue({ status: "ok", version: "v0.5.8" });
     mocks.dashboardSummary.mockResolvedValue({
       account_balances: [],
     });
@@ -122,6 +125,12 @@ describe("App query states", () => {
 
     await user.click(await screen.findByRole("button", { name: "Back to accounts" }));
     expect(window.location.pathname).toBe("/accounts");
+  });
+
+  it("shows the service version badge on the dashboard", async () => {
+    renderApp();
+
+    expect(await screen.findByLabelText("Service version v0.5.8")).toBeInTheDocument();
   });
 
   it("initializes route state from the URL", async () => {
@@ -164,5 +173,4 @@ describe("App query states", () => {
     expect(await screen.findByText("Loading profile")).toBeInTheDocument();
   });
 });
-
 

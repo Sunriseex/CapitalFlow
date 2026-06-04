@@ -1,13 +1,14 @@
 openapi: 3.0.3
 info:
   title: CapitalFlow API
-  version: 0.5.0
+  version: v0.5.8
 servers:
   - url: http://localhost:8080/api/v1
 security:
   - bearerAuth: []
 tags:
   - name: Auth
+  - name: System
   - name: Profile
   - name: Categories
   - name: Currencies
@@ -17,6 +18,22 @@ tags:
   - name: Interest Rules
   - name: Dashboard
 paths:
+  /health:
+    servers:
+      - url: http://localhost:8080
+    get:
+      tags: [System]
+      summary: Service health and version
+      security: []
+      responses:
+        "200":
+          description: Service status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceStatus"
+        default:
+          $ref: "#/components/responses/APIError"
   /auth/status:
     servers:
       - url: http://localhost:8080
@@ -861,6 +878,14 @@ components:
       properties:
         setup_required:
           type: boolean
+    ServiceStatus:
+      type: object
+      required: [status, version]
+      properties:
+        status:
+          type: string
+        version:
+          type: string
     ChangePasswordRequest:
       type: object
       required: [current_password, new_password]

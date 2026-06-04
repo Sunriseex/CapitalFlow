@@ -30,6 +30,7 @@ type Store interface {
 
 type Handler struct {
 	store                 Store
+	appVersion            string
 	tokens                *auth.TokenService
 	cookieSecure          bool
 	cookieSameSite        http.SameSite
@@ -46,6 +47,7 @@ type Handler struct {
 
 type RouterConfig struct {
 	AppEnv                          string
+	AppVersion                      string
 	APIAuthToken                    string
 	TokenService                    *auth.TokenService
 	PublicOrigin                    string
@@ -97,6 +99,7 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 	}
 	h := &Handler{
 		store:                 store,
+		appVersion:            firstNonEmpty(cfg.AppVersion, "v0.5.8"),
 		tokens:                cfg.TokenService,
 		cookieSecure:          cookieSecure,
 		cookieSameSite:        cookieSameSiteMode(cfg.CookieSameSite),

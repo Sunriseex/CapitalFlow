@@ -66,8 +66,15 @@ export function App() {
     enabled: hasSession,
     retry: false,
   });
+  const serviceStatus = useQuery({
+    queryKey: ["service-status", sessionNonce],
+    queryFn: api.serviceStatus,
+    enabled: hasSession,
+    staleTime: 1000 * 60 * 5,
+  });
 
   const selectedAccount = accounts.data?.find((account) => account.id === selectedAccountId);
+  const pageTitle = selectedAccount ? selectedAccount.name : titleForView(view);
   const primaryCurrency = profile.data?.user.primary_currency ?? "RUB";
   const sessionInvalid = profile.error instanceof ApiClientError && profile.error.status === 401;
   const accountsReady = accounts.isSuccess && (accounts.data?.length ?? "0") > 0;
@@ -162,7 +169,14 @@ export function App() {
         <header className="topbar">
           <div>
             <p className="eyebrow">v0.5 MVP</p>
-            <h1>{selectedAccount ? selectedAccount.name : titleForView(view)}</h1>
+            <div className="page-title">
+              <h1>{pageTitle}</h1>
+              {view === "dashboard" && serviceStatus.data?.version ? (
+                <span className="version-badge" aria-label={`Service version ${serviceStatus.data.version}`}>
+                  {serviceStatus.data.version}
+                </span>
+              ) : null}
+            </div>
           </div>
 
           <div className="quick-actions">

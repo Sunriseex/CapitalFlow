@@ -69,6 +69,7 @@ func run() error {
 		Addr: *addr,
 		Handler: handlers.NewRouter(store, &handlers.RouterConfig{
 			AppEnv:                          config.AppConfig.AppEnv,
+			AppVersion:                      config.AppConfig.AppVersion,
 			APIAuthToken:                    config.AppConfig.APIAuthToken,
 			TokenService:                    tokenService,
 			PublicOrigin:                    config.AppConfig.PublicOrigin,
