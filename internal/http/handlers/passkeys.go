@@ -14,7 +14,11 @@ import (
 )
 
 func (h *Handler) passkeyLoginOptions(w http.ResponseWriter, r *http.Request) {
-	options, err := h.passkeyService().LoginOptions(r.Context())
+	service, ok := h.passkeyService(w)
+	if !ok {
+		return
+	}
+	options, err := service.LoginOptions(r.Context())
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -28,7 +32,11 @@ func (h *Handler) passkeyLoginVerify(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, err)
 		return
 	}
-	session, err := h.passkeyService().VerifyLogin(r.Context(), body)
+	service, ok := h.passkeyService(w)
+	if !ok {
+		return
+	}
+	session, err := service.VerifyLogin(r.Context(), body)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -43,7 +51,11 @@ func (h *Handler) listPasskeys(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized", "Unauthorized", nil)
 		return
 	}
-	credentials, err := h.passkeyService().List(r.Context(), userID)
+	service, ok := h.passkeyService(w)
+	if !ok {
+		return
+	}
+	credentials, err := service.List(r.Context(), userID)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -64,7 +76,11 @@ func (h *Handler) passkeyRegistrationOptions(w http.ResponseWriter, r *http.Requ
 			return
 		}
 	}
-	options, err := h.passkeyService().RegistrationOptions(r.Context(), services.PasskeyRegistrationOptionsRequest{
+	service, ok := h.passkeyService(w)
+	if !ok {
+		return
+	}
+	options, err := service.RegistrationOptions(r.Context(), services.PasskeyRegistrationOptionsRequest{
 		UserID:   userID,
 		Password: req.Password,
 	})
@@ -86,7 +102,11 @@ func (h *Handler) passkeyRegistrationVerify(w http.ResponseWriter, r *http.Reque
 		writeServiceError(w, err)
 		return
 	}
-	credential, err := h.passkeyService().VerifyRegistration(r.Context(), userID, body)
+	service, ok := h.passkeyService(w)
+	if !ok {
+		return
+	}
+	credential, err := service.VerifyRegistration(r.Context(), userID, body)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -105,7 +125,11 @@ func (h *Handler) renamePasskey(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
 		return
 	}
-	credential, err := h.passkeyService().Rename(r.Context(), services.PasskeyRenameRequest{
+	service, ok := h.passkeyService(w)
+	if !ok {
+		return
+	}
+	credential, err := service.Rename(r.Context(), services.PasskeyRenameRequest{
 		UserID: userID,
 		ID:     chi.URLParam(r, "id"),
 		Name:   req.Name,
@@ -123,7 +147,11 @@ func (h *Handler) deletePasskey(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized", "Unauthorized", nil)
 		return
 	}
-	if err := h.passkeyService().Delete(r.Context(), services.PasskeyDeleteRequest{
+	service, ok := h.passkeyService(w)
+	if !ok {
+		return
+	}
+	if err := service.Delete(r.Context(), services.PasskeyDeleteRequest{
 		UserID: userID,
 		ID:     chi.URLParam(r, "id"),
 	}); err != nil {
@@ -133,23 +161,12 @@ func (h *Handler) deletePasskey(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *Handler) passkeyService() *services.PasskeyService {
-	authService := h.authService()
-	service, err := services.NewPasskeyService(
-		h.store.Users(),
-		h.store.Passkeys(),
-		authService,
-		h.store.AuthAuditEvents(),
-		services.WebAuthnConfig{
-			RPDisplayName: h.webAuthnRPDisplayName,
-			RPID:          h.webAuthnRPID,
-			Origins:       h.webAuthnOrigins,
-		},
-	)
-	if err != nil {
-		panic(fmt.Sprintf("passkey service is not configured: %v", err))
+func (h *Handler) passkeyService(w http.ResponseWriter) (*services.PasskeyService, bool) {
+	if h.passkeys == nil {
+		writeError(w, http.StatusServiceUnavailable, "service_unavailable", "Passkey authentication is not configured", nil)
+		return nil, false
 	}
-	return service
+	return h.passkeys, true
 }
 
 func passkeyCredentialsResponse(credentials []models.PasskeyCredential) dto.PasskeyCredentialsResponse {

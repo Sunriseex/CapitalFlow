@@ -15,8 +15,8 @@ export async function signInWithPasskey() {
   return api.passkeyLoginVerify(publicKeyCredentialToJSON(credential as PublicKeyCredential));
 }
 
-export async function registerPasskey(password?: string) {
-  const options = await api.passkeyRegistrationOptions({ password: password ?? "" });
+export async function registerPasskey(password: string) {
+  const options = await api.passkeyRegistrationOptions({ password });
   const credential = await navigator.credentials.create({
     publicKey: publicKeyCreationOptions(options.publicKey),
   });

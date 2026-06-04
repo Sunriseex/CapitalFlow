@@ -69,10 +69,14 @@ Users can list refresh sessions and revoke a specific session. Password change r
 Passkey login uses WebAuthn with server-side one-use challenges.
 
 * Registration requires an active access-token session.
-* Adding the first passkey requires password confirmation.
+* Adding any passkey requires password confirmation until recent session metadata is available.
 * Login creates the same refresh session type as password login.
 * `WEBAUTHN_RP_ID` and `WEBAUTHN_ORIGINS` must match the browser origin served by the reverse proxy.
+* Local development can use `WEBAUTHN_RP_ID=localhost` with `http://localhost:5173` origins.
+* Production should set `PUBLIC_ORIGIN=https://your-domain`, `WEBAUTHN_RP_ID=your-domain`, and `WEBAUTHN_ORIGINS=https://your-domain`.
 * Production passkey origins must be HTTPS.
+* Public passkey login options use a dedicated rate limit through `PASSKEY_OPTIONS_RATE_LIMIT_REQUESTS` and `PASSKEY_OPTIONS_RATE_LIMIT_WINDOW`.
+* Expired and used WebAuthn challenges are cleaned up opportunistically by the application.
 
 ## Audit Trail
 

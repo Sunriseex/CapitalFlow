@@ -18,10 +18,15 @@ export function PasskeysPanel() {
   const supported = browserSupportsPasskeys();
 
   async function addPasskey() {
+    const confirmedPassword = password.trim();
+    if (!confirmedPassword) {
+      setError("Password confirmation is required");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
-      await registerPasskey(password);
+      await registerPasskey(confirmedPassword);
       setPassword("");
       await queryClient.invalidateQueries({ queryKey: ["passkeys"] });
     } catch (err) {
@@ -80,7 +85,7 @@ export function PasskeysPanel() {
           />
           <Button
             className="primary-button"
-            disabled={!supported || busy}
+            disabled={!supported || busy || !password.trim()}
             onClick={() => {
               void addPasskey();
             }}

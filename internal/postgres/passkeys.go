@@ -190,6 +190,18 @@ func (r *PasskeyRepository) ConsumeChallenge(ctx context.Context, ceremony, chal
 	return record, nil
 }
 
+// DeleteExpiredChallenges removes expired or already used WebAuthn challenges.
+func (r *PasskeyRepository) DeleteExpiredChallenges(ctx context.Context, before time.Time) error {
+	_, err := r.pool.Exec(ctx, `
+		DELETE FROM webauthn_challenges
+		WHERE expires_at < $1 OR used_at IS NOT NULL
+	`, before)
+	if err != nil {
+		return fmt.Errorf("delete expired webauthn challenges: %w", err)
+	}
+	return nil
+}
+
 func scanPasskeyCredential(row interface {
 	Scan(dest ...any) error
 },

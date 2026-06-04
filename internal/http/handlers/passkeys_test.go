@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sunriseex/capitalflow/internal/auth"
 	"github.com/sunriseex/capitalflow/internal/models"
 )
 
@@ -34,6 +35,83 @@ func TestPasskeyLoginOptionsReturnsPublicKeyOptions(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), `"publicKey"`) {
 		t.Fatalf("body = %s", rec.Body.String())
+	}
+}
+
+func TestPasskeyLoginOptionsUsesDedicatedRateLimit(t *testing.T) {
+	tokens, err := auth.NewTokenService(testJWTSecret, "capitalflow", time.Minute, time.Hour)
+	if err != nil {
+		t.Fatalf("new token service: %v", err)
+	}
+	router := NewRouter(newTestProfileStore(), &RouterConfig{
+		TokenService:                    tokens,
+		AuthRateLimitRequests:           20,
+		AuthRateLimitWindow:             time.Minute,
+		PasskeyOptionsRateLimitRequests: 1,
+		PasskeyOptionsRateLimitWindow:   time.Minute,
+	})
+
+	for index, want := range []int{http.StatusOK, http.StatusTooManyRequests} {
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/passkeys/login/options", http.NoBody)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != want {
+			t.Fatalf("request %d status = %d, want %d: %s", index+1, rec.Code, want, rec.Body.String())
+		}
+	}
+}
+
+func TestPasskeyLoginOptionsUnavailableWhenServiceIsNotConfigured(t *testing.T) {
+	router := NewRouter(newTestProfileStore(), &RouterConfig{})
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/passkeys/login/options", http.NoBody)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusServiceUnavailable, rec.Body.String())
+	}
+}
+
+func TestPasskeyInvalidConfigPanicsAtRouterConstruction(t *testing.T) {
+	tokens, err := auth.NewTokenService(testJWTSecret, "capitalflow", time.Minute, time.Hour)
+	if err != nil {
+		t.Fatalf("new token service: %v", err)
+	}
+
+	defer func() {
+		if recovered := recover(); recovered == nil {
+			t.Fatal("expected router construction to panic")
+		}
+	}()
+
+	NewRouter(newTestProfileStore(), &RouterConfig{
+		TokenService:    tokens,
+		WebAuthnOrigins: []string{"://bad-origin"},
+	})
+}
+
+func TestPasskeyServiceIsReusedBetweenRequests(t *testing.T) {
+	tokens, err := auth.NewTokenService(testJWTSecret, "capitalflow", time.Minute, time.Hour)
+	if err != nil {
+		t.Fatalf("new token service: %v", err)
+	}
+	store := newTestProfileStore()
+	router := NewRouter(store, &RouterConfig{
+		TokenService:                    tokens,
+		PasskeyOptionsRateLimitRequests: 10,
+	})
+
+	for range 2 {
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/passkeys/login/options", http.NoBody)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+		}
+	}
+	if store.passkeys.deleteCalls != 1 {
+		t.Fatalf("challenge cleanup calls = %d, want 1", store.passkeys.deleteCalls)
 	}
 }
 

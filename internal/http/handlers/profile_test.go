@@ -308,6 +308,7 @@ type testProfileRefreshRepo struct {
 type testProfilePasskeyRepo struct {
 	credentialsByID map[string]*models.PasskeyCredential
 	challenges      map[string]*models.WebAuthnChallenge
+	deleteCalls     int
 }
 
 func (r *testProfilePasskeyRepo) CreateCredential(_ context.Context, credential *models.PasskeyCredential) error {
@@ -402,6 +403,16 @@ func (r *testProfilePasskeyRepo) ConsumeChallenge(_ context.Context, ceremony, c
 	}
 	record.UsedAt = &usedAt
 	return record, nil
+}
+
+func (r *testProfilePasskeyRepo) DeleteExpiredChallenges(_ context.Context, before time.Time) error {
+	r.deleteCalls++
+	for challenge, record := range r.challenges {
+		if record.ExpiresAt.Before(before) || record.UsedAt != nil {
+			delete(r.challenges, challenge)
+		}
+	}
+	return nil
 }
 
 func (r *testProfileRefreshRepo) Create(_ context.Context, token *models.RefreshToken) error {

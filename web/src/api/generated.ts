@@ -67,7 +67,7 @@ export type PasskeyCredentialsResponse = {
 };
 
 export type PasskeyRegistrationOptionsRequest = {
-  "password"?: string;
+  "password": string;
 };
 
 export type PasskeyRenameRequest = {

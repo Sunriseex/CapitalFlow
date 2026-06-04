@@ -70,6 +70,18 @@ describe("PasskeysPanel", () => {
     await waitFor(() => expect(mocks.registerPasskey).toHaveBeenCalledWith("correct password"));
   });
 
+  it("does not add a passkey without password confirmation", async () => {
+    const user = userEvent.setup();
+    renderPasskeysPanel();
+
+    const button = screen.getByRole("button", { name: /Add passkey/ });
+    expect(button).toBeDisabled();
+
+    await user.click(button);
+
+    expect(mocks.registerPasskey).not.toHaveBeenCalled();
+  });
+
   it("renames and deletes passkeys", async () => {
     const user = userEvent.setup();
     renderPasskeysPanel();
@@ -95,4 +107,3 @@ describe("PasskeysPanel", () => {
     expect(screen.getByRole("button", { name: /Add passkey/ })).toBeDisabled();
   });
 });
-

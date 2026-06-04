@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-webauthn/webauthn/protocol"
@@ -20,6 +22,7 @@ const (
 	passkeyCeremonyRegistration = "registration"
 	passkeyCeremonyLogin        = "login"
 	passkeyChallengeTTL         = 5 * time.Minute
+	passkeyChallengeCleanupTTL  = time.Hour
 )
 
 // WebAuthnConfig contains relying party settings for passkey ceremonies.
@@ -60,6 +63,9 @@ type PasskeyService struct {
 	parseAssertion func([]byte) (*protocol.ParsedCredentialAssertionData, error)
 	now            func() time.Time
 	challengeTTL   time.Duration
+	cleanupEvery   time.Duration
+	cleanupMu      sync.Mutex
+	lastCleanup    time.Time
 }
 
 type passkeyRelyingParty interface {
@@ -75,9 +81,22 @@ func NewPasskeyService(users repository.UserRepository, passkeys repository.Pass
 	if rpDisplayName == "" {
 		rpDisplayName = "CapitalFlow"
 	}
+	rpID := strings.TrimSpace(cfg.RPID)
+	if rpID == "" {
+		return nil, validationError("webauthn rp id is required")
+	}
+	if len(cfg.Origins) == 0 {
+		return nil, validationError("webauthn origins are required")
+	}
+	for _, origin := range cfg.Origins {
+		parsed, err := url.Parse(origin)
+		if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+			return nil, validationError("webauthn origins must be valid http or https origins")
+		}
+	}
 	webAuthn, err := webauthn.New(&webauthn.Config{
 		RPDisplayName: rpDisplayName,
-		RPID:          strings.TrimSpace(cfg.RPID),
+		RPID:          rpID,
 		RPOrigins:     cfg.Origins,
 		AuthenticatorSelection: protocol.AuthenticatorSelection{
 			ResidentKey:      protocol.ResidentKeyRequirementRequired,
@@ -102,6 +121,7 @@ func NewPasskeyService(users repository.UserRepository, passkeys repository.Pass
 		parseAssertion: protocol.ParseCredentialRequestResponseBytes,
 		now:            time.Now,
 		challengeTTL:   passkeyChallengeTTL,
+		cleanupEvery:   passkeyChallengeCleanupTTL,
 	}, nil
 }
 
@@ -128,20 +148,15 @@ func (s *PasskeyService) RegistrationOptions(ctx context.Context, req PasskeyReg
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
 	}
-	activeCount, err := s.passkeys.CountActiveCredentialsByUser(ctx, user.ID)
+	ok, err := s.verifyFunc(req.Password, user.PasswordHash)
 	if err != nil {
-		return nil, fmt.Errorf("count passkeys: %w", err)
+		return nil, fmt.Errorf("verify password: %w", err)
 	}
-	if activeCount == 0 {
-		ok, err := s.verifyFunc(req.Password, user.PasswordHash)
-		if err != nil {
-			return nil, fmt.Errorf("verify password: %w", err)
-		}
-		if !ok {
-			s.auditEvent(ctx, "passkey_registration_failed", user.Email, &user.ID, false, "fresh_session_required")
-			return nil, validationError("passkey registration requires recent password confirmation")
-		}
+	if !ok {
+		s.auditEvent(ctx, "passkey_registration_failed", user.Email, &user.ID, false, "fresh_session_required")
+		return nil, validationError("passkey registration requires recent password confirmation")
 	}
+	s.cleanupChallenges(ctx)
 	credentials, err := s.passkeys.ListCredentialsByUser(ctx, user.ID, false)
 	if err != nil {
 		return nil, fmt.Errorf("list passkeys: %w", err)
@@ -217,6 +232,7 @@ func (s *PasskeyService) VerifyRegistration(ctx context.Context, userID string, 
 
 // LoginOptions creates WebAuthn passkey login options.
 func (s *PasskeyService) LoginOptions(ctx context.Context) (any, error) {
+	s.cleanupChallenges(ctx)
 	options, session, err := s.webAuthn.BeginDiscoverableLogin(webauthn.WithUserVerification(protocol.VerificationPreferred))
 	if err != nil {
 		s.auditEvent(ctx, "passkey_login_failed", "", nil, false, "options_failed")
@@ -264,6 +280,21 @@ func (s *PasskeyService) VerifyLogin(ctx context.Context, body []byte) (*AuthSes
 	}
 	s.auditEvent(ctx, "passkey_login_success", user.Email, &user.ID, true, "")
 	return authSession, nil
+}
+
+func (s *PasskeyService) cleanupChallenges(ctx context.Context) {
+	now := s.now()
+	s.cleanupMu.Lock()
+	if s.cleanupEvery > 0 && !s.lastCleanup.IsZero() && now.Sub(s.lastCleanup) < s.cleanupEvery {
+		s.cleanupMu.Unlock()
+		return
+	}
+	s.lastCleanup = now
+	s.cleanupMu.Unlock()
+
+	if err := s.passkeys.DeleteExpiredChallenges(ctx, now); err != nil {
+		s.auditEvent(ctx, "passkey_challenge_cleanup_failed", "", nil, false, "cleanup_failed")
+	}
 }
 
 func (s *PasskeyService) discoverableUserHandler(ctx context.Context) webauthn.DiscoverableUserHandler {

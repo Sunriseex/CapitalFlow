@@ -15,34 +15,36 @@ import (
 )
 
 type Config struct {
-	AppEnv                    string
-	TelegramToken             string
-	TelegramUserID            int64
-	AppVersion                string
-	DataPath                  string
-	DepositsDataPath          string
-	DatabaseURL               string
-	APIAuthToken              string
-	JWTSecret                 string
-	AccessTokenTTL            time.Duration
-	RefreshTokenTTL           time.Duration
-	PublicOrigin              string
-	PublicOriginHost          string
-	WebAuthnRPDisplayName     string
-	WebAuthnRPID              string
-	WebAuthnOrigins           []string
-	CookieSecure              bool
-	CookieSameSite            string
-	AllowDirectIPLogin        bool
-	CORSAllowedOrigins        []string
-	RateLimitRequests         int
-	RateLimitWindow           time.Duration
-	AuthRateLimitRequests     int
-	AuthRateLimitWindow       time.Duration
-	MutationRateLimitRequests int
-	MutationRateLimitWindow   time.Duration
-	TrustedProxies            []string
-	LogLevel                  slog.Level
+	AppEnv                          string
+	TelegramToken                   string
+	TelegramUserID                  int64
+	AppVersion                      string
+	DataPath                        string
+	DepositsDataPath                string
+	DatabaseURL                     string
+	APIAuthToken                    string
+	JWTSecret                       string
+	AccessTokenTTL                  time.Duration
+	RefreshTokenTTL                 time.Duration
+	PublicOrigin                    string
+	PublicOriginHost                string
+	WebAuthnRPDisplayName           string
+	WebAuthnRPID                    string
+	WebAuthnOrigins                 []string
+	CookieSecure                    bool
+	CookieSameSite                  string
+	AllowDirectIPLogin              bool
+	CORSAllowedOrigins              []string
+	RateLimitRequests               int
+	RateLimitWindow                 time.Duration
+	AuthRateLimitRequests           int
+	AuthRateLimitWindow             time.Duration
+	PasskeyOptionsRateLimitRequests int
+	PasskeyOptionsRateLimitWindow   time.Duration
+	MutationRateLimitRequests       int
+	MutationRateLimitWindow         time.Duration
+	TrustedProxies                  []string
+	LogLevel                        slog.Level
 }
 
 var AppConfig *Config
@@ -116,13 +118,15 @@ func Init() error {
 			"http://localhost:5173",
 			"http://127.0.0.1:5173",
 		}),
-		RateLimitRequests:         getEnvInt("RATE_LIMIT_REQUESTS", 120),
-		RateLimitWindow:           getEnvDuration("RATE_LIMIT_WINDOW", time.Minute),
-		AuthRateLimitRequests:     getEnvInt("AUTH_RATE_LIMIT_REQUESTS", 5),
-		AuthRateLimitWindow:       getEnvDuration("AUTH_RATE_LIMIT_WINDOW", time.Minute),
-		MutationRateLimitRequests: getEnvInt("MUTATION_RATE_LIMIT_REQUESTS", 60),
-		MutationRateLimitWindow:   getEnvDuration("MUTATION_RATE_LIMIT_WINDOW", time.Minute),
-		TrustedProxies:            getEnvList("TRUSTED_PROXIES", nil),
+		RateLimitRequests:               getEnvInt("RATE_LIMIT_REQUESTS", 120),
+		RateLimitWindow:                 getEnvDuration("RATE_LIMIT_WINDOW", time.Minute),
+		AuthRateLimitRequests:           getEnvInt("AUTH_RATE_LIMIT_REQUESTS", 5),
+		AuthRateLimitWindow:             getEnvDuration("AUTH_RATE_LIMIT_WINDOW", time.Minute),
+		PasskeyOptionsRateLimitRequests: getEnvInt("PASSKEY_OPTIONS_RATE_LIMIT_REQUESTS", 3),
+		PasskeyOptionsRateLimitWindow:   getEnvDuration("PASSKEY_OPTIONS_RATE_LIMIT_WINDOW", time.Minute),
+		MutationRateLimitRequests:       getEnvInt("MUTATION_RATE_LIMIT_REQUESTS", 60),
+		MutationRateLimitWindow:         getEnvDuration("MUTATION_RATE_LIMIT_WINDOW", time.Minute),
+		TrustedProxies:                  getEnvList("TRUSTED_PROXIES", nil),
 	}
 	AppConfig.AppEnv, err = normalizeAppEnv(AppConfig.AppEnv)
 	if err != nil {

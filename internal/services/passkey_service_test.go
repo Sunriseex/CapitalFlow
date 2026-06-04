@@ -40,7 +40,7 @@ func TestPasskeyRegistrationOptionsRequiresPasswordForFirstPasskey(t *testing.T)
 	}
 }
 
-func TestPasskeyRegistrationOptionsSkipsPasswordWhenPasskeyExists(t *testing.T) {
+func TestPasskeyRegistrationOptionsRequiresPasswordWhenPasskeyExists(t *testing.T) {
 	service, users, _, passkeys := newTestPasskeyService(t)
 	users.byID["user-1"] = &models.User{ID: "user-1", Email: "user@example.com", PasswordHash: "hash:correct password"}
 	passkeys.credentialsByID["passkey-1"] = &models.PasskeyCredential{
@@ -51,8 +51,80 @@ func TestPasskeyRegistrationOptionsSkipsPasswordWhenPasskeyExists(t *testing.T) 
 		Name:         "Existing",
 	}
 
-	if _, err := service.RegistrationOptions(t.Context(), PasskeyRegistrationOptionsRequest{UserID: "user-1"}); err != nil {
+	if _, err := service.RegistrationOptions(t.Context(), PasskeyRegistrationOptionsRequest{UserID: "user-1"}); !IsValidationError(err) {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+
+	if _, err := service.RegistrationOptions(t.Context(), PasskeyRegistrationOptionsRequest{
+		UserID:   "user-1",
+		Password: "correct password",
+	}); err != nil {
 		t.Fatalf("registration options: %v", err)
+	}
+}
+
+func TestPasskeyChallengeCleanupIsOpportunisticAndThrottled(t *testing.T) {
+	service, users, _, passkeys := newTestPasskeyService(t)
+	now := time.Date(2026, 6, 4, 12, 0, 0, 0, time.UTC)
+	service.now = func() time.Time { return now }
+	users.byID["user-1"] = &models.User{ID: "user-1", Email: "user@example.com", PasswordHash: "hash:correct password"}
+	passkeys.challenges["expired"] = &models.WebAuthnChallenge{
+		Ceremony:  passkeyCeremonyLogin,
+		Challenge: "expired",
+		ExpiresAt: now.Add(-time.Minute),
+	}
+	passkeys.challenges["used"] = &models.WebAuthnChallenge{
+		Ceremony:  passkeyCeremonyLogin,
+		Challenge: "used",
+		ExpiresAt: now.Add(time.Minute),
+		UsedAt:    passkeyPtrTime(now.Add(-time.Second)),
+	}
+	passkeys.challenges["active"] = &models.WebAuthnChallenge{
+		Ceremony:  passkeyCeremonyLogin,
+		Challenge: "active",
+		ExpiresAt: now.Add(time.Minute),
+	}
+
+	if _, err := service.RegistrationOptions(t.Context(), PasskeyRegistrationOptionsRequest{
+		UserID:   "user-1",
+		Password: "correct password",
+	}); err != nil {
+		t.Fatalf("registration options: %v", err)
+	}
+	if passkeys.deleteExpiredCalls != 1 {
+		t.Fatalf("delete calls = %d, want 1", passkeys.deleteExpiredCalls)
+	}
+	if _, ok := passkeys.challenges["expired"]; ok {
+		t.Fatal("expired challenge was not deleted")
+	}
+	if _, ok := passkeys.challenges["used"]; ok {
+		t.Fatal("used challenge was not deleted")
+	}
+	if _, ok := passkeys.challenges["active"]; !ok {
+		t.Fatal("active challenge was deleted")
+	}
+
+	if _, err := service.LoginOptions(t.Context()); err != nil {
+		t.Fatalf("login options: %v", err)
+	}
+	if passkeys.deleteExpiredCalls != 1 {
+		t.Fatalf("delete calls = %d, want throttled 1", passkeys.deleteExpiredCalls)
+	}
+}
+
+func TestPasskeyChallengeCleanupFailureDoesNotBlockCeremony(t *testing.T) {
+	service, users, _, passkeys := newTestPasskeyService(t)
+	users.byID["user-1"] = &models.User{ID: "user-1", Email: "user@example.com", PasswordHash: "hash:correct password"}
+	passkeys.deleteExpiredErr = errors.New("cleanup failed")
+
+	if _, err := service.RegistrationOptions(t.Context(), PasskeyRegistrationOptionsRequest{
+		UserID:   "user-1",
+		Password: "correct password",
+	}); err != nil {
+		t.Fatalf("registration options: %v", err)
+	}
+	if passkeys.deleteExpiredCalls != 1 {
+		t.Fatalf("delete calls = %d, want 1", passkeys.deleteExpiredCalls)
 	}
 }
 
@@ -366,8 +438,10 @@ func fakeParseAssertion(challenge string) func([]byte) (*protocol.ParsedCredenti
 }
 
 type fakePasskeyRepo struct {
-	credentialsByID map[string]*models.PasskeyCredential
-	challenges      map[string]*models.WebAuthnChallenge
+	credentialsByID    map[string]*models.PasskeyCredential
+	challenges         map[string]*models.WebAuthnChallenge
+	deleteExpiredCalls int
+	deleteExpiredErr   error
 }
 
 func (r *fakePasskeyRepo) CreateCredential(_ context.Context, credential *models.PasskeyCredential) error {
@@ -472,6 +546,19 @@ func (r *fakePasskeyRepo) ConsumeChallenge(_ context.Context, ceremony, challeng
 	}
 	record.UsedAt = &usedAt
 	return record, nil
+}
+
+func (r *fakePasskeyRepo) DeleteExpiredChallenges(_ context.Context, before time.Time) error {
+	r.deleteExpiredCalls++
+	if r.deleteExpiredErr != nil {
+		return r.deleteExpiredErr
+	}
+	for challenge, record := range r.challenges {
+		if record.ExpiresAt.Before(before) || record.UsedAt != nil {
+			delete(r.challenges, challenge)
+		}
+	}
+	return nil
 }
 
 func ptr(value string) *string {

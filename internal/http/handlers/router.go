@@ -36,6 +36,8 @@ type Handler struct {
 	webAuthnRPDisplayName string
 	webAuthnRPID          string
 	webAuthnOrigins       []string
+	auth                  *services.AuthService
+	passkeys              *services.PasskeyService
 	accounts              *services.AccountService
 	transactions          *services.TransactionService
 	transfers             *services.TransferService
@@ -43,25 +45,27 @@ type Handler struct {
 }
 
 type RouterConfig struct {
-	AppEnv                    string
-	APIAuthToken              string
-	TokenService              *auth.TokenService
-	PublicOrigin              string
-	PublicOriginHost          string
-	WebAuthnRPDisplayName     string
-	WebAuthnRPID              string
-	WebAuthnOrigins           []string
-	CookieSecure              bool
-	CookieSameSite            string
-	AllowDirectIPLogin        bool
-	CORSAllowedOrigins        []string
-	RateLimitRequests         int
-	RateLimitWindow           time.Duration
-	AuthRateLimitRequests     int
-	AuthRateLimitWindow       time.Duration
-	MutationRateLimitRequests int
-	MutationRateLimitWindow   time.Duration
-	TrustedProxies            []string
+	AppEnv                          string
+	APIAuthToken                    string
+	TokenService                    *auth.TokenService
+	PublicOrigin                    string
+	PublicOriginHost                string
+	WebAuthnRPDisplayName           string
+	WebAuthnRPID                    string
+	WebAuthnOrigins                 []string
+	CookieSecure                    bool
+	CookieSameSite                  string
+	AllowDirectIPLogin              bool
+	CORSAllowedOrigins              []string
+	RateLimitRequests               int
+	RateLimitWindow                 time.Duration
+	AuthRateLimitRequests           int
+	AuthRateLimitWindow             time.Duration
+	PasskeyOptionsRateLimitRequests int
+	PasskeyOptionsRateLimitWindow   time.Duration
+	MutationRateLimitRequests       int
+	MutationRateLimitWindow         time.Duration
+	TrustedProxies                  []string
 }
 
 func NewRouter(store Store, cfg *RouterConfig) http.Handler {
@@ -85,6 +89,8 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 	transactionService := services.NewTransactionService(transactionRepo).
 		WithAccountRepository(accountRepo).
 		WithCategoryRepository(categoryRepo)
+	authService := newRouterAuthService(store, cfg.TokenService)
+	passkeyService := newRouterPasskeyService(store, authService, cfg)
 	cookieSecure := cfg.CookieSecure
 	if cfg.AppEnv == "" && cfg.CookieSameSite == "" {
 		cookieSecure = true
@@ -97,6 +103,8 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 		webAuthnRPDisplayName: firstNonEmpty(cfg.WebAuthnRPDisplayName, "CapitalFlow"),
 		webAuthnRPID:          firstNonEmpty(cfg.WebAuthnRPID, "localhost"),
 		webAuthnOrigins:       defaultWebAuthnOrigins(cfg.WebAuthnOrigins),
+		auth:                  authService,
+		passkeys:              passkeyService,
 		accounts:              services.NewAccountService(accountRepo),
 		transactions:          transactionService,
 		transfers:             services.NewTransferService(transactionService),
@@ -138,6 +146,11 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 		firstPositiveDuration(cfg.AuthRateLimitWindow, cfg.RateLimitWindow),
 		cfg.TrustedProxies,
 	)
+	passkeyOptionsRateLimit := appmiddleware.RateLimitByIPWithTrustedProxies(
+		firstPositive(cfg.PasskeyOptionsRateLimitRequests, cfg.AuthRateLimitRequests),
+		firstPositiveDuration(cfg.PasskeyOptionsRateLimitWindow, cfg.AuthRateLimitWindow),
+		cfg.TrustedProxies,
+	)
 
 	mutationRateLimit := appmiddleware.RateLimitByIPWithTrustedProxies(
 		firstPositive(cfg.MutationRateLimitRequests, cfg.RateLimitRequests),
@@ -153,7 +166,7 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 	r.With(authRateLimit).Post("/auth/login", h.authLogin)
 	r.With(authRateLimit).Post("/auth/refresh", h.authRefresh)
 	r.With(authRateLimit).Post("/auth/logout", h.authLogout)
-	r.With(authRateLimit).Post("/auth/passkeys/login/options", h.passkeyLoginOptions)
+	r.With(passkeyOptionsRateLimit).Post("/auth/passkeys/login/options", h.passkeyLoginOptions)
 	r.With(authRateLimit).Post("/auth/passkeys/login/verify", h.passkeyLoginVerify)
 
 	r.Route("/api/v1", func(r chi.Router) {
@@ -206,6 +219,39 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 	})
 
 	return r
+}
+
+func newRouterAuthService(store Store, tokens *auth.TokenService) *services.AuthService {
+	if store == nil {
+		return nil
+	}
+	return services.NewAuthService(
+		store.Users(),
+		store.RefreshTokens(),
+		tokens,
+		store.AuthAuditEvents(),
+	).WithAccountRepository(store.Accounts())
+}
+
+func newRouterPasskeyService(store Store, authService *services.AuthService, cfg *RouterConfig) *services.PasskeyService {
+	if store == nil || authService == nil || cfg.TokenService == nil {
+		return nil
+	}
+	service, err := services.NewPasskeyService(
+		store.Users(),
+		store.Passkeys(),
+		authService,
+		store.AuthAuditEvents(),
+		services.WebAuthnConfig{
+			RPDisplayName: firstNonEmpty(cfg.WebAuthnRPDisplayName, "CapitalFlow"),
+			RPID:          firstNonEmpty(cfg.WebAuthnRPID, "localhost"),
+			Origins:       defaultWebAuthnOrigins(cfg.WebAuthnOrigins),
+		},
+	)
+	if err != nil {
+		panic("passkey service is not configured: " + err.Error())
+	}
+	return service
 }
 
 func firstNonEmpty(value, fallback string) string {
