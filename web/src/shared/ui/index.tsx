@@ -5,9 +5,19 @@ import { PageTransition } from "./PageTransition";
 
 export { PageTransition };
 
-export function Panel({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
+export function Panel({
+  title,
+  action,
+  children,
+  className = "",
+}: {
+  title: string;
+  action?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <section className="panel">
+    <section className={`panel ${className}`.trim()}>
       <div className="panel-header">
         <h2>{title}</h2>
         {action}

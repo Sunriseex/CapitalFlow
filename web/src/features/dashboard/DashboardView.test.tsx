@@ -144,7 +144,8 @@ describe("DashboardView", () => {
 
     renderDashboardView();
 
-    expect(await screen.findByText("0 active accounts across 1 currency")).toBeInTheDocument();
+    expect(await screen.findByText("Total capital")).toBeInTheDocument();
+    expect(screen.queryByText(/active accounts across/)).not.toBeInTheDocument();
     expect(screen.getByText("No positive balances")).toBeInTheDocument();
     expect(screen.getByText("No transactions")).toBeInTheDocument();
   });
@@ -190,11 +191,48 @@ describe("DashboardView", () => {
   it("renders cashflow chart from dashboard cashflow API buckets", async () => {
     renderDashboardView();
 
-    expect(await screen.findByText("2 monthly buckets from real transactions")).toBeInTheDocument();
+    expect(await screen.findByText("2 month buckets")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Week" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Month" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Quarter" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Year" })).toBeInTheDocument();
     expect(mocks.dashboardCashflow).toHaveBeenCalled();
     expect(screen.getByLabelText("Income and expense chart")).toBeInTheDocument();
     expect(screen.getByText(/Cashflow chart covers 2 periods/)).toBeInTheDocument();
     expect(screen.getByRole("table", { name: "Cashflow data" })).toBeInTheDocument();
+  });
+
+  it("switches cashflow between reference periods", async () => {
+    const user = userEvent.setup();
+    renderDashboardView();
+
+    await user.click(await screen.findByRole("button", { name: "Quarter" }));
+    expect(await screen.findByText("1 quarter buckets")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Week" }));
+    expect(await screen.findByText("Weekly cashflow unavailable")).toBeInTheDocument();
+    expect(screen.getByText("The backend currently returns monthly cashflow buckets.")).toBeInTheDocument();
+  });
+
+  it("toggles the right rail without unmounting dashboard content", async () => {
+    const user = userEvent.setup();
+    renderDashboardView();
+
+    const toggle = await screen.findByRole("button", { name: "Hide insights" });
+    const rail = screen.getByLabelText("Right rail summary");
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(rail).toHaveAttribute("aria-hidden", "false");
+
+    await user.click(toggle);
+
+    expect(screen.getByRole("button", { name: "Show insights" })).toHaveAttribute("aria-expanded", "false");
+    expect(rail).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByText("Total capital")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Show insights" }));
+
+    expect(screen.getByRole("button", { name: "Hide insights" })).toHaveAttribute("aria-expanded", "true");
+    expect(rail).toHaveAttribute("aria-hidden", "false");
   });
 
   it("formats chart summaries for custom currencies such as USDT", async () => {
@@ -263,29 +301,25 @@ describe("DashboardView", () => {
     await waitFor(() => expect(mocks.currencyRates).toHaveBeenCalledWith("USD"));
   });
 
-  it("shows currency rate errors", async () => {
+  it("shows a clear empty state when currency rates are unavailable", async () => {
     mocks.currencyRates.mockRejectedValueOnce(new Error("Rate provider unavailable"));
 
     renderDashboardView();
 
-    expect(await screen.findByText("Rate provider unavailable")).toBeInTheDocument();
+    expect(await screen.findAllByText("Rates unavailable")).toHaveLength(2);
+    expect(screen.queryByText("Rate provider unavailable")).not.toBeInTheDocument();
   });
 
-  it("sorts rates by user balance currencies before alphabetical fallback", async () => {
-    mocks.dashboardSummary.mockResolvedValueOnce({
-      ...summary,
-      account_balances: [
-        { ...summary.account_balances[0], account_id: "usd-account", currency: "USD", name: "USD cash" },
-      ],
-    } satisfies DashboardSummary);
+  it("shows fixed reference rate pairs for the selected main currency", async () => {
     mocks.currencyRates.mockResolvedValueOnce({
       base: "RUB",
       date: "2026-05-19",
+      fetched_at: "2026-06-05T00:02:31Z",
       provider: "test",
       rates: {
         EUR: 0.01,
         USD: 0.011,
-        AUD: 0.017,
+        BTC: 0.00000017,
       },
     });
 
@@ -294,7 +328,8 @@ describe("DashboardView", () => {
     const ratesCard = (await screen.findByRole("heading", { name: "Rates" })).closest("article");
     expect(ratesCard).not.toBeNull();
     const labels = within(ratesCard as HTMLElement).getAllByText(/RUB\//).map((node) => node.textContent);
-    expect(labels).toEqual(["RUB/USD", "RUB/AUD", "RUB/EUR"]);
+    expect(labels).toEqual(["RUB/USD", "RUB/EUR", "RUB/BTC"]);
+    expect(within(ratesCard as HTMLElement).getByText("Fri, 05 Jun 2026 00:02:31")).toBeInTheDocument();
   });
 
   it("opens account details from the keyboard-accessible allocation action", async () => {

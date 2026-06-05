@@ -15,7 +15,7 @@ export function BrandBlock({
   onCheck,
 }: {
   version?: string;
-  status: "Healthy" | "Degraded" | "Checking";
+  status: "Healthy" | "Unavailable" | "Checking";
   onCheck: () => void;
 }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -233,7 +233,7 @@ function HealthPopover({
   onClose,
 }: {
   version?: string;
-  status: "Healthy" | "Degraded" | "Checking";
+  status: "Healthy" | "Unavailable" | "Checking";
   onClose: () => void;
 }) {
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -271,7 +271,7 @@ function HealthPopover({
             <X size={14} aria-hidden="true" />
           </button>
         </div>
-        <div className="health-row"><span>API</span><span className={status === "Healthy" ? "tag good" : "tag"}>{status === "Healthy" ? "OK" : status}</span></div>
+        <div className="health-row"><span>API</span><span className={status === "Healthy" ? "tag good" : "tag info"}>{status === "Healthy" ? "OK" : status}</span></div>
         <div className="health-row"><span>Version</span><span className="tag info">{version ?? "unknown"}</span></div>
         <div className="health-row"><span>Rates</span><span className="tag info">On demand</span></div>
       </div>

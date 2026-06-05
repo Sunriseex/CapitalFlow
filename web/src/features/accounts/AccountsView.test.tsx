@@ -74,6 +74,7 @@ describe("AccountsView", () => {
   it("loads account interest rules once and renders currently effective rates", async () => {
     renderAccountsView();
 
+    expect(screen.getByLabelText("Filter accounts by type")).toBeInTheDocument();
     expect(await screen.findByText("15.00%")).toBeInTheDocument();
     expect(screen.getAllByText("-")).toHaveLength(2);
     expect(mocks.interestRules).toHaveBeenCalledTimes(1);
@@ -120,5 +121,4 @@ function interestRule(id: string, accountID: string, annualRateBps: number, star
     start_date: startDate,
   };
 }
-
 

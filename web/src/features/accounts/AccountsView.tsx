@@ -37,9 +37,10 @@ export function AccountsView({
 
   return (
     <Panel
+      className="workspace-panel accounts-panel"
       title="Accounts"
       action={
-        <Select value={type} onChange={(event) => setType(event.target.value)}>
+        <Select aria-label="Filter accounts by type" value={type} onChange={(event) => setType(event.target.value)}>
           <option value="">All types</option>
           {accountTypeOptions}
         </Select>
@@ -48,21 +49,21 @@ export function AccountsView({
       {isLoading ? <Empty>Loading accounts</Empty> : null}
       {error ? <div className="error inline-error">{errorMessage(error)}</div> : null}
       {!isLoading && !error && !filtered.length ? <Empty>No accounts</Empty> : null}
-      <div className="table-wrap">
-        <table>
+      <div className="table-wrap workspace-table-wrap accounts-table-wrap">
+        <table className="workspace-table accounts-table">
           <thead>
             <tr><th>Name</th><th>Bank</th><th>Type</th><th>Balance</th><th>Rate</th><th>Status</th><th></th></tr>
           </thead>
           <tbody>
             {!isLoading && !error ? filtered.map((account) => (
               <tr key={account.id}>
-                <td>{account.name}</td>
-                <td>{account.bank || "-"}</td>
-                <td>{account.type}</td>
-                <td className="amount">{formatMoney(balances.get(account.id)?.balance ?? "0", account.currency)}</td>
-                <td><AccountRate rule={activeRules.get(account.id)} isLoading={rules.isLoading} error={rules.error} /></td>
-                <td>{account.is_active ? "active" : "archived"}</td>
-                <td><Button onClick={() => onSelect(account.id)}>Open</Button></td>
+                <td data-label="Name">{account.name}</td>
+                <td data-label="Bank">{account.bank || "-"}</td>
+                <td data-label="Type">{account.type}</td>
+                <td data-label="Balance" className="amount">{formatMoney(balances.get(account.id)?.balance ?? "0", account.currency)}</td>
+                <td data-label="Rate"><AccountRate rule={activeRules.get(account.id)} isLoading={rules.isLoading} error={rules.error} /></td>
+                <td data-label="Status">{account.is_active ? "active" : "archived"}</td>
+                <td data-label="Action"><Button onClick={() => onSelect(account.id)}>Open</Button></td>
               </tr>
             )) : null}
           </tbody>
@@ -110,4 +111,3 @@ function localDateString(date: Date) {
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
-

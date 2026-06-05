@@ -64,7 +64,7 @@ describe("PasskeysPanel", () => {
     const user = userEvent.setup();
     renderPasskeysPanel();
 
-    await user.type(screen.getByPlaceholderText("Password confirmation"), "correct password");
+    await user.type(screen.getByLabelText("Password confirmation"), "correct password");
     await user.click(screen.getByRole("button", { name: /Add passkey/ }));
 
     await waitFor(() => expect(mocks.registerPasskey).toHaveBeenCalledWith("correct password"));
@@ -74,7 +74,7 @@ describe("PasskeysPanel", () => {
     const user = userEvent.setup();
     renderPasskeysPanel();
 
-    await user.type(screen.getByPlaceholderText("Password confirmation"), " correct password ");
+    await user.type(screen.getByLabelText("Password confirmation"), " correct password ");
     await user.click(screen.getByRole("button", { name: /Add passkey/ }));
 
     await waitFor(() => expect(mocks.registerPasskey).toHaveBeenCalledWith(" correct password "));

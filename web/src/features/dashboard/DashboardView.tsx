@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { PanelRightClose, PanelRightOpen } from "lucide-react";
 import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "../../api/client";
 import { addMoney, compareMoney, convertMinor, formatMoney, moneyToNumber, sumConverted, transactionTypeLabel } from "../../api/money";
@@ -8,6 +9,26 @@ import { errorMessage } from "../../shared/api/query";
 import type { QuickAction, View } from "../../shared/constants";
 import { Empty } from "../../shared/ui";
 import { ChartShell } from "../../shared/ui/ChartShell";
+
+type CashflowPeriod = "week" | "month" | "quarter" | "year";
+
+type CashflowChartBucket = {
+  period: string;
+  sourcePeriod: string;
+  income: number;
+  expense: number;
+  net: number;
+  transactions: number;
+};
+
+const cashflowPeriods: Array<{ value: CashflowPeriod; label: string }> = [
+  { value: "week", label: "Week" },
+  { value: "month", label: "Month" },
+  { value: "quarter", label: "Quarter" },
+  { value: "year", label: "Year" },
+];
+
+const rateTargets = ["USD", "EUR", "BTC"];
 
 export function DashboardView({
   primaryCurrency,
@@ -26,6 +47,8 @@ export function DashboardView({
   const cashflow = useQuery({ queryKey: ["dashboard", "cashflow"], queryFn: api.dashboardCashflow });
   const interestIncome = useQuery({ queryKey: ["dashboard", "interest-income"], queryFn: api.dashboardInterestIncome });
   const [selectedCurrency, setSelectedCurrency] = useState(primaryCurrency);
+  const [cashflowPeriod, setCashflowPeriod] = useState<CashflowPeriod>("month");
+  const [rightRailHidden, setRightRailHidden] = useState(false);
   const data = summary.data;
 
   const balances = useMemo(() => data?.account_balances ?? [], [data?.account_balances]);
@@ -45,31 +68,12 @@ export function DashboardView({
     staleTime: 1000 * 60 * 60,
   });
   const rateTable = rates.data?.base === selectedCurrency ? rates.data : undefined;
-  const balanceCurrencies = useMemo(() => [...new Set(balances.map((account) => account.currency))], [balances]);
   const rateEntries = useMemo(() => {
-    if (!rateTable) {
-      return [];
-    }
-
-    const priority = new Map(balanceCurrencies.map((currency, index) => [currency, index]));
-    return Object.entries(rateTable.rates)
-      .sort(([left], [right]) => {
-        const leftPriority = priority.get(left);
-        const rightPriority = priority.get(right);
-        if (leftPriority != null || rightPriority != null) {
-          return (leftPriority ?? Number.MAX_SAFE_INTEGER) - (rightPriority ?? Number.MAX_SAFE_INTEGER);
-        }
-        return left.localeCompare(right);
-      })
-      .slice(0, 5);
-  }, [balanceCurrencies, rateTable]);
+    return rateTargets.map((currency) => [currency, rateTable?.rates[currency]] as const);
+  }, [rateTable]);
   const portfolioValue = sumConverted(currencyTotals, selectedCurrency, rateTable);
   const portfolioValueNumber = useMemo(() => moneyToNumber(portfolioValue), [portfolioValue]);
-  const conversionStatus = rates.error
-    ? errorMessage(rates.error)
-    : rateTable
-      ? `${rateTable.provider}, ${rateTable.date}`
-      : "Loading rates";
+  const ratesSyncLabel = rateTable ? formatRateSync(rateTable.fetched_at || rateTable.date) : "Rates unavailable";
 
   const allocation = useMemo(() => (
     balances
@@ -101,16 +105,18 @@ export function DashboardView({
     created_at: "",
     updated_at: "",
   })), [balances]);
-  const cashflowChart = useMemo(() => (cashflow.data?.buckets ?? []).map((bucket) => ({
+  const cashflowBuckets = useMemo(() => (cashflow.data?.buckets ?? []).map((bucket) => ({
     period: shortPeriod(bucket.period),
+    sourcePeriod: bucket.period,
     income: moneyToNumber(sumConverted(bucket.income, selectedCurrency, rateTable)),
     expense: moneyToNumber(sumConverted(bucket.expense, selectedCurrency, rateTable)),
     net: moneyToNumber(sumConverted(bucket.net_cashflow, selectedCurrency, rateTable)),
     transactions: bucket.transaction_count,
   })), [cashflow.data?.buckets, rateTable, selectedCurrency]);
+  const cashflowChart = useMemo(() => groupCashflow(cashflowBuckets, cashflowPeriod), [cashflowBuckets, cashflowPeriod]);
+  const cashflowEmpty = cashflowEmptyState(cashflowPeriod, cashflowBuckets.length > 0);
   const totalInterest = sumConverted(interestIncome.data?.total, selectedCurrency, rateTable);
   const chartSummary = describeCashflow(cashflowChart, selectedCurrency);
-  const currencyCountLabel = `${currencies.length || 1} ${(currencies.length || 1) === 1 ? "currency" : "currencies"}`;
 
   if (summary.isLoading) {
     return <Empty>Loading dashboard</Empty>;
@@ -122,7 +128,20 @@ export function DashboardView({
 
   return (
     <div className="ref-dashboard">
-      <div className="layout">
+      <div className="dashboard-toolbar">
+        <button
+          className="rail-toggle"
+          type="button"
+          aria-label={rightRailHidden ? "Show insights" : "Hide insights"}
+          title={rightRailHidden ? "Show insights" : "Hide insights"}
+          aria-controls="dashboard-right-rail"
+          aria-expanded={!rightRailHidden}
+          onClick={() => setRightRailHidden((hidden) => !hidden)}
+        >
+          {rightRailHidden ? <PanelRightOpen size={17} aria-hidden="true" /> : <PanelRightClose size={17} aria-hidden="true" />}
+        </button>
+      </div>
+      <div className={rightRailHidden ? "layout is-rail-collapsed" : "layout"}>
         <div className="content">
           <section className="tab-panel" id="overview" aria-labelledby="pageTitle">
             <article className="card balance-card">
@@ -138,9 +157,21 @@ export function DashboardView({
                 <span className={compareMoney(monthlyNet, "0") < 0 ? "delta-down" : "delta-up"}>
                   {formatMoney(monthlyNet, selectedCurrency)} this month
                 </span>
-                  <span>{data?.active_accounts_count ?? "0"} active accounts across {currencyCountLabel}</span>
-                  <span>{conversionStatus}</span>
-                </div>
+              </div>
+
+              <div className="currency-switcher" aria-label="Portfolio currency">
+                {currencies.map((currency) => (
+                  <button
+                    key={currency}
+                    className={currency === selectedCurrency ? "period-btn is-active" : "period-btn"}
+                    type="button"
+                    aria-pressed={currency === selectedCurrency}
+                    onClick={() => setSelectedCurrency(currency)}
+                  >
+                    {currency}
+                  </button>
+                ))}
+              </div>
 
               <div className="balance-actions" aria-label="Quick actions">
                 <button className="btn primary" type="button" disabled={quickActionsDisabled} onClick={() => onQuickAction?.("transaction")}>
@@ -153,7 +184,6 @@ export function DashboardView({
               </div>
 
               <div className="stat-grid">
-                <div className="stat"><span>Main currency</span><strong>{selectedCurrency}</strong></div>
                 <div className="stat"><span>Income</span><strong>{formatMoney(sumConverted(data?.monthly_income, selectedCurrency, rateTable), selectedCurrency)}</strong></div>
                 <div className="stat"><span>Expenses</span><strong>{formatMoney(sumConverted(data?.monthly_expense, selectedCurrency, rateTable), selectedCurrency)}</strong></div>
               </div>
@@ -163,29 +193,28 @@ export function DashboardView({
               <div className="card-head">
                 <div className="card-title">
                   <h2>Cashflow ({selectedCurrency})</h2>
-                  <p>{cashflow.isLoading ? "Loading ledger buckets" : `${cashflowChart.length} monthly buckets from real transactions`}</p>
+                  <p>{cashflow.isLoading ? "Loading ledger buckets" : `${cashflowChart.length} ${cashflowPeriod} buckets`}</p>
                 </div>
                 <div>
-                  <div className="period-switcher" aria-label="Dashboard currency">
-                    {currencies.map((currency) => (
+                  <div className="period-switcher" aria-label="Cashflow period">
+                    {cashflowPeriods.map((period) => (
                       <button
-                        key={currency}
-                        className={currency === selectedCurrency ? "period-btn is-active" : "period-btn"}
+                        key={period.value}
+                        className={period.value === cashflowPeriod ? "period-btn is-active" : "period-btn"}
                         type="button"
-                        aria-pressed={currency === selectedCurrency}
-                        onClick={() => setSelectedCurrency(currency)}
+                        aria-pressed={period.value === cashflowPeriod}
+                        onClick={() => setCashflowPeriod(period.value)}
                       >
-                        {currency}
+                        {period.label}
                       </button>
                     ))}
                   </div>
-                  <div className="period-label">Month · current ledger</div>
                 </div>
               </div>
 
               {cashflow.error ? <div className="empty-state"><strong>{errorMessage(cashflow.error)}</strong><span>Cashflow chart could not be loaded.</span></div> : null}
               {!cashflow.error && !cashflow.isLoading && !cashflowChart.length ? (
-                <div className="empty-state"><strong>No cashflow yet</strong><span>Add income or expenses to build this chart.</span></div>
+                <div className="empty-state"><strong>{cashflowEmpty.title}</strong><span>{cashflowEmpty.description}</span></div>
               ) : null}
               {!cashflow.error && cashflowChart.length ? (
                 <div className="chart-wrap" aria-label="Income and expense chart">
@@ -252,7 +281,7 @@ export function DashboardView({
           </section>
         </div>
 
-        <aside className="right-rail" aria-label="Right rail summary">
+        <aside id="dashboard-right-rail" className="right-rail" aria-label="Right rail summary" aria-hidden={rightRailHidden}>
           <article className="card rail-card">
             <div className="card-head">
               <div className="card-title">
@@ -277,15 +306,15 @@ export function DashboardView({
             <div className="card-head">
               <div className="card-title">
                 <h2>Rates</h2>
-                <p>{rateTable ? `${rateTable.provider} · ${rateTable.date}` : "Rates unavailable"}</p>
+                <p>{ratesSyncLabel}</p>
               </div>
               <button className="btn" type="button" onClick={() => onNavigate?.("settings")}>Settings</button>
             </div>
             <div className="list">
-              {rateEntries.length ? rateEntries.map(([currency, rate]) => (
+              {rateTable ? rateEntries.map(([currency, rate]) => (
                 <div className="row" key={currency}>
-                  <div className="row-main"><strong>{selectedCurrency}/{currency}</strong><span>Provider rate</span></div>
-                  <span className="row-side">{rate.toLocaleString(undefined, { maximumFractionDigits: 4 })}</span>
+                  <div className="row-main"><strong>{selectedCurrency}/{currency}</strong><span>Latest synced rate</span></div>
+                  <span className="row-side">{typeof rate === "number" ? rate.toLocaleString(undefined, { maximumFractionDigits: 8 }) : "—"}</span>
                 </div>
               )) : <div className="empty-state"><strong>Rates unavailable</strong><span>Open settings to check currency configuration.</span></div>}
             </div>
@@ -326,12 +355,13 @@ function RecentTransactionsTable({
   selectedCurrency: string;
   onNavigate?: (view: View) => void;
 }) {
+  const visibleTransactions = useMemo(() => transactions.slice(0, 5), [transactions]);
+  const accountNames = useMemo(() => new Map(accounts.map((account) => [account.id, account.name])), [accounts]);
+  const accountCurrencies = useMemo(() => new Map(accounts.map((account) => [account.id, account.currency])), [accounts]);
+
   if (!transactions.length) {
     return <div className="empty-state"><strong>No transactions</strong><span>Add the first transaction or import a bank statement.</span></div>;
   }
-
-  const accountNames = new Map(accounts.map((account) => [account.id, account.name]));
-  const accountCurrencies = new Map(accounts.map((account) => [account.id, account.currency]));
 
   return (
     <div className="table-scroll">
@@ -353,7 +383,7 @@ function RecentTransactionsTable({
           </tr>
         </thead>
         <tbody>
-          {transactions.slice(0, 5).map((transaction) => {
+          {visibleTransactions.map((transaction) => {
             const negative = transaction.type === "expense" || transaction.type === "transfer_out";
             const sign = negative ? "-" : "+";
             return (
@@ -381,6 +411,68 @@ function RecentTransactionsTable({
 function shortPeriod(period: string) {
   const [, month] = period.split("-");
   return month ? `${month}/${period.slice(2, 4)}` : period;
+}
+
+function groupCashflow(buckets: CashflowChartBucket[], period: CashflowPeriod) {
+  if (period === "month") {
+    return buckets;
+  }
+
+  if (period === "week") {
+    return [];
+  }
+
+  const grouped = new Map<string, CashflowChartBucket>();
+  for (const bucket of buckets) {
+    const key = period === "quarter" ? quarterLabel(bucket.sourcePeriod) : bucket.sourcePeriod.slice(0, 4);
+    const existing = grouped.get(key);
+    if (existing) {
+      existing.income += bucket.income;
+      existing.expense += bucket.expense;
+      existing.net += bucket.net;
+      existing.transactions += bucket.transactions;
+    } else {
+      grouped.set(key, { ...bucket, period: key, sourcePeriod: key });
+    }
+  }
+
+  return [...grouped.values()];
+}
+
+function cashflowEmptyState(period: CashflowPeriod, hasMonthlyData: boolean) {
+  if (period === "week" && hasMonthlyData) {
+    return {
+      title: "Weekly cashflow unavailable",
+      description: "The backend currently returns monthly cashflow buckets.",
+    };
+  }
+
+  return {
+    title: "No cashflow yet",
+    description: "Add income or expenses to build this chart.",
+  };
+}
+
+function quarterLabel(period: string) {
+  const [year, month] = period.split("-");
+  const monthNumber = Number(month);
+  if (!year || !monthNumber) {
+    return period;
+  }
+  return `${year} Q${Math.ceil(monthNumber / 3)}`;
+}
+
+function formatRateSync(value: string) {
+  if (!value) {
+    return "Rates unavailable";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toUTCString().replace(/ GMT$/, "");
 }
 
 function compactMoney(value: number, currency: string) {

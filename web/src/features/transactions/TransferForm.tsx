@@ -33,10 +33,11 @@ export function TransferForm({ accounts, onDone }: { accounts: Account[]; onDone
     [form.amount, fromAccount?.currency],
   );
   const amount = previewAmount.ok ? previewAmount.value : "0";
+  const hasAmount = form.amount.trim().length > 0;
   const rates = useQuery({
     queryKey: ["currency-rates", fromAccount?.currency],
     queryFn: () => api.currencyRates(fromAccount?.currency ?? "RUB"),
-    enabled: Boolean(fromAccount?.currency && toAccount?.currency && fromAccount.currency !== toAccount.currency),
+    enabled: Boolean(hasAmount && fromAccount?.currency && toAccount?.currency && fromAccount.currency !== toAccount.currency),
     staleTime: 1000 * 60 * 60,
   });
   const needsConversion = Boolean(fromAccount && toAccount && fromAccount.currency !== toAccount.currency);
@@ -101,4 +102,3 @@ export function TransferForm({ accounts, onDone }: { accounts: Account[]; onDone
     </FormShell>
   );
 }
-

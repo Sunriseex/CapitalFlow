@@ -59,6 +59,7 @@ export function TransactionsView({
 
   return (
     <Panel
+      className="workspace-panel transactions-panel"
       title="Transactions"
       action={<Button onClick={() => setCreateOpen(true)} disabled={disabledCreate}><Plus size={16} /> Adjustment</Button>}
     >
@@ -68,21 +69,21 @@ export function TransactionsView({
       {categoriesError ? <div className="error inline-error">{errorMessage(categoriesError)}</div> : null}
       {transactions.isLoading ? <Empty>Loading transactions</Empty> : null}
       {transactions.error ? <div className="error inline-error">{errorMessage(transactions.error)}</div> : null}
-      <div className="filters">
-        <Select value={accountId} disabled={accountsLoading || Boolean(accountsError)} onChange={(event) => setAccountId(event.target.value)}>
+      <div className="filters workspace-filters transactions-filters">
+        <Select aria-label="Filter transactions by account" value={accountId} disabled={accountsLoading || Boolean(accountsError)} onChange={(event) => setAccountId(event.target.value)}>
           <option value="">All accounts</option>
           {accountOptions}
         </Select>
-        <Select value={categoryId} disabled={categoriesLoading || Boolean(categoriesError)} onChange={(event) => setCategoryId(event.target.value)}>
+        <Select aria-label="Filter transactions by category" value={categoryId} disabled={categoriesLoading || Boolean(categoriesError)} onChange={(event) => setCategoryId(event.target.value)}>
           <option value="">All categories</option>
           {categoryOptions}
         </Select>
-        <Select value={type} onChange={(event) => setType(event.target.value)}>
+        <Select aria-label="Filter transactions by type" value={type} onChange={(event) => setType(event.target.value)}>
           <option value="">All types</option>
           {typeOptions}
         </Select>
-        <Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
-        <Input type="date" value={to} onChange={(event) => setTo(event.target.value)} />
+        <Input aria-label="Filter transactions from date" type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
+        <Input aria-label="Filter transactions to date" type="date" value={to} onChange={(event) => setTo(event.target.value)} />
       </div>
       {!transactions.isLoading && !transactions.error ? (
         <TransactionsTable transactions={filtered} accounts={accounts} categories={categories} />
@@ -95,5 +96,3 @@ export function TransactionsView({
     </Panel>
   );
 }
-
-

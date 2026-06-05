@@ -141,13 +141,51 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
   await expect(page.getByRole("heading", { name: "Overview" }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Open command menu" })).toBeVisible();
 
+  await expectAppTheme(page, "light", "#edf4f2");
   await page.getByRole("button", { name: "Switch to dark theme" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expectAppTheme(page, "dark", "#070d14");
+  await page.getByRole("button", { name: "Switch to light theme" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expectAppTheme(page, "light", "#edf4f2");
+  await expect.poll(
+    () => page.locator(".toast-card").first().evaluate((element) => getComputedStyle(element).color),
+  ).toBe("rgb(16, 24, 32)");
+  await page.getByRole("button", { name: "Switch to dark theme" }).click();
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expectAppTheme(page, "dark", "#070d14");
 
   await createAccount(page, "Cash", "Wallet", "1000");
   await createAccount(page, "Savings", "Bank", "0");
+  const referenceSurface = await surfaceSnapshot(page, ".balance-card");
+
+  await page.getByRole("button", { name: "Accounts" }).click();
+  await expect(page.locator(".accounts-panel.workspace-panel")).toBeVisible();
+  await expectSurface(page, ".accounts-panel", referenceSurface);
+  await expect(page.locator(".accounts-table-wrap.workspace-table-wrap")).toBeVisible();
+  await expect(page.locator(".accounts-table.workspace-table")).toBeVisible();
+
+  await page.getByRole("button", { name: "Transactions" }).click();
+  await expect(page.locator(".transactions-panel.workspace-panel")).toBeVisible();
+  await expectSurface(page, ".transactions-panel", referenceSurface);
+  await expect(page.locator(".transactions-filters.workspace-filters")).toBeVisible();
+  await expect(page.locator(".transactions-table-wrap.workspace-table-wrap")).toBeVisible();
+  await expect(page.locator(".transactions-table.workspace-table")).toBeVisible();
+
+  await page.getByRole("button", { name: "Settings" }).click();
+  await expect(page.locator(".workspace-settings")).toBeVisible();
+  await expect(page.locator(".profile-settings-panel.workspace-panel")).toBeVisible();
+  await expectSurface(page, ".profile-settings-panel", referenceSurface);
+  await expect(page.locator(".security-settings-panel.workspace-panel")).toBeVisible();
+  await expectSurface(page, ".security-settings-panel", referenceSurface);
+  await page.getByRole("button", { name: "Overview" }).click();
+  await expect(page.getByRole("button", { name: "Hide insights" })).toHaveAttribute("aria-expanded", "true");
+  await page.getByRole("button", { name: "Hide insights" }).click();
+  await expect(page.getByRole("button", { name: "Show insights" })).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator("#dashboard-right-rail")).toHaveAttribute("aria-hidden", "true");
+  await page.getByRole("button", { name: "Show insights" }).click();
+  await expect(page.getByRole("button", { name: "Hide insights" })).toHaveAttribute("aria-expanded", "true");
 
   await page.keyboard.press(process.platform === "darwin" ? "Meta+K" : "Control+K");
   const commandMenu = page.getByRole("dialog", { name: "Command menu" });
@@ -186,7 +224,8 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
   await expect(page).toHaveURL(/\/transactions$/);
   await page.getByRole("button", { name: "Overview" }).click();
 
-  await expect(page.getByText("2 active accounts across 1 currency")).toBeVisible();
+  await expect(page.getByText("Total capital")).toBeVisible();
+  await expect(page.getByText(/active accounts across/)).toHaveCount(0);
   await expect(page.getByText("Private local session")).toBeHidden();
 
   await page.getByRole("button", { name: "Check system health" }).click();
@@ -233,6 +272,29 @@ async function createAccount(page: import("@playwright/test").Page, name: string
   await page.getByLabel("Initial balance", { exact: true }).fill(initialBalance);
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Create account" })).toBeHidden();
+}
+
+async function expectAppTheme(page: import("@playwright/test").Page, theme: "light" | "dark", expectedBg: string) {
+  await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+  await expect.poll(
+    () => page.locator(".app").evaluate((element) => getComputedStyle(element).getPropertyValue("--bg").trim()),
+  ).toBe(expectedBg);
+}
+
+async function surfaceSnapshot(page: import("@playwright/test").Page, selector: string) {
+  return page.locator(selector).first().evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      backgroundImage: style.backgroundImage,
+      backgroundColor: style.backgroundColor,
+      borderColor: style.borderColor,
+      color: style.color,
+    };
+  });
+}
+
+async function expectSurface(page: import("@playwright/test").Page, selector: string, expected: Awaited<ReturnType<typeof surfaceSnapshot>>) {
+  await expect.poll(() => surfaceSnapshot(page, selector)).toEqual(expected);
 }
 
 function dashboardResponse(accounts: Account[], transactions: Transaction[], now: string) {

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Box, Flex, Grid, HStack, Text } from "@chakra-ui/react";
+import { Box, Flex, Grid, HStack } from "@chakra-ui/react";
 import { ApiClientError, api, clearStoredSession, getStoredToken } from "./api/client";
 import { AccountsView } from "./features/accounts/AccountsView";
 import { CreateAccountForm } from "./features/accounts/CreateAccountForm";
@@ -148,7 +148,7 @@ export function App() {
       <Box as="aside" className="sidebar">
         <BrandBlock
           version={serviceStatus.data?.version}
-          status={serviceStatus.error ? "Degraded" : serviceStatus.isFetching ? "Checking" : "Healthy"}
+          status={serviceStatus.error ? "Unavailable" : serviceStatus.isFetching ? "Checking" : "Healthy"}
           onCheck={() => {
             void serviceStatus.refetch().then((result) => {
               toaster.create({
@@ -169,9 +169,6 @@ export function App() {
         <Flex as="header" className="page-head" align="center" justify="space-between" gap={4}>
           <Box minW={0}>
             <Box as="h1" id="pageTitle">{view === "dashboard" ? "Overview" : pageTitle}</Box>
-            <Text id="pageSubtitle">
-              {view === "dashboard" ? "Daily financial overview without operational noise." : "CapitalFlow workspace"}
-            </Text>
             <HStack className="page-title" gap={3} flexWrap="wrap">
               {view === "dashboard" && serviceStatus.data?.version ? (
                 <Box as="span" className="version-badge" aria-label={`Service version ${serviceStatus.data.version}`}>
@@ -183,7 +180,6 @@ export function App() {
 
           <Box className="head-tools">
             <CommandTrigger onOpen={() => setCommandOpen(true)} />
-            <span className="chip">{primaryCurrency} · from Settings</span>
           </Box>
         </Flex>
 

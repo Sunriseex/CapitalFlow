@@ -82,9 +82,13 @@ describe("TransferForm", () => {
   });
 
   it("disables submit while exchange rate is loading", async () => {
+    const user = userEvent.setup();
     mocks.currencyRates.mockReturnValue(new Promise(() => {}));
 
     renderTransferForm(crossCurrencyAccounts);
+
+    expect(mocks.currencyRates).not.toHaveBeenCalled();
+    await user.type(screen.getByLabelText("Amount"), "10");
 
     expect(await screen.findByText("Loading rate")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create" })).toBeDisabled();
@@ -97,10 +101,12 @@ describe("TransferForm", () => {
 
     renderTransferForm(crossCurrencyAccounts);
 
+    expect(mocks.currencyRates).not.toHaveBeenCalled();
+    await user.type(screen.getByLabelText("Amount"), "10");
+
     expect(await screen.findByText("Rate provider unavailable")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create" })).toBeDisabled();
 
-    await user.type(screen.getByLabelText("Amount"), "10");
     await user.click(screen.getByRole("button", { name: "Create" }));
 
     expect(mocks.createTransfer).not.toHaveBeenCalled();
@@ -156,4 +162,3 @@ describe("TransferForm", () => {
     });
   });
 });
-
