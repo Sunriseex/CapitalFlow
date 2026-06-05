@@ -1249,6 +1249,7 @@ tbody tr:hover {
   font-size: 12px;
   font-weight: 600;
   cursor: default;
+  user-select: text;
 }
 
 .auth-reference-page .input {

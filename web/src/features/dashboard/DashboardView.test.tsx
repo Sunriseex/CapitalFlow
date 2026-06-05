@@ -211,7 +211,7 @@ describe("DashboardView", () => {
     } satisfies DashboardCashflow);
     renderDashboardView({ primaryCurrency: "USDT" });
 
-    expect(await screen.findByText(/Cashflow chart covers 1 periods/)).toHaveTextContent("1,250000 USDT");
+    expect(await screen.findByText(/Cashflow chart covers 1 periods/)).toHaveTextContent("1.25 USDT");
   });
 
   it("keeps recent transaction rows static and uses a real view button", async () => {
