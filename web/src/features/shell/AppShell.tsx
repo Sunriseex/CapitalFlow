@@ -7,6 +7,7 @@ import { useTheme } from "next-themes";
 import { api } from "../../api/client";
 import { errorMessage } from "../../shared/api/query";
 import type { QuickAction, View } from "../../shared/constants";
+import { markPerformance } from "../../shared/performance";
 import { toaster } from "../../components/ui/toaster-store";
 
 export function BrandBlock({
@@ -134,11 +135,16 @@ export function CommandMenu({
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const focusableRef = useRef<HTMLElement[]>([]);
 
   useEffect(() => {
+    const endMeasure = markPerformance("command-menu-open");
     restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const first = dialogRef.current?.querySelector<HTMLElement>(focusableSelector);
+    focusableRef.current = [...(dialogRef.current?.querySelectorAll<HTMLElement>(focusableSelector) ?? [])]
+      .filter((element) => !element.hasAttribute("disabled"));
+    const first = focusableRef.current[0];
     first?.focus();
+    endMeasure();
 
     return () => {
       restoreFocusRef.current?.focus();
@@ -154,8 +160,7 @@ export function CommandMenu({
 
     if (event.key !== "Tab") return;
 
-    const focusable = [...(dialogRef.current?.querySelectorAll<HTMLElement>(focusableSelector) ?? [])]
-      .filter((element) => !element.hasAttribute("disabled"));
+    const focusable = focusableRef.current;
     if (!focusable.length) return;
 
     const first = focusable[0];

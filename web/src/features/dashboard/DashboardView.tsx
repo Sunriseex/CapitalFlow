@@ -1,6 +1,5 @@
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { PanelRightClose, PanelRightOpen } from "lucide-react";
 import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "../../api/client";
 import { addMoney, compareMoney, convertMinor, formatMoney, moneyToNumber, sumConverted, transactionTypeLabel } from "../../api/money";
@@ -9,6 +8,7 @@ import { errorMessage } from "../../shared/api/query";
 import type { QuickAction, View } from "../../shared/constants";
 import { Empty } from "../../shared/ui";
 import { ChartShell } from "../../shared/ui/ChartShell";
+import { chartAxisProps, chartGridProps, chartTooltipProps } from "../../shared/ui/chartTokens";
 
 type CashflowPeriod = "week" | "month" | "quarter" | "year";
 
@@ -28,19 +28,22 @@ const cashflowPeriods: Array<{ value: CashflowPeriod; label: string }> = [
   { value: "year", label: "Year" },
 ];
 
-const rateTargets = ["USD", "EUR", "BTC"];
+const fallbackRateTargets = ["USD", "EUR", "BTC"];
 
 export function DashboardView({
   primaryCurrency,
+  rightRailHidden,
   onOpenAccount,
   onQuickAction,
   onNavigate,
   quickActionsDisabled = false,
 }: {
   primaryCurrency: string;
+  rightRailHidden: boolean;
   onOpenAccount: (id: string) => void;
   onQuickAction?: (action: NonNullable<QuickAction>) => void;
   onNavigate?: (view: View) => void;
+  onToggleRightRail: () => void;
   quickActionsDisabled?: boolean;
 }) {
   const summary = useQuery({ queryKey: ["dashboard", "summary"], queryFn: api.dashboardSummary });
@@ -48,7 +51,6 @@ export function DashboardView({
   const interestIncome = useQuery({ queryKey: ["dashboard", "interest-income"], queryFn: api.dashboardInterestIncome });
   const [selectedCurrency, setSelectedCurrency] = useState(primaryCurrency);
   const [cashflowPeriod, setCashflowPeriod] = useState<CashflowPeriod>("month");
-  const [rightRailHidden, setRightRailHidden] = useState(false);
   const data = summary.data;
 
   const balances = useMemo(() => data?.account_balances ?? [], [data?.account_balances]);
@@ -68,9 +70,10 @@ export function DashboardView({
     staleTime: 1000 * 60 * 60,
   });
   const rateTable = rates.data?.base === selectedCurrency ? rates.data : undefined;
+  const rateTargets = useMemo(() => selectRateTargets(currencies, selectedCurrency), [currencies, selectedCurrency]);
   const rateEntries = useMemo(() => {
     return rateTargets.map((currency) => [currency, rateTable?.rates[currency]] as const);
-  }, [rateTable]);
+  }, [rateTable, rateTargets]);
   const portfolioValue = sumConverted(currencyTotals, selectedCurrency, rateTable);
   const portfolioValueNumber = useMemo(() => moneyToNumber(portfolioValue), [portfolioValue]);
   const ratesSyncLabel = rateTable ? formatRateSync(rateTable.fetched_at || rateTable.date) : "Rates unavailable";
@@ -128,19 +131,6 @@ export function DashboardView({
 
   return (
     <div className="ref-dashboard">
-      <div className="dashboard-toolbar">
-        <button
-          className="rail-toggle"
-          type="button"
-          aria-label={rightRailHidden ? "Show insights" : "Hide insights"}
-          title={rightRailHidden ? "Show insights" : "Hide insights"}
-          aria-controls="dashboard-right-rail"
-          aria-expanded={!rightRailHidden}
-          onClick={() => setRightRailHidden((hidden) => !hidden)}
-        >
-          {rightRailHidden ? <PanelRightOpen size={17} aria-hidden="true" /> : <PanelRightClose size={17} aria-hidden="true" />}
-        </button>
-      </div>
       <div className={rightRailHidden ? "layout is-rail-collapsed" : "layout"}>
         <div className="content">
           <section className="tab-panel" id="overview" aria-labelledby="pageTitle">
@@ -159,7 +149,7 @@ export function DashboardView({
                 </span>
               </div>
 
-              <div className="currency-switcher" aria-label="Portfolio currency">
+              <div className="currency-switcher" role="group" aria-label="Portfolio currency">
                 {currencies.map((currency) => (
                   <button
                     key={currency}
@@ -173,7 +163,7 @@ export function DashboardView({
                 ))}
               </div>
 
-              <div className="balance-actions" aria-label="Quick actions">
+              <div className="balance-actions" role="group" aria-label="Quick actions">
                 <button className="btn primary" type="button" disabled={quickActionsDisabled} onClick={() => onQuickAction?.("transaction")}>
                   + Transaction
                 </button>
@@ -196,7 +186,7 @@ export function DashboardView({
                   <p>{cashflow.isLoading ? "Loading ledger buckets" : `${cashflowChart.length} ${cashflowPeriod} buckets`}</p>
                 </div>
                 <div>
-                  <div className="period-switcher" aria-label="Cashflow period">
+                  <div className="period-switcher" role="group" aria-label="Cashflow period">
                     {cashflowPeriods.map((period) => (
                       <button
                         key={period.value}
@@ -218,18 +208,7 @@ export function DashboardView({
               ) : null}
               {!cashflow.error && cashflowChart.length ? (
                 <div className="chart-wrap" aria-label="Income and expense chart">
-                  <p className="sr-only">{chartSummary}</p>
-                  <ChartShell>
-                    <LineChart data={cashflowChart} margin={{ top: 14, right: 18, bottom: 6, left: 0 }}>
-                      <CartesianGrid stroke="rgba(255,255,255,.08)" vertical={false} />
-                      <XAxis dataKey="period" tickLine={false} axisLine={false} />
-                      <YAxis tickLine={false} axisLine={false} tickFormatter={(value) => compactMoney(Number(value), selectedCurrency)} width={72} />
-                      <Tooltip formatter={(value, name) => [formatChartMoney(Number(value), selectedCurrency), labelForSeries(String(name))]} labelFormatter={(label) => `Period ${label}`} />
-                      <Line type="monotone" dataKey="income" stroke="var(--green)" strokeWidth={3} dot={false} activeDot={{ r: 4 }} />
-                      <Line type="monotone" dataKey="expense" stroke="var(--red)" strokeWidth={3} dot={false} activeDot={{ r: 4 }} />
-                      <Line type="monotone" dataKey="net" stroke="var(--blue)" strokeWidth={2} dot={false} strokeDasharray="5 5" />
-                    </LineChart>
-                  </ChartShell>
+                  <CashflowChart data={cashflowChart} currency={selectedCurrency} summary={chartSummary} />
                   <table className="sr-only-table">
                     <caption>Cashflow data</caption>
                     <thead>
@@ -406,6 +385,53 @@ function RecentTransactionsTable({
       </table>
     </div>
   );
+}
+
+const CashflowChart = memo(function CashflowChart({
+  data,
+  currency,
+  summary,
+}: {
+  data: CashflowChartBucket[];
+  currency: string;
+  summary: string;
+}) {
+  return (
+    <ChartShell summary={summary}>
+      <LineChart data={data} margin={{ top: 14, right: 18, bottom: 6, left: 0 }}>
+        <defs>
+          <linearGradient id="cashflowIncomeStroke" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0%" stopColor="var(--chart-income)" stopOpacity={0.72} />
+            <stop offset="100%" stopColor="var(--chart-income-strong)" stopOpacity={1} />
+          </linearGradient>
+          <linearGradient id="cashflowExpenseStroke" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0%" stopColor="var(--chart-expense)" stopOpacity={0.72} />
+            <stop offset="100%" stopColor="var(--chart-expense-strong)" stopOpacity={1} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid {...chartGridProps} />
+        <XAxis {...chartAxisProps} dataKey="period" />
+        <YAxis {...chartAxisProps} tickFormatter={(value) => compactMoney(Number(value), currency)} width={72} />
+        <Tooltip {...chartTooltipProps} formatter={(value, name) => [formatChartMoney(Number(value), currency), labelForSeries(String(name))]} labelFormatter={(label) => `Period ${label}`} />
+        <Line type="monotone" dataKey="income" stroke="url(#cashflowIncomeStroke)" strokeWidth={3} dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
+        <Line type="monotone" dataKey="expense" stroke="url(#cashflowExpenseStroke)" strokeWidth={3} dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
+        <Line type="monotone" dataKey="net" stroke="var(--chart-net)" strokeWidth={2} dot={false} strokeDasharray="5 5" activeDot={{ r: 4 }} isAnimationActive={false} />
+      </LineChart>
+    </ChartShell>
+  );
+});
+
+function selectRateTargets(currencies: string[], selectedCurrency: string) {
+  const targets = new Set<string>();
+  for (const currency of [...currencies, ...fallbackRateTargets]) {
+    if (currency && currency !== selectedCurrency) {
+      targets.add(currency);
+    }
+    if (targets.size >= 5) {
+      break;
+    }
+  }
+  return [...targets];
 }
 
 function shortPeriod(period: string) {

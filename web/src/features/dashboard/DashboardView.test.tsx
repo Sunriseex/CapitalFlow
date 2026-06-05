@@ -81,11 +81,15 @@ function renderDashboardView({
   onQuickAction,
   onNavigate,
   primaryCurrency = "RUB",
+  rightRailHidden = false,
+  onToggleRightRail = vi.fn<() => void>(),
 }: {
   onOpenAccount?: (id: string) => void;
   onQuickAction?: (action: NonNullable<import("../../shared/constants").QuickAction>) => void;
   onNavigate?: (view: import("../../shared/constants").View) => void;
   primaryCurrency?: string;
+  rightRailHidden?: boolean;
+  onToggleRightRail?: () => void;
 } = {}) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -97,7 +101,14 @@ function renderDashboardView({
   render(
     <Provider>
       <QueryClientProvider client={queryClient}>
-        <DashboardView primaryCurrency={primaryCurrency} onOpenAccount={onOpenAccount} onQuickAction={onQuickAction} onNavigate={onNavigate} />
+        <DashboardView
+          primaryCurrency={primaryCurrency}
+          rightRailHidden={rightRailHidden}
+          onToggleRightRail={onToggleRightRail}
+          onOpenAccount={onOpenAccount}
+          onQuickAction={onQuickAction}
+          onNavigate={onNavigate}
+        />
       </QueryClientProvider>
     </Provider>,
   );
@@ -155,7 +166,9 @@ describe("DashboardView", () => {
     renderDashboardView({ onQuickAction });
 
     expect(await screen.findByText("Total capital")).toBeInTheDocument();
-    expect(screen.getByLabelText("Quick actions")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Quick actions" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Portfolio currency" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Cashflow period" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "+ Transaction" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "+ Transfer" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Import" })).toBeInTheDocument();
@@ -214,25 +227,12 @@ describe("DashboardView", () => {
     expect(screen.getByText("The backend currently returns monthly cashflow buckets.")).toBeInTheDocument();
   });
 
-  it("toggles the right rail without unmounting dashboard content", async () => {
-    const user = userEvent.setup();
-    renderDashboardView();
+  it("honors the external right rail visibility state without unmounting dashboard content", async () => {
+    renderDashboardView({ rightRailHidden: true });
 
-    const toggle = await screen.findByRole("button", { name: "Hide insights" });
+    expect(await screen.findByText("Total capital")).toBeInTheDocument();
     const rail = screen.getByLabelText("Right rail summary");
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
-    expect(rail).toHaveAttribute("aria-hidden", "false");
-
-    await user.click(toggle);
-
-    expect(screen.getByRole("button", { name: "Show insights" })).toHaveAttribute("aria-expanded", "false");
     expect(rail).toHaveAttribute("aria-hidden", "true");
-    expect(screen.getByText("Total capital")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Show insights" }));
-
-    expect(screen.getByRole("button", { name: "Hide insights" })).toHaveAttribute("aria-expanded", "true");
-    expect(rail).toHaveAttribute("aria-hidden", "false");
   });
 
   it("formats chart summaries for custom currencies such as USDT", async () => {
@@ -310,7 +310,20 @@ describe("DashboardView", () => {
     expect(screen.queryByText("Rate provider unavailable")).not.toBeInTheDocument();
   });
 
-  it("shows fixed reference rate pairs for the selected main currency", async () => {
+  it("shows portfolio rate targets before fallback rates", async () => {
+    mocks.dashboardSummary.mockResolvedValueOnce({
+      ...summary,
+      balances: [
+        { currency: "RUB", amount: "1000.00" },
+        { currency: "EUR", amount: "10.00" },
+        { currency: "USDT", amount: "25.00" },
+      ],
+      account_balances: [
+        ...summary.account_balances,
+        { ...summary.account_balances[0], account_id: "eur-account", currency: "EUR", name: "EUR cash" },
+        { ...summary.account_balances[0], account_id: "usdt-account", currency: "USDT", name: "Stable wallet" },
+      ],
+    } satisfies DashboardSummary);
     mocks.currencyRates.mockResolvedValueOnce({
       base: "RUB",
       date: "2026-05-19",
@@ -318,6 +331,7 @@ describe("DashboardView", () => {
       provider: "test",
       rates: {
         EUR: 0.01,
+        USDT: 0.011,
         USD: 0.011,
         BTC: 0.00000017,
       },
@@ -328,7 +342,7 @@ describe("DashboardView", () => {
     const ratesCard = (await screen.findByRole("heading", { name: "Rates" })).closest("article");
     expect(ratesCard).not.toBeNull();
     const labels = within(ratesCard as HTMLElement).getAllByText(/RUB\//).map((node) => node.textContent);
-    expect(labels).toEqual(["RUB/USD", "RUB/EUR", "RUB/BTC"]);
+    expect(labels).toEqual(["RUB/EUR", "RUB/USDT", "RUB/USD", "RUB/BTC"]);
     expect(within(ratesCard as HTMLElement).getByText("Fri, 05 Jun 2026 00:02:31")).toBeInTheDocument();
   });
 

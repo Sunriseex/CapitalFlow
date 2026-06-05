@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Box, Flex, Grid, HStack } from "@chakra-ui/react";
+import { Box, Grid, HStack } from "@chakra-ui/react";
+import { PanelRightClose, PanelRightOpen } from "lucide-react";
 import { ApiClientError, api, clearStoredSession, getStoredToken } from "./api/client";
 import { AccountsView } from "./features/accounts/AccountsView";
 import { CreateAccountForm } from "./features/accounts/CreateAccountForm";
@@ -32,6 +33,7 @@ export function App() {
   const [selectedAccountId, setSelectedAccountId] = useState(initialRoute.accountId);
   const [quickAction, setQuickAction] = useState<QuickAction>(null);
   const [commandOpen, setCommandOpen] = useState(false);
+  const [rightRailHidden, setRightRailHidden] = useState(false);
 
   const accounts = useQuery({
     queryKey: ["accounts", sessionNonce],
@@ -166,7 +168,7 @@ export function App() {
       </Box>
 
       <Box as="main" pb={{ base: 24, lg: 8 }}>
-        <Flex as="header" className="page-head" align="center" justify="space-between" gap={4}>
+        <Box as="header" className="page-head">
           <Box minW={0}>
             <Box as="h1" id="pageTitle">{view === "dashboard" ? "Overview" : pageTitle}</Box>
             <HStack className="page-title" gap={3} flexWrap="wrap">
@@ -180,8 +182,21 @@ export function App() {
 
           <Box className="head-tools">
             <CommandTrigger onOpen={() => setCommandOpen(true)} />
+            {view === "dashboard" ? (
+              <button
+                className="rail-toggle"
+                type="button"
+                aria-label={rightRailHidden ? "Show insights" : "Hide insights"}
+                title={rightRailHidden ? "Show insights" : "Hide insights"}
+                aria-controls="dashboard-right-rail"
+                aria-expanded={!rightRailHidden}
+                onClick={() => setRightRailHidden((hidden) => !hidden)}
+              >
+                {rightRailHidden ? <PanelRightOpen size={17} aria-hidden="true" /> : <PanelRightClose size={17} aria-hidden="true" />}
+              </button>
+            ) : null}
           </Box>
-        </Flex>
+        </Box>
 
         <PageTransition>
           <Suspense fallback={<Empty>Loading view</Empty>}>
@@ -189,7 +204,9 @@ export function App() {
               <DashboardView
                 key={primaryCurrency}
                 primaryCurrency={primaryCurrency}
+                rightRailHidden={rightRailHidden}
                 quickActionsDisabled={transactionActionsDisabled}
+                onToggleRightRail={() => setRightRailHidden((hidden) => !hidden)}
                 onQuickAction={openQuickAction}
                 onNavigate={navigateTo}
                 onOpenAccount={(id) => {

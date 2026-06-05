@@ -90,7 +90,7 @@ export function TransactionsView({
       ) : null}
       {createOpen ? (
         <Dialog title="Create adjustment" onClose={() => setCreateOpen(false)}>
-          <TransactionForm accounts={accounts} categories={categories} fixedType="adjustment" onDone={() => setCreateOpen(false)} />
+          <TransactionForm accounts={accounts} categories={categories} fixedType="adjustment" showTitle={false} onDone={() => setCreateOpen(false)} />
         </Dialog>
       ) : null}
     </Panel>

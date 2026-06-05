@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import type { Account, Category, Transaction } from "../../api/types";
 import { TransactionsTable } from "./TransactionsTable";
@@ -49,5 +50,24 @@ describe("TransactionsTable", () => {
     render(<TransactionsTable transactions={[]} accounts={accounts} categories={categories} />);
 
     expect(screen.getByText("No transactions")).toBeInTheDocument();
+  });
+
+  it("renders chunked account history and reveals more rows on demand", async () => {
+    const user = userEvent.setup();
+    const transactions = Array.from({ length: 205 }, (_, index): Transaction => ({
+      ...incomeTransaction,
+      id: `transaction-${index}`,
+      description: `Transaction ${index}`,
+    }));
+
+    render(<TransactionsTable transactions={transactions} accounts={accounts} categories={categories} chunked />);
+
+    expect(screen.getAllByRole("row")).toHaveLength(81);
+    expect(screen.getByText("80 of 205")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Show more" }));
+
+    expect(screen.getAllByRole("row")).toHaveLength(201);
+    expect(screen.getByText("200 of 205")).toBeInTheDocument();
   });
 });

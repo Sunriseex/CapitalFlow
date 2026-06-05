@@ -140,6 +140,7 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
   await page.getByRole("button", { name: "Sign in with email" }).click();
   await expect(page.getByRole("heading", { name: "Overview" }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Open command menu" })).toBeVisible();
+  await expectHeaderControlsInOneRow(page);
 
   await expectAppTheme(page, "light", "#edf4f2");
   await page.getByRole("button", { name: "Switch to dark theme" }).click();
@@ -172,6 +173,12 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
   await expect(page.locator(".transactions-filters.workspace-filters")).toBeVisible();
   await expect(page.locator(".transactions-table-wrap.workspace-table-wrap")).toBeVisible();
   await expect(page.locator(".transactions-table.workspace-table")).toBeVisible();
+  await page.getByRole("button", { name: "Adjustment" }).click();
+  await expect(page.getByRole("dialog", { name: "Create adjustment" })).toBeVisible();
+  await expect(page.getByText("Adjustment accepts positive or negative values.")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Create adjustment" })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Adjustment" })).toBeFocused();
 
   await page.getByRole("button", { name: "Settings" }).click();
   await expect(page.locator(".workspace-settings")).toBeVisible();
@@ -190,6 +197,7 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
   await page.keyboard.press(process.platform === "darwin" ? "Meta+K" : "Control+K");
   const commandMenu = page.getByRole("dialog", { name: "Command menu" });
   await expect(commandMenu).toBeVisible();
+  await expectTopCentered(page, commandMenu);
   await commandMenu.getByRole("button", { name: "Transactions" }).click();
   await expect(page).toHaveURL(/\/transactions$/);
   await page.getByRole("button", { name: "Overview" }).click();
@@ -279,6 +287,24 @@ async function expectAppTheme(page: import("@playwright/test").Page, theme: "lig
   await expect.poll(
     () => page.locator(".app").evaluate((element) => getComputedStyle(element).getPropertyValue("--bg").trim()),
   ).toBe(expectedBg);
+}
+
+async function expectHeaderControlsInOneRow(page: import("@playwright/test").Page) {
+  const commandBox = await page.getByRole("button", { name: "Open command menu" }).boundingBox();
+  const insightsBox = await page.getByRole("button", { name: "Hide insights" }).boundingBox();
+  expect(commandBox).not.toBeNull();
+  expect(insightsBox).not.toBeNull();
+  expect(Math.abs((commandBox?.y ?? 0) - (insightsBox?.y ?? 0))).toBeLessThanOrEqual(2);
+}
+
+async function expectTopCentered(page: import("@playwright/test").Page, locator: import("@playwright/test").Locator) {
+  const viewport = page.viewportSize();
+  const box = await locator.boundingBox();
+  expect(viewport).not.toBeNull();
+  expect(box).not.toBeNull();
+  expect(box?.y ?? 999).toBeLessThan(96);
+  const menuCenter = (box?.x ?? 0) + (box?.width ?? 0) / 2;
+  expect(Math.abs(menuCenter - (viewport?.width ?? 0) / 2)).toBeLessThanOrEqual(2);
 }
 
 async function surfaceSnapshot(page: import("@playwright/test").Page, selector: string) {

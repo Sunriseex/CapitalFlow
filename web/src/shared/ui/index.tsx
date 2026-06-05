@@ -1,6 +1,8 @@
 import { useEffect, useId, useRef } from "react";
 import type { ButtonHTMLAttributes, InputHTMLAttributes, KeyboardEvent, ReactNode, SelectHTMLAttributes } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { markPerformance } from "../performance";
 import { PageTransition } from "./PageTransition";
 
 export { PageTransition };
@@ -56,10 +58,22 @@ export function Empty({ children }: { children: ReactNode }) {
   return <div className="empty">{children}</div>;
 }
 
-export function FormShell({ title, error, onSubmit, children }: { title: string; error: string; onSubmit: () => void; children: ReactNode }) {
+export function FormShell({
+  title,
+  error,
+  onSubmit,
+  children,
+  showTitle = true,
+}: {
+  title: string;
+  error: string;
+  onSubmit: () => void;
+  children: ReactNode;
+  showTitle?: boolean;
+}) {
   return (
     <form className="form form-shell" onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
-      <h2>{title}</h2>
+      {showTitle ? <h2>{title}</h2> : null}
       {error ? <div className="error">{error}</div> : null}
       {children}
     </form>
@@ -70,17 +84,33 @@ export function Dialog({ title, onClose, children }: { title: string; onClose: (
   const titleID = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const focusableRef = useRef<HTMLElement[]>([]);
 
   useEffect(() => {
+    const endMeasure = markPerformance(`dialog-open:${title}`);
     restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const dialog = dialogRef.current;
-    const firstFocusable = dialog?.querySelector<HTMLElement>(focusableSelector);
+    focusableRef.current = [...(dialog?.querySelectorAll<HTMLElement>(focusableSelector) ?? [])]
+      .filter((element) => !element.hasAttribute("disabled"));
+    const firstFocusable = focusableRef.current[0];
     (firstFocusable ?? dialog)?.focus();
+    if (typeof window.requestAnimationFrame !== "function") {
+      const timeout = window.setTimeout(endMeasure, 0);
+      return () => {
+        window.clearTimeout(timeout);
+        restoreFocusRef.current?.focus();
+      };
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(endMeasure);
+    });
 
     return () => {
+      window.cancelAnimationFrame(frame);
       restoreFocusRef.current?.focus();
     };
-  }, []);
+  }, [title]);
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === "Escape") {
@@ -93,8 +123,7 @@ export function Dialog({ title, onClose, children }: { title: string; onClose: (
       return;
     }
 
-    const focusable = [...(dialogRef.current?.querySelectorAll<HTMLElement>(focusableSelector) ?? [])]
-      .filter((element) => !element.hasAttribute("disabled"));
+    const focusable = focusableRef.current;
     if (!focusable.length) {
       event.preventDefault();
       dialogRef.current?.focus();
@@ -112,7 +141,7 @@ export function Dialog({ title, onClose, children }: { title: string; onClose: (
     }
   }
 
-  return (
+  return createPortal(
     <div
       className="modal-backdrop"
       onMouseDown={(event) => {
@@ -130,17 +159,16 @@ export function Dialog({ title, onClose, children }: { title: string; onClose: (
         tabIndex={-1}
         onKeyDown={handleKeyDown}
       >
-        <PageTransition>
-          <div className="modal-header">
+        <div className="modal-header">
           <h2 id={titleID}>{title}</h2>
           <IconButton type="button" title="Close dialog" aria-label="Close dialog" onClick={onClose}>
             <X size={16} />
           </IconButton>
-          </div>
-          {children}
-        </PageTransition>
+        </div>
+        {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

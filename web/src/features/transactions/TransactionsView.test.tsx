@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Account, Category } from "../../api/types";
 import { TransactionsView } from "./TransactionsView";
@@ -66,5 +67,24 @@ describe("TransactionsView", () => {
     expect(screen.getByLabelText("Filter transactions by type")).toBeInTheDocument();
     expect(screen.getByLabelText("Filter transactions from date")).toBeInTheDocument();
     expect(screen.getByLabelText("Filter transactions to date")).toBeInTheDocument();
+  });
+
+  it("opens the adjustment dialog with a single visible title and returns focus on Escape", async () => {
+    const user = userEvent.setup();
+    renderTransactionsView();
+
+    const trigger = screen.getByRole("button", { name: "Adjustment" });
+    await user.click(trigger);
+
+    expect(await screen.findByRole("dialog", { name: "Create adjustment" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Create adjustment" }).closest(".transactions-panel")).toBeNull();
+    expect(screen.getByRole("dialog", { name: "Create adjustment" }).parentElement?.parentElement).toBe(document.body);
+    expect(screen.getAllByRole("heading", { name: "Create adjustment" })).toHaveLength(1);
+    expect(screen.getByText("Adjustment accepts positive or negative values.")).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("dialog", { name: "Create adjustment" })).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
   });
 });

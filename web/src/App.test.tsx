@@ -358,6 +358,18 @@ describe("App query states", () => {
     expect(await screen.findByLabelText("Service version v0.5.8")).toBeInTheDocument();
   });
 
+  it("toggles dashboard insights from the header", async () => {
+    const user = userEvent.setup();
+    renderApp();
+
+    const toggle = await screen.findByRole("button", { name: "Hide insights" });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+    await user.click(toggle);
+
+    expect(screen.getByRole("button", { name: "Show insights" })).toHaveAttribute("aria-expanded", "false");
+  });
+
   it("opens command menu with Ctrl+K and toggles theme", async () => {
     const user = userEvent.setup();
     renderApp();
