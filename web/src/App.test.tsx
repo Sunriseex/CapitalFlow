@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiClientError } from "./api/client";
 import { App } from "./App";
 import { Provider } from "./components/ui/provider";
 
@@ -17,6 +18,9 @@ const mocks = vi.hoisted(() => ({
   dashboardSummary: vi.fn(),
   interestRules: vi.fn(),
   transactions: vi.fn(),
+  createAccount: vi.fn(),
+  createTransaction: vi.fn(),
+  createInterestRule: vi.fn(),
 }));
 
 vi.mock("./api/client", () => ({
@@ -39,6 +43,9 @@ vi.mock("./api/client", () => ({
     dashboardSummary: mocks.dashboardSummary,
     interestRules: mocks.interestRules,
     transactions: mocks.transactions,
+    createAccount: mocks.createAccount,
+    createTransaction: mocks.createTransaction,
+    createInterestRule: mocks.createInterestRule,
   },
   clearStoredSession: vi.fn(),
   getStoredToken: () => mocks.token,
@@ -91,6 +98,8 @@ function renderApp() {
       </QueryClientProvider>
     </Provider>,
   );
+
+  return { queryClient };
 }
 
 describe("App auth screens", () => {
@@ -116,6 +125,19 @@ describe("App auth screens", () => {
       user: { id: "user-1", email: "user@example.com", primary_currency: "RUB" },
     });
     mocks.serviceStatus.mockResolvedValue({ status: "ok", version: "v0.5.9" });
+    mocks.createAccount.mockResolvedValue({
+      id: "account-created",
+      name: "Brokerage",
+      bank: "Bank",
+      type: "card",
+      currency: "RUB",
+      is_active: true,
+      opened_at: "2026-05-19",
+      created_at: "2026-05-19T00:00:00Z",
+      updated_at: "2026-05-19T00:00:00Z",
+    });
+    mocks.createTransaction.mockResolvedValue({});
+    mocks.createInterestRule.mockResolvedValue({});
   });
 
   it("renders login as a standalone screen with passkey sign-in", async () => {
@@ -163,7 +185,7 @@ describe("App auth screens", () => {
     await user.type(screen.getByLabelText("Confirm password"), "abc");
     await user.click(screen.getByRole("button", { name: "Create owner account" }));
 
-    expect(await screen.findAllByText("Use a stronger password. Password score must be at least 3 of 4.")).toHaveLength(2);
+    expect(await screen.findAllByText("Use a stronger password. Password score must be at least 3 of 4.")).toHaveLength(1);
     expect(mocks.setup).not.toHaveBeenCalled();
 
     await user.clear(screen.getByLabelText("Password"));
@@ -180,7 +202,7 @@ describe("App auth screens", () => {
     await user.type(screen.getByLabelText("Confirm password"), "correct horse battery staple 2026!");
     await user.click(screen.getByRole("button", { name: "Create owner account" }));
 
-    expect(await screen.findAllByText("Please confirm the owner account requirement.")).toHaveLength(2);
+    expect(await screen.findAllByText("Please confirm the owner account requirement.")).toHaveLength(1);
     expect(mocks.setup).not.toHaveBeenCalled();
 
     await user.click(screen.getByLabelText(/I understand that this account becomes the service owner/));
@@ -216,6 +238,42 @@ describe("App auth screens", () => {
     await waitFor(() => expect(mocks.login).toHaveBeenCalledWith({ email: "user@example.com", password: "password" }));
     expect(await screen.findByText("Dashboard mock")).toBeInTheDocument();
   });
+
+  it("shows field errors for credential failures and global copy for technical login errors", async () => {
+    const user = userEvent.setup();
+    mocks.login.mockRejectedValueOnce(new ApiClientError("Invalid credentials", 401));
+    renderApp();
+
+    await user.type(await screen.findByLabelText("Email"), "bad@example.com");
+    await user.type(screen.getByLabelText("Password"), "wrong");
+    await user.click(screen.getByRole("button", { name: "Sign in with email" }));
+
+    expect(await screen.findByText("Check the email address for this sign-in.")).toBeInTheDocument();
+    expect(screen.getByText("Check the password for this sign-in.")).toBeInTheDocument();
+    expect(screen.queryByText("Invalid credentials")).not.toBeInTheDocument();
+
+    mocks.login.mockRejectedValueOnce(new ApiClientError("Server unavailable", 503));
+    await user.click(screen.getByRole("button", { name: "Sign in with email" }));
+
+    expect(await screen.findByText("Server unavailable")).toBeInTheDocument();
+    expect(screen.queryByText("Check the email address for this sign-in.")).not.toBeInTheDocument();
+  });
+
+  it("shows auth status loading and error states before choosing a screen", async () => {
+    mocks.authStatus.mockReturnValueOnce(new Promise(() => {}));
+    renderApp();
+
+    expect(screen.getByRole("heading", { name: "Checking access" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Sign in" })).not.toBeInTheDocument();
+
+    vi.clearAllMocks();
+    mocks.authStatus.mockRejectedValueOnce(new Error("Status unavailable"));
+    renderApp();
+
+    expect(await screen.findByRole("heading", { name: "Authentication unavailable" })).toBeInTheDocument();
+    expect(screen.getByText("Status unavailable")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Sign in" })).not.toBeInTheDocument();
+  });
 });
 
 describe("App query states", () => {
@@ -247,6 +305,19 @@ describe("App query states", () => {
     });
     mocks.interestRules.mockResolvedValue([]);
     mocks.transactions.mockResolvedValue([]);
+    mocks.createAccount.mockResolvedValue({
+      id: "account-created",
+      name: "Brokerage",
+      bank: "Bank",
+      type: "card",
+      currency: "RUB",
+      is_active: true,
+      opened_at: "2026-05-19",
+      created_at: "2026-05-19T00:00:00Z",
+      updated_at: "2026-05-19T00:00:00Z",
+    });
+    mocks.createTransaction.mockResolvedValue({});
+    mocks.createInterestRule.mockResolvedValue({});
   });
 
   it("shows account loading state and disables account-dependent quick actions", async () => {
@@ -305,6 +376,9 @@ describe("App query states", () => {
 
     await user.click(await screen.findByRole("button", { name: "Check system health" }));
     expect(await screen.findByRole("dialog", { name: "System health" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Close system health" }));
+    expect(screen.queryByRole("dialog", { name: "System health" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Check system health" })).toHaveFocus();
     await waitFor(() => expect(mocks.serviceStatus).toHaveBeenCalledTimes(2));
 
     await user.click(screen.getByRole("button", { name: "Import" }));
@@ -323,6 +397,24 @@ describe("App query states", () => {
     await user.keyboard("{Control>}k{/Control}");
     await user.click(within(await screen.findByRole("dialog", { name: "Command menu" })).getByRole("button", { name: "+ Transaction" }));
     expect(await screen.findByRole("dialog", { name: "Create transaction" })).toBeInTheDocument();
+  });
+
+  it("invalidates only targeted quick-action query keys after account creation", async () => {
+    const user = userEvent.setup();
+    const { queryClient } = renderApp();
+    const invalidateQueries = vi.spyOn(queryClient, "invalidateQueries");
+
+    await user.click(await screen.findByRole("button", { name: "Open command menu" }));
+    await user.click(within(await screen.findByRole("dialog", { name: "Command menu" })).getByRole("button", { name: "Create account" }));
+    await user.type(await screen.findByLabelText("Name"), "Brokerage");
+    await user.type(screen.getByLabelText("Bank"), "Bank");
+    await user.click(screen.getByRole("button", { name: "Create" }));
+
+    await waitFor(() => expect(mocks.createAccount).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Create account" })).not.toBeInTheDocument());
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["accounts"] });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["dashboard"] });
+    expect(invalidateQueries).not.toHaveBeenCalledWith({ queryKey: ["balance"] });
   });
 
   it("initializes route state from the URL", async () => {

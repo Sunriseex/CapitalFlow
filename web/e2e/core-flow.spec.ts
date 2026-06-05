@@ -178,6 +178,10 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
 
   await page.getByRole("button", { name: "Import" }).click();
   await expect(page.getByRole("dialog", { name: "Import transactions" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Import transactions" })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Import" })).toBeFocused();
+  await page.getByRole("button", { name: "Import" }).click();
   await page.getByRole("button", { name: "Open transactions" }).click();
   await expect(page).toHaveURL(/\/transactions$/);
   await page.getByRole("button", { name: "Overview" }).click();
@@ -187,8 +191,34 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
 
   await page.getByRole("button", { name: "Check system health" }).click();
   await expect(page.getByRole("dialog", { name: "System health" })).toBeVisible();
+  await page.getByRole("button", { name: "Close system health" }).click();
+  await expect(page.getByRole("dialog", { name: "System health" })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Check system health" })).toBeFocused();
+  await page.getByRole("button", { name: "Check system health" }).click();
+  await expect(page.getByRole("dialog", { name: "System health" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: "System health" })).toBeHidden();
+
+  for (const width of [320, 768, 1280]) {
+    await page.setViewportSize({ width, height: 720 });
+    const overflow = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+      offenders: [...document.querySelectorAll<HTMLElement>("body *")]
+        .filter((element) => element.getBoundingClientRect().right > document.documentElement.clientWidth + 1)
+        .slice(0, 5)
+        .map((element) => ({
+          tag: element.tagName,
+          className: element.className,
+          text: element.textContent?.trim().slice(0, 80),
+          right: element.getBoundingClientRect().right,
+        })),
+    }));
+    expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
+    expect(overflow.offenders).toEqual([]);
+    await expect(page.getByRole("button", { name: "Open command menu" })).toBeVisible();
+    await expect(page.getByText("Total capital")).toBeVisible();
+  }
 
   await page.getByRole("button", { name: /Logout/ }).click();
   await expect(page.getByRole("button", { name: "Sign in with email" })).toBeVisible();

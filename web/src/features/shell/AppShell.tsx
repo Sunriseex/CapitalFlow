@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Box, Stack } from "@chakra-ui/react";
-import { Command, Download, LogOut, Moon, Sun } from "lucide-react";
+import { Command, Download, LogOut, Moon, Sun, X } from "lucide-react";
 import { useTheme } from "next-themes";
 import { api } from "../../api/client";
 import { errorMessage } from "../../shared/api/query";
@@ -26,9 +26,8 @@ export function BrandBlock({
       <img className="brand-mark" src="/app-icon.png" alt="" aria-hidden="true" />
       <Box className="brand-copy">
         <strong>CapitalFlow</strong>
-        <Box className="brand-meta" aria-label="Version, sync and health">
+        <Box className="brand-meta" aria-label="Version and health">
           <span className="version-pill" title="Release tag">{version ?? "dev"}</span>
-          <span className="sync-pill" title="Last sync">sync · now</span>
           <button
             ref={triggerRef}
             className="health-trigger"
@@ -63,10 +62,10 @@ export function Nav({ view, accountCount, navigateTo }: { view: View; accountCou
     <Stack as="nav" className="nav" aria-label="Main navigation">
       <section className="nav-section">
         <div className="nav-label">Workspace</div>
-        <ReferenceNavButton active={view === "dashboard"} label="Overview" onClick={() => navigateTo("dashboard")} />
-        <ReferenceNavButton active={view === "transactions"} label="Transactions" onClick={() => navigateTo("transactions")} />
-        <ReferenceNavButton active={view === "accounts"} label="Accounts" count={String(accountCount)} onClick={() => navigateTo("accounts")} />
-        <ReferenceNavButton active={view === "settings"} label="Settings" onClick={() => navigateTo("settings")} />
+        <NavButton active={view === "dashboard"} label="Overview" onClick={() => navigateTo("dashboard")} />
+        <NavButton active={view === "transactions"} label="Transactions" onClick={() => navigateTo("transactions")} />
+        <NavButton active={view === "accounts"} label="Accounts" count={String(accountCount)} onClick={() => navigateTo("accounts")} />
+        <NavButton active={view === "settings"} label="Settings" onClick={() => navigateTo("settings")} />
       </section>
     </Stack>
   );
@@ -266,7 +265,12 @@ function HealthPopover({
           }
         }}
       >
-        <h3 id="healthTitle">System health</h3>
+        <div className="health-popover-head">
+          <h3 id="healthTitle">System health</h3>
+          <button className="health-close" type="button" aria-label="Close system health" onClick={onClose}>
+            <X size={14} aria-hidden="true" />
+          </button>
+        </div>
         <div className="health-row"><span>API</span><span className={status === "Healthy" ? "tag good" : "tag"}>{status === "Healthy" ? "OK" : status}</span></div>
         <div className="health-row"><span>Version</span><span className="tag info">{version ?? "unknown"}</span></div>
         <div className="health-row"><span>Rates</span><span className="tag info">On demand</span></div>
@@ -276,7 +280,7 @@ function HealthPopover({
   );
 }
 
-function ReferenceNavButton({ active, label, count, onClick }: { active: boolean; label: string; count?: string; onClick: () => void }) {
+function NavButton({ active, label, count, onClick }: { active: boolean; label: string; count?: string; onClick: () => void }) {
   return (
     <button className="nav-btn" type="button" aria-current={active ? "page" : undefined} onClick={onClick}>
       <span className="nav-name"><span className="nav-dot"></span><span>{label}</span></span>

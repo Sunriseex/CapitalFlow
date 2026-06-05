@@ -206,59 +206,9 @@ h2 {
   font-weight: 700;
 }
 
-.quick-actions {
-  display: flex;
-  gap: 8px;
-}
-
 .grid {
   display: grid;
   gap: 18px;
-}
-
-.portfolio-hero {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 18px;
-  align-items: end;
-  padding: 22px;
-  color: var(--hero-text);
-  background: var(--hero-bg);
-  border: 1px solid var(--sidebar-line);
-  border-radius: 8px;
-  box-shadow: var(--shadow);
-}
-
-.portfolio-hero strong {
-  display: block;
-  font-size: 36px;
-  line-height: 1.1;
-  margin-top: 6px;
-  letter-spacing: 0;
-}
-
-.portfolio-hero span {
-  display: block;
-  color: var(--hero-muted);
-  font-size: 13px;
-  margin-top: 8px;
-}
-
-.hero-delta {
-  min-width: 220px;
-  padding: 14px;
-  border: 1px solid rgb(255 255 255 / 0.12);
-  background: var(--hero-panel);
-  border-radius: 8px;
-}
-
-.hero-delta strong {
-  color: #b7f2d7;
-  font-size: 22px;
-}
-
-.hero-delta.negative strong {
-  color: #fecaca;
 }
 
 .metric-strip {
@@ -612,19 +562,6 @@ nav button:focus-visible {
   border: 1px solid rgb(255 255 255 / 0.12);
   border-radius: 10px;
   font-weight: 750;
-}
-
-.setup-notice {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  padding: 12px;
-  color: var(--green);
-  background: rgb(36 115 90 / 0.1);
-  border: 1px solid rgb(36 115 90 / 0.2);
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 650;
 }
 
 .primary-button {
@@ -1008,13 +945,8 @@ tbody tr:hover {
     padding: 16px;
   }
 
-  .portfolio-hero,
   .dashboard-main {
     grid-template-columns: 1fr;
-  }
-
-  .hero-delta {
-    min-width: 0;
   }
 
   .topbar {
@@ -1081,39 +1013,6 @@ tbody tr:hover {
   background: var(--surface-strong);
 }
 
-.mobile-nav {
-  position: fixed;
-  right: 10px;
-  bottom: 10px;
-  left: 10px;
-  z-index: 30;
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--surface-strong);
-  box-shadow: var(--shadow);
-}
-
-.mobile-nav button {
-  min-height: 48px;
-  display: grid;
-  place-items: center;
-  gap: 3px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 750;
-}
-
-.mobile-nav button.active,
-.mobile-nav button:hover {
-  color: var(--text);
-  border-color: var(--line);
-  background: var(--hover);
-}
-
 .sr-only,
 .sr-only-table {
   position: absolute;
@@ -1136,22 +1035,11 @@ tbody tr:hover {
     font-size: 26px;
   }
 
-  .quick-actions {
-    width: 100%;
-    overflow-x: auto;
-    padding-bottom: 2px;
-  }
-
   .auth-card {
     padding: 20px;
   }
-
-  .portfolio-hero strong {
-    font-size: 30px;
-  }
 }
 
-/* Reference v0.5.9 auth screens: mirrors .lazyweb auth-finance-login files. */
 .auth-reference-page {
   --color-bg: #0b1220;
   --color-bg-soft: #111827;
@@ -1563,7 +1451,6 @@ tbody tr:hover {
   background: var(--color-meter-strong);
 }
 
-/* Reference v0.5.9 dashboard shell: mirrors .lazyweb finance-dashboard v16. */
 .app {
   --bg: #070d14;
   --bg-2: #0b121c;
@@ -1639,8 +1526,7 @@ tbody tr:hover {
   align-items: center;
 }
 
-.version-pill,
-.sync-pill {
+.version-pill {
   width: fit-content;
   display: inline-flex;
   align-items: center;
@@ -1651,15 +1537,11 @@ tbody tr:hover {
   font-size: .76rem;
   font-weight: 850;
   white-space: nowrap;
-}
-
-.version-pill {
   color: #a7ebba;
   background: rgba(130, 214, 158, .08);
   border: 1px solid rgba(130, 214, 158, .16);
 }
 
-.sync-pill,
 .chip {
   color: var(--muted);
   background: rgba(255, 255, 255, .045);
@@ -1704,9 +1586,30 @@ tbody tr:hover {
   box-shadow: var(--shadow);
 }
 
+.health-popover-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
 .health-popover h3 {
-  margin: 0 0 6px;
+  margin: 0;
   font-size: .92rem;
+}
+
+.health-close {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  background: rgba(255, 255, 255, .04);
+  cursor: pointer;
 }
 
 .sidebar-footer {
@@ -2315,6 +2218,7 @@ tbody tr:hover {
 
 .legend {
   display: flex;
+  flex-wrap: wrap;
   gap: 14px;
   align-items: center;
   margin-top: 10px;
@@ -2324,9 +2228,11 @@ tbody tr:hover {
 }
 
 .legend-item {
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  white-space: normal;
 }
 
 .legend-mark {

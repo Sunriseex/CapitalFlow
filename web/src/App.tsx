@@ -127,7 +127,6 @@ export function App() {
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       void queryClient.invalidateQueries({ queryKey: ["transactions"] });
       void queryClient.invalidateQueries({ queryKey: ["accounts"] });
-      void queryClient.invalidateQueries({ queryKey: ["balance"] });
     }
     setQuickAction(null);
     toaster.create({ type: "success", title: message });

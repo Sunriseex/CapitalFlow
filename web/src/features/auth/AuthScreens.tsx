@@ -4,10 +4,15 @@ import zxcvbn from "zxcvbn";
 import type { CurrencyOption } from "../../shared/currencies";
 import { PageTransition } from "../../shared/ui";
 
+export type AuthScreenError = {
+  message: string;
+  kind: "field" | "global";
+} | null;
+
 type LoginScreenProps = {
   email: string;
   password: string;
-  error: string;
+  error: AuthScreenError;
   passkeyError: string;
   passkeysSupported: boolean;
   passkeyLoading: boolean;
@@ -23,7 +28,7 @@ type InitialSetupScreenProps = {
   password: string;
   primaryCurrency: string;
   currencyOptions: CurrencyOption[];
-  error: string;
+  error: AuthScreenError;
   statusLoading: boolean;
   onEmailChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
@@ -45,8 +50,10 @@ export function LoginScreen({
   onPasskeySubmit,
 }: LoginScreenProps) {
   const [passwordVisible, setPasswordVisible] = useState(false);
-  const emailError = error ? "Check the email address for this sign-in." : "";
-  const passwordError = error ? "Check the password for this sign-in." : "";
+  const fieldError = error?.kind === "field";
+  const emailError = fieldError ? "Check the email address for this sign-in." : "";
+  const passwordError = fieldError ? "Check the password for this sign-in." : "";
+  const globalError = error?.kind === "global" ? error.message : "";
 
   return (
     <main className="auth-page auth-reference-page">
@@ -105,7 +112,7 @@ export function LoginScreen({
             <div className="field">
               <div className="label-row">
                 <label htmlFor="password">Password</label>
-                <a className="helper-link" href="/forgot-password">Forgot password?</a>
+                <span className="helper-link" aria-label="Password reset unavailable">Password reset unavailable</span>
               </div>
               <div className="password-control">
                 <input
@@ -140,13 +147,13 @@ export function LoginScreen({
               Remember this device
             </label>
 
-            {error ? <p className="form-status" id="form-status" role="status" aria-live="polite">{error}</p> : null}
+            {globalError ? <p className="form-status" id="form-status" role="status" aria-live="polite">{globalError}</p> : null}
             <button className="button button-secondary" type="submit" disabled={statusLoading}>
               Sign in with email
             </button>
           </form>
 
-          <p className="footer-text">First deployment? <a href="/setup">Run initial setup</a></p>
+          <p className="footer-text">Initial setup appears automatically when the service requires it.</p>
         </section>
       </PageTransition>
     </main>
@@ -171,12 +178,22 @@ export function InitialSetupScreen({
   const [passwordTouched, setPasswordTouched] = useState(false);
   const [confirmTouched, setConfirmTouched] = useState(false);
   const [setupConfirmed, setSetupConfirmed] = useState(false);
-  const [submitError, setSubmitError] = useState("");
+  const [submitError, setSubmitError] = useState<{ target: "password" | "confirm" | "setup-confirm"; message: string } | null>(null);
   const strength = useMemo(() => passwordStrength(password), [password]);
-  const emailError = error ? "Check the owner email and try setup again." : "";
-  const passwordError = passwordTouched && strength.score < 3 ? "Use a stronger password. Password score must be at least 3 of 4." : "";
-  const confirmError = (confirmTouched || confirmPassword) && confirmPassword !== password ? "Passwords do not match." : "";
-  const setupConfirmError = submitError === "Please confirm the owner account requirement." ? submitError : "";
+  const apiFieldError = error?.kind === "field";
+  const emailError = apiFieldError ? "Check the owner email and setup credentials." : "";
+  const passwordError = submitError?.target === "password"
+    ? submitError.message
+    : passwordTouched && password && strength.score < 3
+      ? "Use a stronger password. Password score must be at least 3 of 4."
+      : "";
+  const confirmError = submitError?.target === "confirm"
+    ? submitError.message
+    : (confirmTouched || confirmPassword) && confirmPassword !== password
+      ? "Passwords do not match."
+      : "";
+  const setupConfirmError = submitError?.target === "setup-confirm" ? submitError.message : "";
+  const globalError = error?.kind === "global" ? error.message : "";
 
   function submitSetup(event: FormEvent) {
     event.preventDefault();
@@ -184,21 +201,21 @@ export function InitialSetupScreen({
     setConfirmTouched(true);
 
     if (strength.score < 3) {
-      setSubmitError("Use a stronger password. Password score must be at least 3 of 4.");
+      setSubmitError({ target: "password", message: "Use a stronger password. Password score must be at least 3 of 4." });
       return;
     }
 
     if (confirmPassword !== password) {
-      setSubmitError("Password confirmation does not match.");
+      setSubmitError({ target: "confirm", message: "Password confirmation does not match." });
       return;
     }
 
     if (!setupConfirmed) {
-      setSubmitError("Please confirm the owner account requirement.");
+      setSubmitError({ target: "setup-confirm", message: "Please confirm the owner account requirement." });
       return;
     }
 
-    setSubmitError("");
+    setSubmitError(null);
     onSubmit();
   }
 
@@ -272,7 +289,7 @@ export function InitialSetupScreen({
                   value={password}
                   onBlur={() => setPasswordTouched(true)}
                   onChange={(event) => {
-                    setSubmitError("");
+                    setSubmitError(null);
                     onPasswordChange(event.target.value);
                   }}
                 />
@@ -332,7 +349,7 @@ export function InitialSetupScreen({
                   value={confirmPassword}
                   onBlur={() => setConfirmTouched(true)}
                   onChange={(event) => {
-                    setSubmitError("");
+                    setSubmitError(null);
                     setConfirmPassword(event.target.value);
                   }}
                 />
@@ -379,7 +396,7 @@ export function InitialSetupScreen({
                 aria-invalid={Boolean(setupConfirmError)}
                 aria-errormessage={setupConfirmError ? "setup-confirm-error" : undefined}
                 onChange={(event) => {
-                  setSubmitError("");
+                  setSubmitError(null);
                   setSetupConfirmed(event.target.checked);
                 }}
               />
@@ -387,14 +404,48 @@ export function InitialSetupScreen({
             </label>
             {setupConfirmError ? <p className="field-error" id="setup-confirm-error" aria-live="polite">{setupConfirmError}</p> : null}
 
-            {submitError ? <p className="form-status" id="form-status" role="status" aria-live="polite">{submitError}</p> : null}
-            {error ? <p className="form-status" id="form-status-api" role="status" aria-live="polite">{error}</p> : null}
+            {globalError ? <p className="form-status" id="form-status-api" role="status" aria-live="polite">{globalError}</p> : null}
             <button className="button button-primary" id="setup-submit" type="submit" disabled={statusLoading}>
               Create owner account
             </button>
           </form>
 
-          <p className="footer-text">Setup already completed? <a href="/login">Go to sign in</a></p>
+          <p className="footer-text">Setup is available only when the backend reports that an owner is missing.</p>
+        </section>
+      </PageTransition>
+    </main>
+  );
+}
+
+export function AuthStatusScreen({
+  title,
+  message,
+  action,
+}: {
+  title: string;
+  message: string;
+  action?: { label: string; onClick: () => void };
+}) {
+  return (
+    <main className="auth-page auth-reference-page">
+      <PageTransition>
+        <section className="auth-card" aria-labelledby="auth-status-title">
+          <div className="brand" aria-label="CapitalFlow">
+            <img className="brand-mark" src="/app-icon.png" alt="" aria-hidden="true" />
+            <span className="brand-text">
+              <span className="brand-name">CapitalFlow</span>
+              <span className="brand-note">Authentication status</span>
+            </span>
+          </div>
+          <header className="auth-header">
+            <h1 className="auth-title" id="auth-status-title">{title}</h1>
+            <p className="auth-description">{message}</p>
+          </header>
+          {action ? (
+            <button className="button button-primary" type="button" onClick={action.onClick}>
+              {action.label}
+            </button>
+          ) : null}
         </section>
       </PageTransition>
     </main>

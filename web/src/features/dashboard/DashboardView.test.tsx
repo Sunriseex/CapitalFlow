@@ -254,6 +254,32 @@ describe("DashboardView", () => {
     expect(await screen.findByText("Rate provider unavailable")).toBeInTheDocument();
   });
 
+  it("sorts rates by user balance currencies before alphabetical fallback", async () => {
+    mocks.dashboardSummary.mockResolvedValueOnce({
+      ...summary,
+      account_balances: [
+        { ...summary.account_balances[0], account_id: "usd-account", currency: "USD", name: "USD cash" },
+      ],
+    } satisfies DashboardSummary);
+    mocks.currencyRates.mockResolvedValueOnce({
+      base: "RUB",
+      date: "2026-05-19",
+      provider: "test",
+      rates: {
+        EUR: 0.01,
+        USD: 0.011,
+        AUD: 0.017,
+      },
+    });
+
+    renderDashboardView();
+
+    const ratesCard = (await screen.findByRole("heading", { name: "Rates" })).closest("article");
+    expect(ratesCard).not.toBeNull();
+    const labels = within(ratesCard as HTMLElement).getAllByText(/RUB\//).map((node) => node.textContent);
+    expect(labels).toEqual(["RUB/USD", "RUB/AUD", "RUB/EUR"]);
+  });
+
   it("opens account details from the keyboard-accessible allocation action", async () => {
     const user = userEvent.setup();
     const onOpenAccount = vi.fn<(id: string) => void>();

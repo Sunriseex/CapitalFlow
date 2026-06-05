@@ -45,7 +45,24 @@ export function DashboardView({
     staleTime: 1000 * 60 * 60,
   });
   const rateTable = rates.data?.base === selectedCurrency ? rates.data : undefined;
-  const rateEntries = rateTable ? Object.entries(rateTable.rates).slice(0, 5) : [];
+  const balanceCurrencies = useMemo(() => [...new Set(balances.map((account) => account.currency))], [balances]);
+  const rateEntries = useMemo(() => {
+    if (!rateTable) {
+      return [];
+    }
+
+    const priority = new Map(balanceCurrencies.map((currency, index) => [currency, index]));
+    return Object.entries(rateTable.rates)
+      .sort(([left], [right]) => {
+        const leftPriority = priority.get(left);
+        const rightPriority = priority.get(right);
+        if (leftPriority != null || rightPriority != null) {
+          return (leftPriority ?? Number.MAX_SAFE_INTEGER) - (rightPriority ?? Number.MAX_SAFE_INTEGER);
+        }
+        return left.localeCompare(right);
+      })
+      .slice(0, 5);
+  }, [balanceCurrencies, rateTable]);
   const portfolioValue = sumConverted(currencyTotals, selectedCurrency, rateTable);
   const portfolioValueNumber = useMemo(() => moneyToNumber(portfolioValue), [portfolioValue]);
   const conversionStatus = rates.error
@@ -178,7 +195,7 @@ export function DashboardView({
                       <CartesianGrid stroke="rgba(255,255,255,.08)" vertical={false} />
                       <XAxis dataKey="period" tickLine={false} axisLine={false} />
                       <YAxis tickLine={false} axisLine={false} tickFormatter={(value) => compactMoney(Number(value), selectedCurrency)} width={72} />
-                      <Tooltip formatter={(value, name) => [formatMoney(String(value), selectedCurrency), labelForSeries(String(name))]} labelFormatter={(label) => `Period ${label}`} />
+                      <Tooltip formatter={(value, name) => [formatChartMoney(Number(value), selectedCurrency), labelForSeries(String(name))]} labelFormatter={(label) => `Period ${label}`} />
                       <Line type="monotone" dataKey="income" stroke="var(--green)" strokeWidth={3} dot={false} activeDot={{ r: 4 }} />
                       <Line type="monotone" dataKey="expense" stroke="var(--red)" strokeWidth={3} dot={false} activeDot={{ r: 4 }} />
                       <Line type="monotone" dataKey="net" stroke="var(--blue)" strokeWidth={2} dot={false} strokeDasharray="5 5" />
@@ -198,9 +215,9 @@ export function DashboardView({
                       {cashflowChart.map((bucket) => (
                         <tr key={bucket.period}>
                           <td>{bucket.period}</td>
-                          <td>{formatMoney(String(bucket.income), selectedCurrency)}</td>
-                          <td>{formatMoney(String(bucket.expense), selectedCurrency)}</td>
-                          <td>{formatMoney(String(bucket.net), selectedCurrency)}</td>
+                          <td>{formatChartMoney(bucket.income, selectedCurrency)}</td>
+                          <td>{formatChartMoney(bucket.expense, selectedCurrency)}</td>
+                          <td>{formatChartMoney(bucket.net, selectedCurrency)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -372,6 +389,15 @@ function compactMoney(value: number, currency: string) {
   return `${value} ${currency}`;
 }
 
+function formatChartMoney(value: number, currency: string) {
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency,
+    currencyDisplay: "code",
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
 function labelForSeries(name: string) {
   return {
     income: "Income",
@@ -388,5 +414,5 @@ function describeCashflow(data: Array<{ period: string; income: number; expense:
   const totalIncome = data.reduce((sum, bucket) => sum + bucket.income, 0);
   const totalExpense = data.reduce((sum, bucket) => sum + bucket.expense, 0);
   const totalNet = data.reduce((sum, bucket) => sum + bucket.net, 0);
-  return `Cashflow chart covers ${data.length} periods. Income ${formatMoney(String(totalIncome), currency)}, expenses ${formatMoney(String(totalExpense), currency)}, net ${formatMoney(String(totalNet), currency)}.`;
+  return `Cashflow chart covers ${data.length} periods. Income ${formatChartMoney(totalIncome, currency)}, expenses ${formatChartMoney(totalExpense, currency)}, net ${formatChartMoney(totalNet, currency)}.`;
 }
