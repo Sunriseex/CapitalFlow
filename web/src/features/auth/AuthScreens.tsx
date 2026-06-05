@@ -112,7 +112,7 @@ export function LoginScreen({
             <div className="field">
               <div className="label-row">
                 <label htmlFor="password">Password</label>
-                <span className="helper-link" aria-label="Password reset unavailable">Password reset unavailable</span>
+                <span className="helper-text" aria-label="Password reset unavailable">Password reset unavailable</span>
               </div>
               <div className="password-control">
                 <input

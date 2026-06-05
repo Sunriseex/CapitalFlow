@@ -197,6 +197,23 @@ describe("DashboardView", () => {
     expect(screen.getByRole("table", { name: "Cashflow data" })).toBeInTheDocument();
   });
 
+  it("formats chart summaries for custom currencies such as USDT", async () => {
+    mocks.dashboardCashflow.mockResolvedValueOnce({
+      ...cashflow,
+      buckets: [
+        {
+          ...cashflow.buckets[0],
+          income: [{ currency: "USDT", amount: "1.25" }],
+          expense: [{ currency: "USDT", amount: "0.5" }],
+          net_cashflow: [{ currency: "USDT", amount: "0.75" }],
+        },
+      ],
+    } satisfies DashboardCashflow);
+    renderDashboardView({ primaryCurrency: "USDT" });
+
+    expect(await screen.findByText(/Cashflow chart covers 1 periods/)).toHaveTextContent("1,250000 USDT");
+  });
+
   it("keeps recent transaction rows static and uses a real view button", async () => {
     const onNavigate = vi.fn();
     mocks.dashboardSummary.mockResolvedValueOnce({

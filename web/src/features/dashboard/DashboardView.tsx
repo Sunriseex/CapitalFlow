@@ -390,12 +390,16 @@ function compactMoney(value: number, currency: string) {
 }
 
 function formatChartMoney(value: number, currency: string) {
-  return new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency,
-    currencyDisplay: "code",
-    maximumFractionDigits: 2,
-  }).format(value);
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency,
+      currencyDisplay: "code",
+      maximumFractionDigits: 2,
+    }).format(value);
+  } catch {
+    return formatMoney(value.toFixed(6), currency);
+  }
 }
 
 function labelForSeries(name: string) {
