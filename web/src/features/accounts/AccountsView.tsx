@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { formatMoney } from "../../api/money";
@@ -21,9 +21,19 @@ export function AccountsView({
   const [type, setType] = useState("");
   const summary = useQuery({ queryKey: ["dashboard", "summary"], queryFn: api.dashboardSummary });
   const rules = useQuery({ queryKey: ["interest-rules"], queryFn: () => api.interestRules() });
-  const balances = new Map((summary.data?.account_balances ?? []).map((account) => [account.account_id, account]));
-  const activeRules = activeRulesByAccount(rules.data ?? []);
-  const filtered = accounts.filter((account) => !type || account.type === type);
+  const balances = useMemo(
+    () => new Map((summary.data?.account_balances ?? []).map((account) => [account.account_id, account])),
+    [summary.data?.account_balances],
+  );
+  const activeRules = useMemo(() => activeRulesByAccount(rules.data ?? []), [rules.data]);
+  const filtered = useMemo(
+    () => accounts.filter((account) => !type || account.type === type),
+    [accounts, type],
+  );
+  const accountTypeOptions = useMemo(
+    () => accountTypes.map((accountType) => <option key={accountType}>{accountType}</option>),
+    [],
+  );
 
   return (
     <Panel
@@ -31,7 +41,7 @@ export function AccountsView({
       action={
         <Select value={type} onChange={(event) => setType(event.target.value)}>
           <option value="">All types</option>
-          {accountTypes.map((accountType) => <option key={accountType}>{accountType}</option>)}
+          {accountTypeOptions}
         </Select>
       }
     >
@@ -100,5 +110,4 @@ function localDateString(date: Date) {
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
-
 

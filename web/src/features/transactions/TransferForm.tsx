@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { convertAmount, formatMoney, isPositiveMoney, parseMoneyToMinorResult } from "../../api/money";
@@ -16,9 +16,22 @@ export function TransferForm({ accounts, onDone }: { accounts: Account[]; onDone
     fee_amount: "",
     description: "",
   });
-  const fromAccount = accounts.find((account) => account.id === form.from_account_id);
-  const toAccount = accounts.find((account) => account.id === form.to_account_id);
-  const previewAmount = parseMoneyToMinorResult(form.amount, { currency: fromAccount?.currency ?? "RUB" });
+  const fromAccount = useMemo(
+    () => accounts.find((account) => account.id === form.from_account_id),
+    [accounts, form.from_account_id],
+  );
+  const toAccount = useMemo(
+    () => accounts.find((account) => account.id === form.to_account_id),
+    [accounts, form.to_account_id],
+  );
+  const accountOptions = useMemo(
+    () => accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>),
+    [accounts],
+  );
+  const previewAmount = useMemo(
+    () => parseMoneyToMinorResult(form.amount, { currency: fromAccount?.currency ?? "RUB" }),
+    [form.amount, fromAccount?.currency],
+  );
   const amount = previewAmount.ok ? previewAmount.value : "0";
   const rates = useQuery({
     queryKey: ["currency-rates", fromAccount?.currency],
@@ -28,13 +41,16 @@ export function TransferForm({ accounts, onDone }: { accounts: Account[]; onDone
   });
   const needsConversion = Boolean(fromAccount && toAccount && fromAccount.currency !== toAccount.currency);
   const rate = toAccount?.currency ? rates.data?.rates[toAccount.currency] : undefined;
-  const convertedAmount = isPositiveMoney(amount) && rate ? convertAmount(amount, fromAccount?.currency ?? "RUB", toAccount?.currency ?? "RUB", {
-    base: toAccount?.currency ?? "RUB",
-    date: "",
-    provider: "",
-    fetched_at: "",
-    rates: { [fromAccount?.currency ?? "RUB"]: 1 / rate },
-  }) : "0";
+  const convertedAmount = useMemo(
+    () => isPositiveMoney(amount) && rate ? convertAmount(amount, fromAccount?.currency ?? "RUB", toAccount?.currency ?? "RUB", {
+      base: toAccount?.currency ?? "RUB",
+      date: "",
+      provider: "",
+      fetched_at: "",
+      rates: { [fromAccount?.currency ?? "RUB"]: 1 / rate },
+    }) : "0",
+    [amount, fromAccount?.currency, rate, toAccount?.currency],
+  );
   const cannotConvert = needsConversion && (!rate || rates.isLoading || Boolean(rates.error));
   const mutation = useMutation({
     mutationFn: () => {
@@ -64,8 +80,8 @@ export function TransferForm({ accounts, onDone }: { accounts: Account[]; onDone
 
   return (
     <FormShell title="Create transfer" error={error} onSubmit={() => mutation.mutate()}>
-      <Field label="From"><Select value={form.from_account_id} onChange={(event) => setForm({ ...form, from_account_id: event.target.value })}>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</Select></Field>
-      <Field label="To"><Select value={form.to_account_id} onChange={(event) => setForm({ ...form, to_account_id: event.target.value })}>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</Select></Field>
+      <Field label="From"><Select value={form.from_account_id} onChange={(event) => setForm({ ...form, from_account_id: event.target.value })}>{accountOptions}</Select></Field>
+      <Field label="To"><Select value={form.to_account_id} onChange={(event) => setForm({ ...form, to_account_id: event.target.value })}>{accountOptions}</Select></Field>
       <Field label="Amount"><Input required inputMode="decimal" value={form.amount} onChange={(event) => setForm({ ...form, amount: event.target.value })} /></Field>
       <Field label="Fee"><Input inputMode="decimal" value={form.fee_amount} onChange={(event) => setForm({ ...form, fee_amount: event.target.value })} /></Field>
       {needsConversion && fromAccount && toAccount ? (
@@ -85,5 +101,4 @@ export function TransferForm({ accounts, onDone }: { accounts: Account[]; onDone
     </FormShell>
   );
 }
-
 

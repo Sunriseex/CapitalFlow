@@ -219,10 +219,12 @@ h2 {
 
 .metric,
 .panel {
-  background: var(--surface-strong);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.024)),
+    var(--surface-strong);
   border: 1px solid var(--line);
-  border-radius: 8px;
-  box-shadow: var(--shadow-soft);
+  border-radius: var(--radius-lg, 14px);
+  box-shadow: var(--shadow);
 }
 
 .metric {
@@ -290,6 +292,7 @@ h2 {
 
 .panel {
   padding: 18px;
+  backdrop-filter: blur(14px);
 }
 
 .dashboard-main {
@@ -307,6 +310,14 @@ h2 {
   margin-bottom: 14px;
 }
 
+.panel-header h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
 .panel-actions {
   display: flex;
   flex-wrap: wrap;
@@ -316,31 +327,44 @@ h2 {
 
 .button,
 .icon-button {
-  border: 1px solid var(--line-strong);
-  background: linear-gradient(180deg, var(--surface-strong), var(--surface));
+  min-height: 44px;
+  border: 1px solid var(--line-2, var(--line-strong));
+  background: linear-gradient(180deg, rgba(255,255,255,.075), rgba(255,255,255,.03));
   color: var(--text);
-  border-radius: 8px;
+  border-radius: 999px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  transition: transform .16s ease, border-color .16s ease, background .16s ease, opacity .16s ease;
 }
 
 .button {
-  padding: 8px 13px;
-  font-weight: 650;
+  padding: 0 16px;
+  font-weight: 850;
 }
 
 .icon-button {
-  width: 38px;
-  height: 38px;
+  min-width: 44px;
+  width: 44px;
+  height: 44px;
 }
 
 .button:hover,
 .icon-button:hover {
-  background: var(--hover);
-  border-color: #91aaa0;
+  background: rgba(121, 168, 216, .12);
+  border-color: rgba(121, 168, 216, .35);
+  transform: translateY(-1px);
+}
+
+.button.primary-button,
+.button[type="submit"],
+.form-shell > .button:last-child {
+  color: #06101a;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--teal, var(--green)), var(--blue));
+  box-shadow: 0 12px 30px rgba(99, 184, 173, .18);
 }
 
 .icon-button:focus-visible,
@@ -359,21 +383,24 @@ nav button:focus-visible {
 .input {
   width: 100%;
   min-height: 44px;
-  border: 1px solid var(--line-strong);
-  border-radius: 8px;
-  padding: 8px 10px;
-  background: var(--surface-strong);
+  border: 1px solid var(--line-2, var(--line-strong));
+  border-radius: var(--radius-md, 12px);
+  padding: 0 12px;
+  background: rgba(255,255,255,.045);
   color: var(--text);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+  transition: border-color .16s ease, background .16s ease, box-shadow .16s ease;
 }
 
 .input:focus {
-  outline: 2px solid rgb(36 115 90 / 0.18);
-  border-color: #6b9988;
+  outline: 0;
+  border-color: rgba(99, 184, 173, .55);
+  box-shadow: 0 0 0 3px rgba(99, 184, 173, .18);
 }
 
 .field {
   display: grid;
-  gap: 5px;
+  gap: 7px;
 }
 
 .checkbox-field {
@@ -666,6 +693,10 @@ nav button:focus-visible {
 .table-wrap {
   width: 100%;
   overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg, 14px);
+  background: rgba(255,255,255,.025);
+  overscroll-behavior-inline: contain;
 }
 
 table {
@@ -675,15 +706,19 @@ table {
 }
 
 thead {
-  background: var(--thead);
+  background: rgba(255,255,255,.035);
 }
 
 th,
 td {
-  padding: 11px 10px;
+  padding: 12px 12px;
   border-bottom: 1px solid var(--line);
   text-align: left;
   white-space: nowrap;
+}
+
+tbody tr:last-child td {
+  border-bottom: 0;
 }
 
 th {
@@ -694,7 +729,7 @@ th {
 }
 
 tbody tr:hover {
-  background: var(--hover);
+  background: rgba(121, 168, 216, .075);
 }
 
 .table-action-button {
@@ -756,8 +791,15 @@ tbody tr:hover {
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 10px;
-  margin-bottom: 14px;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.filters {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg, 14px);
+  background: rgba(255,255,255,.025);
 }
 
 .summary-grid {
@@ -795,14 +837,17 @@ tbody tr:hover {
 
 .empty {
   color: var(--muted);
-  padding: 18px 0;
+  padding: 18px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-lg, 14px);
+  background: rgba(255,255,255,.025);
 }
 
 .modal-backdrop {
   position: fixed;
   inset: 0;
   background: var(--modal-backdrop);
-  backdrop-filter: blur(5px);
+  backdrop-filter: blur(10px);
   display: grid;
   place-items: center;
   padding: 18px;
@@ -810,12 +855,14 @@ tbody tr:hover {
 }
 
 .modal {
-  width: min(560px, 100%);
+  width: min(680px, 100%);
   max-height: calc(100vh - 36px);
   overflow: auto;
-  background: linear-gradient(180deg, rgba(16, 25, 36, .98), rgba(11, 18, 28, .98));
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.02)),
+    linear-gradient(180deg, rgba(16, 25, 36, .985), rgba(8, 14, 22, .985));
   color: var(--text);
-  border-radius: 18px;
+  border-radius: var(--radius-xl, 22px);
   border: 1px solid var(--line-2, var(--line));
   box-shadow: var(--shadow);
 }
@@ -830,7 +877,8 @@ tbody tr:hover {
 
 .modal-header h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: 1rem;
+  font-weight: 900;
 }
 
 .form {
@@ -839,19 +887,53 @@ tbody tr:hover {
   padding: 18px;
 }
 
+.form-shell {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.form-shell h2,
+.form-shell .error,
+.form-shell .success,
+.form-shell > .conversion-preview,
+.form-shell > .checkbox-field,
+.form-shell > .button {
+  grid-column: 1 / -1;
+}
+
+.form-shell h2 {
+  margin: 0 0 2px;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.modal .form-shell h2 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.compact-form {
+  padding: 0;
+}
+
 .error {
-  color: #7f1d1d;
-  background: #fbeaea;
-  border: 1px solid #f2c7c7;
-  border-radius: 8px;
+  color: var(--red);
+  background: rgba(239, 143, 145, .11);
+  border: 1px solid rgba(239, 143, 145, .28);
+  border-radius: var(--radius-md, 12px);
   padding: 10px;
 }
 
 .success {
-  color: #14532d;
-  background: #e8f7ee;
-  border: 1px solid #b8e4c8;
-  border-radius: 8px;
+  color: var(--green);
+  background: rgba(130, 214, 158, .11);
+  border: 1px solid rgba(130, 214, 158, .26);
+  border-radius: var(--radius-md, 12px);
   padding: 10px;
 }
 
@@ -860,7 +942,7 @@ tbody tr:hover {
 }
 
 .error-text {
-  color: #7f1d1d;
+  color: var(--red);
   font-size: 12px;
   font-weight: 650;
 }
@@ -872,14 +954,19 @@ tbody tr:hover {
 }
 
 .inline-form {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
   gap: 0.75rem;
   align-items: center;
 }
 
 .inline-form .input {
-  max-width: 320px;
+  max-width: none;
+}
+
+.settings-grid {
+  grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+  align-items: start;
 }
 
 .passkey-list {
@@ -893,8 +980,9 @@ tbody tr:hover {
   gap: 1rem;
   align-items: center;
   padding: 0.9rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg, 14px);
+  background: rgba(255,255,255,.025);
 }
 
 .passkey-main,
@@ -2518,7 +2606,13 @@ tbody tr:hover {
 
 @media (max-width: 900px) {
   .right-rail,
+  .settings-grid,
   .stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-shell,
+  .inline-form {
     grid-template-columns: 1fr;
   }
 
@@ -2601,6 +2695,7 @@ tbody tr:hover {
 
   .nav,
   .right-rail,
+  .settings-grid,
   .stat-grid {
     grid-template-columns: 1fr;
   }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import type { Profile } from "../../api/types";
@@ -16,7 +16,7 @@ export function SettingsView({ profile }: { profile?: Profile }) {
   const [saved, setSaved] = useState(false);
 
   const primaryCurrency = draftCurrency ?? profileCurrency;
-  const currencies = currencyOptions();
+  const currencies = useMemo(() => currencyOptions(), []);
 
   async function save() {
     if (!profile) {

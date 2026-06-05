@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ApiClientError, api } from "../../api/client";
 import { currencyOptions } from "../../shared/currencies";
@@ -14,6 +14,7 @@ export function AuthController({ onAuthenticated }: { onAuthenticated: () => voi
   const [error, setError] = useState<AuthScreenError>(null);
   const [passkeyError, setPasskeyError] = useState("");
   const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const currencies = useMemo(() => currencyOptions(), []);
 
   const isSetup = status.data?.setup_required === true;
   const passkeysSupported = browserSupportsPasskeys();
@@ -74,7 +75,7 @@ export function AuthController({ onAuthenticated }: { onAuthenticated: () => voi
         email={email}
         password={password}
         primaryCurrency={primaryCurrency}
-        currencyOptions={currencyOptions()}
+        currencyOptions={currencies}
         error={error}
         statusLoading={status.isLoading}
         onEmailChange={setEmail}

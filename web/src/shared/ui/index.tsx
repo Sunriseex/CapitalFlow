@@ -48,7 +48,7 @@ export function Empty({ children }: { children: ReactNode }) {
 
 export function FormShell({ title, error, onSubmit, children }: { title: string; error: string; onSubmit: () => void; children: ReactNode }) {
   return (
-    <form className="form" onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
+    <form className="form form-shell" onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
       <h2>{title}</h2>
       {error ? <div className="error">{error}</div> : null}
       {children}
@@ -142,4 +142,3 @@ const focusableSelector = [
   "textarea",
   '[tabindex]:not([tabindex="-1"])',
 ].join(",");
-
