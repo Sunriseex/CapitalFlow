@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DashboardCashflow, DashboardInterestIncome, DashboardSummary } from "../../api/types";
@@ -193,6 +193,36 @@ describe("DashboardView", () => {
     expect(await screen.findByText("2 monthly buckets from real transactions")).toBeInTheDocument();
     expect(mocks.dashboardCashflow).toHaveBeenCalled();
     expect(screen.getByLabelText("Income and expense chart")).toBeInTheDocument();
+    expect(screen.getByText(/Cashflow chart covers 2 periods/)).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "Cashflow data" })).toBeInTheDocument();
+  });
+
+  it("keeps recent transaction rows static and uses a real view button", async () => {
+    const onNavigate = vi.fn();
+    mocks.dashboardSummary.mockResolvedValueOnce({
+      ...summary,
+      recent_transactions: [
+        {
+          id: "tx-1",
+          account_id: "account-1",
+          type: "expense",
+          amount: "25.00",
+          category_id: null,
+          description: "Coffee",
+          occurred_at: "2026-05-19T00:00:00Z",
+          created_at: "2026-05-19T00:00:00Z",
+        },
+      ],
+      recent_transactions_returned: 1,
+    } satisfies DashboardSummary);
+    renderDashboardView({ onNavigate });
+
+    const table = await screen.findByRole("table", { name: "Recent transactions" });
+    const row = within(table).getByRole("row", { name: /Coffee/ });
+    expect(row).not.toHaveAttribute("tabindex");
+
+    await userEvent.click(within(row).getByRole("button", { name: "Open transaction details" }));
+    expect(onNavigate).toHaveBeenCalledWith("transactions");
   });
 
   it("switches dashboard currency and reloads conversion rates", async () => {
@@ -207,10 +237,10 @@ describe("DashboardView", () => {
 
     renderDashboardView();
 
-    await screen.findByRole("tab", { name: "USD" });
+    await screen.findByRole("button", { name: "USD" });
     expect(mocks.currencyRates).toHaveBeenCalledWith("RUB");
 
-    await user.click(screen.getByRole("tab", { name: "USD" }));
+    await user.click(screen.getByRole("button", { name: "USD" }));
 
     expect(await screen.findByText("Cashflow (USD)")).toBeInTheDocument();
     await waitFor(() => expect(mocks.currencyRates).toHaveBeenCalledWith("USD"));

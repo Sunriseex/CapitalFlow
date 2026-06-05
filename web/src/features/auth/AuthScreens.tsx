@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
+import zxcvbn from "zxcvbn";
 import type { CurrencyOption } from "../../shared/currencies";
 import { PageTransition } from "../../shared/ui";
 
@@ -44,6 +45,8 @@ export function LoginScreen({
   onPasskeySubmit,
 }: LoginScreenProps) {
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const emailError = error ? "Check the email address for this sign-in." : "";
+  const passwordError = error ? "Check the password for this sign-in." : "";
 
   return (
     <main className="auth-page auth-reference-page">
@@ -91,12 +94,12 @@ export function LoginScreen({
                 autoComplete="email"
                 placeholder="you@example.com"
                 required
-                aria-invalid={Boolean(error)}
-                aria-describedby="email-error"
+                aria-invalid={Boolean(emailError)}
+                aria-errormessage={emailError ? "email-error" : undefined}
                 value={email}
                 onChange={(event) => onEmailChange(event.target.value)}
               />
-              <p className="field-error" id="email-error" aria-live="polite"></p>
+              {emailError ? <p className="field-error" id="email-error" aria-live="polite">{emailError}</p> : null}
             </div>
 
             <div className="field">
@@ -113,8 +116,8 @@ export function LoginScreen({
                   autoComplete="current-password"
                   placeholder="Enter your password"
                   required
-                  aria-invalid={Boolean(error)}
-                  aria-describedby="password-error"
+                  aria-invalid={Boolean(passwordError)}
+                  aria-errormessage={passwordError ? "password-error" : undefined}
                   value={password}
                   onChange={(event) => onPasswordChange(event.target.value)}
                 />
@@ -129,7 +132,7 @@ export function LoginScreen({
                   <span aria-hidden="true">{passwordVisible ? "Hide" : "Show"}</span>
                 </button>
               </div>
-              <p className="field-error" id="password-error" aria-live="polite"></p>
+              {passwordError ? <p className="field-error" id="password-error" aria-live="polite">{passwordError}</p> : null}
             </div>
 
             <label className="checkbox-label" htmlFor="remember">
@@ -144,10 +147,6 @@ export function LoginScreen({
           </form>
 
           <p className="footer-text">First deployment? <a href="/setup">Run initial setup</a></p>
-          <p className="onboarding-note">
-            <strong>After the first sign-in</strong>, CapitalFlow will show a short product tour for accounts,
-            transactions, transfers, and analytics.
-          </p>
         </section>
       </PageTransition>
     </main>
@@ -170,22 +169,32 @@ export function InitialSetupScreen({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
+  const [confirmTouched, setConfirmTouched] = useState(false);
+  const [setupConfirmed, setSetupConfirmed] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const strength = useMemo(() => passwordStrength(password), [password]);
-  const passwordError = passwordTouched && password && strength.score < 2 ? "Use a stronger password." : "";
-  const confirmError = confirmPassword && confirmPassword !== password ? "Passwords do not match." : "";
+  const emailError = error ? "Check the owner email and try setup again." : "";
+  const passwordError = passwordTouched && strength.score < 3 ? "Use a stronger password. Password score must be at least 3 of 4." : "";
+  const confirmError = (confirmTouched || confirmPassword) && confirmPassword !== password ? "Passwords do not match." : "";
+  const setupConfirmError = submitError === "Please confirm the owner account requirement." ? submitError : "";
 
   function submitSetup(event: FormEvent) {
     event.preventDefault();
     setPasswordTouched(true);
+    setConfirmTouched(true);
 
-    if (strength.score < 2) {
-      setSubmitError("Use a stronger password before creating the account.");
+    if (strength.score < 3) {
+      setSubmitError("Use a stronger password. Password score must be at least 3 of 4.");
       return;
     }
 
     if (confirmPassword !== password) {
       setSubmitError("Password confirmation does not match.");
+      return;
+    }
+
+    if (!setupConfirmed) {
+      setSubmitError("Please confirm the owner account requirement.");
       return;
     }
 
@@ -226,7 +235,6 @@ export function InitialSetupScreen({
             <div className="field">
               <label htmlFor="owner-name">Owner name</label>
               <input className="input" id="owner-name" name="ownerName" type="text" autoComplete="name" placeholder="Denis" />
-              <p className="field-error" id="owner-name-error" aria-live="polite"></p>
             </div>
 
             <div className="field">
@@ -239,12 +247,12 @@ export function InitialSetupScreen({
                 autoComplete="email"
                 placeholder="you@example.com"
                 required
-                aria-invalid={Boolean(error)}
-                aria-describedby="owner-email-error"
+                aria-invalid={Boolean(emailError)}
+                aria-errormessage={emailError ? "owner-email-error" : undefined}
                 value={email}
                 onChange={(event) => onEmailChange(event.target.value)}
               />
-              <p className="field-error" id="owner-email-error" aria-live="polite"></p>
+              {emailError ? <p className="field-error" id="owner-email-error" aria-live="polite">{emailError}</p> : null}
             </div>
 
             <div className="field">
@@ -258,8 +266,9 @@ export function InitialSetupScreen({
                   autoComplete="new-password"
                   placeholder="Use a strong passphrase"
                   required
-                  aria-invalid={Boolean(error)}
-                  aria-describedby="owner-password-error password-strength-feedback"
+                  aria-invalid={Boolean(passwordError)}
+                  aria-describedby="password-strength-feedback"
+                  aria-errormessage={passwordError ? "owner-password-error" : undefined}
                   value={password}
                   onBlur={() => setPasswordTouched(true)}
                   onChange={(event) => {
@@ -305,7 +314,7 @@ export function InitialSetupScreen({
                 </p>
               </div>
 
-              <p className="field-error" id="owner-password-error" aria-live="polite">{passwordError}</p>
+              {passwordError ? <p className="field-error" id="owner-password-error" aria-live="polite">{passwordError}</p> : null}
             </div>
 
             <div className="field">
@@ -318,9 +327,10 @@ export function InitialSetupScreen({
                   type={confirmPasswordVisible ? "text" : "password"}
                   autoComplete="new-password"
                   placeholder="Repeat the same password"
-                  aria-describedby="owner-password-confirm-error"
                   aria-invalid={Boolean(confirmError)}
+                  aria-errormessage={confirmError ? "owner-password-confirm-error" : undefined}
                   value={confirmPassword}
+                  onBlur={() => setConfirmTouched(true)}
                   onChange={(event) => {
                     setSubmitError("");
                     setConfirmPassword(event.target.value);
@@ -338,7 +348,7 @@ export function InitialSetupScreen({
                   <span aria-hidden="true">{confirmPasswordVisible ? "Hide" : "Show"}</span>
                 </button>
               </div>
-              <p className="field-error" id="owner-password-confirm-error" aria-live="polite">{confirmError}</p>
+              {confirmError ? <p className="field-error" id="owner-password-confirm-error" aria-live="polite">{confirmError}</p> : null}
             </div>
 
             <div className="field">
@@ -359,10 +369,23 @@ export function InitialSetupScreen({
             </div>
 
             <label className="confirm-label" htmlFor="setup-confirm">
-              <input className="checkbox" id="setup-confirm" name="setupConfirm" type="checkbox" />
+              <input
+                className="checkbox"
+                id="setup-confirm"
+                name="setupConfirm"
+                type="checkbox"
+                required
+                checked={setupConfirmed}
+                aria-invalid={Boolean(setupConfirmError)}
+                aria-errormessage={setupConfirmError ? "setup-confirm-error" : undefined}
+                onChange={(event) => {
+                  setSubmitError("");
+                  setSetupConfirmed(event.target.checked);
+                }}
+              />
               I understand that this account becomes the service owner and that registration must be closed after setup.
             </label>
-            <p className="field-error" id="setup-confirm-error" aria-live="polite"></p>
+            {setupConfirmError ? <p className="field-error" id="setup-confirm-error" aria-live="polite">{setupConfirmError}</p> : null}
 
             {submitError ? <p className="form-status" id="form-status" role="status" aria-live="polite">{submitError}</p> : null}
             {error ? <p className="form-status" id="form-status-api" role="status" aria-live="polite">{error}</p> : null}
@@ -387,26 +410,19 @@ function submit(onSubmit: () => void) {
 
 function passwordStrength(password: string) {
   if (!password) {
-    return { score: 0, percent: 0, label: "Not checked", feedback: "" };
+    return { score: 0, label: "Not checked", feedback: "Use a memorable passphrase. Score 3 of 4 is required." };
   }
 
-  const checks = [
-    password.length >= 8,
-    /[A-Z]/.test(password),
-    /[a-z]/.test(password),
-    /\d/.test(password),
-    /[^A-Za-z0-9]/.test(password),
-  ];
-  const score = Math.min(4, checks.filter(Boolean).length);
+  const result = zxcvbn(password);
+  const score = result.score;
   const labels = ["Weak", "Weak", "Fair", "Good", "Strong"];
-  const feedback =
-    score >= 3
-      ? "Good enough for setup."
-      : "Use 8+ characters with upper, lower, number, and symbol.";
+  const suggestion = result.feedback.suggestions[0] || result.feedback.warning;
+  const feedback = score >= 3
+    ? "Acceptable for setup."
+    : suggestion || "Use a longer, less common passphrase. Score 3 of 4 is required.";
 
   return {
     score,
-    percent: Math.max(18, score * 25),
     label: labels[score],
     feedback,
   };

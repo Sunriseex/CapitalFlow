@@ -139,7 +139,7 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
   await page.getByLabel("Password", { exact: true }).fill("password");
   await page.getByRole("button", { name: "Sign in with email" }).click();
   await expect(page.getByRole("heading", { name: "Overview" }).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "Open command palette" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open command menu" })).toBeVisible();
 
   await page.getByRole("button", { name: "Switch to dark theme" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");

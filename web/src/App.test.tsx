@@ -163,18 +163,30 @@ describe("App auth screens", () => {
     await user.type(screen.getByLabelText("Confirm password"), "abc");
     await user.click(screen.getByRole("button", { name: "Create owner account" }));
 
-    expect(await screen.findByText("Use a stronger password before creating the account.")).toBeInTheDocument();
+    expect(await screen.findAllByText("Use a stronger password. Password score must be at least 3 of 4.")).toHaveLength(2);
     expect(mocks.setup).not.toHaveBeenCalled();
 
     await user.clear(screen.getByLabelText("Password"));
-    await user.type(screen.getByLabelText("Password"), "Password1!");
+    await user.type(screen.getByLabelText("Password"), "correct horse battery staple 2026!");
     await user.clear(screen.getByLabelText("Confirm password"));
-    await user.type(screen.getByLabelText("Confirm password"), "Password2!");
+    await user.type(screen.getByLabelText("Confirm password"), "different horse battery staple 2026!");
     await user.click(screen.getByRole("button", { name: "Create owner account" }));
 
     expect(await screen.findByText("Password confirmation does not match.")).toBeInTheDocument();
     expect(mocks.setup).not.toHaveBeenCalled();
     expect(screen.getByRole("meter", { name: "Password strength score" })).toHaveAttribute("aria-valuetext", "Strong");
+
+    await user.clear(screen.getByLabelText("Confirm password"));
+    await user.type(screen.getByLabelText("Confirm password"), "correct horse battery staple 2026!");
+    await user.click(screen.getByRole("button", { name: "Create owner account" }));
+
+    expect(await screen.findAllByText("Please confirm the owner account requirement.")).toHaveLength(2);
+    expect(mocks.setup).not.toHaveBeenCalled();
+
+    await user.click(screen.getByLabelText(/I understand that this account becomes the service owner/));
+    await user.click(screen.getByRole("button", { name: "Create owner account" }));
+
+    await waitFor(() => expect(mocks.setup).toHaveBeenCalled());
   });
 
   it("toggles setup password fields visibility", async () => {
@@ -304,7 +316,7 @@ describe("App query states", () => {
     const user = userEvent.setup();
     renderApp();
 
-    await user.click(await screen.findByRole("button", { name: "Open command palette" }));
+    await user.click(await screen.findByRole("button", { name: "Open command menu" }));
     await user.click(within(await screen.findByRole("dialog", { name: "Command menu" })).getByRole("button", { name: "Transactions" }));
     expect(window.location.pathname).toBe("/transactions");
 
