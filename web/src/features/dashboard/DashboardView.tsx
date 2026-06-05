@@ -1,29 +1,30 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Area,
-  Bar,
-  CartesianGrid,
-  ComposedChart,
-  Legend,
-  Line,
-  LineChart,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "../../api/client";
-import { addMoney, compareMoney, convertMinor, formatMoney, moneyToNumber, sumConverted } from "../../api/money";
-import type { Account } from "../../api/types";
+import { addMoney, compareMoney, convertMinor, formatMoney, moneyToNumber, sumConverted, transactionTypeLabel } from "../../api/money";
+import type { Account, Transaction } from "../../api/types";
 import { errorMessage } from "../../shared/api/query";
-import { Empty, Panel } from "../../shared/ui";
+import type { QuickAction, View } from "../../shared/constants";
+import { Empty } from "../../shared/ui";
 import { ChartShell } from "../../shared/ui/ChartShell";
-import { TransactionsTable } from "../transactions/TransactionsTable";
 
-export function DashboardView({ primaryCurrency, onOpenAccount }: { primaryCurrency: string; onOpenAccount: (id: string) => void }) {
+export function DashboardView({
+  primaryCurrency,
+  onOpenAccount,
+  onQuickAction,
+  onNavigate,
+  quickActionsDisabled = false,
+}: {
+  primaryCurrency: string;
+  onOpenAccount: (id: string) => void;
+  onQuickAction?: (action: NonNullable<QuickAction>) => void;
+  onNavigate?: (view: View) => void;
+  quickActionsDisabled?: boolean;
+}) {
   const summary = useQuery({ queryKey: ["dashboard", "summary"], queryFn: api.dashboardSummary });
   const cashflow = useQuery({ queryKey: ["dashboard", "cashflow"], queryFn: api.dashboardCashflow });
-  const interest = useQuery({ queryKey: ["dashboard", "interest"], queryFn: api.dashboardInterestIncome });
+  const interestIncome = useQuery({ queryKey: ["dashboard", "interest-income"], queryFn: api.dashboardInterestIncome });
   const [selectedCurrency, setSelectedCurrency] = useState(primaryCurrency);
   const data = summary.data;
 
@@ -51,18 +52,6 @@ export function DashboardView({ primaryCurrency, onOpenAccount }: { primaryCurre
     : rateTable
       ? `${rateTable.provider}, ${rateTable.date}`
       : "Loading rates";
-
-  const chartData = (cashflow.data?.buckets ?? []).map((bucket) => ({
-    period: bucket.period,
-    income: moneyToNumber(sumConverted(bucket.income, selectedCurrency, rateTable)),
-    expense: moneyToNumber(sumConverted(bucket.expense, selectedCurrency, rateTable)),
-    net: moneyToNumber(sumConverted(bucket.net_cashflow, selectedCurrency, rateTable)),
-  }));
-
-  const interestData = (interest.data?.buckets ?? []).map((bucket) => ({
-    period: bucket.period,
-    interest: moneyToNumber(sumConverted(bucket.interest_income, selectedCurrency, rateTable)),
-  }));
 
   const allocation = balances
     .filter((account) => compareMoney(account.balance, "0") > 0)
@@ -92,6 +81,14 @@ export function DashboardView({ primaryCurrency, onOpenAccount }: { primaryCurre
     created_at: "",
     updated_at: "",
   }));
+  const cashflowChart = (cashflow.data?.buckets ?? []).map((bucket) => ({
+    period: shortPeriod(bucket.period),
+    income: moneyToNumber(sumConverted(bucket.income, selectedCurrency, rateTable)),
+    expense: moneyToNumber(sumConverted(bucket.expense, selectedCurrency, rateTable)),
+    net: moneyToNumber(sumConverted(bucket.net_cashflow, selectedCurrency, rateTable)),
+    transactions: bucket.transaction_count,
+  }));
+  const totalInterest = sumConverted(interestIncome.data?.total, selectedCurrency, rateTable);
 
   if (summary.isLoading) {
     return <Empty>Loading dashboard</Empty>;
@@ -102,259 +99,245 @@ export function DashboardView({ primaryCurrency, onOpenAccount }: { primaryCurre
   }
 
   return (
-    <div className="grid">
-      <section className="portfolio-hero">
-        <div>
-          <p className="eyebrow">Portfolio value</p>
-          <div className="hero-totals">
-            <strong>{formatMoney(portfolioValue, selectedCurrency)}</strong>
-          </div>
-          <span>
-            {data?.active_accounts_count ?? "0"} active accounts across {currencies.length || 1} currency
-          </span>
-        </div>
+    <div className="ref-dashboard">
+      <div className="layout">
+        <div className="content">
+          <section className="tab-panel" id="overview" aria-labelledby="pageTitle">
+            <article className="card balance-card">
+              <div className="balance-top">
+                <div className="balance-title">
+                  <span>Total capital</span>
+                  <div className="balance-value">{formatMoney(portfolioValue, selectedCurrency)}</div>
+                </div>
+                <span className="pill">Live ledger</span>
+              </div>
 
-        <div className={compareMoney(monthlyNet, "0") < 0 ? "hero-delta negative" : "hero-delta"}>
-          <span>Net this month</span>
-          <strong>{formatMoney(monthlyNet, selectedCurrency)}</strong>
-        </div>
-      </section>
-
-      <div className="currency-tabs" role="tablist" aria-label="Dashboard currency">
-        {currencies.map((currency) => (
-          <button
-            key={currency}
-            className={currency === selectedCurrency ? "active" : ""}
-            onClick={() => setSelectedCurrency(currency)}
-          >
-            {currency}
-          </button>
-        ))}
-      </div>
-
-      <div className="metric-strip">
-        <div className="metric primary-metric">
-          <span>Main currency</span>
-          <strong>{selectedCurrency}</strong>
-          <small>{conversionStatus}</small>
-        </div>
-
-        {currencyTotals.map((amount) => (
-          <div className="metric" key={amount.currency}>
-            <span>Total {amount.currency}</span>
-            <strong>{formatMoney(amount.amount, amount.currency)}</strong>
-            {amount.currency !== selectedCurrency ? (
-              <small>{formatMoney(convertMinor(amount.amount, amount.currency, selectedCurrency, rateTable), selectedCurrency)}</small>
-            ) : null}
-          </div>
-        ))}
-
-        <div className="metric">
-          <span>Accounts</span>
-          <strong>
-            {data?.active_accounts_count ?? "0"}/{data?.accounts_count ?? "0"}
-          </strong>
-        </div>
-
-        <div className="metric">
-          <span>Income this month</span>
-          <strong>{formatMoney(sumConverted(data?.monthly_income, selectedCurrency, rateTable), selectedCurrency)}</strong>
-        </div>
-
-        <div className="metric">
-          <span>Expense this month</span>
-          <strong>{formatMoney(sumConverted(data?.monthly_expense, selectedCurrency, rateTable), selectedCurrency)}</strong>
-        </div>
-
-        <div className="metric">
-          <span>Interest this month</span>
-          <strong>{formatMoney(sumConverted(data?.monthly_interest_income, selectedCurrency, rateTable), selectedCurrency)}</strong>
-        </div>
-      </div>
-
-      <div className="dashboard-main">
-        <Panel title={`Cashflow trend (${selectedCurrency})`}>
-          <ChartShell size="large">
-            <ComposedChart data={chartData} margin={{ top: 8, right: 18, bottom: 0, left: 0 }}>
-              <defs>
-                <linearGradient id="netFlow" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#315f8d" stopOpacity={0.22} />
-                  <stop offset="95%" stopColor="#315f8d" stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
-
-              <CartesianGrid stroke="var(--chart-grid)" vertical={false} />
-              <XAxis dataKey="period" axisLine={false} tickLine={false} />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                width={70}
-                tickFormatter={(value) => formatCompactMoney(Number(value))}
-              />
-              <Tooltip formatter={(value) => formatMoney(String(value), selectedCurrency)} />
-              <Legend />
-
-              <Area
-                type="monotone"
-                dataKey="net"
-                name="Net"
-                stroke="#315f8d"
-                fill="url(#netFlow)"
-                strokeWidth={2}
-              />
-              <Bar dataKey="income" name="Income" fill="#24735a" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="expense" name="Expense" fill="#a23b3b" radius={[4, 4, 0, 0]} />
-              <Line
-                type="monotone"
-                dataKey="net"
-                name="Net line"
-                stroke="#1f2937"
-                strokeWidth={2}
-                dot={false}
-              />
-            </ComposedChart>
-          </ChartShell>
-        </Panel>
-
-        <Panel title="Allocation">
-          <div className="allocation-list">
-            {allocation.map((account) => (
-              <button
-                className="allocation-row"
-                key={account.account_id}
-                onClick={() => onOpenAccount(account.account_id)}
-              >
-                <span>
-                  <strong>{account.name}</strong>
-                  <small>{account.bank || account.type}</small>
+              <div className="balance-meta">
+                <span className={compareMoney(monthlyNet, "0") < 0 ? "delta-down" : "delta-up"}>
+                  {formatMoney(monthlyNet, selectedCurrency)} this month
                 </span>
+                <span>{data?.active_accounts_count ?? "0"} active accounts across {currencies.length || 1} currency</span>
+                <span>{conversionStatus}</span>
+              </div>
 
-                <span className="allocation-value">
-                  {formatMoney(account.balance, account.currency)}
-                </span>
-                {account.currency !== selectedCurrency ? (
-                  <small className="allocation-converted">
-                    {formatMoney(account.converted_balance, selectedCurrency)}
-                  </small>
-                ) : null}
+              <div className="balance-actions" aria-label="Quick actions">
+                <button className="btn primary" type="button" disabled={quickActionsDisabled} onClick={() => onQuickAction?.("transaction")}>
+                  + Transaction
+                </button>
+                <button className="btn" type="button" disabled={quickActionsDisabled} onClick={() => onQuickAction?.("transfer")}>
+                  + Transfer
+                </button>
+                <button className="btn" type="button" onClick={() => onQuickAction?.("import")}>Import</button>
+              </div>
 
-                <span className="allocation-bar">
-                  <i style={{ width: `${account.share}%` }} />
-                </span>
+              <div className="stat-grid">
+                <div className="stat"><span>Main currency</span><strong>{selectedCurrency}</strong></div>
+                <div className="stat"><span>Income</span><strong>{formatMoney(sumConverted(data?.monthly_income, selectedCurrency, rateTable), selectedCurrency)}</strong></div>
+                <div className="stat"><span>Expenses</span><strong>{formatMoney(sumConverted(data?.monthly_expense, selectedCurrency, rateTable), selectedCurrency)}</strong></div>
+              </div>
+            </article>
 
-                <em>{account.share}%</em>
-              </button>
-            ))}
+            <article className="card chart-card">
+              <div className="card-head">
+                <div className="card-title">
+                  <h2>Cashflow ({selectedCurrency})</h2>
+                  <p>{cashflow.isLoading ? "Loading ledger buckets" : `${cashflowChart.length} monthly buckets from real transactions`}</p>
+                </div>
+                <div>
+                  <div className="period-switcher" role="tablist" aria-label="Dashboard currency">
+                    {currencies.map((currency) => (
+                      <button
+                        key={currency}
+                        className={currency === selectedCurrency ? "period-btn is-active" : "period-btn"}
+                        type="button"
+                        role="tab"
+                        aria-selected={currency === selectedCurrency}
+                        aria-pressed={currency === selectedCurrency}
+                        onClick={() => setSelectedCurrency(currency)}
+                      >
+                        {currency}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="period-label">Month · current ledger</div>
+                </div>
+              </div>
 
-            {!allocation.length ? <Empty>No positive balances</Empty> : null}
-          </div>
-        </Panel>
-      </div>
+              {cashflow.error ? <div className="empty-state"><strong>{errorMessage(cashflow.error)}</strong><span>Cashflow chart could not be loaded.</span></div> : null}
+              {!cashflow.error && !cashflow.isLoading && !cashflowChart.length ? (
+                <div className="empty-state"><strong>No cashflow yet</strong><span>Add income or expenses to build this chart.</span></div>
+              ) : null}
+              {!cashflow.error && cashflowChart.length ? (
+                <div className="chart-wrap" aria-label="Income and expense chart">
+                  <ChartShell>
+                    <LineChart data={cashflowChart} margin={{ top: 14, right: 18, bottom: 6, left: 0 }}>
+                      <CartesianGrid stroke="rgba(255,255,255,.08)" vertical={false} />
+                      <XAxis dataKey="period" tickLine={false} axisLine={false} />
+                      <YAxis tickLine={false} axisLine={false} tickFormatter={(value) => compactMoney(Number(value), selectedCurrency)} width={72} />
+                      <Tooltip formatter={(value, name) => [formatMoney(String(value), selectedCurrency), labelForSeries(String(name))]} labelFormatter={(label) => `Period ${label}`} />
+                      <Line type="monotone" dataKey="income" stroke="var(--green)" strokeWidth={3} dot={false} activeDot={{ r: 4 }} />
+                      <Line type="monotone" dataKey="expense" stroke="var(--red)" strokeWidth={3} dot={false} activeDot={{ r: 4 }} />
+                      <Line type="monotone" dataKey="net" stroke="var(--blue)" strokeWidth={2} dot={false} strokeDasharray="5 5" />
+                    </LineChart>
+                  </ChartShell>
+                </div>
+              ) : null}
 
-      <Panel title={`Cashflow (${selectedCurrency})`}>
-        <ChartShell>
-          <ComposedChart data={chartData} margin={{ top: 8, right: 14, bottom: 0, left: 0 }}>
-            <CartesianGrid stroke="var(--chart-grid)" vertical={false} />
-            <XAxis dataKey="period" axisLine={false} tickLine={false} />
-            <YAxis
-              axisLine={false}
-              tickLine={false}
-              width={70}
-              tickFormatter={(value) => formatCompactMoney(Number(value))}
-            />
-            <Tooltip formatter={(value) => formatMoney(String(value), selectedCurrency)} />
-            <Bar dataKey="income" fill="#24735a" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="expense" fill="#a23b3b" radius={[4, 4, 0, 0]} />
-          </ComposedChart>
-        </ChartShell>
-      </Panel>
+              <div className="legend">
+                <span className="legend-item"><span className="legend-mark income"></span>Income · {formatMoney(sumConverted(data?.monthly_income, selectedCurrency, rateTable), selectedCurrency)}</span>
+                <span className="legend-item"><span className="legend-mark expense"></span>Expenses · {formatMoney(sumConverted(data?.monthly_expense, selectedCurrency, rateTable), selectedCurrency)}</span>
+                <span className="legend-item"><span className="legend-mark net"></span>Net cashflow</span>
+                <span className="legend-item">Interest · {formatMoney(totalInterest, selectedCurrency)}</span>
+              </div>
+            </article>
 
-      <Panel title={`Interest income (${selectedCurrency})`}>
-        <ChartShell>
-          <LineChart data={interestData} margin={{ top: 8, right: 14, bottom: 0, left: 0 }}>
-            <CartesianGrid stroke="var(--chart-grid)" vertical={false} />
-            <XAxis dataKey="period" axisLine={false} tickLine={false} />
-            <YAxis
-              axisLine={false}
-              tickLine={false}
-              width={70}
-              tickFormatter={(value) => formatCompactMoney(Number(value))}
-            />
-            <Tooltip formatter={(value) => formatMoney(String(value), selectedCurrency)} />
-            <Line
-              type="monotone"
-              dataKey="interest"
-              stroke="#8a6f2a"
-              strokeWidth={3}
-              dot={{ r: 3 }}
-              activeDot={{ r: 5 }}
-            />
-          </LineChart>
-        </ChartShell>
-      </Panel>
+            <article className="card">
+              <div className="card-head">
+                <div className="card-title">
+                  <h2>Recent transactions</h2>
+                  <p>Last 5 transactions without dashboard overload</p>
+                </div>
+                <button className="btn" type="button" onClick={() => onNavigate?.("transactions")}>All transactions</button>
+              </div>
+              <RecentTransactionsTable accounts={recentAccounts} transactions={data?.recent_transactions ?? []} onNavigate={onNavigate} />
+            </article>
 
-      <Panel title="Account balances">
-        <div className="table-wrap">
-          <table>
-            <tbody>
-              {balances.map((account) => (
-                <tr key={account.account_id}
-                className="clickable-row"
-                onClick={() => onOpenAccount(account.account_id)}
-                > 
-                  <td>
-                    <button
-                      type="button"
-                      className="table-action-button"
-                      onClick={(event) => {
-                      event.stopPropagation();
-                       onOpenAccount(account.account_id);
-                      }}
-                      aria-label={`Open ${account.name} account`}
-                    >
-                      {account.name}
-                    </button>
-                  </td>
-                  <td>{account.bank || "-"}</td>
-                  <td>{account.type}</td>
-                  <td className="amount stacked-amount">
-                    <strong>{formatMoney(account.balance, account.currency)}</strong>
-                    {account.currency !== selectedCurrency ? (
-                      <small>
-                        {formatMoney(
-                          convertMinor(account.balance, account.currency, selectedCurrency, rateTable),
-                          selectedCurrency,
-                        )}
-                      </small>
-                    ) : null}
-                  </td>
-                </tr>
+          </section>
+        </div>
+
+        <aside className="right-rail" aria-label="Right rail summary">
+          <article className="card rail-card">
+            <div className="card-head">
+              <div className="card-title">
+                <h2>Upcoming</h2>
+                <p>Current month status</p>
+              </div>
+              <button className="btn" type="button" onClick={() => onNavigate?.("transactions")}>Open ledger</button>
+            </div>
+            <div className="list">
+              <div className="row"><div className="row-main"><strong>Monthly net</strong><span>{formatMoney(monthlyNet, selectedCurrency)}</span></div><span className="tag info">Now</span></div>
+              <div className="row"><div className="row-main"><strong>Accounts</strong><span>{data?.active_accounts_count ?? "0"} active</span></div><span className="tag good">OK</span></div>
+            </div>
+          </article>
+
+          <article className="card rail-card">
+            <div className="card-head">
+              <div className="card-title">
+                <h2>Rates</h2>
+                <p>Display conversion</p>
+              </div>
+              <button className="btn" type="button" onClick={() => onNavigate?.("settings")}>Settings</button>
+            </div>
+            <div className="list">
+              {currencyTotals.map((amount) => (
+                <div className="row" key={amount.currency}>
+                  <div className="row-main"><strong>{amount.currency}/{selectedCurrency}</strong><span>Display rate</span></div>
+                  <span className="row-side">{formatMoney(amount.amount, amount.currency)}</span>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
-      </Panel>
+            </div>
+          </article>
 
-      <Panel title="Recent transactions">
-        <TransactionsTable transactions={data?.recent_transactions ?? []} accounts={recentAccounts} categories={[]} compact />
-      </Panel>
+          <article className="card rail-card">
+            <div className="card-head">
+              <div className="card-title">
+                <h2>Allocation</h2>
+                <p>Top positive balances</p>
+              </div>
+              <span className="pill">{allocation.length}</span>
+            </div>
+            <div className="list">
+              {allocation.map((account) => (
+                <button className="review-action-row" type="button" key={account.account_id} onClick={() => onOpenAccount(account.account_id)}>
+                  <div><strong>{account.name}</strong><span>{formatMoney(account.balance, account.currency)}</span></div>
+                  <span className="tag info">{account.share}%</span>
+                </button>
+              ))}
+              {!allocation.length ? <div className="empty-state"><strong>No positive balances</strong><span>Add accounts with positive balances to see allocation.</span></div> : null}
+            </div>
+          </article>
+        </aside>
+      </div>
     </div>
   );
 }
 
-function formatCompactMoney(value: number) {
-  const abs = Math.abs(value);
-
-  if (abs >= 1_000_000) {
-    return `${Math.round(value / 1_000_000)}M`;
+function RecentTransactionsTable({ accounts, transactions, onNavigate }: { accounts: Account[]; transactions: Transaction[]; onNavigate?: (view: View) => void }) {
+  if (!transactions.length) {
+    return <div className="empty-state"><strong>No transactions</strong><span>Add the first transaction or import a bank statement.</span></div>;
   }
 
-  if (abs >= 1_000) {
-    return `${Math.round(value / 1_000)}K`;
-  }
+  const accountNames = new Map(accounts.map((account) => [account.id, account.name]));
+  const accountCurrencies = new Map(accounts.map((account) => [account.id, account.currency]));
 
-  return `${value}`;
+  return (
+    <div className="table-scroll">
+      <table className="tx-table" aria-label="Recent transactions">
+        <colgroup>
+          <col className="col-operation" />
+          <col className="col-account" />
+          <col className="col-category" />
+          <col className="col-amount" />
+          <col className="col-view" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th scope="col">Operation</th>
+            <th scope="col">Account</th>
+            <th scope="col">Category</th>
+            <th scope="col">Amount</th>
+            <th scope="col">View</th>
+          </tr>
+        </thead>
+        <tbody>
+          {transactions.slice(0, 5).map((transaction) => {
+            const negative = transaction.type === "expense" || transaction.type === "transfer_out";
+            const sign = negative ? "-" : "+";
+            return (
+              <tr
+                className="tx"
+                key={transaction.id}
+                tabIndex={0}
+                aria-label={`Open transactions: ${transaction.description || transaction.type}`}
+                onClick={() => onNavigate?.("transactions")}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onNavigate?.("transactions");
+                  }
+                }}
+              >
+                <td data-label="Operation"><strong>{transaction.description || transaction.type}</strong><small>{transactionTypeLabel(transaction.type)} · ledger event</small></td>
+                <td data-label="Account">{accountNames.get(transaction.account_id) ?? transaction.account_id}</td>
+                <td data-label="Category">{transaction.category_id ?? "—"}</td>
+                <td data-label="Amount" className={negative ? "delta-down" : "delta-up"}>
+                  {sign}{formatMoney(transaction.amount, accountCurrencies.get(transaction.account_id) ?? "")}
+                </td>
+                <td data-label="View"><span className="view-cell">View →</span></td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
+function shortPeriod(period: string) {
+  const [, month] = period.split("-");
+  return month ? `${month}/${period.slice(2, 4)}` : period;
+}
 
+function compactMoney(value: number, currency: string) {
+  if (Math.abs(value) >= 1000000) return `${Math.round(value / 1000000)}M ${currency}`;
+  if (Math.abs(value) >= 1000) return `${Math.round(value / 1000)}K ${currency}`;
+  return `${value} ${currency}`;
+}
 
+function labelForSeries(name: string) {
+  return {
+    income: "Income",
+    expense: "Expenses",
+    net: "Net cashflow",
+  }[name] ?? name;
+}

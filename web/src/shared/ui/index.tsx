@@ -1,6 +1,9 @@
 import { useEffect, useId, useRef } from "react";
 import type { ButtonHTMLAttributes, InputHTMLAttributes, KeyboardEvent, ReactNode, SelectHTMLAttributes } from "react";
 import { X } from "lucide-react";
+import { PageTransition } from "./PageTransition";
+
+export { PageTransition };
 
 export function Panel({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
@@ -117,13 +120,15 @@ export function Dialog({ title, onClose, children }: { title: string; onClose: (
         tabIndex={-1}
         onKeyDown={handleKeyDown}
       >
-        <div className="modal-header">
+        <PageTransition>
+          <div className="modal-header">
           <h2 id={titleID}>{title}</h2>
           <IconButton type="button" title="Close dialog" aria-label="Close dialog" onClick={onClose}>
             <X size={16} />
           </IconButton>
-        </div>
-        {children}
+          </div>
+          {children}
+        </PageTransition>
       </div>
     </div>
   );
@@ -137,6 +142,4 @@ const focusableSelector = [
   "textarea",
   '[tabindex]:not([tabindex="-1"])',
 ].join(",");
-
-
 

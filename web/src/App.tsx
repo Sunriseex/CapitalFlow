@@ -1,20 +1,16 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Box, Flex, Grid, HStack, Stack, Text } from "@chakra-ui/react";
 import {
-  ArrowDownLeft,
-  ArrowRightLeft,
-  ArrowUpRight,
-  Landmark,
-  KeyRound,
-  LogIn,
+  Command,
+  Download,
   LogOut,
   Moon,
-  Plus,
-  Settings,
-  ShieldCheck,
   Sun,
-  Wallet,
 } from "lucide-react";
+import { useTheme } from "next-themes";
 import { ApiClientError, api, clearStoredSession, getStoredToken } from "./api/client";
 import { AccountsView } from "./features/accounts/AccountsView";
 import { CreateAccountForm } from "./features/accounts/CreateAccountForm";
@@ -23,11 +19,12 @@ import { TransactionForm } from "./features/transactions/TransactionForm";
 import { TransactionsView } from "./features/transactions/TransactionsView";
 import { TransferForm } from "./features/transactions/TransferForm";
 import { browserSupportsPasskeys, passkeyErrorMessage, signInWithPasskey } from "./features/auth/passkeys";
-import type { QuickAction, Theme, View } from "./shared/constants";
-import { themeStorageKey } from "./shared/constants";
+import { InitialSetupScreen, LoginScreen } from "./features/auth/AuthScreens";
+import type { QuickAction, View } from "./shared/constants";
 import { currencyOptions } from "./shared/currencies";
 import { errorMessage } from "./shared/api/query";
-import { Button, Dialog, Empty, Field, IconButton, Input, Select } from "./shared/ui";
+import { Dialog, Empty, PageTransition } from "./shared/ui";
+import { toaster } from "./components/ui/toaster-store";
 
 const AccountDetails = lazy(() =>
   import("./features/accounts/AccountDetails").then((module) => ({ default: module.AccountDetails })),
@@ -45,8 +42,7 @@ export function App() {
   const [view, setView] = useState<View>(initialRoute.view);
   const [selectedAccountId, setSelectedAccountId] = useState(initialRoute.accountId);
   const [quickAction, setQuickAction] = useState<QuickAction>(null);
-  const [authOpen, setAuthOpen] = useState(false);
-  const [theme, setTheme] = useState<Theme>(() => storedTheme());
+  const [commandOpen, setCommandOpen] = useState(false);
 
   const accounts = useQuery({
     queryKey: ["accounts", sessionNonce],
@@ -81,11 +77,6 @@ export function App() {
   const transactionActionsDisabled = accounts.isLoading || Boolean(accounts.error) || !accountsReady;
 
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    localStorage.setItem(themeStorageKey, theme);
-  }, [theme]);
-
-  useEffect(() => {
     if (sessionInvalid) {
       clearStoredSession();
     }
@@ -100,6 +91,18 @@ export function App() {
 
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  useEffect(() => {
+    const handleCommandShortcut = (event: globalThis.KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setCommandOpen(true);
+      }
+    };
+
+    window.addEventListener("keydown", handleCommandShortcut);
+    return () => window.removeEventListener("keydown", handleCommandShortcut);
   }, []);
 
   function navigateTo(nextView: View, accountId = "") {
@@ -123,166 +126,442 @@ export function App() {
     setSelectedAccountId("");
     setView("dashboard");
     setQuickAction(null);
-    setAuthOpen(false);
     setSessionNonce((nonce) => nonce + 1);
     setHasSession(false);
   }
 
+  function completeQuickAction(message: string) {
+    queryClient.invalidateQueries();
+    setQuickAction(null);
+    toaster.create({ type: "success", title: message });
+  }
+
+  function openQuickAction(action: NonNullable<QuickAction>) {
+    setQuickAction(action);
+    if (action === "import") {
+      toaster.create({ type: "info", title: "Import preview", description: "Backend import is not available yet." });
+    }
+  }
+
   if (!hasSession || sessionInvalid) {
-    return <AuthScreen onAuthenticated={handleAuthenticated} theme={theme} setTheme={setTheme} />;
+    return <AuthScreen onAuthenticated={handleAuthenticated} />;
   }
 
   return (
-    <div className="app">
-      <aside className="sidebar">
-        <div className="brand">
-          <Wallet size={22} />
-          <span>CapitalFlow</span>
-        </div>
+    <Grid className="app" minH="100vh" templateColumns={{ base: "1fr", lg: "244px minmax(0, 1fr)" }}>
+      <Box as="aside" className="sidebar">
+        <BrandBlock
+          version={serviceStatus.data?.version}
+          status={serviceStatus.error ? "Degraded" : serviceStatus.isFetching ? "Checking" : "Healthy"}
+          onCheck={() => {
+            void serviceStatus.refetch().then((result) => {
+              toaster.create({
+                type: result.error ? "error" : "success",
+                title: result.error ? "Status check failed" : "System healthy",
+                description: result.error ? errorMessage(result.error) : result.data?.version,
+              });
+            });
+          }}
+        />
+        <Nav view={view} accountCount={accounts.data?.length ?? 0} navigateTo={navigateTo} />
+        <SidebarFooter
+          onLogout={handleLogout}
+        />
+      </Box>
 
-        <nav>
-          <button className={view === "dashboard" ? "active" : ""} onClick={() => navigateTo("dashboard")}>
-            <Landmark size={16} /> Dashboard
-          </button>
-
-          <button className={view === "accounts" ? "active" : ""} onClick={() => navigateTo("accounts")}>
-            <Wallet size={16} /> Accounts
-          </button>
-
-          <button className={view === "transactions" ? "active" : ""} onClick={() => navigateTo("transactions")}>
-            <ArrowRightLeft size={16} /> Transactions
-          </button>
-
-          <button className={view === "settings" ? "active" : ""} onClick={() => navigateTo("settings")}>
-            <Settings size={16} /> Settings
-          </button>
-        </nav>
-
-        <Button className="muted-button" onClick={() => setAuthOpen((open) => !open)}>
-          <Settings size={16} /> Session
-        </Button>
-
-        {authOpen ? <SessionPanel onLogout={handleLogout} /> : null}
-      </aside>
-
-      <main>
-        <header className="topbar">
-          <div>
-            <p className="eyebrow">v0.5 MVP</p>
-            <div className="page-title">
-              <h1>{pageTitle}</h1>
+      <Box as="main" pb={{ base: 24, lg: 8 }}>
+        <Flex as="header" className="page-head" align="center" justify="space-between" gap={4}>
+          <Box minW={0}>
+            <Box as="h1" id="pageTitle">{view === "dashboard" ? "Overview" : pageTitle}</Box>
+            <Text id="pageSubtitle">
+              {view === "dashboard" ? "Daily financial overview without operational noise." : "CapitalFlow workspace"}
+            </Text>
+            <HStack className="page-title" gap={3} flexWrap="wrap">
               {view === "dashboard" && serviceStatus.data?.version ? (
-                <span className="version-badge" aria-label={`Service version ${serviceStatus.data.version}`}>
+                <Box as="span" className="version-badge" aria-label={`Service version ${serviceStatus.data.version}`}>
                   {serviceStatus.data.version}
-                </span>
+                </Box>
               ) : null}
-            </div>
-          </div>
+            </HStack>
+          </Box>
 
-          <div className="quick-actions">
-            <IconButton
-              title={theme === "dark" ? "Light theme" : "Dark theme"}
-              aria-label={theme === "dark" ? "Light theme" : "Dark theme"}
-              onClick={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
-            >
-              {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-            </IconButton>
+          <Box className="head-tools">
+            <button className="command-trigger" type="button" aria-label="Open command palette" onClick={() => setCommandOpen(true)}>
+              <Command size={16} aria-hidden="true" />
+              <span>Search transactions, accounts, commands...</span>
+              <span className="kbd">Ctrl K</span>
+            </button>
+            <span className="chip">{primaryCurrency} · from Settings</span>
+          </Box>
+        </Flex>
 
-            <IconButton title="Income" aria-label="Income" disabled={transactionActionsDisabled} onClick={() => setQuickAction("income")}>
-              <ArrowDownLeft size={18} />
-            </IconButton>
+        <PageTransition>
+          <Suspense fallback={<Empty>Loading view</Empty>}>
+            {view === "dashboard" ? (
+              <DashboardView
+                key={primaryCurrency}
+                primaryCurrency={primaryCurrency}
+                quickActionsDisabled={transactionActionsDisabled}
+                onQuickAction={openQuickAction}
+                onNavigate={navigateTo}
+                onOpenAccount={(id) => {
+                  navigateTo("accounts", id);
+                }}
+              />
+            ) : null}
 
-            <IconButton title="Expense" aria-label="Expense" disabled={transactionActionsDisabled} onClick={() => setQuickAction("expense")}>
-              <ArrowUpRight size={18} />
-            </IconButton>
+            {view === "accounts" ? (
+              selectedAccount ? (
+                <AccountDetails account={selectedAccount} onBack={() => navigateTo("accounts")} />
+              ) : (
+                <AccountsView
+                  accounts={accounts.data ?? []}
+                  isLoading={accounts.isLoading}
+                  error={accounts.error}
+                  onSelect={(id) => navigateTo("accounts", id)}
+                />
+              )
+            ) : null}
+          </Suspense>
 
-            <IconButton title="Transfer" aria-label="Transfer" disabled={transactionActionsDisabled} onClick={() => setQuickAction("transfer")}>
-              <ArrowRightLeft size={18} />
-            </IconButton>
-
-            <IconButton title="Create account" aria-label="Create account" onClick={() => setQuickAction("account")}>
-              <Plus size={18} />
-            </IconButton>
-          </div>
-        </header>
-
-        <Suspense fallback={<Empty>Loading view</Empty>}>
-          {view === "dashboard" ? (
-            <DashboardView
-              key={primaryCurrency}
-              primaryCurrency={primaryCurrency}
-              onOpenAccount={(id) => {
-                navigateTo("accounts", id);
-              }}
+          {view === "transactions" ? (
+            <TransactionsView
+              accounts={accounts.data ?? []}
+              categories={categories.data ?? []}
+              accountsLoading={accounts.isLoading}
+              accountsError={accounts.error}
+              categoriesLoading={categories.isLoading}
+              categoriesError={categories.error}
             />
           ) : null}
 
-          {view === "accounts" ? (
-            selectedAccount ? (
-              <AccountDetails account={selectedAccount} onBack={() => navigateTo("accounts")} />
+          {view === "settings" ? (
+            profile.isLoading ? (
+              <Empty>Loading profile</Empty>
+            ) : profile.error ? (
+              <Box className="error inline-error">{errorMessage(profile.error)}</Box>
             ) : (
-              <AccountsView
-                accounts={accounts.data ?? []}
-                isLoading={accounts.isLoading}
-                error={accounts.error}
-                onSelect={(id) => navigateTo("accounts", id)}
-              />
+              <SettingsView profile={profile.data} />
             )
           ) : null}
-        </Suspense>
-
-        {view === "transactions" ? (
-          <TransactionsView
-            accounts={accounts.data ?? []}
-            categories={categories.data ?? []}
-            accountsLoading={accounts.isLoading}
-            accountsError={accounts.error}
-            categoriesLoading={categories.isLoading}
-            categoriesError={categories.error}
-          />
-        ) : null}
-
-        {view === "settings" ? (
-          profile.isLoading ? (
-            <Empty>Loading profile</Empty>
-          ) : profile.error ? (
-            <div className="error inline-error">{errorMessage(profile.error)}</div>
-          ) : (
-            <SettingsView profile={profile.data} />
-          )
-        ) : null}
-      </main>
+        </PageTransition>
+      </Box>
 
       {quickAction ? (
         <Dialog title={quickActionTitle(quickAction)} onClose={() => setQuickAction(null)}>
-          {quickAction === "account" ? <CreateAccountForm onDone={() => setQuickAction(null)} /> : null}
+          {quickAction === "account" ? <CreateAccountForm onDone={() => completeQuickAction("Account created")} /> : null}
 
           {quickAction === "transfer" ? (
-            <TransferForm accounts={accounts.data ?? []} onDone={() => setQuickAction(null)} />
+            <TransferForm accounts={accounts.data ?? []} onDone={() => completeQuickAction("Transfer created")} />
           ) : null}
 
-          {quickAction === "income" || quickAction === "expense" ? (
+          {quickAction === "transaction" ? (
             <TransactionForm
               accounts={accounts.data ?? []}
               categories={categories.data ?? []}
-              fixedType={quickAction}
-              onDone={() => setQuickAction(null)}
+              onDone={() => completeQuickAction("Transaction created")}
+            />
+          ) : null}
+
+          {quickAction === "import" ? (
+            <ImportPlaceholder
+              onOpenTransactions={() => {
+                setQuickAction(null);
+                navigateTo("transactions");
+              }}
             />
           ) : null}
         </Dialog>
       ) : null}
+
+      {commandOpen ? (
+        <CommandMenu
+          transactionActionsDisabled={transactionActionsDisabled}
+          onClose={() => setCommandOpen(false)}
+          onNavigate={(nextView) => {
+            setCommandOpen(false);
+            navigateTo(nextView);
+          }}
+          onQuickAction={(action) => {
+            setCommandOpen(false);
+            openQuickAction(action);
+          }}
+        />
+      ) : null}
+    </Grid>
+  );
+}
+
+function BrandBlock({
+  version,
+  status,
+  onCheck,
+}: {
+  version?: string;
+  status: "Healthy" | "Degraded" | "Checking";
+  onCheck: () => void;
+}) {
+  const [healthOpen, setHealthOpen] = useState(false);
+
+  return (
+    <Box className="brand">
+      <img className="brand-mark" src="/app-icon.png" alt="" aria-hidden="true" />
+      <Box className="brand-copy">
+        <strong>CapitalFlow</strong>
+        <Box className="brand-meta" aria-label="Version, sync and health">
+          <span className="version-pill" title="Release tag">{version ?? "dev"}</span>
+          <span className="sync-pill" title="Last sync">sync · now</span>
+          <button
+            className="health-trigger"
+            type="button"
+            aria-label="Check system health"
+            aria-expanded={healthOpen}
+            onClick={() => {
+              setHealthOpen(true);
+              onCheck();
+            }}
+          >
+            {status}
+          </button>
+        </Box>
+        {healthOpen ? <HealthPopover version={version} status={status} onClose={() => setHealthOpen(false)} /> : null}
+      </Box>
+    </Box>
+  );
+}
+
+function HealthPopover({
+  version,
+  status,
+  onClose,
+}: {
+  version?: string;
+  status: "Healthy" | "Degraded" | "Checking";
+  onClose: () => void;
+}) {
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    popoverRef.current?.focus();
+  }, []);
+
+  return createPortal(
+    <div
+      className="popover-layer"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div
+        ref={popoverRef}
+        className="health-popover is-open"
+        role="dialog"
+        aria-modal="false"
+        aria-labelledby="healthTitle"
+        tabIndex={-1}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            onClose();
+          }
+        }}
+      >
+        <h3 id="healthTitle">System health</h3>
+        <div className="health-row"><span>API</span><span className={status === "Healthy" ? "tag good" : "tag"}>{status === "Healthy" ? "OK" : status}</span></div>
+        <div className="health-row"><span>Version</span><span className="tag info">{version ?? "unknown"}</span></div>
+        <div className="health-row"><span>Rates</span><span className="tag info">On demand</span></div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function Nav({ view, accountCount, navigateTo }: { view: View; accountCount: number; navigateTo: (view: View) => void }) {
+  return (
+    <Stack as="nav" className="nav" aria-label="Main navigation">
+      <section className="nav-section">
+        <div className="nav-label">Workspace</div>
+        <ReferenceNavButton active={view === "dashboard"} label="Overview" onClick={() => navigateTo("dashboard")} />
+        <ReferenceNavButton active={view === "transactions"} label="Transactions" onClick={() => navigateTo("transactions")} />
+        <ReferenceNavButton active={view === "accounts"} label="Accounts" count={String(accountCount)} onClick={() => navigateTo("accounts")} />
+        <ReferenceNavButton active={view === "settings"} label="Settings" onClick={() => navigateTo("settings")} />
+      </section>
+    </Stack>
+  );
+}
+
+function ReferenceNavButton({ active, label, count, onClick }: { active: boolean; label: string; count?: string; onClick: () => void }) {
+  return (
+    <button className="nav-btn" type="button" aria-current={active ? "page" : undefined} onClick={onClick}>
+      <span className="nav-name"><span className="nav-dot"></span><span>{label}</span></span>
+      {count ? <span className="nav-count">{count}</span> : null}
+    </button>
+  );
+}
+
+function SidebarFooter({ onLogout }: { onLogout: () => void }) {
+  const { theme = "light", setTheme } = useTheme();
+  const activeTheme = theme === "dark" ? "dark" : "light";
+
+  return (
+    <div className="sidebar-footer">
+      <button
+        className="theme-switch"
+        type="button"
+        aria-label={activeTheme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+        aria-pressed={activeTheme === "dark"}
+        onClick={() => {
+          const next = activeTheme === "dark" ? "light" : "dark";
+          setTheme(next);
+          toaster.create({ type: "info", title: next === "dark" ? "Dark theme enabled" : "Light theme enabled" });
+        }}
+      >
+        <span className="theme-switch-track" aria-hidden="true">
+          <span className="theme-switch-thumb">{activeTheme === "dark" ? <Moon size={14} /> : <Sun size={14} />}</span>
+        </span>
+        <span>{activeTheme === "dark" ? "Dark" : "Light"} mode</span>
+      </button>
+      <button
+        className="logout-button"
+        type="button"
+        onClick={() => {
+          void api.logout()
+            .then(() => toaster.create({ type: "success", title: "Logged out" }))
+            .catch((err) => toaster.create({ type: "error", title: "Logout failed", description: errorMessage(err) }))
+            .finally(() => {
+              onLogout();
+            });
+        }}
+      >
+        <LogOut size={16} /> Logout
+      </button>
+    </div>
+  );
+}
+
+function CommandMenu({
+  transactionActionsDisabled,
+  onClose,
+  onNavigate,
+  onQuickAction,
+}: {
+  transactionActionsDisabled: boolean;
+  onClose: () => void;
+  onNavigate: (view: View) => void;
+  onQuickAction: (action: NonNullable<QuickAction>) => void;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const first = dialogRef.current?.querySelector<HTMLElement>(focusableSelector);
+    first?.focus();
+  }, []);
+
+  function handleKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      onClose();
+      return;
+    }
+
+    if (event.key !== "Tab") return;
+
+    const focusable = [...(dialogRef.current?.querySelectorAll<HTMLElement>(focusableSelector) ?? [])]
+      .filter((element) => !element.hasAttribute("disabled"));
+    if (!focusable.length) return;
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  return createPortal(
+    <div
+      className="command-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div
+        ref={dialogRef}
+        className="command-menu"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="command-menu-title"
+        tabIndex={-1}
+        onKeyDown={handleKeyDown}
+      >
+        <div className="command-menu-head">
+          <Command size={18} aria-hidden="true" />
+          <h2 id="command-menu-title">Command menu</h2>
+          <span className="kbd">Esc</span>
+        </div>
+        <div className="command-menu-grid">
+          <CommandMenuSection title="Navigate">
+            <CommandItem onClick={() => onNavigate("dashboard")}>Overview</CommandItem>
+            <CommandItem onClick={() => onNavigate("accounts")}>Accounts</CommandItem>
+            <CommandItem onClick={() => onNavigate("transactions")}>Transactions</CommandItem>
+            <CommandItem onClick={() => onNavigate("settings")}>Settings</CommandItem>
+          </CommandMenuSection>
+          <CommandMenuSection title="Actions">
+            <CommandItem disabled={transactionActionsDisabled} onClick={() => onQuickAction("transaction")}>+ Transaction</CommandItem>
+            <CommandItem disabled={transactionActionsDisabled} onClick={() => onQuickAction("transfer")}>+ Transfer</CommandItem>
+            <CommandItem onClick={() => onQuickAction("import")}>Import</CommandItem>
+            <CommandItem onClick={() => onQuickAction("account")}>Create account</CommandItem>
+          </CommandMenuSection>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function CommandMenuSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="command-section" aria-label={title}>
+      <h3>{title}</h3>
+      <div>{children}</div>
+    </section>
+  );
+}
+
+function CommandItem({ disabled, onClick, children }: { disabled?: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button className="command-item" type="button" disabled={disabled} onClick={onClick}>
+      {children}
+    </button>
+  );
+}
+
+function ImportPlaceholder({ onOpenTransactions }: { onOpenTransactions: () => void }) {
+  return (
+    <div className="import-placeholder">
+      <div className="import-drop" aria-disabled="true">
+        <Download size={22} aria-hidden="true" />
+        <strong>Bank import is not connected yet</strong>
+        <span>Backend import is not available yet. Manual transactions and transfers are ready.</span>
+      </div>
+      <div className="form-actions">
+        <button className="btn primary" type="button" onClick={onOpenTransactions}>Open transactions</button>
+      </div>
     </div>
   );
 }
 
 function AuthScreen({
   onAuthenticated,
-  theme,
-  setTheme,
 }: {
   onAuthenticated: () => void;
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
 }) {
   const status = useQuery({ queryKey: ["auth-status"], queryFn: api.authStatus, retry: false });
   const [email, setEmail] = useState("");
@@ -328,166 +607,40 @@ function AuthScreen({
   }
 
   return (
-    <div className="auth-page">
-      <section className="auth-info">
-        <div className="auth-info-brand">
-          <Wallet size={24} />
-          <span>CapitalFlow</span>
-        </div>
-
-        <div className="auth-preview">
-          <div className="auth-preview-card auth-preview-hero">
-            <span>Portfolio value</span>
-            <strong>₽ 1,284,500</strong>
-            <small>+₽ 42,800 this month</small>
-          </div>
-
-          <div className="auth-preview-metrics">
-            <div className="auth-preview-card">
-              <span>Income</span>
-              <strong>₽ 180,000</strong>
-            </div>
-
-            <div className="auth-preview-card">
-              <span>Expenses</span>
-              <strong>₽ 92,400</strong>
-            </div>
-          </div>
-
-          <div className="auth-preview-card">
-            <div className="auth-preview-chart">
-              <i style={{ height: "42%" }} />
-              <i style={{ height: "58%" }} />
-              <i style={{ height: "48%" }} />
-              <i style={{ height: "74%" }} />
-              <i style={{ height: "66%" }} />
-              <i style={{ height: "84%" }} />
-            </div>
-          </div>
-
-          <div className="auth-preview-card auth-preview-list">
-            <div className="auth-preview-row">
-              <span>Savings</span>
-              <strong>62%</strong>
-            </div>
-
-            <div className="auth-preview-row">
-              <span>Broker</span>
-              <strong>24%</strong>
-            </div>
-
-            <div className="auth-preview-row">
-              <span>Cash</span>
-              <strong>14%</strong>
-            </div>
-          </div>
-        </div>
-
-        <div className="auth-info-panel">
-          <ShieldCheck size={18} />
-          <span>{isSetup ? "First local user setup" : "Private local session"}</span>
-        </div>
-      </section>
-
-      <form
-        className="auth-card"
-        onSubmit={(event) => {
-          event.preventDefault();
+    isSetup ? (
+      <InitialSetupScreen
+        email={email}
+        password={password}
+        primaryCurrency={primaryCurrency}
+        currencyOptions={currencyOptions()}
+        error={error}
+        statusLoading={status.isLoading}
+        onEmailChange={setEmail}
+        onPasswordChange={setPassword}
+        onPrimaryCurrencyChange={setPrimaryCurrency}
+        onSubmit={() => {
           void submit();
         }}
-      >
-        <div className="auth-card-header">
-          <div>
-            <p className="eyebrow">{isSetup ? "Registration" : "Login"}</p>
-            <h1>{isSetup ? "Create your first user" : "Welcome back"}</h1>
-          </div>
-
-          <IconButton
-            title={theme === "dark" ? "Light theme" : "Dark theme"}
-            aria-label={theme === "dark" ? "Light theme" : "Dark theme"}
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            type="button"
-          >
-            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-          </IconButton>
-        </div>
-
-        {isSetup ? (
-          <div className="setup-notice">
-            <ShieldCheck size={18} />
-            <span>This is the first launch. Create the local owner account and choose the base budget currency.</span>
-          </div>
-        ) : null}
-
-        <Field label="Email">
-          <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" />
-        </Field>
-
-        <Field label="Password">
-          <Input
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            autoComplete={isSetup ? "new-password" : "current-password"}
-          />
-        </Field>
-
-        {isSetup ? (
-          <Field label="Primary currency">
-            <Select value={primaryCurrency} onChange={(event) => setPrimaryCurrency(event.target.value)}>
-              {currencyOptions().map((currency) => (
-                <option key={currency.code} value={currency.code}>
-                  {currency.label}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        ) : null}
-
-        {error ? <div className="error">{error}</div> : null}
-
-        <Button className="primary-button" disabled={status.isLoading}>
-          {isSetup ? <ShieldCheck size={16} /> : <LogIn size={16} />}
-          {isSetup ? "Create account" : "Login"}
-        </Button>
-
-        {!isSetup ? (
-          <>
-            {passkeyError ? <div className="error">{passkeyError}</div> : null}
-            <Button
-              className="muted-button"
-              disabled={!passkeysSupported || passkeyLoading}
-              type="button"
-              onClick={() => {
-                void submitPasskey();
-              }}
-            >
-              <KeyRound size={16} />
-              {passkeyLoading ? "Checking passkey" : "Sign in with passkey"}
-            </Button>
-            {!passkeysSupported ? <div className="error">This browser does not support passkeys</div> : null}
-          </>
-        ) : null}
-      </form>
-    </div>
-  );
-}
-
-function SessionPanel({ onLogout }: { onLogout: () => void }) {
-  return (
-    <div className="auth-panel">
-      <Button
-        className="muted-button"
-        type="button"
-        onClick={() => {
-          void api.logout().finally(() => {
-            onLogout();
-          });
+      />
+    ) : (
+      <LoginScreen
+        email={email}
+        password={password}
+        error={error}
+        passkeyError={passkeyError}
+        passkeysSupported={passkeysSupported}
+        passkeyLoading={passkeyLoading}
+        statusLoading={status.isLoading}
+        onEmailChange={setEmail}
+        onPasswordChange={setPassword}
+        onSubmit={() => {
+          void submit();
         }}
-      >
-        <LogOut size={16} /> Logout
-      </Button>
-    </div>
+        onPasskeySubmit={() => {
+          void submitPasskey();
+        }}
+      />
+    )
   );
 }
 
@@ -544,19 +697,18 @@ function pathForRoute(view: View, accountId = "") {
 
 function quickActionTitle(action: NonNullable<QuickAction>) {
   return {
-    income: "Create income",
-    expense: "Create expense",
+    transaction: "Create transaction",
     transfer: "Create transfer",
     account: "Create account",
+    import: "Import transactions",
   }[action];
 }
 
-function storedTheme(): Theme {
-  const stored = localStorage.getItem(themeStorageKey);
-
-  if (stored === "dark" || stored === "light") {
-    return stored;
-  }
-
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
+const focusableSelector = [
+  "button",
+  "[href]",
+  "input",
+  "select",
+  "textarea",
+  '[tabindex]:not([tabindex="-1"])',
+].join(",");

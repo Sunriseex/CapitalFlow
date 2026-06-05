@@ -1,10 +1,15 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
+import { Provider } from "./components/ui/provider";
 
 const mocks = vi.hoisted(() => ({
+  token: "token",
+  authStatus: vi.fn(),
+  login: vi.fn(),
+  setup: vi.fn(),
   accounts: vi.fn(),
   categories: vi.fn(),
   profile: vi.fn(),
@@ -24,6 +29,9 @@ vi.mock("./api/client", () => ({
     }
   },
   api: {
+    authStatus: mocks.authStatus,
+    login: mocks.login,
+    setup: mocks.setup,
     accounts: mocks.accounts,
     categories: mocks.categories,
     profile: mocks.profile,
@@ -33,11 +41,24 @@ vi.mock("./api/client", () => ({
     transactions: mocks.transactions,
   },
   clearStoredSession: vi.fn(),
-  getStoredToken: () => "token",
+  getStoredToken: () => mocks.token,
 }));
 
 vi.mock("./features/dashboard/DashboardView", () => ({
-  DashboardView: () => <div>Dashboard mock</div>,
+  DashboardView: ({
+    quickActionsDisabled,
+    onQuickAction,
+  }: {
+    quickActionsDisabled?: boolean;
+    onQuickAction?: (action: "transaction" | "transfer" | "account" | "import") => void;
+  }) => (
+    <div>
+      Dashboard mock
+      <button disabled={quickActionsDisabled} onClick={() => onQuickAction?.("transaction")}>+ Transaction</button>
+      <button disabled={quickActionsDisabled} onClick={() => onQuickAction?.("transfer")}>+ Transfer</button>
+      <button onClick={() => onQuickAction?.("import")}>Import</button>
+    </div>
+  ),
 }));
 
 vi.mock("./features/accounts/AccountDetails", () => ({
@@ -49,6 +70,12 @@ vi.mock("./features/accounts/AccountDetails", () => ({
   ),
 }));
 
+vi.mock("./features/auth/passkeys", () => ({
+  browserSupportsPasskeys: () => true,
+  passkeyErrorMessage: (err: unknown) => (err instanceof Error ? err.message : "Passkey operation failed"),
+  signInWithPasskey: vi.fn(),
+}));
+
 function renderApp() {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -58,17 +85,133 @@ function renderApp() {
   });
 
   render(
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>,
+    <Provider>
+      <QueryClientProvider client={queryClient}>
+        <App />
+      </QueryClientProvider>
+    </Provider>,
   );
 }
+
+describe("App auth screens", () => {
+  beforeEach(() => {
+    window.history.pushState({}, "", "/dashboard");
+    localStorage.setItem("capitalflow_theme", "light");
+    vi.clearAllMocks();
+    mocks.token = "";
+    mocks.authStatus.mockResolvedValue({ setup_required: false });
+    mocks.login.mockResolvedValue({
+      user: { id: "user-1", email: "user@example.com", primary_currency: "RUB" },
+      access_token: "token",
+      access_expires_at: "2026-05-19T01:00:00Z",
+    });
+    mocks.setup.mockResolvedValue({
+      user: { id: "user-1", email: "owner@example.com", primary_currency: "RUB" },
+      access_token: "token",
+      access_expires_at: "2026-05-19T01:00:00Z",
+    });
+    mocks.accounts.mockResolvedValue([]);
+    mocks.categories.mockResolvedValue([]);
+    mocks.profile.mockResolvedValue({
+      user: { id: "user-1", email: "user@example.com", primary_currency: "RUB" },
+    });
+    mocks.serviceStatus.mockResolvedValue({ status: "ok", version: "v0.5.9" });
+  });
+
+  it("renders login as a standalone screen with passkey sign-in", async () => {
+    renderApp();
+
+    expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.getByRole("form", { name: "Login form" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign in with passkey" })).toBeInTheDocument();
+    expect(screen.getByTestId("page-transition")).toBeInTheDocument();
+  });
+
+  it("toggles password visibility on the login screen", async () => {
+    const user = userEvent.setup();
+    renderApp();
+
+    const password = await screen.findByLabelText("Password");
+    expect(password).toHaveAttribute("type", "password");
+
+    await user.click(screen.getByRole("button", { name: "Show password" }));
+    expect(password).toHaveAttribute("type", "text");
+
+    await user.click(screen.getByRole("button", { name: "Hide password" }));
+    expect(password).toHaveAttribute("type", "password");
+  });
+
+  it("renders initial setup as a separate screen without passkey sign-in", async () => {
+    mocks.authStatus.mockResolvedValue({ setup_required: true });
+
+    renderApp();
+
+    expect(await screen.findByRole("heading", { name: "Create the owner account" })).toBeInTheDocument();
+    expect(screen.getByRole("form", { name: "Initial setup form" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Owner email")).toBeInTheDocument();
+    expect(screen.getByLabelText("Primary currency")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Sign in with passkey" })).not.toBeInTheDocument();
+  });
+
+  it("checks setup password strength and confirmation before submit", async () => {
+    const user = userEvent.setup();
+    mocks.authStatus.mockResolvedValue({ setup_required: true });
+    renderApp();
+
+    await user.type(await screen.findByLabelText("Owner email"), "owner@example.com");
+    await user.type(screen.getByLabelText("Password"), "abc");
+    await user.type(screen.getByLabelText("Confirm password"), "abc");
+    await user.click(screen.getByRole("button", { name: "Create owner account" }));
+
+    expect(await screen.findByText("Use a stronger password before creating the account.")).toBeInTheDocument();
+    expect(mocks.setup).not.toHaveBeenCalled();
+
+    await user.clear(screen.getByLabelText("Password"));
+    await user.type(screen.getByLabelText("Password"), "Password1!");
+    await user.clear(screen.getByLabelText("Confirm password"));
+    await user.type(screen.getByLabelText("Confirm password"), "Password2!");
+    await user.click(screen.getByRole("button", { name: "Create owner account" }));
+
+    expect(await screen.findByText("Password confirmation does not match.")).toBeInTheDocument();
+    expect(mocks.setup).not.toHaveBeenCalled();
+    expect(screen.getByRole("meter", { name: "Password strength score" })).toHaveAttribute("aria-valuetext", "Strong");
+  });
+
+  it("toggles setup password fields visibility", async () => {
+    const user = userEvent.setup();
+    mocks.authStatus.mockResolvedValue({ setup_required: true });
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Create the owner account" });
+    const password = screen.getByLabelText("Password");
+    const confirmation = screen.getByLabelText("Confirm password");
+
+    await user.click(screen.getByRole("button", { name: "Show password" }));
+    await user.click(screen.getByRole("button", { name: "Show password confirmation" }));
+
+    expect(password).toHaveAttribute("type", "text");
+    expect(confirmation).toHaveAttribute("type", "text");
+  });
+
+  it("authenticates through login and reaches the dashboard", async () => {
+    const user = userEvent.setup();
+    renderApp();
+
+    await user.type(await screen.findByLabelText("Email"), "user@example.com");
+    await user.type(screen.getByLabelText("Password"), "password");
+    await user.click(screen.getByRole("button", { name: "Sign in with email" }));
+
+    await waitFor(() => expect(mocks.login).toHaveBeenCalledWith({ email: "user@example.com", password: "password" }));
+    expect(await screen.findByText("Dashboard mock")).toBeInTheDocument();
+  });
+});
 
 describe("App query states", () => {
   beforeEach(() => {
     window.history.pushState({}, "", "/dashboard");
     localStorage.setItem("capitalflow_theme", "light");
     vi.clearAllMocks();
+    mocks.token = "token";
     mocks.accounts.mockResolvedValue([
       {
         id: "account-1",
@@ -100,9 +243,8 @@ describe("App query states", () => {
 
     renderApp();
 
-    expect(screen.getByTitle("Income")).toBeDisabled();
-    expect(screen.getByTitle("Expense")).toBeDisabled();
-    expect(screen.getByTitle("Transfer")).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "+ Transaction" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "+ Transfer" })).toBeDisabled();
 
     await user.click(screen.getByRole("button", { name: /Accounts/ }));
 
@@ -131,6 +273,44 @@ describe("App query states", () => {
     renderApp();
 
     expect(await screen.findByLabelText("Service version v0.5.8")).toBeInTheDocument();
+  });
+
+  it("opens command menu with Ctrl+K and toggles theme", async () => {
+    const user = userEvent.setup();
+    renderApp();
+
+    await user.keyboard("{Control>}k{/Control}");
+    expect(await screen.findByRole("dialog", { name: "Command menu" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Switch to dark theme" }));
+    await waitFor(() => expect(document.documentElement).toHaveAttribute("data-theme", "dark"));
+    await waitFor(() => expect(localStorage.getItem("capitalflow_theme")).toBe("dark"));
+  });
+
+  it("opens health popover and import placeholder", async () => {
+    const user = userEvent.setup();
+    renderApp();
+
+    await user.click(await screen.findByRole("button", { name: "Check system health" }));
+    expect(await screen.findByRole("dialog", { name: "System health" })).toBeInTheDocument();
+    await waitFor(() => expect(mocks.serviceStatus).toHaveBeenCalledTimes(2));
+
+    await user.click(screen.getByRole("button", { name: "Import" }));
+    expect(await screen.findByRole("dialog", { name: "Import transactions" })).toBeInTheDocument();
+    expect(screen.getByText("Backend import is not available yet. Manual transactions and transfers are ready.")).toBeInTheDocument();
+  });
+
+  it("uses command menu for navigation and quick actions", async () => {
+    const user = userEvent.setup();
+    renderApp();
+
+    await user.click(await screen.findByRole("button", { name: "Open command palette" }));
+    await user.click(within(await screen.findByRole("dialog", { name: "Command menu" })).getByRole("button", { name: "Transactions" }));
+    expect(window.location.pathname).toBe("/transactions");
+
+    await user.keyboard("{Control>}k{/Control}");
+    await user.click(within(await screen.findByRole("dialog", { name: "Command menu" })).getByRole("button", { name: "+ Transaction" }));
+    expect(await screen.findByRole("dialog", { name: "Create transaction" })).toBeInTheDocument();
   });
 
   it("initializes route state from the URL", async () => {
@@ -173,4 +353,3 @@ describe("App query states", () => {
     expect(await screen.findByText("Loading profile")).toBeInTheDocument();
   });
 });
-

@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DashboardCashflow, DashboardInterestIncome, DashboardSummary } from "../../api/types";
+import { Provider } from "../../components/ui/provider";
 import { DashboardView } from "./DashboardView";
 
 const mocks = vi.hoisted(() => ({
@@ -50,7 +51,22 @@ const summary: DashboardSummary = {
 const cashflow: DashboardCashflow = {
   generated_at: "2026-05-19T00:00:00Z",
   months: 6,
-  buckets: [],
+  buckets: [
+    {
+      period: "2026-04",
+      income: [{ currency: "RUB", amount: "120000" }],
+      expense: [{ currency: "RUB", amount: "64000" }],
+      net_cashflow: [{ currency: "RUB", amount: "56000" }],
+      transaction_count: 4,
+    },
+    {
+      period: "2026-05",
+      income: [{ currency: "RUB", amount: "132000" }],
+      expense: [{ currency: "RUB", amount: "71000" }],
+      net_cashflow: [{ currency: "RUB", amount: "61000" }],
+      transaction_count: 6,
+    },
+  ],
 };
 
 const interest: DashboardInterestIncome = {
@@ -62,9 +78,13 @@ const interest: DashboardInterestIncome = {
 
 function renderDashboardView({
   onOpenAccount = vi.fn<(id: string) => void>(),
+  onQuickAction,
+  onNavigate,
   primaryCurrency = "RUB",
 }: {
   onOpenAccount?: (id: string) => void;
+  onQuickAction?: (action: NonNullable<import("../../shared/constants").QuickAction>) => void;
+  onNavigate?: (view: import("../../shared/constants").View) => void;
   primaryCurrency?: string;
 } = {}) {
   const queryClient = new QueryClient({
@@ -75,9 +95,11 @@ function renderDashboardView({
   });
 
   render(
-    <QueryClientProvider client={queryClient}>
-      <DashboardView primaryCurrency={primaryCurrency} onOpenAccount={onOpenAccount} />
-    </QueryClientProvider>,
+    <Provider>
+      <QueryClientProvider client={queryClient}>
+        <DashboardView primaryCurrency={primaryCurrency} onOpenAccount={onOpenAccount} onQuickAction={onQuickAction} onNavigate={onNavigate} />
+      </QueryClientProvider>
+    </Provider>,
   );
 
   return { onOpenAccount };
@@ -127,6 +149,52 @@ describe("DashboardView", () => {
     expect(screen.getByText("No transactions")).toBeInTheDocument();
   });
 
+  it("renders the reference dashboard structure", async () => {
+    const onQuickAction = vi.fn();
+    renderDashboardView({ onQuickAction });
+
+    expect(await screen.findByText("Total capital")).toBeInTheDocument();
+    expect(screen.getByLabelText("Quick actions")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "+ Transaction" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "+ Transfer" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Import" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Accounts" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Recent transactions" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Upcoming" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Rates" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Allocation" })).toBeInTheDocument();
+  });
+
+  it("wires dashboard buttons to real actions and navigation", async () => {
+    const user = userEvent.setup();
+    const onQuickAction = vi.fn();
+    const onNavigate = vi.fn();
+    renderDashboardView({ onQuickAction, onNavigate });
+
+    await user.click(await screen.findByRole("button", { name: "+ Transaction" }));
+    expect(onQuickAction).toHaveBeenCalledWith("transaction");
+
+    await user.click(screen.getByRole("button", { name: "+ Transfer" }));
+    expect(onQuickAction).toHaveBeenCalledWith("transfer");
+
+    await user.click(screen.getByRole("button", { name: "Import" }));
+    expect(onQuickAction).toHaveBeenCalledWith("import");
+
+    await user.click(screen.getByRole("button", { name: "All transactions" }));
+    expect(onNavigate).toHaveBeenCalledWith("transactions");
+
+    await user.click(screen.getByRole("button", { name: "Settings" }));
+    expect(onNavigate).toHaveBeenCalledWith("settings");
+  });
+
+  it("renders cashflow chart from dashboard cashflow API buckets", async () => {
+    renderDashboardView();
+
+    expect(await screen.findByText("2 monthly buckets from real transactions")).toBeInTheDocument();
+    expect(mocks.dashboardCashflow).toHaveBeenCalled();
+    expect(screen.getByLabelText("Income and expense chart")).toBeInTheDocument();
+  });
+
   it("switches dashboard currency and reloads conversion rates", async () => {
     const user = userEvent.setup();
     mocks.dashboardSummary.mockResolvedValueOnce({
@@ -139,10 +207,10 @@ describe("DashboardView", () => {
 
     renderDashboardView();
 
-    await screen.findByRole("button", { name: "USD" });
+    await screen.findByRole("tab", { name: "USD" });
     expect(mocks.currencyRates).toHaveBeenCalledWith("RUB");
 
-    await user.click(screen.getByRole("button", { name: "USD" }));
+    await user.click(screen.getByRole("tab", { name: "USD" }));
 
     expect(await screen.findByText("Cashflow (USD)")).toBeInTheDocument();
     await waitFor(() => expect(mocks.currencyRates).toHaveBeenCalledWith("USD"));
@@ -156,12 +224,17 @@ describe("DashboardView", () => {
     expect(await screen.findByText("Rate provider unavailable")).toBeInTheDocument();
   });
 
-  it("opens account details from a keyboard-accessible account balance action", async () => {
+  it("opens account details from the keyboard-accessible allocation action", async () => {
     const user = userEvent.setup();
     const onOpenAccount = vi.fn<(id: string) => void>();
+    mocks.dashboardSummary.mockResolvedValueOnce({
+      ...summary,
+      balances: [{ currency: "RUB", amount: "100" }],
+      account_balances: [{ ...summary.account_balances[0], balance: "100" }],
+    } satisfies DashboardSummary);
     renderDashboardView({ onOpenAccount });
 
-    const action = await screen.findByRole("button", { name: "Open Card account" });
+    const action = await screen.findByRole("button", { name: /Card/ });
     action.focus();
 
     await user.keyboard("{Enter}");
@@ -171,61 +244,4 @@ describe("DashboardView", () => {
     await user.click(action);
     expect(onOpenAccount).toHaveBeenCalledWith("account-1");
   });
-
-  it("opens account details when clicking non-name account balance cells", async () => {
-    const user = userEvent.setup();
-    const onOpenAccount = vi.fn<(id: string) => void>();
-  
-    renderDashboardView({ onOpenAccount });
-  
-    const action = await screen.findByRole("button", { name: "Open Card account" });
-    const row = action.closest("tr");
-  
-    if (!row) {
-      throw new Error("account balance row not found");
-    }
-  
-    await user.click(within(row).getByText("Bank"));
-    expect(onOpenAccount).toHaveBeenCalledWith("account-1");
-  
-    onOpenAccount.mockClear();
-    await user.click(within(row).getByText("card"));
-    expect(onOpenAccount).toHaveBeenCalledWith("account-1");
-  
-    const balanceCell = row.querySelector(".stacked-amount");
-    if (!balanceCell) {
-      throw new Error("account balance cell not found");
-    }
-  
-    onOpenAccount.mockClear();
-    await user.click(balanceCell);
-    expect(onOpenAccount).toHaveBeenCalledWith("account-1");
-  });
-
-it("opens account details when clicking account balance row cells", async () => {
-  const user = userEvent.setup();
-  const onOpenAccount = vi.fn<(id: string) => void>();
-
-  renderDashboardView({ onOpenAccount });
-
-  const nameButton = await screen.findByRole("button", { name: "Open Card account" });
-  const row = nameButton.closest("tr");
-
-  if (!row) {
-    throw new Error("account balance row not found");
-  }
-
-  await user.click(screen.getByText("Bank"));
-  expect(onOpenAccount).toHaveBeenCalledWith("account-1");
-
-  onOpenAccount.mockClear();
-  await user.click(screen.getByText("card"));
-  expect(onOpenAccount).toHaveBeenCalledWith("account-1");
-
-  onOpenAccount.mockClear();
-  await user.click(row);
-  expect(onOpenAccount).toHaveBeenCalledWith("account-1");
 });
-});
-
-

@@ -136,52 +136,73 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
 
   await page.goto("/");
   await page.getByLabel("Email").fill("user@example.com");
-  await page.getByLabel("Password").fill("password");
-  await page.getByRole("button", { name: "Login" }).click();
-  await expect(page.getByRole("heading", { name: "Dashboard" }).first()).toBeVisible();
-  await expect(createAccountButton(page)).toBeVisible();
+  await page.getByLabel("Password", { exact: true }).fill("password");
+  await page.getByRole("button", { name: "Sign in with email" }).click();
+  await expect(page.getByRole("heading", { name: "Overview" }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open command palette" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Switch to dark theme" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 
   await createAccount(page, "Cash", "Wallet", "1000");
   await createAccount(page, "Savings", "Bank", "0");
 
-  await page.getByRole("button", { name: "Income" }).click();
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+K" : "Control+K");
+  const commandMenu = page.getByRole("dialog", { name: "Command menu" });
+  await expect(commandMenu).toBeVisible();
+  await commandMenu.getByRole("button", { name: "Transactions" }).click();
+  await expect(page).toHaveURL(/\/transactions$/);
+  await page.getByRole("button", { name: "Overview" }).click();
+
+  await page.getByRole("button", { name: "+ Transaction" }).click();
+  await page.getByLabel("Type").selectOption("income");
   await page.getByLabel("Amount").fill("250");
   await page.getByLabel("Description").fill("Salary");
   await page.getByRole("button", { name: "Create", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Create income" })).toBeHidden();
+  await expect(page.getByRole("dialog", { name: "Create transaction" })).toBeHidden();
 
-  await page.getByRole("button", { name: "Expense" }).click();
+  await page.getByRole("button", { name: "+ Transaction" }).click();
+  await page.getByLabel("Type").selectOption("expense");
   await page.getByLabel("Amount").fill("50");
   await page.getByLabel("Description").fill("Groceries");
   await page.getByRole("button", { name: "Create", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Create expense" })).toBeHidden();
+  await expect(page.getByRole("dialog", { name: "Create transaction" })).toBeHidden();
 
-  await page.getByRole("button", { name: "Transfer" }).click();
+  await page.getByRole("button", { name: "+ Transfer" }).click();
   await page.getByLabel("Amount").fill("100");
   await page.getByLabel("Description").fill("Move to savings");
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Create transfer" })).toBeHidden();
 
+  await page.getByRole("button", { name: "Import" }).click();
+  await expect(page.getByRole("dialog", { name: "Import transactions" })).toBeVisible();
+  await page.getByRole("button", { name: "Open transactions" }).click();
+  await expect(page).toHaveURL(/\/transactions$/);
+  await page.getByRole("button", { name: "Overview" }).click();
+
   await expect(page.getByText("2 active accounts across 1 currency")).toBeVisible();
   await expect(page.getByText("Private local session")).toBeHidden();
 
-  await page.getByRole("button", { name: /Session/ }).click();
+  await page.getByRole("button", { name: "Check system health" }).click();
+  await expect(page.getByRole("dialog", { name: "System health" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "System health" })).toBeHidden();
+
   await page.getByRole("button", { name: /Logout/ }).click();
-  await expect(page.getByRole("button", { name: "Login" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sign in with email" })).toBeVisible();
 });
 
 async function createAccount(page: import("@playwright/test").Page, name: string, bank: string, initialBalance: string) {
-  await createAccountButton(page).dispatchEvent("click");
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+K" : "Control+K");
+  await page.getByRole("dialog", { name: "Command menu" }).getByRole("button", { name: "Create account" }).click();
   await expect(page.getByRole("dialog", { name: "Create account" })).toBeVisible();
   await page.getByLabel("Name", { exact: true }).fill(name);
   await page.getByLabel("Bank", { exact: true }).fill(bank);
   await page.getByLabel("Initial balance", { exact: true }).fill(initialBalance);
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Create account" })).toBeHidden();
-}
-
-function createAccountButton(page: import("@playwright/test").Page) {
-  return page.locator('.quick-actions button[aria-label="Create account"]');
 }
 
 function dashboardResponse(accounts: Account[], transactions: Transaction[], now: string) {

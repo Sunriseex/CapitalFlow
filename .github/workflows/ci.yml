@@ -309,6 +309,8 @@ jobs:
           context: .
           file: Dockerfile.api
           push: true
+          build-args: |
+            APP_VERSION=${{ github.ref_name }}
           tags: ${{ steps.names.outputs.api_tags }}
           cache-from: type=gha,scope=api
           cache-to: type=gha,scope=api,mode=max
