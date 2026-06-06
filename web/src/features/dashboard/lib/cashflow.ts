@@ -1,0 +1,128 @@
+import { moneyToNumber, sumConverted } from "../../../api/money";
+import type { DashboardCashflowBucket } from "../../../api/types";
+import type { CurrencyRateTable } from "../../../api/generated";
+
+export type CashflowPeriod = "week" | "month" | "quarter" | "year";
+
+export type CashflowChartBucket = {
+  period: string;
+  sourcePeriod: string;
+  income: number;
+  expense: number;
+  net: number;
+  transactions: number;
+};
+
+export const cashflowPeriods: Array<{ value: CashflowPeriod; label: string }> = [
+  { value: "week", label: "Week" },
+  { value: "month", label: "Month" },
+  { value: "quarter", label: "Quarter" },
+  { value: "year", label: "Year" },
+];
+
+export function cashflowBucketsToChart(
+  buckets: DashboardCashflowBucket[],
+  selectedCurrency: string,
+  rateTable?: CurrencyRateTable,
+) {
+  return buckets.map((bucket) => ({
+    period: shortPeriod(bucket.period),
+    sourcePeriod: bucket.period,
+    income: moneyToNumber(sumConverted(bucket.income, selectedCurrency, rateTable)),
+    expense: moneyToNumber(sumConverted(bucket.expense, selectedCurrency, rateTable)),
+    net: moneyToNumber(sumConverted(bucket.net_cashflow, selectedCurrency, rateTable)),
+    transactions: bucket.transaction_count,
+  }));
+}
+
+export function groupCashflow(buckets: CashflowChartBucket[], period: CashflowPeriod) {
+  if (period === "month") {
+    return buckets;
+  }
+
+  if (period === "week") {
+    return [];
+  }
+
+  const grouped = new Map<string, CashflowChartBucket>();
+  for (const bucket of buckets) {
+    const key = period === "quarter" ? quarterLabel(bucket.sourcePeriod) : bucket.sourcePeriod.slice(0, 4);
+    const existing = grouped.get(key);
+    if (existing) {
+      existing.income += bucket.income;
+      existing.expense += bucket.expense;
+      existing.net += bucket.net;
+      existing.transactions += bucket.transactions;
+    } else {
+      grouped.set(key, { ...bucket, period: key, sourcePeriod: key });
+    }
+  }
+
+  return [...grouped.values()];
+}
+
+export function cashflowEmptyState(period: CashflowPeriod, hasMonthlyData: boolean) {
+  if (period === "week" && hasMonthlyData) {
+    return {
+      title: "Weekly cashflow unavailable",
+      description: "The backend currently returns monthly cashflow buckets.",
+    };
+  }
+
+  return {
+    title: "No cashflow yet",
+    description: "Add income or expenses to build this chart.",
+  };
+}
+
+export function compactMoney(value: number, currency: string) {
+  if (Math.abs(value) >= 1000000) return `${Math.round(value / 1000000)}M ${currency}`;
+  if (Math.abs(value) >= 1000) return `${Math.round(value / 1000)}K ${currency}`;
+  return `${value} ${currency}`;
+}
+
+export function formatChartMoney(value: number, currency: string) {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency,
+      currencyDisplay: "code",
+      maximumFractionDigits: 2,
+    }).format(value);
+  } catch {
+    return `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${currency}`;
+  }
+}
+
+export function labelForSeries(name: string) {
+  return {
+    income: "Income",
+    expense: "Expenses",
+    net: "Net cashflow",
+  }[name] ?? name;
+}
+
+export function describeCashflow(data: Array<{ period: string; income: number; expense: number; net: number }>, currency: string) {
+  if (!data.length) {
+    return "Cashflow chart has no periods.";
+  }
+
+  const totalIncome = data.reduce((sum, bucket) => sum + bucket.income, 0);
+  const totalExpense = data.reduce((sum, bucket) => sum + bucket.expense, 0);
+  const totalNet = data.reduce((sum, bucket) => sum + bucket.net, 0);
+  return `Cashflow chart covers ${data.length} periods. Income ${formatChartMoney(totalIncome, currency)}, expenses ${formatChartMoney(totalExpense, currency)}, net ${formatChartMoney(totalNet, currency)}.`;
+}
+
+function shortPeriod(period: string) {
+  const [, month] = period.split("-");
+  return month ? `${month}/${period.slice(2, 4)}` : period;
+}
+
+function quarterLabel(period: string) {
+  const [year, month] = period.split("-");
+  const monthNumber = Number(month);
+  if (!year || !monthNumber) {
+    return period;
+  }
+  return `${year} Q${Math.ceil(monthNumber / 3)}`;
+}

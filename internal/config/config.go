@@ -12,6 +12,7 @@ import (
 
 	"github.com/joho/godotenv"
 
+	"github.com/sunriseex/capitalflow/internal/version"
 	"github.com/sunriseex/capitalflow/pkg/errors"
 )
 
@@ -98,7 +99,7 @@ func Init() error {
 		AppEnv:                getEnv("APP_ENV", "development"),
 		TelegramToken:         getEnv("TELEGRAM_BOT_TOKEN", ""),
 		TelegramUserID:        getEnvInt64("TELEGRAM_USER_ID", 0),
-		AppVersion:            getEnv("APP_VERSION", "v0.5.8"),
+		AppVersion:            getEnv("APP_VERSION", version.Current()),
 		DataPath:              dataPath,
 		DepositsDataPath:      depositsDataPath,
 		DatabaseURL:           getEnv("DATABASE_URL", "postgres://capitalflow:capitalflow@localhost:5432/capitalflow?sslmode=disable"),

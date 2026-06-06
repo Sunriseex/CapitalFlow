@@ -50,6 +50,17 @@ describe("Dialog", () => {
 
     expect(screen.getByRole("button", { name: "Save" })).toHaveFocus();
   });
-});
 
+  it("restores focus when closed by the close button", async () => {
+    const user = userEvent.setup();
+    render(<DialogHarness />);
+
+    const opener = screen.getByRole("button", { name: "Open dialog" });
+    await user.click(opener);
+    await user.click(screen.getByRole("button", { name: "Close dialog" }));
+
+    expect(screen.queryByRole("dialog", { name: "Edit account" })).not.toBeInTheDocument();
+    expect(opener).toHaveFocus();
+  });
+});
 

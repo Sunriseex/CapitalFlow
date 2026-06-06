@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import type { Profile } from "../../api/types";
@@ -16,7 +16,7 @@ export function SettingsView({ profile }: { profile?: Profile }) {
   const [saved, setSaved] = useState(false);
 
   const primaryCurrency = draftCurrency ?? profileCurrency;
-  const currencies = currencyOptions();
+  const currencies = useMemo(() => currencyOptions(), []);
 
   async function save() {
     if (!profile) {
@@ -40,8 +40,8 @@ export function SettingsView({ profile }: { profile?: Profile }) {
   }
 
   return (
-    <div className="grid settings-grid">
-      <Panel title="Profile">
+    <div className="grid settings-grid workspace-settings">
+      <Panel className="workspace-panel settings-panel profile-settings-panel" title="Profile">
         <form
           className="form compact-form"
           onSubmit={(event) => {

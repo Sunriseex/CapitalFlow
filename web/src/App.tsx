@@ -1,20 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowDownLeft,
-  ArrowRightLeft,
-  ArrowUpRight,
-  Landmark,
-  KeyRound,
-  LogIn,
-  LogOut,
-  Moon,
-  Plus,
-  Settings,
-  ShieldCheck,
-  Sun,
-  Wallet,
-} from "lucide-react";
+import { Box, Grid, HStack } from "@chakra-ui/react";
+import { PanelRightClose, PanelRightOpen } from "lucide-react";
 import { ApiClientError, api, clearStoredSession, getStoredToken } from "./api/client";
 import { AccountsView } from "./features/accounts/AccountsView";
 import { CreateAccountForm } from "./features/accounts/CreateAccountForm";
@@ -22,12 +9,12 @@ import { SettingsView } from "./features/settings/SettingsView";
 import { TransactionForm } from "./features/transactions/TransactionForm";
 import { TransactionsView } from "./features/transactions/TransactionsView";
 import { TransferForm } from "./features/transactions/TransferForm";
-import { browserSupportsPasskeys, passkeyErrorMessage, signInWithPasskey } from "./features/auth/passkeys";
-import type { QuickAction, Theme, View } from "./shared/constants";
-import { themeStorageKey } from "./shared/constants";
-import { currencyOptions } from "./shared/currencies";
+import { AuthController } from "./features/auth/AuthController";
+import { BrandBlock, CommandMenu, CommandTrigger, ImportPlaceholder, Nav, SidebarFooter } from "./features/shell/AppShell";
+import type { QuickAction, View } from "./shared/constants";
 import { errorMessage } from "./shared/api/query";
-import { Button, Dialog, Empty, Field, IconButton, Input, Select } from "./shared/ui";
+import { Dialog, Empty, PageTransition } from "./shared/ui";
+import { toaster } from "./components/ui/toaster-store";
 
 const AccountDetails = lazy(() =>
   import("./features/accounts/AccountDetails").then((module) => ({ default: module.AccountDetails })),
@@ -45,8 +32,8 @@ export function App() {
   const [view, setView] = useState<View>(initialRoute.view);
   const [selectedAccountId, setSelectedAccountId] = useState(initialRoute.accountId);
   const [quickAction, setQuickAction] = useState<QuickAction>(null);
-  const [authOpen, setAuthOpen] = useState(false);
-  const [theme, setTheme] = useState<Theme>(() => storedTheme());
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [rightRailHidden, setRightRailHidden] = useState(false);
 
   const accounts = useQuery({
     queryKey: ["accounts", sessionNonce],
@@ -81,15 +68,22 @@ export function App() {
   const transactionActionsDisabled = accounts.isLoading || Boolean(accounts.error) || !accountsReady;
 
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    localStorage.setItem(themeStorageKey, theme);
-  }, [theme]);
-
-  useEffect(() => {
     if (sessionInvalid) {
       clearStoredSession();
     }
   }, [sessionInvalid]);
+
+  useEffect(() => {
+    if (!hasSession || sessionInvalid) {
+      return;
+    }
+
+    void queryClient.prefetchQuery({
+      queryKey: ["transactions"],
+      queryFn: () => api.transactions(),
+      staleTime: 30_000,
+    });
+  }, [hasSession, queryClient, sessionInvalid, sessionNonce]);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -100,6 +94,18 @@ export function App() {
 
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  useEffect(() => {
+    const handleCommandShortcut = (event: globalThis.KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setCommandOpen(true);
+      }
+    };
+
+    window.addEventListener("keydown", handleCommandShortcut);
+    return () => window.removeEventListener("keydown", handleCommandShortcut);
   }, []);
 
   function navigateTo(nextView: View, accountId = "") {
@@ -123,384 +129,183 @@ export function App() {
     setSelectedAccountId("");
     setView("dashboard");
     setQuickAction(null);
-    setAuthOpen(false);
     setSessionNonce((nonce) => nonce + 1);
     setHasSession(false);
   }
 
+  function completeQuickAction(action: Exclude<NonNullable<QuickAction>, "import">, message: string) {
+    if (action === "account") {
+      void queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    } else {
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      void queryClient.invalidateQueries({ queryKey: ["accounts"] });
+    }
+    setQuickAction(null);
+    toaster.create({ type: "success", title: message });
+  }
+
+  function openQuickAction(action: NonNullable<QuickAction>) {
+    setQuickAction(action);
+    if (action === "import") {
+      toaster.create({ type: "info", title: "Import preview", description: "Backend import is not available yet." });
+    }
+  }
+
   if (!hasSession || sessionInvalid) {
-    return <AuthScreen onAuthenticated={handleAuthenticated} theme={theme} setTheme={setTheme} />;
+    return <AuthController onAuthenticated={handleAuthenticated} />;
   }
 
   return (
-    <div className="app">
-      <aside className="sidebar">
-        <div className="brand">
-          <Wallet size={22} />
-          <span>CapitalFlow</span>
-        </div>
+    <Grid className="app" minH="100vh" templateColumns={{ base: "1fr", lg: "244px minmax(0, 1fr)" }}>
+      <Box as="aside" className="sidebar">
+        <BrandBlock
+          version={serviceStatus.data?.version}
+          status={serviceStatus.error ? "Unavailable" : serviceStatus.isFetching ? "Checking" : "Healthy"}
+          onCheck={() => {
+            void serviceStatus.refetch().then((result) => {
+              toaster.create({
+                type: result.error ? "error" : "success",
+                title: result.error ? "Status check failed" : "System healthy",
+                description: result.error ? errorMessage(result.error) : result.data?.version,
+              });
+            });
+          }}
+        />
+        <Nav view={view} accountCount={accounts.data?.length ?? 0} navigateTo={navigateTo} />
+        <SidebarFooter
+          onLogout={handleLogout}
+        />
+      </Box>
 
-        <nav>
-          <button className={view === "dashboard" ? "active" : ""} onClick={() => navigateTo("dashboard")}>
-            <Landmark size={16} /> Dashboard
-          </button>
-
-          <button className={view === "accounts" ? "active" : ""} onClick={() => navigateTo("accounts")}>
-            <Wallet size={16} /> Accounts
-          </button>
-
-          <button className={view === "transactions" ? "active" : ""} onClick={() => navigateTo("transactions")}>
-            <ArrowRightLeft size={16} /> Transactions
-          </button>
-
-          <button className={view === "settings" ? "active" : ""} onClick={() => navigateTo("settings")}>
-            <Settings size={16} /> Settings
-          </button>
-        </nav>
-
-        <Button className="muted-button" onClick={() => setAuthOpen((open) => !open)}>
-          <Settings size={16} /> Session
-        </Button>
-
-        {authOpen ? <SessionPanel onLogout={handleLogout} /> : null}
-      </aside>
-
-      <main>
-        <header className="topbar">
-          <div>
-            <p className="eyebrow">v0.5 MVP</p>
-            <div className="page-title">
-              <h1>{pageTitle}</h1>
+      <Box as="main" pb={{ base: 24, lg: 8 }}>
+        <Box as="header" className="page-head">
+          <Box minW={0}>
+            <Box as="h1" id="pageTitle">{view === "dashboard" ? "Overview" : pageTitle}</Box>
+            <HStack className="page-title" gap={3} flexWrap="wrap">
               {view === "dashboard" && serviceStatus.data?.version ? (
-                <span className="version-badge" aria-label={`Service version ${serviceStatus.data.version}`}>
+                <Box as="span" className="version-badge" aria-label={`Service version ${serviceStatus.data.version}`}>
                   {serviceStatus.data.version}
-                </span>
+                </Box>
               ) : null}
-            </div>
-          </div>
+            </HStack>
+          </Box>
 
-          <div className="quick-actions">
-            <IconButton
-              title={theme === "dark" ? "Light theme" : "Dark theme"}
-              aria-label={theme === "dark" ? "Light theme" : "Dark theme"}
-              onClick={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
-            >
-              {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-            </IconButton>
+          <Box className="head-tools">
+            <CommandTrigger onOpen={() => setCommandOpen(true)} />
+            {view === "dashboard" ? (
+              <button
+                className="rail-toggle"
+                type="button"
+                aria-label={rightRailHidden ? "Show insights" : "Hide insights"}
+                title={rightRailHidden ? "Show insights" : "Hide insights"}
+                aria-controls="dashboard-right-rail"
+                aria-expanded={!rightRailHidden}
+                onClick={() => setRightRailHidden((hidden) => !hidden)}
+              >
+                {rightRailHidden ? <PanelRightOpen size={17} aria-hidden="true" /> : <PanelRightClose size={17} aria-hidden="true" />}
+              </button>
+            ) : null}
+          </Box>
+        </Box>
 
-            <IconButton title="Income" aria-label="Income" disabled={transactionActionsDisabled} onClick={() => setQuickAction("income")}>
-              <ArrowDownLeft size={18} />
-            </IconButton>
+        <PageTransition>
+          <Suspense fallback={<Empty>Loading view</Empty>}>
+            {view === "dashboard" ? (
+              <DashboardView
+                key={primaryCurrency}
+                primaryCurrency={primaryCurrency}
+                rightRailHidden={rightRailHidden}
+                quickActionsDisabled={transactionActionsDisabled}
+                onQuickAction={openQuickAction}
+                onNavigate={navigateTo}
+                onOpenAccount={(id) => {
+                  navigateTo("accounts", id);
+                }}
+              />
+            ) : null}
 
-            <IconButton title="Expense" aria-label="Expense" disabled={transactionActionsDisabled} onClick={() => setQuickAction("expense")}>
-              <ArrowUpRight size={18} />
-            </IconButton>
+            {view === "accounts" ? (
+              selectedAccount ? (
+                <AccountDetails account={selectedAccount} onBack={() => navigateTo("accounts")} />
+              ) : (
+                <AccountsView
+                  accounts={accounts.data ?? []}
+                  isLoading={accounts.isLoading}
+                  error={accounts.error}
+                  onSelect={(id) => navigateTo("accounts", id)}
+                />
+              )
+            ) : null}
+          </Suspense>
 
-            <IconButton title="Transfer" aria-label="Transfer" disabled={transactionActionsDisabled} onClick={() => setQuickAction("transfer")}>
-              <ArrowRightLeft size={18} />
-            </IconButton>
-
-            <IconButton title="Create account" aria-label="Create account" onClick={() => setQuickAction("account")}>
-              <Plus size={18} />
-            </IconButton>
-          </div>
-        </header>
-
-        <Suspense fallback={<Empty>Loading view</Empty>}>
-          {view === "dashboard" ? (
-            <DashboardView
-              key={primaryCurrency}
-              primaryCurrency={primaryCurrency}
-              onOpenAccount={(id) => {
-                navigateTo("accounts", id);
-              }}
+          {view === "transactions" ? (
+            <TransactionsView
+              accounts={accounts.data ?? []}
+              categories={categories.data ?? []}
+              accountsLoading={accounts.isLoading}
+              accountsError={accounts.error}
+              categoriesLoading={categories.isLoading}
+              categoriesError={categories.error}
             />
           ) : null}
 
-          {view === "accounts" ? (
-            selectedAccount ? (
-              <AccountDetails account={selectedAccount} onBack={() => navigateTo("accounts")} />
+          {view === "settings" ? (
+            profile.isLoading ? (
+              <Empty>Loading profile</Empty>
+            ) : profile.error ? (
+              <Box className="error inline-error">{errorMessage(profile.error)}</Box>
             ) : (
-              <AccountsView
-                accounts={accounts.data ?? []}
-                isLoading={accounts.isLoading}
-                error={accounts.error}
-                onSelect={(id) => navigateTo("accounts", id)}
-              />
+              <SettingsView profile={profile.data} />
             )
           ) : null}
-        </Suspense>
-
-        {view === "transactions" ? (
-          <TransactionsView
-            accounts={accounts.data ?? []}
-            categories={categories.data ?? []}
-            accountsLoading={accounts.isLoading}
-            accountsError={accounts.error}
-            categoriesLoading={categories.isLoading}
-            categoriesError={categories.error}
-          />
-        ) : null}
-
-        {view === "settings" ? (
-          profile.isLoading ? (
-            <Empty>Loading profile</Empty>
-          ) : profile.error ? (
-            <div className="error inline-error">{errorMessage(profile.error)}</div>
-          ) : (
-            <SettingsView profile={profile.data} />
-          )
-        ) : null}
-      </main>
+        </PageTransition>
+      </Box>
 
       {quickAction ? (
         <Dialog title={quickActionTitle(quickAction)} onClose={() => setQuickAction(null)}>
-          {quickAction === "account" ? <CreateAccountForm onDone={() => setQuickAction(null)} /> : null}
+          {quickAction === "account" ? <CreateAccountForm onDone={() => completeQuickAction("account", "Account created")} /> : null}
 
           {quickAction === "transfer" ? (
-            <TransferForm accounts={accounts.data ?? []} onDone={() => setQuickAction(null)} />
+            <TransferForm accounts={accounts.data ?? []} onDone={() => completeQuickAction("transfer", "Transfer created")} />
           ) : null}
 
-          {quickAction === "income" || quickAction === "expense" ? (
+          {quickAction === "transaction" ? (
             <TransactionForm
               accounts={accounts.data ?? []}
               categories={categories.data ?? []}
-              fixedType={quickAction}
-              onDone={() => setQuickAction(null)}
+              onDone={() => completeQuickAction("transaction", "Transaction created")}
+            />
+          ) : null}
+
+          {quickAction === "import" ? (
+            <ImportPlaceholder
+              onOpenTransactions={() => {
+                setQuickAction(null);
+                navigateTo("transactions");
+              }}
             />
           ) : null}
         </Dialog>
       ) : null}
-    </div>
+
+      {commandOpen ? (
+        <CommandMenu
+          transactionActionsDisabled={transactionActionsDisabled}
+          onClose={() => setCommandOpen(false)}
+          onNavigate={(nextView) => {
+            setCommandOpen(false);
+            navigateTo(nextView);
+          }}
+          onQuickAction={(action) => {
+            setCommandOpen(false);
+            openQuickAction(action);
+          }}
+        />
+      ) : null}
+    </Grid>
   );
-}
-
-function AuthScreen({
-  onAuthenticated,
-  theme,
-  setTheme,
-}: {
-  onAuthenticated: () => void;
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
-}) {
-  const status = useQuery({ queryKey: ["auth-status"], queryFn: api.authStatus, retry: false });
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [primaryCurrency, setPrimaryCurrency] = useState("RUB");
-  const [error, setError] = useState("");
-  const [passkeyError, setPasskeyError] = useState("");
-  const [passkeyLoading, setPasskeyLoading] = useState(false);
-
-  const setupRequired = status.data?.setup_required;
-  const isSetup = setupRequired === true;
-  const passkeysSupported = browserSupportsPasskeys();
-
-  async function submit() {
-    setError("");
-
-    try {
-      if (isSetup) {
-        await api.setup({ email, password, primary_currency: primaryCurrency });
-      } else {
-        await api.login({ email, password });
-      }
-
-      onAuthenticated();
-    } catch (err) {
-      setError(errorText(err));
-    }
-  }
-
-  async function submitPasskey() {
-    setError("");
-    setPasskeyError("");
-    setPasskeyLoading(true);
-
-    try {
-      await signInWithPasskey();
-      onAuthenticated();
-    } catch (err) {
-      setPasskeyError(passkeyErrorMessage(err));
-    } finally {
-      setPasskeyLoading(false);
-    }
-  }
-
-  return (
-    <div className="auth-page">
-      <section className="auth-info">
-        <div className="auth-info-brand">
-          <Wallet size={24} />
-          <span>CapitalFlow</span>
-        </div>
-
-        <div className="auth-preview">
-          <div className="auth-preview-card auth-preview-hero">
-            <span>Portfolio value</span>
-            <strong>₽ 1,284,500</strong>
-            <small>+₽ 42,800 this month</small>
-          </div>
-
-          <div className="auth-preview-metrics">
-            <div className="auth-preview-card">
-              <span>Income</span>
-              <strong>₽ 180,000</strong>
-            </div>
-
-            <div className="auth-preview-card">
-              <span>Expenses</span>
-              <strong>₽ 92,400</strong>
-            </div>
-          </div>
-
-          <div className="auth-preview-card">
-            <div className="auth-preview-chart">
-              <i style={{ height: "42%" }} />
-              <i style={{ height: "58%" }} />
-              <i style={{ height: "48%" }} />
-              <i style={{ height: "74%" }} />
-              <i style={{ height: "66%" }} />
-              <i style={{ height: "84%" }} />
-            </div>
-          </div>
-
-          <div className="auth-preview-card auth-preview-list">
-            <div className="auth-preview-row">
-              <span>Savings</span>
-              <strong>62%</strong>
-            </div>
-
-            <div className="auth-preview-row">
-              <span>Broker</span>
-              <strong>24%</strong>
-            </div>
-
-            <div className="auth-preview-row">
-              <span>Cash</span>
-              <strong>14%</strong>
-            </div>
-          </div>
-        </div>
-
-        <div className="auth-info-panel">
-          <ShieldCheck size={18} />
-          <span>{isSetup ? "First local user setup" : "Private local session"}</span>
-        </div>
-      </section>
-
-      <form
-        className="auth-card"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void submit();
-        }}
-      >
-        <div className="auth-card-header">
-          <div>
-            <p className="eyebrow">{isSetup ? "Registration" : "Login"}</p>
-            <h1>{isSetup ? "Create your first user" : "Welcome back"}</h1>
-          </div>
-
-          <IconButton
-            title={theme === "dark" ? "Light theme" : "Dark theme"}
-            aria-label={theme === "dark" ? "Light theme" : "Dark theme"}
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            type="button"
-          >
-            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-          </IconButton>
-        </div>
-
-        {isSetup ? (
-          <div className="setup-notice">
-            <ShieldCheck size={18} />
-            <span>This is the first launch. Create the local owner account and choose the base budget currency.</span>
-          </div>
-        ) : null}
-
-        <Field label="Email">
-          <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" />
-        </Field>
-
-        <Field label="Password">
-          <Input
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            autoComplete={isSetup ? "new-password" : "current-password"}
-          />
-        </Field>
-
-        {isSetup ? (
-          <Field label="Primary currency">
-            <Select value={primaryCurrency} onChange={(event) => setPrimaryCurrency(event.target.value)}>
-              {currencyOptions().map((currency) => (
-                <option key={currency.code} value={currency.code}>
-                  {currency.label}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        ) : null}
-
-        {error ? <div className="error">{error}</div> : null}
-
-        <Button className="primary-button" disabled={status.isLoading}>
-          {isSetup ? <ShieldCheck size={16} /> : <LogIn size={16} />}
-          {isSetup ? "Create account" : "Login"}
-        </Button>
-
-        {!isSetup ? (
-          <>
-            {passkeyError ? <div className="error">{passkeyError}</div> : null}
-            <Button
-              className="muted-button"
-              disabled={!passkeysSupported || passkeyLoading}
-              type="button"
-              onClick={() => {
-                void submitPasskey();
-              }}
-            >
-              <KeyRound size={16} />
-              {passkeyLoading ? "Checking passkey" : "Sign in with passkey"}
-            </Button>
-            {!passkeysSupported ? <div className="error">This browser does not support passkeys</div> : null}
-          </>
-        ) : null}
-      </form>
-    </div>
-  );
-}
-
-function SessionPanel({ onLogout }: { onLogout: () => void }) {
-  return (
-    <div className="auth-panel">
-      <Button
-        className="muted-button"
-        type="button"
-        onClick={() => {
-          void api.logout().finally(() => {
-            onLogout();
-          });
-        }}
-      >
-        <LogOut size={16} /> Logout
-      </Button>
-    </div>
-  );
-}
-
-function errorText(err: unknown) {
-  if (err instanceof ApiClientError) {
-    return err.message;
-  }
-
-  if (err instanceof Error) {
-    return err.message;
-  }
-
-  return "Request failed";
 }
 
 function titleForView(view: View) {
@@ -544,19 +349,9 @@ function pathForRoute(view: View, accountId = "") {
 
 function quickActionTitle(action: NonNullable<QuickAction>) {
   return {
-    income: "Create income",
-    expense: "Create expense",
+    transaction: "Create transaction",
     transfer: "Create transfer",
     account: "Create account",
+    import: "Import transactions",
   }[action];
-}
-
-function storedTheme(): Theme {
-  const stored = localStorage.getItem(themeStorageKey);
-
-  if (stored === "dark" || stored === "light") {
-    return stored;
-  }
-
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }

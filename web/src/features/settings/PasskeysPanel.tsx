@@ -4,7 +4,7 @@ import { KeyRound, Pencil, Plus, Trash2 } from "lucide-react";
 import { api } from "../../api/client";
 import { registerPasskey, browserSupportsPasskeys, passkeyErrorMessage } from "../auth/passkeys";
 import { errorMessage } from "../../shared/api/query";
-import { Button, Empty, IconButton, Input, Panel } from "../../shared/ui";
+import { Button, Empty, Field, IconButton, Input, Panel } from "../../shared/ui";
 
 export function PasskeysPanel() {
   const queryClient = useQueryClient();
@@ -64,7 +64,7 @@ export function PasskeysPanel() {
   }
 
   return (
-    <Panel title="Security">
+    <Panel className="workspace-panel settings-panel security-settings-panel" title="Security">
       <div className="form compact-form">
         <div>
           <strong>Passkeys</strong>
@@ -76,12 +76,13 @@ export function PasskeysPanel() {
         {passkeys.error ? <div className="error">{errorMessage(passkeys.error)}</div> : null}
 
         <div className="inline-form">
-          <Input
-            type="password"
-            placeholder="Password confirmation"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-          />
+          <Field label="Password confirmation">
+            <Input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          </Field>
           <Button
             className="primary-button"
             disabled={!supported || busy || !password}

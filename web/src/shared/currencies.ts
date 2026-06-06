@@ -6,6 +6,11 @@ const customCurrencies: Record<string, string> = {
   USDT: "Tether USD",
 };
 
+export type CurrencyOption = {
+  code: string;
+  label: string;
+};
+
 export function currencyOptions() {
   const codes = typeof Intl.supportedValuesOf === "function"
     ? Intl.supportedValuesOf("currency")
@@ -28,6 +33,5 @@ export function currencyLabel(code: string) {
     return normalized;
   }
 }
-
 
 

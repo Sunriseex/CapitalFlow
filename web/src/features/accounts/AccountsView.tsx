@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { formatMoney } from "../../api/money";
 import type { Account, InterestRule } from "../../api/types";
 import { accountTypes } from "../../shared/constants";
 import { errorMessage } from "../../shared/api/query";
-import { Button, Empty, Panel, Select } from "../../shared/ui";
+import { Empty, Panel, Select } from "../../shared/ui";
+import { AccountsTable } from "./components/AccountsTable";
 
 export function AccountsView({
   accounts,
@@ -21,58 +21,46 @@ export function AccountsView({
   const [type, setType] = useState("");
   const summary = useQuery({ queryKey: ["dashboard", "summary"], queryFn: api.dashboardSummary });
   const rules = useQuery({ queryKey: ["interest-rules"], queryFn: () => api.interestRules() });
-  const balances = new Map((summary.data?.account_balances ?? []).map((account) => [account.account_id, account]));
-  const activeRules = activeRulesByAccount(rules.data ?? []);
-  const filtered = accounts.filter((account) => !type || account.type === type);
+  const balances = useMemo(
+    () => new Map((summary.data?.account_balances ?? []).map((account) => [account.account_id, account])),
+    [summary.data?.account_balances],
+  );
+  const activeRules = useMemo(() => activeRulesByAccount(rules.data ?? []), [rules.data]);
+  const filtered = useMemo(
+    () => accounts.filter((account) => !type || account.type === type),
+    [accounts, type],
+  );
+  const accountTypeOptions = useMemo(
+    () => accountTypes.map((accountType) => <option key={accountType}>{accountType}</option>),
+    [],
+  );
 
   return (
     <Panel
+      className="workspace-panel accounts-panel"
       title="Accounts"
       action={
-        <Select value={type} onChange={(event) => setType(event.target.value)}>
+        <Select aria-label="Filter accounts by type" value={type} onChange={(event) => setType(event.target.value)}>
           <option value="">All types</option>
-          {accountTypes.map((accountType) => <option key={accountType}>{accountType}</option>)}
+          {accountTypeOptions}
         </Select>
       }
     >
       {isLoading ? <Empty>Loading accounts</Empty> : null}
       {error ? <div className="error inline-error">{errorMessage(error)}</div> : null}
       {!isLoading && !error && !filtered.length ? <Empty>No accounts</Empty> : null}
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr><th>Name</th><th>Bank</th><th>Type</th><th>Balance</th><th>Rate</th><th>Status</th><th></th></tr>
-          </thead>
-          <tbody>
-            {!isLoading && !error ? filtered.map((account) => (
-              <tr key={account.id}>
-                <td>{account.name}</td>
-                <td>{account.bank || "-"}</td>
-                <td>{account.type}</td>
-                <td className="amount">{formatMoney(balances.get(account.id)?.balance ?? "0", account.currency)}</td>
-                <td><AccountRate rule={activeRules.get(account.id)} isLoading={rules.isLoading} error={rules.error} /></td>
-                <td>{account.is_active ? "active" : "archived"}</td>
-                <td><Button onClick={() => onSelect(account.id)}>Open</Button></td>
-              </tr>
-            )) : null}
-          </tbody>
-        </table>
-      </div>
+      {!isLoading && !error ? (
+        <AccountsTable
+          accounts={filtered}
+          balances={balances}
+          activeRules={activeRules}
+          rulesLoading={rules.isLoading}
+          rulesError={rules.error}
+          onSelect={onSelect}
+        />
+      ) : null}
     </Panel>
   );
-}
-
-function AccountRate({ rule, isLoading, error }: { rule?: InterestRule; isLoading: boolean; error: unknown }) {
-  if (isLoading) {
-    return <span>Loading</span>;
-  }
-  if (error) {
-    return <span className="error-text">{errorMessage(error)}</span>;
-  }
-  if (!rule) {
-    return <span>-</span>;
-  }
-  return <span>{(rule.annual_rate_bps / 100).toFixed(2)}%</span>;
 }
 
 function activeRulesByAccount(rules: InterestRule[]) {
@@ -100,5 +88,3 @@ function localDateString(date: Date) {
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
-
-

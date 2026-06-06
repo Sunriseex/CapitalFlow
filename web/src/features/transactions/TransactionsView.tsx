@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { api } from "../../api/client";
-import type { Account, Category } from "../../api/types";
+import type { Account, Category, Transaction } from "../../api/types";
 import { errorMessage } from "../../shared/api/query";
 import { transactionTypes } from "../../shared/constants";
 import { Button, Dialog, Empty, Input, Panel, Select } from "../../shared/ui";
+import { TransactionDetails } from "./components/TransactionDetails";
+import { TransactionsTable } from "./components/TransactionsTable";
 import { TransactionForm } from "./TransactionForm";
-import { TransactionsTable } from "./TransactionsTable";
 
 export function TransactionsView({
   accounts,
@@ -24,26 +25,43 @@ export function TransactionsView({
   categoriesLoading?: boolean;
   categoriesError?: unknown;
 }) {
-  const transactions = useQuery({ queryKey: ["transactions"], queryFn: () => api.transactions() });
+  const transactions = useQuery({ queryKey: ["transactions"], queryFn: () => api.transactions(), staleTime: 30_000 });
   const [createOpen, setCreateOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [accountId, setAccountId] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [type, setType] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const filtered = (transactions.data ?? []).filter((transaction) => {
-    const day = transaction.occurred_at.slice(0, 10);
-    return (!accountId || transaction.account_id === accountId) &&
-      (!categoryId || transaction.category_id === categoryId) &&
-      (!type || transaction.type === type) &&
-      (!from || day >= from) &&
-      (!to || day <= to);
-  });
+  const filtered = useMemo(
+    () => (transactions.data ?? []).filter((transaction) => {
+      const day = transaction.occurred_at.slice(0, 10);
+      return (!accountId || transaction.account_id === accountId) &&
+        (!categoryId || transaction.category_id === categoryId) &&
+        (!type || transaction.type === type) &&
+        (!from || day >= from) &&
+        (!to || day <= to);
+    }),
+    [accountId, categoryId, from, to, transactions.data, type],
+  );
+  const accountOptions = useMemo(
+    () => accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>),
+    [accounts],
+  );
+  const categoryOptions = useMemo(
+    () => categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>),
+    [categories],
+  );
+  const typeOptions = useMemo(
+    () => transactionTypes.map((transactionType) => <option key={transactionType}>{transactionType}</option>),
+    [],
+  );
 
   const disabledCreate = accountsLoading || Boolean(accountsError) || accounts.length === 0;
 
   return (
     <Panel
+      className="workspace-panel transactions-panel"
       title="Transactions"
       action={<Button onClick={() => setCreateOpen(true)} disabled={disabledCreate}><Plus size={16} /> Adjustment</Button>}
     >
@@ -53,33 +71,35 @@ export function TransactionsView({
       {categoriesError ? <div className="error inline-error">{errorMessage(categoriesError)}</div> : null}
       {transactions.isLoading ? <Empty>Loading transactions</Empty> : null}
       {transactions.error ? <div className="error inline-error">{errorMessage(transactions.error)}</div> : null}
-      <div className="filters">
-        <Select value={accountId} disabled={accountsLoading || Boolean(accountsError)} onChange={(event) => setAccountId(event.target.value)}>
+      <div className="filters workspace-filters transactions-filters">
+        <Select aria-label="Filter transactions by account" value={accountId} disabled={accountsLoading || Boolean(accountsError)} onChange={(event) => setAccountId(event.target.value)}>
           <option value="">All accounts</option>
-          {accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
+          {accountOptions}
         </Select>
-        <Select value={categoryId} disabled={categoriesLoading || Boolean(categoriesError)} onChange={(event) => setCategoryId(event.target.value)}>
+        <Select aria-label="Filter transactions by category" value={categoryId} disabled={categoriesLoading || Boolean(categoriesError)} onChange={(event) => setCategoryId(event.target.value)}>
           <option value="">All categories</option>
-          {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+          {categoryOptions}
         </Select>
-        <Select value={type} onChange={(event) => setType(event.target.value)}>
+        <Select aria-label="Filter transactions by type" value={type} onChange={(event) => setType(event.target.value)}>
           <option value="">All types</option>
-          {transactionTypes.map((transactionType) => <option key={transactionType}>{transactionType}</option>)}
+          {typeOptions}
         </Select>
-        <Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
-        <Input type="date" value={to} onChange={(event) => setTo(event.target.value)} />
+        <Input aria-label="Filter transactions from date" type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
+        <Input aria-label="Filter transactions to date" type="date" value={to} onChange={(event) => setTo(event.target.value)} />
       </div>
       {!transactions.isLoading && !transactions.error ? (
-        <TransactionsTable transactions={filtered} accounts={accounts} categories={categories} />
+        <TransactionsTable transactions={filtered} accounts={accounts} categories={categories} chunked onOpenTransaction={setSelectedTransaction} />
       ) : null}
       {createOpen ? (
         <Dialog title="Create adjustment" onClose={() => setCreateOpen(false)}>
-          <TransactionForm accounts={accounts} categories={categories} fixedType="adjustment" onDone={() => setCreateOpen(false)} />
+          <TransactionForm accounts={accounts} categories={categories} fixedType="adjustment" showTitle={false} onDone={() => setCreateOpen(false)} />
+        </Dialog>
+      ) : null}
+      {selectedTransaction ? (
+        <Dialog title="Transaction details" onClose={() => setSelectedTransaction(null)}>
+          <TransactionDetails transaction={selectedTransaction} accounts={accounts} categories={categories} />
         </Dialog>
       ) : null}
     </Panel>
   );
 }
-
-
-

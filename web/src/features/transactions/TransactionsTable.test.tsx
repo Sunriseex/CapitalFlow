@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 import type { Account, Category, Transaction } from "../../api/types";
 import { TransactionsTable } from "./TransactionsTable";
 
@@ -49,5 +50,44 @@ describe("TransactionsTable", () => {
     render(<TransactionsTable transactions={[]} accounts={accounts} categories={categories} />);
 
     expect(screen.getByText("No transactions")).toBeInTheDocument();
+  });
+
+  it("renders chunked account history and reveals more rows on demand", async () => {
+    const user = userEvent.setup();
+    const transactions = Array.from({ length: 205 }, (_, index): Transaction => ({
+      ...incomeTransaction,
+      id: `transaction-${index}`,
+      description: `Transaction ${index}`,
+    }));
+
+    render(<TransactionsTable transactions={transactions} accounts={accounts} categories={categories} chunked />);
+
+    expect(screen.getAllByRole("row")).toHaveLength(49);
+    expect(screen.getByText("48 of 205")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Show more" }));
+
+    expect(screen.getAllByRole("row")).toHaveLength(145);
+    expect(screen.getByText("144 of 205")).toBeInTheDocument();
+  });
+
+  it("opens transaction details from click and keyboard", async () => {
+    const user = userEvent.setup();
+    const onOpenTransaction = vi.fn();
+
+    render(<TransactionsTable transactions={[incomeTransaction]} accounts={accounts} categories={categories} onOpenTransaction={onOpenTransaction} />);
+
+    const row = screen.getByRole("row", { name: /Salary/ });
+    await user.click(row);
+    expect(onOpenTransaction).toHaveBeenCalledWith(incomeTransaction);
+
+    onOpenTransaction.mockClear();
+    row.focus();
+    await user.keyboard("{Enter}");
+    expect(onOpenTransaction).toHaveBeenCalledWith(incomeTransaction);
+
+    onOpenTransaction.mockClear();
+    await user.keyboard(" ");
+    expect(onOpenTransaction).toHaveBeenCalledWith(incomeTransaction);
   });
 });

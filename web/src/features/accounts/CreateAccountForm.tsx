@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { isPositiveMoney, parseMoneyToMinorResult } from "../../api/money";
@@ -87,23 +87,31 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
     },
     onError: (err) => setError(errorMessage(err)),
   });
-  const currencies = currencyOptions();
+  const currencies = useMemo(() => currencyOptions(), []);
+  const accountTypeOptions = useMemo(() => accountTypes.map((type) => <option key={type}>{type}</option>), []);
+  const currencySelectOptions = useMemo(
+    () => currencies.map((currency) => <option key={currency.code} value={currency.code}>{currency.label}</option>),
+    [currencies],
+  );
+  const capitalizationOptions = useMemo(
+    () => ["none", "daily", "monthly", "end_of_term"].map((value) => <option key={value}>{value}</option>),
+    [],
+  );
 
   return (
     <FormShell title="Create account" error={error} onSubmit={() => mutation.mutate()}>
       <Field label="Name"><Input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></Field>
       <Field label="Bank"><Input value={form.bank} onChange={(event) => setForm({ ...form, bank: event.target.value })} /></Field>
-      <Field label="Type"><Select value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value as AccountType })}>{accountTypes.map((type) => <option key={type}>{type}</option>)}</Select></Field>
-      <Field label="Currency"><Select value={form.currency} onChange={(event) => setForm({ ...form, currency: event.target.value })}>{currencies.map((currency) => <option key={currency.code} value={currency.code}>{currency.label}</option>)}</Select></Field>
+      <Field label="Type"><Select value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value as AccountType })}>{accountTypeOptions}</Select></Field>
+      <Field label="Currency"><Select value={form.currency} onChange={(event) => setForm({ ...form, currency: event.target.value })}>{currencySelectOptions}</Select></Field>
       <Field label="Opened"><Input type="date" value={form.opened_at} onChange={(event) => setForm({ ...form, opened_at: event.target.value })} /></Field>
       <Field label="Initial balance"><Input inputMode="decimal" value={form.initial} onChange={(event) => setForm({ ...form, initial: event.target.value })} /></Field>
       <Field label="Annual rate %"><Input inputMode="decimal" value={form.rate} onChange={(event) => setForm({ ...form, rate: event.target.value })} /></Field>
       <Field label="Promo rate %"><Input inputMode="decimal" value={form.promoRate} onChange={(event) => setForm({ ...form, promoRate: event.target.value })} /></Field>
       <Field label="Promo end"><Input type="date" value={form.promoEndDate} onChange={(event) => setForm({ ...form, promoEndDate: event.target.value })} /></Field>
-      <Field label="Capitalization"><Select value={form.capitalization} onChange={(event) => setForm({ ...form, capitalization: event.target.value })}><option>none</option><option>daily</option><option>monthly</option><option>end_of_term</option></Select></Field>
+      <Field label="Capitalization"><Select value={form.capitalization} onChange={(event) => setForm({ ...form, capitalization: event.target.value })}>{capitalizationOptions}</Select></Field>
       <Button disabled={mutation.isPending}>Create</Button>
     </FormShell>
   );
 }
-
 

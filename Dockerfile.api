@@ -1,4 +1,5 @@
 FROM golang:1.26.2-alpine AS build
+ARG APP_VERSION=dev
 
 WORKDIR /src
 
@@ -9,8 +10,8 @@ RUN go mod download
 RUN mkdir -p /out && go install github.com/pressly/goose/v3/cmd/goose@v3.27.1 && cp /go/bin/goose /out/goose
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/capitalflow-server ./cmd/server
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/capitalflow ./cmd/capitalflow
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w -X github.com/sunriseex/capitalflow/internal/version.Release=${APP_VERSION}" -o /out/capitalflow-server ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w -X github.com/sunriseex/capitalflow/internal/version.Release=${APP_VERSION}" -o /out/capitalflow ./cmd/capitalflow
 
 FROM alpine:3.23
 

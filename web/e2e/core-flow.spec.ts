@@ -136,42 +136,144 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
 
   await page.goto("/");
   await page.getByLabel("Email").fill("user@example.com");
-  await page.getByLabel("Password").fill("password");
-  await page.getByRole("button", { name: "Login" }).click();
-  await expect(page.getByRole("heading", { name: "Dashboard" }).first()).toBeVisible();
-  await expect(createAccountButton(page)).toBeVisible();
+  await page.getByLabel("Password", { exact: true }).fill("password");
+  await page.getByRole("button", { name: "Sign in with email" }).click();
+  await expect(page.getByRole("heading", { name: "Overview" }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open command menu" })).toBeVisible();
+  await expectHeaderControlsInOneRow(page);
+
+  await expectAppTheme(page, "light", "#edf4f2");
+  await page.getByRole("button", { name: "Switch to dark theme" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expectAppTheme(page, "dark", "#070d14");
+  await page.getByRole("button", { name: "Switch to light theme" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expectAppTheme(page, "light", "#edf4f2");
+  await expect.poll(
+    () => page.locator(".toast-card").first().evaluate((element) => getComputedStyle(element).color),
+  ).toBe("rgb(16, 24, 32)");
+  await page.getByRole("button", { name: "Switch to dark theme" }).click();
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expectAppTheme(page, "dark", "#070d14");
 
   await createAccount(page, "Cash", "Wallet", "1000");
   await createAccount(page, "Savings", "Bank", "0");
+  const referenceSurface = await surfaceSnapshot(page, ".balance-card");
 
-  await page.getByRole("button", { name: "Income" }).click();
+  await page.getByRole("button", { name: "Accounts" }).click();
+  await expect(page.locator(".accounts-panel.workspace-panel")).toBeVisible();
+  await expectSurface(page, ".accounts-panel", referenceSurface);
+  await expect(page.locator(".accounts-table-wrap.workspace-table-wrap")).toBeVisible();
+  await expect(page.locator(".accounts-table.workspace-table")).toBeVisible();
+
+  await page.getByRole("button", { name: "Transactions" }).click();
+  await expect(page.locator(".transactions-panel.workspace-panel")).toBeVisible();
+  await expectSurface(page, ".transactions-panel", referenceSurface);
+  await expect(page.locator(".transactions-filters.workspace-filters")).toBeVisible();
+  await expect(page.locator(".transactions-table-wrap.workspace-table-wrap")).toBeVisible();
+  await expect(page.locator(".transactions-table.workspace-table")).toBeVisible();
+  await page.getByRole("button", { name: "Adjustment" }).click();
+  await expect(page.getByRole("dialog", { name: "Create adjustment" })).toBeVisible();
+  await expect(page.getByText("Adjustment accepts positive or negative values.")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Create adjustment" })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Adjustment" })).toBeFocused();
+
+  await page.getByRole("button", { name: "Settings" }).click();
+  await expect(page.locator(".workspace-settings")).toBeVisible();
+  await expect(page.locator(".profile-settings-panel.workspace-panel")).toBeVisible();
+  await expectSurface(page, ".profile-settings-panel", referenceSurface);
+  await expect(page.locator(".security-settings-panel.workspace-panel")).toBeVisible();
+  await expectSurface(page, ".security-settings-panel", referenceSurface);
+  await page.getByRole("button", { name: "Overview" }).click();
+  await expect(page.getByRole("button", { name: "Hide insights" })).toHaveAttribute("aria-expanded", "true");
+  await page.getByRole("button", { name: "Hide insights" }).click();
+  await expect(page.getByRole("button", { name: "Show insights" })).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator("#dashboard-right-rail")).toHaveAttribute("aria-hidden", "true");
+  await page.getByRole("button", { name: "Show insights" }).click();
+  await expect(page.getByRole("button", { name: "Hide insights" })).toHaveAttribute("aria-expanded", "true");
+
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+K" : "Control+K");
+  const commandMenu = page.getByRole("dialog", { name: "Command menu" });
+  await expect(commandMenu).toBeVisible();
+  await expectTopCentered(page, commandMenu);
+  await commandMenu.getByRole("button", { name: "Transactions" }).click();
+  await expect(page).toHaveURL(/\/transactions$/);
+  await page.getByRole("button", { name: "Overview" }).click();
+
+  await page.getByRole("button", { name: "+ Transaction" }).click();
+  await page.getByLabel("Type").selectOption("income");
   await page.getByLabel("Amount").fill("250");
   await page.getByLabel("Description").fill("Salary");
   await page.getByRole("button", { name: "Create", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Create income" })).toBeHidden();
+  await expect(page.getByRole("dialog", { name: "Create transaction" })).toBeHidden();
 
-  await page.getByRole("button", { name: "Expense" }).click();
+  await page.getByRole("button", { name: "+ Transaction" }).click();
+  await page.getByLabel("Type").selectOption("expense");
   await page.getByLabel("Amount").fill("50");
   await page.getByLabel("Description").fill("Groceries");
   await page.getByRole("button", { name: "Create", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Create expense" })).toBeHidden();
+  await expect(page.getByRole("dialog", { name: "Create transaction" })).toBeHidden();
 
-  await page.getByRole("button", { name: "Transfer" }).click();
+  await page.getByRole("button", { name: "+ Transfer" }).click();
   await page.getByLabel("Amount").fill("100");
   await page.getByLabel("Description").fill("Move to savings");
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Create transfer" })).toBeHidden();
 
-  await expect(page.getByText("2 active accounts across 1 currency")).toBeVisible();
+  await page.getByRole("button", { name: "Import" }).click();
+  await expect(page.getByRole("dialog", { name: "Import transactions" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Import transactions" })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Import" })).toBeFocused();
+  await page.getByRole("button", { name: "Import" }).click();
+  await page.getByRole("button", { name: "Open transactions" }).click();
+  await expect(page).toHaveURL(/\/transactions$/);
+  await page.getByRole("button", { name: "Overview" }).click();
+
+  await expect(page.getByText("Total capital")).toBeVisible();
+  await expect(page.getByText(/active accounts across/)).toHaveCount(0);
   await expect(page.getByText("Private local session")).toBeHidden();
 
-  await page.getByRole("button", { name: /Session/ }).click();
+  await page.getByRole("button", { name: "Check system health" }).click();
+  await expect(page.getByRole("dialog", { name: "System health" })).toBeVisible();
+  await page.getByRole("button", { name: "Close system health" }).click();
+  await expect(page.getByRole("dialog", { name: "System health" })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Check system health" })).toBeFocused();
+  await page.getByRole("button", { name: "Check system health" }).click();
+  await expect(page.getByRole("dialog", { name: "System health" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "System health" })).toBeHidden();
+
+  for (const width of [320, 768, 1280]) {
+    await page.setViewportSize({ width, height: 720 });
+    const overflow = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+      offenders: [...document.querySelectorAll<HTMLElement>("body *")]
+        .filter((element) => element.getBoundingClientRect().right > document.documentElement.clientWidth + 1)
+        .slice(0, 5)
+        .map((element) => ({
+          tag: element.tagName,
+          className: element.className,
+          text: element.textContent?.trim().slice(0, 80),
+          right: element.getBoundingClientRect().right,
+        })),
+    }));
+    expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
+    expect(overflow.offenders).toEqual([]);
+    await expect(page.getByRole("button", { name: "Open command menu" })).toBeVisible();
+    await expect(page.getByText("Total capital")).toBeVisible();
+  }
+
   await page.getByRole("button", { name: /Logout/ }).click();
-  await expect(page.getByRole("button", { name: "Login" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sign in with email" })).toBeVisible();
 });
 
 async function createAccount(page: import("@playwright/test").Page, name: string, bank: string, initialBalance: string) {
-  await createAccountButton(page).dispatchEvent("click");
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+K" : "Control+K");
+  await page.getByRole("dialog", { name: "Command menu" }).getByRole("button", { name: "Create account" }).click();
   await expect(page.getByRole("dialog", { name: "Create account" })).toBeVisible();
   await page.getByLabel("Name", { exact: true }).fill(name);
   await page.getByLabel("Bank", { exact: true }).fill(bank);
@@ -180,8 +282,45 @@ async function createAccount(page: import("@playwright/test").Page, name: string
   await expect(page.getByRole("dialog", { name: "Create account" })).toBeHidden();
 }
 
-function createAccountButton(page: import("@playwright/test").Page) {
-  return page.locator('.quick-actions button[aria-label="Create account"]');
+async function expectAppTheme(page: import("@playwright/test").Page, theme: "light" | "dark", expectedBg: string) {
+  await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+  await expect.poll(
+    () => page.locator(".app").evaluate((element) => getComputedStyle(element).getPropertyValue("--bg").trim()),
+  ).toBe(expectedBg);
+}
+
+async function expectHeaderControlsInOneRow(page: import("@playwright/test").Page) {
+  const commandBox = await page.getByRole("button", { name: "Open command menu" }).boundingBox();
+  const insightsBox = await page.getByRole("button", { name: "Hide insights" }).boundingBox();
+  expect(commandBox).not.toBeNull();
+  expect(insightsBox).not.toBeNull();
+  expect(Math.abs((commandBox?.y ?? 0) - (insightsBox?.y ?? 0))).toBeLessThanOrEqual(2);
+}
+
+async function expectTopCentered(page: import("@playwright/test").Page, locator: import("@playwright/test").Locator) {
+  const viewport = page.viewportSize();
+  const box = await locator.boundingBox();
+  expect(viewport).not.toBeNull();
+  expect(box).not.toBeNull();
+  expect(box?.y ?? 999).toBeLessThan(96);
+  const menuCenter = (box?.x ?? 0) + (box?.width ?? 0) / 2;
+  expect(Math.abs(menuCenter - (viewport?.width ?? 0) / 2)).toBeLessThanOrEqual(2);
+}
+
+async function surfaceSnapshot(page: import("@playwright/test").Page, selector: string) {
+  return page.locator(selector).first().evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      backgroundImage: style.backgroundImage,
+      backgroundColor: style.backgroundColor,
+      borderColor: style.borderColor,
+      color: style.color,
+    };
+  });
+}
+
+async function expectSurface(page: import("@playwright/test").Page, selector: string, expected: Awaited<ReturnType<typeof surfaceSnapshot>>) {
+  await expect.poll(() => surfaceSnapshot(page, selector)).toEqual(expected);
 }
 
 function dashboardResponse(accounts: Account[], transactions: Transaction[], now: string) {
