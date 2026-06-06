@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { formatMoney } from "../../api/money";
 import type { Account, InterestRule } from "../../api/types";
 import { accountTypes } from "../../shared/constants";
 import { errorMessage } from "../../shared/api/query";
-import { Button, Empty, Panel, Select } from "../../shared/ui";
+import { Empty, Panel, Select } from "../../shared/ui";
+import { AccountsTable } from "./components/AccountsTable";
 
 export function AccountsView({
   accounts,
@@ -49,41 +49,18 @@ export function AccountsView({
       {isLoading ? <Empty>Loading accounts</Empty> : null}
       {error ? <div className="error inline-error">{errorMessage(error)}</div> : null}
       {!isLoading && !error && !filtered.length ? <Empty>No accounts</Empty> : null}
-      <div className="table-wrap workspace-table-wrap accounts-table-wrap">
-        <table className="workspace-table accounts-table">
-          <thead>
-            <tr><th>Name</th><th>Bank</th><th>Type</th><th>Balance</th><th>Rate</th><th>Status</th><th></th></tr>
-          </thead>
-          <tbody>
-            {!isLoading && !error ? filtered.map((account) => (
-              <tr key={account.id}>
-                <td data-label="Name">{account.name}</td>
-                <td data-label="Bank">{account.bank || "-"}</td>
-                <td data-label="Type">{account.type}</td>
-                <td data-label="Balance" className="amount">{formatMoney(balances.get(account.id)?.balance ?? "0", account.currency)}</td>
-                <td data-label="Rate"><AccountRate rule={activeRules.get(account.id)} isLoading={rules.isLoading} error={rules.error} /></td>
-                <td data-label="Status">{account.is_active ? "active" : "archived"}</td>
-                <td data-label="Action"><Button onClick={() => onSelect(account.id)}>Open</Button></td>
-              </tr>
-            )) : null}
-          </tbody>
-        </table>
-      </div>
+      {!isLoading && !error ? (
+        <AccountsTable
+          accounts={filtered}
+          balances={balances}
+          activeRules={activeRules}
+          rulesLoading={rules.isLoading}
+          rulesError={rules.error}
+          onSelect={onSelect}
+        />
+      ) : null}
     </Panel>
   );
-}
-
-function AccountRate({ rule, isLoading, error }: { rule?: InterestRule; isLoading: boolean; error: unknown }) {
-  if (isLoading) {
-    return <span>Loading</span>;
-  }
-  if (error) {
-    return <span className="error-text">{errorMessage(error)}</span>;
-  }
-  if (!rule) {
-    return <span>-</span>;
-  }
-  return <span>{(rule.annual_rate_bps / 100).toFixed(2)}%</span>;
 }
 
 function activeRulesByAccount(rules: InterestRule[]) {

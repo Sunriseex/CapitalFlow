@@ -36,13 +36,16 @@ function findChromiumExecutable() {
 
   try {
     for (const entry of readdirSync("/nix/store")) {
-      if (!entry.endsWith("-playwright-chromium")) {
-        continue;
-      }
+      const storePath = join("/nix/store", entry);
+      const candidates = [
+        join(storePath, "chrome-linux64", "chrome"),
+        join(storePath, "chromium-1200", "chrome-linux64", "chrome"),
+      ];
 
-      const candidate = join("/nix/store", entry, "chrome-linux64", "chrome");
-      if (existsSync(candidate)) {
-        return candidate;
+      for (const candidate of candidates) {
+        if ((entry.endsWith("-playwright-chromium") || entry.endsWith("-playwright-browsers")) && existsSync(candidate)) {
+          return candidate;
+        }
       }
     }
   } catch {

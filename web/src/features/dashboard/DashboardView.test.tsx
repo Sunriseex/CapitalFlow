@@ -82,14 +82,12 @@ function renderDashboardView({
   onNavigate,
   primaryCurrency = "RUB",
   rightRailHidden = false,
-  onToggleRightRail = vi.fn<() => void>(),
 }: {
   onOpenAccount?: (id: string) => void;
   onQuickAction?: (action: NonNullable<import("../../shared/constants").QuickAction>) => void;
   onNavigate?: (view: import("../../shared/constants").View) => void;
   primaryCurrency?: string;
   rightRailHidden?: boolean;
-  onToggleRightRail?: () => void;
 } = {}) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -104,7 +102,6 @@ function renderDashboardView({
         <DashboardView
           primaryCurrency={primaryCurrency}
           rightRailHidden={rightRailHidden}
-          onToggleRightRail={onToggleRightRail}
           onOpenAccount={onOpenAccount}
           onQuickAction={onQuickAction}
           onNavigate={onNavigate}
@@ -252,8 +249,7 @@ describe("DashboardView", () => {
     expect(await screen.findByText(/Cashflow chart covers 1 periods/)).toHaveTextContent("1.25 USDT");
   });
 
-  it("keeps recent transaction rows static and uses a real view button", async () => {
-    const onNavigate = vi.fn();
+  it("opens recent transaction details from the row or view button", async () => {
     mocks.dashboardSummary.mockResolvedValueOnce({
       ...summary,
       recent_transactions: [
@@ -270,14 +266,20 @@ describe("DashboardView", () => {
       ],
       recent_transactions_returned: 1,
     } satisfies DashboardSummary);
-    renderDashboardView({ onNavigate });
+    renderDashboardView();
 
     const table = await screen.findByRole("table", { name: "Recent transactions" });
     const row = within(table).getByRole("row", { name: /Coffee/ });
-    expect(row).not.toHaveAttribute("tabindex");
+    expect(row).toHaveAttribute("tabindex", "0");
 
+    await userEvent.click(row);
+    expect(await screen.findByRole("dialog", { name: "Transaction details" })).toBeInTheDocument();
+    expect(screen.getByText("Transaction ID")).toBeInTheDocument();
+    expect(screen.getByText("tx-1")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Close dialog" }));
     await userEvent.click(within(row).getByRole("button", { name: "Open transaction details" }));
-    expect(onNavigate).toHaveBeenCalledWith("transactions");
+    expect(await screen.findByRole("dialog", { name: "Transaction details" })).toBeInTheDocument();
   });
 
   it("switches dashboard currency and reloads conversion rates", async () => {

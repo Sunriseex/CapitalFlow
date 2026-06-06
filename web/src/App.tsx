@@ -74,6 +74,18 @@ export function App() {
   }, [sessionInvalid]);
 
   useEffect(() => {
+    if (!hasSession || sessionInvalid) {
+      return;
+    }
+
+    void queryClient.prefetchQuery({
+      queryKey: ["transactions"],
+      queryFn: () => api.transactions(),
+      staleTime: 30_000,
+    });
+  }, [hasSession, queryClient, sessionInvalid, sessionNonce]);
+
+  useEffect(() => {
     const handlePopState = () => {
       const route = currentRoute();
       setView(route.view);
@@ -206,7 +218,6 @@ export function App() {
                 primaryCurrency={primaryCurrency}
                 rightRailHidden={rightRailHidden}
                 quickActionsDisabled={transactionActionsDisabled}
-                onToggleRightRail={() => setRightRailHidden((hidden) => !hidden)}
                 onQuickAction={openQuickAction}
                 onNavigate={navigateTo}
                 onOpenAccount={(id) => {

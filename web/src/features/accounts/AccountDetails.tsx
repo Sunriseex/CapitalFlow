@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive, BadgePercent, Pencil } from "lucide-react";
-import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from "recharts";
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import { api } from "../../api/client";
 import { addMoney, formatMoney, moneyToNumber, signedAmount } from "../../api/money";
 import type { Account, InterestRule, Transaction } from "../../api/types";
@@ -10,7 +10,7 @@ import { today } from "../../shared/constants";
 import { dateLabel } from "../../shared/date";
 import { Button, Dialog, Empty, Panel } from "../../shared/ui";
 import { ChartShell } from "../../shared/ui/ChartShell";
-import { chartAxisProps, chartGridProps, chartTooltipProps } from "../../shared/ui/chartTokens";
+import { chartAxisProps, chartGridProps } from "../../shared/ui/chartTokens";
 import { markPerformance } from "../../shared/performance";
 import { useAfterPaint } from "../../shared/ui/useAfterPaint";
 import { TransactionsTable } from "../transactions/TransactionsTable";
@@ -150,8 +150,7 @@ const RunningBalanceChart = memo(function RunningBalanceChart({
         <CartesianGrid {...chartGridProps} />
         <XAxis {...chartAxisProps} dataKey="date" />
         <YAxis {...chartAxisProps} tickFormatter={(value) => compactChartMoney(Number(value), currency)} width={72} />
-        <Tooltip {...chartTooltipProps} formatter={(value) => formatMoney(String(value), currency)} />
-        <Line type="monotone" dataKey="balance" stroke="url(#runningBalanceStroke)" strokeWidth={3} dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
+        <Line type="monotone" dataKey="balance" stroke="url(#runningBalanceStroke)" strokeWidth={3} dot={false} activeDot={false} isAnimationActive={false} />
       </LineChart>
     </ChartShell>
   );

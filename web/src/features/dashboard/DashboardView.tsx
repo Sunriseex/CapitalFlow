@@ -1,32 +1,23 @@
-import { memo, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "../../api/client";
-import { addMoney, compareMoney, convertMinor, formatMoney, moneyToNumber, sumConverted, transactionTypeLabel } from "../../api/money";
+import { addMoney, compareMoney, convertMinor, formatMoney, moneyToNumber, sumConverted } from "../../api/money";
 import type { Account, Transaction } from "../../api/types";
 import { errorMessage } from "../../shared/api/query";
 import type { QuickAction, View } from "../../shared/constants";
-import { Empty } from "../../shared/ui";
-import { ChartShell } from "../../shared/ui/ChartShell";
-import { chartAxisProps, chartGridProps, chartTooltipProps } from "../../shared/ui/chartTokens";
-
-type CashflowPeriod = "week" | "month" | "quarter" | "year";
-
-type CashflowChartBucket = {
-  period: string;
-  sourcePeriod: string;
-  income: number;
-  expense: number;
-  net: number;
-  transactions: number;
-};
-
-const cashflowPeriods: Array<{ value: CashflowPeriod; label: string }> = [
-  { value: "week", label: "Week" },
-  { value: "month", label: "Month" },
-  { value: "quarter", label: "Quarter" },
-  { value: "year", label: "Year" },
-];
+import { Dialog, Empty } from "../../shared/ui";
+import { TransactionDetails } from "../transactions/components/TransactionDetails";
+import { CashflowChart } from "./components/CashflowChart";
+import { RecentTransactionsTable } from "./components/RecentTransactionsTable";
+import {
+  cashflowBucketsToChart,
+  cashflowEmptyState,
+  cashflowPeriods,
+  describeCashflow,
+  formatChartMoney,
+  groupCashflow,
+  type CashflowPeriod,
+} from "./lib/cashflow";
 
 const fallbackRateTargets = ["USD", "EUR", "BTC"];
 
@@ -43,7 +34,6 @@ export function DashboardView({
   onOpenAccount: (id: string) => void;
   onQuickAction?: (action: NonNullable<QuickAction>) => void;
   onNavigate?: (view: View) => void;
-  onToggleRightRail: () => void;
   quickActionsDisabled?: boolean;
 }) {
   const summary = useQuery({ queryKey: ["dashboard", "summary"], queryFn: api.dashboardSummary });
@@ -51,6 +41,7 @@ export function DashboardView({
   const interestIncome = useQuery({ queryKey: ["dashboard", "interest-income"], queryFn: api.dashboardInterestIncome });
   const [selectedCurrency, setSelectedCurrency] = useState(primaryCurrency);
   const [cashflowPeriod, setCashflowPeriod] = useState<CashflowPeriod>("month");
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const data = summary.data;
 
   const balances = useMemo(() => data?.account_balances ?? [], [data?.account_balances]);
@@ -108,14 +99,10 @@ export function DashboardView({
     created_at: "",
     updated_at: "",
   })), [balances]);
-  const cashflowBuckets = useMemo(() => (cashflow.data?.buckets ?? []).map((bucket) => ({
-    period: shortPeriod(bucket.period),
-    sourcePeriod: bucket.period,
-    income: moneyToNumber(sumConverted(bucket.income, selectedCurrency, rateTable)),
-    expense: moneyToNumber(sumConverted(bucket.expense, selectedCurrency, rateTable)),
-    net: moneyToNumber(sumConverted(bucket.net_cashflow, selectedCurrency, rateTable)),
-    transactions: bucket.transaction_count,
-  })), [cashflow.data?.buckets, rateTable, selectedCurrency]);
+  const cashflowBuckets = useMemo(
+    () => cashflowBucketsToChart(cashflow.data?.buckets ?? [], selectedCurrency, rateTable),
+    [cashflow.data?.buckets, rateTable, selectedCurrency],
+  );
   const cashflowChart = useMemo(() => groupCashflow(cashflowBuckets, cashflowPeriod), [cashflowBuckets, cashflowPeriod]);
   const cashflowEmpty = cashflowEmptyState(cashflowPeriod, cashflowBuckets.length > 0);
   const totalInterest = sumConverted(interestIncome.data?.total, selectedCurrency, rateTable);
@@ -253,7 +240,7 @@ export function DashboardView({
                 accounts={recentAccounts}
                 transactions={data?.recent_transactions ?? []}
                 selectedCurrency={selectedCurrency}
-                onNavigate={onNavigate}
+                onOpenTransaction={setSelectedTransaction}
               />
             </article>
 
@@ -319,107 +306,14 @@ export function DashboardView({
           </article>
         </aside>
       </div>
+      {selectedTransaction ? (
+        <Dialog title="Transaction details" onClose={() => setSelectedTransaction(null)}>
+          <TransactionDetails transaction={selectedTransaction} accounts={recentAccounts} />
+        </Dialog>
+      ) : null}
     </div>
   );
 }
-
-function RecentTransactionsTable({
-  accounts,
-  transactions,
-  selectedCurrency,
-  onNavigate,
-}: {
-  accounts: Account[];
-  transactions: Transaction[];
-  selectedCurrency: string;
-  onNavigate?: (view: View) => void;
-}) {
-  const visibleTransactions = useMemo(() => transactions.slice(0, 5), [transactions]);
-  const accountNames = useMemo(() => new Map(accounts.map((account) => [account.id, account.name])), [accounts]);
-  const accountCurrencies = useMemo(() => new Map(accounts.map((account) => [account.id, account.currency])), [accounts]);
-
-  if (!transactions.length) {
-    return <div className="empty-state"><strong>No transactions</strong><span>Add the first transaction or import a bank statement.</span></div>;
-  }
-
-  return (
-    <div className="table-scroll">
-      <table className="tx-table" aria-label="Recent transactions">
-        <colgroup>
-          <col className="col-operation" />
-          <col className="col-account" />
-          <col className="col-category" />
-          <col className="col-amount" />
-          <col className="col-view" />
-        </colgroup>
-        <thead>
-          <tr>
-            <th scope="col">Operation</th>
-            <th scope="col">Account</th>
-            <th scope="col">Category</th>
-            <th scope="col">Amount</th>
-            <th scope="col">View</th>
-          </tr>
-        </thead>
-        <tbody>
-          {visibleTransactions.map((transaction) => {
-            const negative = transaction.type === "expense" || transaction.type === "transfer_out";
-            const sign = negative ? "-" : "+";
-            return (
-              <tr className="tx" key={transaction.id}>
-                <td data-label="Operation"><strong>{transaction.description || transaction.type}</strong><small>{transactionTypeLabel(transaction.type)} · ledger event</small></td>
-                <td data-label="Account">{accountNames.get(transaction.account_id) ?? transaction.account_id}</td>
-                <td data-label="Category">{transaction.category_id ?? "—"}</td>
-                <td data-label="Amount" className={negative ? "delta-down" : "delta-up"}>
-                  {sign}{formatMoney(transaction.amount, accountCurrencies.get(transaction.account_id) ?? selectedCurrency ?? "RUB")}
-                </td>
-                <td data-label="View">
-                  <button className="view-cell" type="button" aria-label="Open transaction details" onClick={() => onNavigate?.("transactions")}>
-                    View
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-const CashflowChart = memo(function CashflowChart({
-  data,
-  currency,
-  summary,
-}: {
-  data: CashflowChartBucket[];
-  currency: string;
-  summary: string;
-}) {
-  return (
-    <ChartShell summary={summary}>
-      <LineChart data={data} margin={{ top: 14, right: 18, bottom: 6, left: 0 }}>
-        <defs>
-          <linearGradient id="cashflowIncomeStroke" x1="0" x2="1" y1="0" y2="0">
-            <stop offset="0%" stopColor="var(--chart-income)" stopOpacity={0.72} />
-            <stop offset="100%" stopColor="var(--chart-income-strong)" stopOpacity={1} />
-          </linearGradient>
-          <linearGradient id="cashflowExpenseStroke" x1="0" x2="1" y1="0" y2="0">
-            <stop offset="0%" stopColor="var(--chart-expense)" stopOpacity={0.72} />
-            <stop offset="100%" stopColor="var(--chart-expense-strong)" stopOpacity={1} />
-          </linearGradient>
-        </defs>
-        <CartesianGrid {...chartGridProps} />
-        <XAxis {...chartAxisProps} dataKey="period" />
-        <YAxis {...chartAxisProps} tickFormatter={(value) => compactMoney(Number(value), currency)} width={72} />
-        <Tooltip {...chartTooltipProps} formatter={(value, name) => [formatChartMoney(Number(value), currency), labelForSeries(String(name))]} labelFormatter={(label) => `Period ${label}`} />
-        <Line type="monotone" dataKey="income" stroke="url(#cashflowIncomeStroke)" strokeWidth={3} dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
-        <Line type="monotone" dataKey="expense" stroke="url(#cashflowExpenseStroke)" strokeWidth={3} dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
-        <Line type="monotone" dataKey="net" stroke="var(--chart-net)" strokeWidth={2} dot={false} strokeDasharray="5 5" activeDot={{ r: 4 }} isAnimationActive={false} />
-      </LineChart>
-    </ChartShell>
-  );
-});
 
 function selectRateTargets(currencies: string[], selectedCurrency: string) {
   const targets = new Set<string>();
@@ -434,60 +328,6 @@ function selectRateTargets(currencies: string[], selectedCurrency: string) {
   return [...targets];
 }
 
-function shortPeriod(period: string) {
-  const [, month] = period.split("-");
-  return month ? `${month}/${period.slice(2, 4)}` : period;
-}
-
-function groupCashflow(buckets: CashflowChartBucket[], period: CashflowPeriod) {
-  if (period === "month") {
-    return buckets;
-  }
-
-  if (period === "week") {
-    return [];
-  }
-
-  const grouped = new Map<string, CashflowChartBucket>();
-  for (const bucket of buckets) {
-    const key = period === "quarter" ? quarterLabel(bucket.sourcePeriod) : bucket.sourcePeriod.slice(0, 4);
-    const existing = grouped.get(key);
-    if (existing) {
-      existing.income += bucket.income;
-      existing.expense += bucket.expense;
-      existing.net += bucket.net;
-      existing.transactions += bucket.transactions;
-    } else {
-      grouped.set(key, { ...bucket, period: key, sourcePeriod: key });
-    }
-  }
-
-  return [...grouped.values()];
-}
-
-function cashflowEmptyState(period: CashflowPeriod, hasMonthlyData: boolean) {
-  if (period === "week" && hasMonthlyData) {
-    return {
-      title: "Weekly cashflow unavailable",
-      description: "The backend currently returns monthly cashflow buckets.",
-    };
-  }
-
-  return {
-    title: "No cashflow yet",
-    description: "Add income or expenses to build this chart.",
-  };
-}
-
-function quarterLabel(period: string) {
-  const [year, month] = period.split("-");
-  const monthNumber = Number(month);
-  if (!year || !monthNumber) {
-    return period;
-  }
-  return `${year} Q${Math.ceil(monthNumber / 3)}`;
-}
-
 function formatRateSync(value: string) {
   if (!value) {
     return "Rates unavailable";
@@ -499,42 +339,4 @@ function formatRateSync(value: string) {
   }
 
   return date.toUTCString().replace(/ GMT$/, "");
-}
-
-function compactMoney(value: number, currency: string) {
-  if (Math.abs(value) >= 1000000) return `${Math.round(value / 1000000)}M ${currency}`;
-  if (Math.abs(value) >= 1000) return `${Math.round(value / 1000)}K ${currency}`;
-  return `${value} ${currency}`;
-}
-
-function formatChartMoney(value: number, currency: string) {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency,
-      currencyDisplay: "code",
-      maximumFractionDigits: 2,
-    }).format(value);
-  } catch {
-    return `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${currency}`;
-  }
-}
-
-function labelForSeries(name: string) {
-  return {
-    income: "Income",
-    expense: "Expenses",
-    net: "Net cashflow",
-  }[name] ?? name;
-}
-
-function describeCashflow(data: Array<{ period: string; income: number; expense: number; net: number }>, currency: string) {
-  if (!data.length) {
-    return "Cashflow chart has no periods.";
-  }
-
-  const totalIncome = data.reduce((sum, bucket) => sum + bucket.income, 0);
-  const totalExpense = data.reduce((sum, bucket) => sum + bucket.expense, 0);
-  const totalNet = data.reduce((sum, bucket) => sum + bucket.net, 0);
-  return `Cashflow chart covers ${data.length} periods. Income ${formatChartMoney(totalIncome, currency)}, expenses ${formatChartMoney(totalExpense, currency)}, net ${formatChartMoney(totalNet, currency)}.`;
 }

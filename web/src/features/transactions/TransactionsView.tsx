@@ -2,12 +2,13 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { api } from "../../api/client";
-import type { Account, Category } from "../../api/types";
+import type { Account, Category, Transaction } from "../../api/types";
 import { errorMessage } from "../../shared/api/query";
 import { transactionTypes } from "../../shared/constants";
 import { Button, Dialog, Empty, Input, Panel, Select } from "../../shared/ui";
+import { TransactionDetails } from "./components/TransactionDetails";
+import { TransactionsTable } from "./components/TransactionsTable";
 import { TransactionForm } from "./TransactionForm";
-import { TransactionsTable } from "./TransactionsTable";
 
 export function TransactionsView({
   accounts,
@@ -24,8 +25,9 @@ export function TransactionsView({
   categoriesLoading?: boolean;
   categoriesError?: unknown;
 }) {
-  const transactions = useQuery({ queryKey: ["transactions"], queryFn: () => api.transactions() });
+  const transactions = useQuery({ queryKey: ["transactions"], queryFn: () => api.transactions(), staleTime: 30_000 });
   const [createOpen, setCreateOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [accountId, setAccountId] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [type, setType] = useState("");
@@ -86,11 +88,16 @@ export function TransactionsView({
         <Input aria-label="Filter transactions to date" type="date" value={to} onChange={(event) => setTo(event.target.value)} />
       </div>
       {!transactions.isLoading && !transactions.error ? (
-        <TransactionsTable transactions={filtered} accounts={accounts} categories={categories} />
+        <TransactionsTable transactions={filtered} accounts={accounts} categories={categories} chunked onOpenTransaction={setSelectedTransaction} />
       ) : null}
       {createOpen ? (
         <Dialog title="Create adjustment" onClose={() => setCreateOpen(false)}>
           <TransactionForm accounts={accounts} categories={categories} fixedType="adjustment" showTitle={false} onDone={() => setCreateOpen(false)} />
+        </Dialog>
+      ) : null}
+      {selectedTransaction ? (
+        <Dialog title="Transaction details" onClose={() => setSelectedTransaction(null)}>
+          <TransactionDetails transaction={selectedTransaction} accounts={accounts} categories={categories} />
         </Dialog>
       ) : null}
     </Panel>

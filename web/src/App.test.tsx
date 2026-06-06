@@ -125,6 +125,7 @@ describe("App auth screens", () => {
       user: { id: "user-1", email: "user@example.com", primary_currency: "RUB" },
     });
     mocks.serviceStatus.mockResolvedValue({ status: "ok", version: "v0.5.9" });
+    mocks.transactions.mockResolvedValue([]);
     mocks.createAccount.mockResolvedValue({
       id: "account-created",
       name: "Brokerage",

@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Account, Category } from "../../api/types";
+import type { Account, Category, Transaction } from "../../api/types";
 import { TransactionsView } from "./TransactionsView";
 
 const mocks = vi.hoisted(() => ({
@@ -37,6 +37,17 @@ const categories: Category[] = [
     updated_at: "2026-05-17T00:00:00Z",
   },
 ];
+
+const transaction: Transaction = {
+  id: "transaction-1",
+  account_id: "account-1",
+  type: "income",
+  amount: "100.00",
+  category_id: "category-1",
+  description: "Salary",
+  occurred_at: "2026-05-17T00:00:00Z",
+  created_at: "2026-05-17T00:00:00Z",
+};
 
 function renderTransactionsView() {
   const queryClient = new QueryClient({
@@ -86,5 +97,17 @@ describe("TransactionsView", () => {
 
     expect(screen.queryByRole("dialog", { name: "Create adjustment" })).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
+  });
+
+  it("opens transaction details from a transaction row", async () => {
+    const user = userEvent.setup();
+    mocks.transactions.mockResolvedValueOnce([transaction]);
+    renderTransactionsView();
+
+    const row = await screen.findByRole("row", { name: /Salary/ });
+    await user.click(row);
+
+    expect(await screen.findByRole("dialog", { name: "Transaction details" })).toBeInTheDocument();
+    expect(screen.getByText("transaction-1")).toBeInTheDocument();
   });
 });
