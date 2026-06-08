@@ -199,6 +199,27 @@ export const en = {
     rightRailSummary: "Right rail summary",
     hideInsights: "Hide insights",
     showInsights: "Show insights",
+    cashflowPeriod: "Cashflow period",
+    cashflowChartCouldNotBeLoaded: "Cashflow chart could not be loaded.",
+    incomeAndExpenseChart: "Income and expense chart",
+    expense: "Expense",
+    openLedger: "Open ledger",
+    real: "Real",
+    weeklyCashflowUnavailable: "Weekly cashflow unavailable",
+    backendReturnsMonthlyCashflow:
+      "The backend currently returns monthly cashflow buckets.",
+    noCashflowYet: "No cashflow yet",
+    addIncomeOrExpensesToBuildChart:
+      "Add income or expenses to build this chart.",
+    cashflowChartHasNoPeriods: "Cashflow chart has no periods.",
+    cashflowChartSummary:
+      "Cashflow chart covers {count} periods. Income {income}, expenses {expenses}, net {net}.",
+    periods: {
+      week: "Week",
+      month: "Month",
+      quarter: "Quarter",
+      year: "Year",
+    },
   },
 
   transactions: {
