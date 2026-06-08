@@ -1,4 +1,9 @@
-import type { Amount, CurrencyRateTable, Transaction, TransactionType } from "./types";
+import type {
+  Amount,
+  CurrencyRateTable,
+  Transaction,
+  TransactionType,
+} from "./types";
 
 type MoneyParseOptions = {
   required?: boolean;
@@ -11,7 +16,9 @@ const customCurrencyFractionDigits: Record<string, number> = {
   USDT: 6,
 };
 
-export type MoneyParseResult = { ok: true; value: string } | { ok: false; error: string };
+export type MoneyParseResult =
+  | { ok: true; value: string }
+  | { ok: false; error: string };
 
 const moneyPattern = /^-?\d+(?:\.\d+)?$/;
 
@@ -63,8 +70,19 @@ export function moneyToNumber(amount: string) {
   return Number(normalizeMoney(amount));
 }
 
+const currencyDisplaySymbols: Record<string, string> = {
+  RUB: "₽",
+  USD: "$",
+  EUR: "€",
+  GBP: "£",
+  JPY: "¥",
+  CNY: "¥",
+  KRW: "₩",
+};
+
 export function formatMoney(amount: string, currency = "RUB") {
-  const scale = BigInt(currencyFractionDigits(currency));
+  const normalizedCurrency = currency.trim().toUpperCase();
+  const scale = BigInt(currencyFractionDigits(normalizedCurrency));
   const units = roundUnits(decimalParts(amount), scale);
   const sign = units < 0n ? "-" : "";
   const abs = units < 0n ? -units : units;
@@ -73,10 +91,15 @@ export function formatMoney(amount: string, currency = "RUB") {
   const whole = scale === 0n ? raw : raw.slice(0, -scaleNumber);
   const fraction = scale === 0n ? "" : raw.slice(-scaleNumber);
   const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, "\u00a0");
-  return `${sign}${grouped}${fraction ? `,${fraction}` : ""}\u00a0${currency}`;
+  const displayCurrency = currencyDisplaySymbol(normalizedCurrency);
+
+  return `${sign}${grouped}${fraction ? `,${fraction}` : ""}\u00a0${displayCurrency}`;
 }
 
-export function parseMoneyResult(value: string, options: MoneyParseOptions = {}): MoneyParseResult {
+export function parseMoneyResult(
+  value: string,
+  options: MoneyParseOptions = {},
+): MoneyParseResult {
   const normalized = normalizeMoney(value);
   if (normalized === "") {
     if (options.required) return { ok: false, error: "Amount is required" };
@@ -108,11 +131,19 @@ export function parseMoneyToMinor(value: string) {
   return parsed.value;
 }
 
-export function amountFor(amounts: Amount[] | null | undefined, currency = "RUB") {
+export function amountFor(
+  amounts: Amount[] | null | undefined,
+  currency = "RUB",
+) {
   return amounts?.find((amount) => amount.currency === currency)?.amount ?? "0";
 }
 
-export function convertAmount(amount: string, from: string, to: string, table?: CurrencyRateTable) {
+export function convertAmount(
+  amount: string,
+  from: string,
+  to: string,
+  table?: CurrencyRateTable,
+) {
   if (from === to) return amount;
   if (!table || table.base !== to) return "0";
   const rate = table.rates[from];
@@ -122,8 +153,16 @@ export function convertAmount(amount: string, from: string, to: string, table?: 
 
 export const convertMinor = convertAmount;
 
-export function sumConverted(amounts: Amount[] | null | undefined, to: string, table?: CurrencyRateTable) {
-  return (amounts ?? []).reduce((total, amount) => addMoney(total, convertAmount(amount.amount, amount.currency, to, table)), "0");
+export function sumConverted(
+  amounts: Amount[] | null | undefined,
+  to: string,
+  table?: CurrencyRateTable,
+) {
+  return (amounts ?? []).reduce(
+    (total, amount) =>
+      addMoney(total, convertAmount(amount.amount, amount.currency, to, table)),
+    "0",
+  );
 }
 
 export function signedAmount(transaction: Transaction) {
@@ -171,9 +210,21 @@ function plainDecimalString(value: string) {
   const [whole, fraction = ""] = coefficient.split(".");
   const digits = `${whole}${fraction}`;
   const decimalIndex = whole.length + exponent;
-  if (decimalIndex <= 0) return `${sign}0.${"0".repeat(-decimalIndex)}${digits}`.replace(/\.?0+$/, "");
-  if (decimalIndex >= digits.length) return `${sign}${digits}${"0".repeat(decimalIndex - digits.length)}`;
-  return `${sign}${digits.slice(0, decimalIndex)}.${digits.slice(decimalIndex)}`.replace(/\.?0+$/, "");
+  if (decimalIndex <= 0)
+    return `${sign}0.${"0".repeat(-decimalIndex)}${digits}`.replace(
+      /\.?0+$/,
+      "",
+    );
+  if (decimalIndex >= digits.length)
+    return `${sign}${digits}${"0".repeat(decimalIndex - digits.length)}`;
+  return `${sign}${digits.slice(0, decimalIndex)}.${digits.slice(decimalIndex)}`.replace(
+    /\.?0+$/,
+    "",
+  );
+}
+
+function currencyDisplaySymbol(currency: string) {
+  return currencyDisplaySymbols[currency] ?? currency;
 }
 
 function currencyFractionDigits(currency: string) {
@@ -182,14 +233,19 @@ function currencyFractionDigits(currency: string) {
   if (customScale !== undefined) return customScale;
 
   try {
-    return new Intl.NumberFormat("en", { style: "currency", currency: normalized }).resolvedOptions().maximumFractionDigits ?? 2;
+    return (
+      new Intl.NumberFormat("en", {
+        style: "currency",
+        currency: normalized,
+      }).resolvedOptions().maximumFractionDigits ?? 2
+    );
   } catch {
     return 2;
   }
 }
 
 function scaleUnits(value: { units: bigint; scale: bigint }, scale: bigint) {
-  return value.units * (10n ** (scale - value.scale));
+  return value.units * 10n ** (scale - value.scale);
 }
 
 function roundUnits(value: { units: bigint; scale: bigint }, scale: bigint) {
@@ -229,5 +285,3 @@ function divideMoneyByRate(amount: string, rate: number, scale: bigint) {
 
   return unitsToDecimal(sign * rounded, scale);
 }
-
-
