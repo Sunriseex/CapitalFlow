@@ -97,6 +97,7 @@ export const ru = {
     initialServiceSetup: "Первичная настройка сервиса",
     oneTimeSetup: "Одноразовая настройка",
     createOwnerAccount: "Создать аккаунт владельца",
+    createOwnerAccountTitle: "Создание аккаунта владельца",
     setupDescription:
       "Эта страница доступна только при первом запуске, пока владелец ещё не создан.",
     importantBeforeContinuing: "Важно перед продолжением",
@@ -129,6 +130,25 @@ export const ru = {
       strong: "Сильный",
       excellent: "Отличный",
     },
+    capitalFlowHome: "Главная CapitalFlow",
+    loginForm: "Форма входа",
+    initialSetupForm: "Форма первичной настройки",
+    requestFailed: "Запрос не выполнен",
+    emailSignInError: "Проверьте email для входа.",
+    passwordSignInError: "Проверьте пароль для входа.",
+    showPasswordShort: "Показать",
+    hidePasswordShort: "Скрыть",
+    showPasswordConfirmation: "Показать подтверждение пароля",
+    hidePasswordConfirmation: "Скрыть подтверждение пароля",
+    passwordStrengthScore: "Оценка сложности пароля",
+    passwordStrengthEmptyFeedback:
+      "Используйте запоминающуюся парольную фразу. Требуется оценка 3 из 4.",
+    passwordStrengthAcceptable: "Пароль подходит для первичной настройки.",
+    passwordStrengthFallback:
+      "Используйте более длинную и менее распространённую парольную фразу. Требуется оценка 3 из 4.",
+    setupAvailableOnlyWhenOwnerMissing:
+      "Настройка доступна только когда backend сообщает, что владелец отсутствует.",
+    authenticationStatus: "Статус авторизации",
   },
 
   dashboard: {

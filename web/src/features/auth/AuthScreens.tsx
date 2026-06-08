@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import zxcvbn from "zxcvbn";
 import type { CurrencyOption } from "../../shared/currencies";
 import { PageTransition } from "../../shared/ui";
+import { useI18n } from "../../shared/i18n/useI18n";
 
 export type AuthScreenError = {
   message: string;
@@ -50,29 +51,47 @@ export function LoginScreen({
   onPasskeySubmit,
 }: LoginScreenProps) {
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const { t } = useI18n();
   const fieldError = error?.kind === "field";
-  const emailError = fieldError ? "Check the email address for this sign-in." : "";
-  const passwordError = fieldError ? "Check the password for this sign-in." : "";
+  const emailError = fieldError ? t.auth.emailSignInError : "";
+  const passwordError = fieldError ? t.auth.passwordSignInError : "";
   const globalError = error?.kind === "global" ? error.message : "";
 
   return (
     <main className="auth-page auth-reference-page">
       <PageTransition>
         <section className="auth-card" aria-labelledby="login-title">
-          <a className="brand" href="/" aria-label="CapitalFlow home">
-            <img className="brand-mark" src="/app-icon.png" alt="" aria-hidden="true" />
+          <a className="brand" href="/" aria-label={t.auth.capitalFlowHome}>
+            {" "}
+            <img
+              className="brand-mark"
+              src="/app-icon.png"
+              alt=""
+              aria-hidden="true"
+            />
             <span className="brand-text">
               <span className="brand-name">CapitalFlow</span>
-              <span className="brand-note">Personal finance dashboard</span>
+              <span className="brand-note">
+                {t.auth.personalFinanceDashboard}
+              </span>{" "}
             </span>
           </a>
 
           <header className="auth-header">
-            <h1 className="auth-title" id="login-title">Sign in</h1>
-            <p className="auth-description">Use a passkey or sign in with your email and password.</p>
+            <h1 className="auth-title" id="login-title">
+              {t.auth.signIn}
+            </h1>
+            <p className="auth-description">{t.auth.signInDescription}</p>
           </header>
 
-          <form className="form" action="/login" method="post" noValidate onSubmit={submit(onSubmit)} aria-label="Login form">
+          <form
+            className="form"
+            action="/login"
+            method="post"
+            noValidate
+            onSubmit={submit(onSubmit)}
+            aria-label={t.auth.loginForm}
+          >
             <button
               className="button button-primary"
               id="passkey-button"
@@ -81,38 +100,59 @@ export function LoginScreen({
               disabled={!passkeysSupported || passkeyLoading}
               onClick={onPasskeySubmit}
             >
-              {passkeyLoading ? "Checking passkey" : "Sign in with passkey"}
+              {passkeyLoading
+                ? t.auth.checkingPasskey
+                : t.auth.signInWithPasskey}{" "}
             </button>
             <p className="form-hint" id="passkey-hint">
-              Supports Face ID, Touch ID, Windows Hello, and hardware security keys.
+              {t.auth.passkeyHint}
             </p>
-            {passkeyError ? <p className="form-status" role="status">{passkeyError}</p> : null}
-            {!passkeysSupported ? <p className="form-status" role="status">This browser does not support passkeys</p> : null}
+            {passkeyError ? (
+              <p className="form-status" role="status">
+                {passkeyError}
+              </p>
+            ) : null}
+            {!passkeysSupported ? (
+              <p className="form-status" role="status">
+                {t.auth.passkeyUnsupported}{" "}
+              </p>
+            ) : null}
 
-            <div className="divider" aria-hidden="true">or use email</div>
+            <div className="divider" aria-hidden="true">
+              {t.auth.orUseEmail}
+            </div>
 
             <div className="field">
-              <label htmlFor="email">Email</label>
+              <label htmlFor="email">{t.auth.email}</label>{" "}
               <input
                 className="input"
                 id="email"
                 name="email"
                 type="email"
                 autoComplete="email"
-                placeholder="you@example.com"
+                placeholder={t.auth.emailPlaceholder}
                 required
                 aria-invalid={Boolean(emailError)}
                 aria-errormessage={emailError ? "email-error" : undefined}
                 value={email}
                 onChange={(event) => onEmailChange(event.target.value)}
               />
-              {emailError ? <p className="field-error" id="email-error" aria-live="polite">{emailError}</p> : null}
+              {emailError ? (
+                <p className="field-error" id="email-error" aria-live="polite">
+                  {emailError}
+                </p>
+              ) : null}
             </div>
 
             <div className="field">
               <div className="label-row">
-                <label htmlFor="password">Password</label>
-                <span className="helper-text" aria-label="Password reset unavailable">Password reset unavailable</span>
+                <label htmlFor="password">{t.auth.password}</label>{" "}
+                <span
+                  className="helper-text"
+                  aria-label={t.auth.passwordResetUnavailable}
+                >
+                  {t.auth.passwordResetUnavailable}{" "}
+                </span>
               </div>
               <div className="password-control">
                 <input
@@ -121,39 +161,75 @@ export function LoginScreen({
                   name="password"
                   type={passwordVisible ? "text" : "password"}
                   autoComplete="current-password"
-                  placeholder="Enter your password"
+                  placeholder={t.auth.passwordPlaceholder}
                   required
                   aria-invalid={Boolean(passwordError)}
-                  aria-errormessage={passwordError ? "password-error" : undefined}
+                  aria-errormessage={
+                    passwordError ? "password-error" : undefined
+                  }
                   value={password}
                   onChange={(event) => onPasswordChange(event.target.value)}
                 />
                 <button
                   className="password-toggle"
                   type="button"
-                  aria-label={passwordVisible ? "Hide password" : "Show password"}
+                  aria-label={
+                    passwordVisible ? t.auth.hidePassword : t.auth.showPassword
+                  }
                   aria-controls="password"
                   aria-pressed={passwordVisible}
                   onClick={() => setPasswordVisible((visible) => !visible)}
                 >
-                  <span aria-hidden="true">{passwordVisible ? "Hide" : "Show"}</span>
+                  <span aria-hidden="true">
+                    {passwordVisible
+                      ? t.auth.hidePasswordShort
+                      : t.auth.showPasswordShort}
+                  </span>
                 </button>
               </div>
-              {passwordError ? <p className="field-error" id="password-error" aria-live="polite">{passwordError}</p> : null}
+              {passwordError ? (
+                <p
+                  className="field-error"
+                  id="password-error"
+                  aria-live="polite"
+                >
+                  {passwordError}
+                </p>
+              ) : null}
             </div>
 
             <label className="checkbox-label" htmlFor="remember">
-              <input className="checkbox" id="remember" name="remember" type="checkbox" />
-              Remember this device
+              <input
+                className="checkbox"
+                id="remember"
+                name="remember"
+                type="checkbox"
+              />
+              {t.auth.rememberThisDevice}{" "}
             </label>
 
-            {globalError ? <p className="form-status" id="form-status" role="status" aria-live="polite">{globalError}</p> : null}
-            <button className="button button-secondary" type="submit" disabled={statusLoading}>
-              Sign in with email
+            {globalError ? (
+              <p
+                className="form-status"
+                id="form-status"
+                role="status"
+                aria-live="polite"
+              >
+                {globalError}
+              </p>
+            ) : null}
+            <button
+              className="button button-secondary"
+              type="submit"
+              disabled={statusLoading}
+            >
+              {t.auth.signInWithEmail}{" "}
             </button>
           </form>
 
-          <p className="footer-text">Initial setup appears automatically when the service requires it.</p>
+          <p className="footer-text">
+            {t.auth.initialSetupAppearsAutomatically}{" "}
+          </p>
         </section>
       </PageTransition>
     </main>
@@ -178,21 +254,28 @@ export function InitialSetupScreen({
   const [passwordTouched, setPasswordTouched] = useState(false);
   const [confirmTouched, setConfirmTouched] = useState(false);
   const [setupConfirmed, setSetupConfirmed] = useState(false);
-  const [submitError, setSubmitError] = useState<{ target: "password" | "confirm" | "setup-confirm"; message: string } | null>(null);
-  const strength = useMemo(() => passwordStrength(password), [password]);
+  const { t } = useI18n();
+  const [submitError, setSubmitError] = useState<{
+    target: "password" | "confirm" | "setup-confirm";
+    message: string;
+  } | null>(null);
+  const strength = useMemo(() => passwordStrength(password, t), [password, t]);
   const apiFieldError = error?.kind === "field";
-  const emailError = apiFieldError ? "Check the owner email and setup credentials." : "";
-  const passwordError = submitError?.target === "password"
-    ? submitError.message
-    : passwordTouched && password && strength.score < 3
-      ? "Use a stronger password. Password score must be at least 3 of 4."
-      : "";
-  const confirmError = submitError?.target === "confirm"
-    ? submitError.message
-    : (confirmTouched || confirmPassword) && confirmPassword !== password
-      ? "Passwords do not match."
-      : "";
-  const setupConfirmError = submitError?.target === "setup-confirm" ? submitError.message : "";
+  const emailError = apiFieldError ? t.auth.ownerEmailError : "";
+  const passwordError =
+    submitError?.target === "password"
+      ? submitError.message
+      : passwordTouched && password && strength.score < 3
+        ? t.auth.passwordScoreRequirement
+        : "";
+  const confirmError =
+    submitError?.target === "confirm"
+      ? submitError.message
+      : (confirmTouched || confirmPassword) && confirmPassword !== password
+        ? t.auth.passwordsDoNotMatch
+        : "";
+  const setupConfirmError =
+    submitError?.target === "setup-confirm" ? submitError.message : "";
   const globalError = error?.kind === "global" ? error.message : "";
 
   function submitSetup(event: FormEvent) {
@@ -201,17 +284,26 @@ export function InitialSetupScreen({
     setConfirmTouched(true);
 
     if (strength.score < 3) {
-      setSubmitError({ target: "password", message: "Use a stronger password. Password score must be at least 3 of 4." });
+      setSubmitError({
+        target: "password",
+        message: t.auth.passwordScoreRequirement,
+      });
       return;
     }
 
     if (confirmPassword !== password) {
-      setSubmitError({ target: "confirm", message: "Password confirmation does not match." });
+      setSubmitError({
+        target: "confirm",
+        message: t.auth.passwordConfirmationDoesNotMatch,
+      });
       return;
     }
 
     if (!setupConfirmed) {
-      setSubmitError({ target: "setup-confirm", message: "Please confirm the owner account requirement." });
+      setSubmitError({
+        target: "setup-confirm",
+        message: t.auth.ownerAccountRequirementError,
+      });
       return;
     }
 
@@ -223,57 +315,87 @@ export function InitialSetupScreen({
     <main className="setup-page auth-reference-page">
       <PageTransition>
         <section className="setup-card" aria-labelledby="setup-title">
-          <a className="brand" href="/" aria-label="CapitalFlow home">
-            <img className="brand-mark" src="/app-icon.png" alt="" aria-hidden="true" />
+          <a className="brand" href="/" aria-label={t.auth.capitalFlowHome}>
+            <img
+              className="brand-mark"
+              src="/app-icon.png"
+              alt=""
+              aria-hidden="true"
+            />
             <span className="brand-text">
               <span className="brand-name">CapitalFlow</span>
-              <span className="brand-note">Initial service setup</span>
+              <span className="brand-note">
+                {t.auth.initialServiceSetup}
+              </span>{" "}
             </span>
           </a>
 
           <header className="setup-header">
-            <p className="setup-kicker">One-time setup</p>
-            <h1 className="setup-title" id="setup-title">Create the owner account</h1>
-            <p className="setup-description">This page is available only on the first deployment, before an owner exists.</p>
+            <p className="setup-kicker">{t.auth.oneTimeSetup}</p>{" "}
+            <h1 className="setup-title" id="setup-title">
+              {t.auth.createOwnerAccountTitle}
+            </h1>
+            <p className="setup-description">{t.auth.setupDescription}</p>
           </header>
 
           <aside className="warning-box" aria-labelledby="setup-warning-title">
             <h2 className="warning-title" id="setup-warning-title">
-              <span className="warning-icon" aria-hidden="true">!</span>
-              Important before continuing
+              <span className="warning-icon" aria-hidden="true">
+                !
+              </span>
+              {t.auth.importantBeforeContinuing}
             </h2>
-            <p className="warning-text">
-              The first account becomes the service owner. After setup succeeds, the backend must disable public
-              registration and block this setup page.
-            </p>
+            <p className="warning-text">{t.auth.setupWarning}</p>
           </aside>
 
-          <form className="form" action="/setup" method="post" noValidate onSubmit={submitSetup} aria-label="Initial setup form">
+          <form
+            className="form"
+            action="/setup"
+            method="post"
+            noValidate
+            onSubmit={submitSetup}
+            aria-label="Initial setup form"
+          >
             <div className="field">
-              <label htmlFor="owner-name">Owner name</label>
-              <input className="input" id="owner-name" name="ownerName" type="text" autoComplete="name" placeholder="Denis" />
+              <label htmlFor="owner-name">{t.auth.ownerName}</label>{" "}
+              <input
+                className="input"
+                id="owner-name"
+                name="ownerName"
+                type="text"
+                autoComplete="name"
+                placeholder={t.auth.ownerNamePlaceholder}
+              />
             </div>
 
             <div className="field">
-              <label htmlFor="owner-email">Owner email</label>
+              <label htmlFor="owner-email">{t.auth.ownerEmail}</label>
               <input
                 className="input"
                 id="owner-email"
                 name="email"
                 type="email"
                 autoComplete="email"
-                placeholder="you@example.com"
+                placeholder={t.auth.emailPlaceholder}
                 required
                 aria-invalid={Boolean(emailError)}
                 aria-errormessage={emailError ? "owner-email-error" : undefined}
                 value={email}
                 onChange={(event) => onEmailChange(event.target.value)}
               />
-              {emailError ? <p className="field-error" id="owner-email-error" aria-live="polite">{emailError}</p> : null}
+              {emailError ? (
+                <p
+                  className="field-error"
+                  id="owner-email-error"
+                  aria-live="polite"
+                >
+                  {emailError}
+                </p>
+              ) : null}
             </div>
 
             <div className="field">
-              <label htmlFor="owner-password">Password</label>
+              <label htmlFor="owner-password">{t.auth.password}</label>{" "}
               <div className="password-control">
                 <input
                   className="input"
@@ -281,11 +403,13 @@ export function InitialSetupScreen({
                   name="password"
                   type={passwordVisible ? "text" : "password"}
                   autoComplete="new-password"
-                  placeholder="Use a strong passphrase"
+                  placeholder={t.auth.useStrongPassphrase}
                   required
                   aria-invalid={Boolean(passwordError)}
                   aria-describedby="password-strength-feedback"
-                  aria-errormessage={passwordError ? "owner-password-error" : undefined}
+                  aria-errormessage={
+                    passwordError ? "owner-password-error" : undefined
+                  }
                   value={password}
                   onBlur={() => setPasswordTouched(true)}
                   onChange={(event) => {
@@ -297,24 +421,33 @@ export function InitialSetupScreen({
                   className="password-toggle"
                   type="button"
                   data-target="owner-password"
-                  aria-label={passwordVisible ? "Hide password" : "Show password"}
+                  aria-label={
+                    passwordVisible ? t.auth.hidePassword : t.auth.showPassword
+                  }
                   aria-controls="owner-password"
                   aria-pressed={passwordVisible}
                   onClick={() => setPasswordVisible((visible) => !visible)}
                 >
-                  <span aria-hidden="true">{passwordVisible ? "Hide" : "Show"}</span>
+                  <span aria-hidden="true">
+                    {passwordVisible
+                      ? t.auth.hidePasswordShort
+                      : t.auth.showPasswordShort}
+                  </span>
                 </button>
               </div>
-
-              <div className="password-strength" aria-label="Password strength">
+              <div
+                className="password-strength"
+                aria-label={t.auth.passwordStrength}
+              >
+                {" "}
                 <div className="strength-row">
-                  <span>Password strength</span>
+                  <span>{t.auth.passwordStrength}</span>{" "}
                   <strong id="password-strength-label">{strength.label}</strong>
                 </div>
                 <div
                   className="strength-track"
                   role="meter"
-                  aria-label="Password strength score"
+                  aria-label={t.auth.passwordStrengthScore}
                   aria-valuemin={0}
                   aria-valuemax={4}
                   aria-valuenow={strength.score}
@@ -326,16 +459,29 @@ export function InitialSetupScreen({
                     data-score={strength.score}
                   ></div>
                 </div>
-                <p className="strength-feedback" id="password-strength-feedback" aria-live="polite">
+                <p
+                  className="strength-feedback"
+                  id="password-strength-feedback"
+                  aria-live="polite"
+                >
                   {strength.feedback}
                 </p>
               </div>
-
-              {passwordError ? <p className="field-error" id="owner-password-error" aria-live="polite">{passwordError}</p> : null}
+              {passwordError ? (
+                <p
+                  className="field-error"
+                  id="owner-password-error"
+                  aria-live="polite"
+                >
+                  {passwordError}
+                </p>
+              ) : null}
             </div>
 
             <div className="field">
-              <label htmlFor="owner-password-confirm">Confirm password</label>
+              <label htmlFor="owner-password-confirm">
+                {t.auth.confirmPassword}
+              </label>{" "}
               <div className="password-control">
                 <input
                   className="input"
@@ -343,9 +489,11 @@ export function InitialSetupScreen({
                   name="passwordConfirm"
                   type={confirmPasswordVisible ? "text" : "password"}
                   autoComplete="new-password"
-                  placeholder="Repeat the same password"
+                  placeholder={t.auth.confirmPasswordPlaceholder}
                   aria-invalid={Boolean(confirmError)}
-                  aria-errormessage={confirmError ? "owner-password-confirm-error" : undefined}
+                  aria-errormessage={
+                    confirmError ? "owner-password-confirm-error" : undefined
+                  }
                   value={confirmPassword}
                   onBlur={() => setConfirmTouched(true)}
                   onChange={(event) => {
@@ -357,25 +505,45 @@ export function InitialSetupScreen({
                   className="password-toggle"
                   type="button"
                   data-target="owner-password-confirm"
-                  aria-label={confirmPasswordVisible ? "Hide password confirmation" : "Show password confirmation"}
+                  aria-label={
+                    confirmPasswordVisible
+                      ? t.auth.hidePasswordConfirmation
+                      : t.auth.showPasswordConfirmation
+                  }
                   aria-controls="owner-password-confirm"
                   aria-pressed={confirmPasswordVisible}
-                  onClick={() => setConfirmPasswordVisible((visible) => !visible)}
+                  onClick={() =>
+                    setConfirmPasswordVisible((visible) => !visible)
+                  }
                 >
-                  <span aria-hidden="true">{confirmPasswordVisible ? "Hide" : "Show"}</span>
+                  <span aria-hidden="true">
+                    {confirmPasswordVisible
+                      ? t.auth.hidePasswordShort
+                      : t.auth.showPasswordShort}
+                  </span>
                 </button>
               </div>
-              {confirmError ? <p className="field-error" id="owner-password-confirm-error" aria-live="polite">{confirmError}</p> : null}
+              {confirmError ? (
+                <p
+                  className="field-error"
+                  id="owner-password-confirm-error"
+                  aria-live="polite"
+                >
+                  {confirmError}
+                </p>
+              ) : null}
             </div>
 
             <div className="field">
-              <label htmlFor="primary-currency">Primary currency</label>
+              <label htmlFor="primary-currency">{t.auth.primaryCurrency}</label>{" "}
               <select
                 className="input"
                 id="primary-currency"
                 name="primaryCurrency"
                 value={primaryCurrency}
-                onChange={(event) => onPrimaryCurrencyChange(event.target.value)}
+                onChange={(event) =>
+                  onPrimaryCurrencyChange(event.target.value)
+                }
               >
                 {currencyOptions.map((currency) => (
                   <option key={currency.code} value={currency.code}>
@@ -394,23 +562,49 @@ export function InitialSetupScreen({
                 required
                 checked={setupConfirmed}
                 aria-invalid={Boolean(setupConfirmError)}
-                aria-errormessage={setupConfirmError ? "setup-confirm-error" : undefined}
+                aria-errormessage={
+                  setupConfirmError ? "setup-confirm-error" : undefined
+                }
                 onChange={(event) => {
                   setSubmitError(null);
                   setSetupConfirmed(event.target.checked);
                 }}
               />
-              I understand that this account becomes the service owner and that registration must be closed after setup.
+              {t.auth.ownerAccountRequirement}
             </label>
-            {setupConfirmError ? <p className="field-error" id="setup-confirm-error" aria-live="polite">{setupConfirmError}</p> : null}
+            {setupConfirmError ? (
+              <p
+                className="field-error"
+                id="setup-confirm-error"
+                aria-live="polite"
+              >
+                {setupConfirmError}
+              </p>
+            ) : null}
 
-            {globalError ? <p className="form-status" id="form-status-api" role="status" aria-live="polite">{globalError}</p> : null}
-            <button className="button button-primary" id="setup-submit" type="submit" disabled={statusLoading}>
-              Create owner account
+            {globalError ? (
+              <p
+                className="form-status"
+                id="form-status-api"
+                role="status"
+                aria-live="polite"
+              >
+                {globalError}
+              </p>
+            ) : null}
+            <button
+              className="button button-primary"
+              id="setup-submit"
+              type="submit"
+              disabled={statusLoading}
+            >
+              {t.auth.createOwnerAccount}
             </button>
           </form>
 
-          <p className="footer-text">Setup is available only when the backend reports that an owner is missing.</p>
+          <p className="footer-text">
+            {t.auth.setupAvailableOnlyWhenOwnerMissing}
+          </p>
         </section>
       </PageTransition>
     </main>
@@ -426,23 +620,38 @@ export function AuthStatusScreen({
   message: string;
   action?: { label: string; onClick: () => void };
 }) {
+  const { t } = useI18n();
   return (
     <main className="auth-page auth-reference-page">
       <PageTransition>
         <section className="auth-card" aria-labelledby="auth-status-title">
-          <div className="brand" aria-label="CapitalFlow">
-            <img className="brand-mark" src="/app-icon.png" alt="" aria-hidden="true" />
+          <div className="brand" aria-label={t.common.appName}>
+            {" "}
+            <img
+              className="brand-mark"
+              src="/app-icon.png"
+              alt=""
+              aria-hidden="true"
+            />
             <span className="brand-text">
               <span className="brand-name">CapitalFlow</span>
-              <span className="brand-note">Authentication status</span>
+              <span className="brand-note">
+                {t.auth.authenticationStatus}
+              </span>{" "}
             </span>
           </div>
           <header className="auth-header">
-            <h1 className="auth-title" id="auth-status-title">{title}</h1>
+            <h1 className="auth-title" id="auth-status-title">
+              {title}
+            </h1>
             <p className="auth-description">{message}</p>
           </header>
           {action ? (
-            <button className="button button-primary" type="button" onClick={action.onClick}>
+            <button
+              className="button button-primary"
+              type="button"
+              onClick={action.onClick}
+            >
               {action.label}
             </button>
           ) : null}
@@ -459,18 +668,32 @@ function submit(onSubmit: () => void) {
   };
 }
 
-function passwordStrength(password: string) {
+function passwordStrength(
+  password: string,
+  t: ReturnType<typeof useI18n>["t"],
+) {
   if (!password) {
-    return { score: 0, label: "Not checked", feedback: "Use a memorable passphrase. Score 3 of 4 is required." };
+    return {
+      score: 0,
+      label: t.auth.strength.empty,
+      feedback: t.auth.passwordStrengthEmptyFeedback,
+    };
   }
 
   const result = zxcvbn(password);
   const score = result.score;
-  const labels = ["Weak", "Weak", "Fair", "Good", "Strong"];
+  const labels = [
+    t.auth.strength.weak,
+    t.auth.strength.weak,
+    t.auth.strength.fair,
+    t.auth.strength.good,
+    t.auth.strength.strong,
+  ];
   const suggestion = result.feedback.suggestions[0] || result.feedback.warning;
-  const feedback = score >= 3
-    ? "Acceptable for setup."
-    : suggestion || "Use a longer, less common passphrase. Score 3 of 4 is required.";
+  const feedback =
+    score >= 3
+      ? t.auth.passwordStrengthAcceptable
+      : suggestion || t.auth.passwordStrengthFallback;
 
   return {
     score,

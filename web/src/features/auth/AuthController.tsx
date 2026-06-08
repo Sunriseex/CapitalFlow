@@ -2,12 +2,30 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ApiClientError, api } from "../../api/client";
 import { currencyOptions } from "../../shared/currencies";
-import { browserSupportsPasskeys, passkeyErrorMessage, signInWithPasskey } from "./passkeys";
-import { AuthStatusScreen, InitialSetupScreen, LoginScreen } from "./AuthScreens";
+import {
+  browserSupportsPasskeys,
+  passkeyErrorMessage,
+  signInWithPasskey,
+} from "./passkeys";
+import {
+  AuthStatusScreen,
+  InitialSetupScreen,
+  LoginScreen,
+} from "./AuthScreens";
 import type { AuthScreenError } from "./AuthScreens";
+import { useI18n } from "../../shared/i18n/useI18n";
 
-export function AuthController({ onAuthenticated }: { onAuthenticated: () => void }) {
-  const status = useQuery({ queryKey: ["auth-status"], queryFn: api.authStatus, retry: false });
+export function AuthController({
+  onAuthenticated,
+}: {
+  onAuthenticated: () => void;
+}) {
+  const { t } = useI18n();
+  const status = useQuery({
+    queryKey: ["auth-status"],
+    queryFn: api.authStatus,
+    retry: false,
+  });
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [primaryCurrency, setPrimaryCurrency] = useState("RUB");
@@ -31,7 +49,7 @@ export function AuthController({ onAuthenticated }: { onAuthenticated: () => voi
 
       onAuthenticated();
     } catch (err) {
-      setError(authScreenError(err));
+      setError(authScreenError(err, t));
     }
   }
 
@@ -51,16 +69,21 @@ export function AuthController({ onAuthenticated }: { onAuthenticated: () => voi
   }
 
   if (status.isLoading) {
-    return <AuthStatusScreen title="Checking access" message="CapitalFlow is checking whether this service needs first-run setup." />;
+    return (
+      <AuthStatusScreen
+        title={t.auth.checkingAccess}
+        message={t.auth.checkingAccessMessage}
+      />
+    );
   }
 
   if (status.error) {
     return (
       <AuthStatusScreen
-        title="Authentication unavailable"
-        message={errorText(status.error)}
+        title={t.auth.authenticationUnavailable}
+        message={errorText(status.error, t)}
         action={{
-          label: "Retry status check",
+          label: t.auth.retryStatusCheck,
           onClick: () => {
             void status.refetch();
           },
@@ -109,16 +132,22 @@ export function AuthController({ onAuthenticated }: { onAuthenticated: () => voi
   );
 }
 
-function authScreenError(err: unknown): AuthScreenError {
-  const message = errorText(err);
-  if (err instanceof ApiClientError && (err.status === 400 || err.status === 401)) {
+function authScreenError(
+  err: unknown,
+  t: ReturnType<typeof useI18n>["t"],
+): AuthScreenError {
+  const message = errorText(err, t);
+  if (
+    err instanceof ApiClientError &&
+    (err.status === 400 || err.status === 401)
+  ) {
     return { kind: "field", message };
   }
 
   return { kind: "global", message };
 }
 
-function errorText(err: unknown) {
+function errorText(err: unknown, t: ReturnType<typeof useI18n>["t"]) {
   if (err instanceof ApiClientError) {
     return err.message;
   }
@@ -127,5 +156,5 @@ function errorText(err: unknown) {
     return err.message;
   }
 
-  return "Request failed";
+  return t.auth.requestFailed;
 }
