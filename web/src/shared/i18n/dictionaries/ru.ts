@@ -197,6 +197,28 @@ export const ru = {
     rightRailSummary: "Правая сводка",
     hideInsights: "Скрыть инсайты",
     showInsights: "Показать инсайты",
+    cashflowPeriod: "Период денежного потока",
+    cashflowChartCouldNotBeLoaded:
+      "Не удалось загрузить график денежного потока.",
+    incomeAndExpenseChart: "График доходов и расходов",
+    expense: "Расход",
+    openLedger: "Открыть журнал",
+    real: "Факт",
+    weeklyCashflowUnavailable: "Недельный денежный поток недоступен",
+    backendReturnsMonthlyCashflow:
+      "Backend сейчас возвращает месячные периоды денежного потока.",
+    noCashflowYet: "Денежного потока пока нет",
+    addIncomeOrExpensesToBuildChart:
+      "Добавьте доходы или расходы, чтобы построить график.",
+    cashflowChartHasNoPeriods: "График денежного потока не содержит периодов.",
+    cashflowChartSummary:
+      "График денежного потока охватывает {count} периодов. Доходы {income}, расходы {expenses}, чистый поток {net}.",
+    periods: {
+      week: "Неделя",
+      month: "Месяц",
+      quarter: "Квартал",
+      year: "Год",
+    },
   },
 
   transactions: {

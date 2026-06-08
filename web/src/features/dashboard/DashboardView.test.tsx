@@ -2,8 +2,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { DashboardCashflow, DashboardInterestIncome, DashboardSummary } from "../../api/types";
+import type {
+  DashboardCashflow,
+  DashboardInterestIncome,
+  DashboardSummary,
+} from "../../api/types";
 import { Provider } from "../../components/ui/provider";
+import { I18nProvider } from "../../shared/i18n/I18nProvider";
 import { DashboardView } from "./DashboardView";
 
 const mocks = vi.hoisted(() => ({
@@ -84,7 +89,9 @@ function renderDashboardView({
   rightRailHidden = false,
 }: {
   onOpenAccount?: (id: string) => void;
-  onQuickAction?: (action: NonNullable<import("../../shared/constants").QuickAction>) => void;
+  onQuickAction?: (
+    action: NonNullable<import("../../shared/constants").QuickAction>,
+  ) => void;
   onNavigate?: (view: import("../../shared/constants").View) => void;
   primaryCurrency?: string;
   rightRailHidden?: boolean;
@@ -98,15 +105,17 @@ function renderDashboardView({
 
   render(
     <Provider>
-      <QueryClientProvider client={queryClient}>
-        <DashboardView
-          primaryCurrency={primaryCurrency}
-          rightRailHidden={rightRailHidden}
-          onOpenAccount={onOpenAccount}
-          onQuickAction={onQuickAction}
-          onNavigate={onNavigate}
-        />
-      </QueryClientProvider>
+      <I18nProvider>
+        <QueryClientProvider client={queryClient}>
+          <DashboardView
+            primaryCurrency={primaryCurrency}
+            rightRailHidden={rightRailHidden}
+            onOpenAccount={onOpenAccount}
+            onQuickAction={onQuickAction}
+            onNavigate={onNavigate}
+          />
+        </QueryClientProvider>
+      </I18nProvider>
     </Provider>,
   );
 
@@ -115,6 +124,8 @@ function renderDashboardView({
 
 describe("DashboardView", () => {
   beforeEach(() => {
+    localStorage.setItem("capitalflow_locale", "en");
+
     vi.clearAllMocks();
     mocks.dashboardSummary.mockResolvedValue(summary);
     mocks.dashboardCashflow.mockResolvedValue(cashflow);
@@ -133,10 +144,14 @@ describe("DashboardView", () => {
 
     expect(screen.getByText("Loading dashboard")).toBeInTheDocument();
 
-    mocks.dashboardSummary.mockRejectedValueOnce(new Error("Dashboard unavailable"));
+    mocks.dashboardSummary.mockRejectedValueOnce(
+      new Error("Dashboard unavailable"),
+    );
     renderDashboardView();
 
-    expect(await screen.findByText("Dashboard unavailable")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Dashboard unavailable"),
+    ).toBeInTheDocument();
   });
 
   it("renders empty balance and transaction states", async () => {
@@ -153,7 +168,9 @@ describe("DashboardView", () => {
     renderDashboardView();
 
     expect(await screen.findByText("Total capital")).toBeInTheDocument();
-    expect(screen.queryByText(/active accounts across/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/active accounts across/),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("No positive balances")).toBeInTheDocument();
     expect(screen.getByText("No transactions")).toBeInTheDocument();
   });
@@ -163,17 +180,37 @@ describe("DashboardView", () => {
     renderDashboardView({ onQuickAction });
 
     expect(await screen.findByText("Total capital")).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "Quick actions" })).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "Portfolio currency" })).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "Cashflow period" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "+ Transaction" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "+ Transfer" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Import" })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Accounts" })).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Recent transactions" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Upcoming" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("group", { name: "Quick actions" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("group", { name: "Portfolio currency" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("group", { name: "Cashflow period" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Add transaction" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Create transfer" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Import transactions" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Accounts" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Recent transactions" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Upcoming" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Rates" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Allocation" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Allocation" }),
+    ).toBeInTheDocument();
   });
 
   it("wires dashboard buttons to real actions and navigation", async () => {
@@ -182,13 +219,17 @@ describe("DashboardView", () => {
     const onNavigate = vi.fn();
     renderDashboardView({ onQuickAction, onNavigate });
 
-    await user.click(await screen.findByRole("button", { name: "+ Transaction" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Add transaction" }),
+    );
     expect(onQuickAction).toHaveBeenCalledWith("transaction");
 
-    await user.click(screen.getByRole("button", { name: "+ Transfer" }));
+    await user.click(screen.getByRole("button", { name: "Create transfer" }));
     expect(onQuickAction).toHaveBeenCalledWith("transfer");
 
-    await user.click(screen.getByRole("button", { name: "Import" }));
+    await user.click(
+      screen.getByRole("button", { name: "Import transactions" }),
+    );
     expect(onQuickAction).toHaveBeenCalledWith("import");
 
     await user.click(screen.getByRole("button", { name: "All transactions" }));
@@ -207,9 +248,15 @@ describe("DashboardView", () => {
     expect(screen.getByRole("button", { name: "Quarter" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Year" })).toBeInTheDocument();
     expect(mocks.dashboardCashflow).toHaveBeenCalled();
-    expect(screen.getByLabelText("Income and expense chart")).toBeInTheDocument();
-    expect(screen.getByText(/Cashflow chart covers 2 periods/)).toBeInTheDocument();
-    expect(screen.getByRole("table", { name: "Cashflow data" })).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Income and expense chart"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Cashflow chart covers 2 periods/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("table", { name: "Cashflow data" }),
+    ).toBeInTheDocument();
   });
 
   it("switches cashflow between reference periods", async () => {
@@ -220,8 +267,14 @@ describe("DashboardView", () => {
     expect(await screen.findByText("1 quarter buckets")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Week" }));
-    expect(await screen.findByText("Weekly cashflow unavailable")).toBeInTheDocument();
-    expect(screen.getByText("The backend currently returns monthly cashflow buckets.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Weekly cashflow unavailable"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "The backend currently returns monthly cashflow buckets.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("honors the external right rail visibility state without unmounting dashboard content", async () => {
@@ -246,7 +299,9 @@ describe("DashboardView", () => {
     } satisfies DashboardCashflow);
     renderDashboardView({ primaryCurrency: "USDT" });
 
-    expect(await screen.findByText(/Cashflow chart covers 1 periods/)).toHaveTextContent("1.25 USDT");
+    expect(
+      await screen.findByText(/Cashflow chart covers 1 periods/),
+    ).toHaveTextContent("1.25 USDT");
   });
 
   it("opens recent transaction details from the row or view button", async () => {
@@ -268,18 +323,26 @@ describe("DashboardView", () => {
     } satisfies DashboardSummary);
     renderDashboardView();
 
-    const table = await screen.findByRole("table", { name: "Recent transactions" });
+    const table = await screen.findByRole("table", {
+      name: "Recent transactions",
+    });
     const row = within(table).getByRole("row", { name: /Coffee/ });
     expect(row).toHaveAttribute("tabindex", "0");
 
     await userEvent.click(row);
-    expect(await screen.findByRole("dialog", { name: "Transaction details" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("dialog", { name: "Transaction details" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("Transaction ID")).toBeInTheDocument();
     expect(screen.getByText("tx-1")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Close dialog" }));
-    await userEvent.click(within(row).getByRole("button", { name: "Open transaction details" }));
-    expect(await screen.findByRole("dialog", { name: "Transaction details" })).toBeInTheDocument();
+    await userEvent.click(
+      within(row).getByRole("button", { name: "Open transaction details" }),
+    );
+    expect(
+      await screen.findByRole("dialog", { name: "Transaction details" }),
+    ).toBeInTheDocument();
   });
 
   it("switches dashboard currency and reloads conversion rates", async () => {
@@ -300,16 +363,22 @@ describe("DashboardView", () => {
     await user.click(screen.getByRole("button", { name: "USD" }));
 
     expect(await screen.findByText("Cashflow (USD)")).toBeInTheDocument();
-    await waitFor(() => expect(mocks.currencyRates).toHaveBeenCalledWith("USD"));
+    await waitFor(() =>
+      expect(mocks.currencyRates).toHaveBeenCalledWith("USD"),
+    );
   });
 
   it("shows a clear empty state when currency rates are unavailable", async () => {
-    mocks.currencyRates.mockRejectedValueOnce(new Error("Rate provider unavailable"));
+    mocks.currencyRates.mockRejectedValueOnce(
+      new Error("Rate provider unavailable"),
+    );
 
     renderDashboardView();
 
     expect(await screen.findAllByText("Rates unavailable")).toHaveLength(2);
-    expect(screen.queryByText("Rate provider unavailable")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Rate provider unavailable"),
+    ).not.toBeInTheDocument();
   });
 
   it("shows portfolio rate targets before fallback rates", async () => {
@@ -322,8 +391,18 @@ describe("DashboardView", () => {
       ],
       account_balances: [
         ...summary.account_balances,
-        { ...summary.account_balances[0], account_id: "eur-account", currency: "EUR", name: "EUR cash" },
-        { ...summary.account_balances[0], account_id: "usdt-account", currency: "USDT", name: "Stable wallet" },
+        {
+          ...summary.account_balances[0],
+          account_id: "eur-account",
+          currency: "EUR",
+          name: "EUR cash",
+        },
+        {
+          ...summary.account_balances[0],
+          account_id: "usdt-account",
+          currency: "USDT",
+          name: "Stable wallet",
+        },
       ],
     } satisfies DashboardSummary);
     mocks.currencyRates.mockResolvedValueOnce({
@@ -341,11 +420,17 @@ describe("DashboardView", () => {
 
     renderDashboardView();
 
-    const ratesCard = (await screen.findByRole("heading", { name: "Rates" })).closest("article");
+    const ratesCard = (
+      await screen.findByRole("heading", { name: "Rates" })
+    ).closest("article");
     expect(ratesCard).not.toBeNull();
-    const labels = within(ratesCard as HTMLElement).getAllByText(/RUB\//).map((node) => node.textContent);
+    const labels = within(ratesCard as HTMLElement)
+      .getAllByText(/RUB\//)
+      .map((node) => node.textContent);
     expect(labels).toEqual(["RUB/EUR", "RUB/USDT", "RUB/USD", "RUB/BTC"]);
-    expect(within(ratesCard as HTMLElement).getByText("Fri, 05 Jun 2026 00:02:31")).toBeInTheDocument();
+    expect(
+      within(ratesCard as HTMLElement).getByText("Fri, 05 Jun 2026 00:02:31"),
+    ).toBeInTheDocument();
   });
 
   it("opens account details from the keyboard-accessible allocation action", async () => {

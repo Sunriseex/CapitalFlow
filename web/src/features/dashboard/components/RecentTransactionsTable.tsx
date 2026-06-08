@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import type { KeyboardEvent } from "react";
-import { formatMoney, transactionTypeLabel } from "../../../api/money";
+import { formatMoney } from "../../../api/money";
 import type { Account, Transaction } from "../../../api/types";
+import { useI18n } from "../../../shared/i18n/useI18n";
 
 export function RecentTransactionsTable({
   accounts,
@@ -14,15 +15,33 @@ export function RecentTransactionsTable({
   selectedCurrency: string;
   onOpenTransaction: (transaction: Transaction) => void;
 }) {
-  const visibleTransactions = useMemo(() => transactions.slice(0, 5), [transactions]);
-  const accountNames = useMemo(() => new Map(accounts.map((account) => [account.id, account.name])), [accounts]);
-  const accountCurrencies = useMemo(() => new Map(accounts.map((account) => [account.id, account.currency])), [accounts]);
+  const { t } = useI18n();
+  const visibleTransactions = useMemo(
+    () => transactions.slice(0, 5),
+    [transactions],
+  );
+  const accountNames = useMemo(
+    () => new Map(accounts.map((account) => [account.id, account.name])),
+    [accounts],
+  );
+  const accountCurrencies = useMemo(
+    () => new Map(accounts.map((account) => [account.id, account.currency])),
+    [accounts],
+  );
 
   if (!transactions.length) {
-    return <div className="empty-state"><strong>No transactions</strong><span>Add the first transaction or import a bank statement.</span></div>;
+    return (
+      <div className="empty-state">
+        <strong>{t.transactions.noTransactions}</strong>
+        <span>{t.transactions.addFirstTransaction}</span>
+      </div>
+    );
   }
 
-  function openWithKeyboard(event: KeyboardEvent<HTMLTableRowElement>, transaction: Transaction) {
+  function openWithKeyboard(
+    event: KeyboardEvent<HTMLTableRowElement>,
+    transaction: Transaction,
+  ) {
     if (event.key !== "Enter" && event.key !== " ") {
       return;
     }
@@ -32,7 +51,7 @@ export function RecentTransactionsTable({
 
   return (
     <div className="table-scroll">
-      <table className="tx-table" aria-label="Recent transactions">
+      <table className="tx-table" aria-label={t.dashboard.recentTransactions}>
         <colgroup>
           <col className="col-operation" />
           <col className="col-account" />
@@ -42,43 +61,64 @@ export function RecentTransactionsTable({
         </colgroup>
         <thead>
           <tr>
-            <th scope="col">Operation</th>
-            <th scope="col">Account</th>
-            <th scope="col">Category</th>
-            <th scope="col">Amount</th>
-            <th scope="col">View</th>
+            <th scope="col">{t.transactions.operation}</th>
+            <th scope="col">{t.transactions.account}</th>
+            <th scope="col">{t.transactions.category}</th>
+            <th scope="col">{t.transactions.amount}</th>
+            <th scope="col">{t.transactions.view}</th>
           </tr>
         </thead>
         <tbody>
           {visibleTransactions.map((transaction) => {
-            const negative = transaction.type === "expense" || transaction.type === "transfer_out";
+            const negative =
+              transaction.type === "expense" ||
+              transaction.type === "transfer_out";
             const sign = negative ? "-" : "+";
             return (
               <tr
                 className="tx is-clickable-row"
                 key={transaction.id}
                 tabIndex={0}
-                aria-label={`Open transaction details for ${transaction.description || transaction.id}`}
+                aria-label={`${t.transactions.openTransactionDetails}: ${transaction.description || transaction.id}`}
                 onClick={() => onOpenTransaction(transaction)}
                 onKeyDown={(event) => openWithKeyboard(event, transaction)}
               >
-                <td data-label="Operation"><strong>{transaction.description || transaction.type}</strong><small>{transactionTypeLabel(transaction.type)} · ledger event</small></td>
-                <td data-label="Account">{accountNames.get(transaction.account_id) ?? transaction.account_id}</td>
-                <td data-label="Category">{transaction.category_id ?? "-"}</td>
-                <td data-label="Amount" className={negative ? "delta-down" : "delta-up"}>
-                  {sign}{formatMoney(transaction.amount, accountCurrencies.get(transaction.account_id) ?? selectedCurrency)}
+                <td data-label={t.transactions.operation}>
+                  <strong>{transaction.description || transaction.type}</strong>
+                  <small>
+                    {t.transactions.types[transaction.type]} ·{" "}
+                    {t.transactions.ledgerEvent}
+                  </small>
                 </td>
-                <td data-label="View">
+                <td data-label={t.transactions.account}>
+                  {accountNames.get(transaction.account_id) ??
+                    transaction.account_id}
+                </td>
+                <td data-label={t.transactions.category}>
+                  {transaction.category_id ?? "-"}
+                </td>
+                <td
+                  data-label={t.transactions.amount}
+                  className={negative ? "delta-down" : "delta-up"}
+                >
+                  {sign}
+                  {formatMoney(
+                    transaction.amount,
+                    accountCurrencies.get(transaction.account_id) ??
+                      selectedCurrency,
+                  )}
+                </td>
+                <td data-label={t.transactions.view}>
                   <button
                     className="view-cell"
                     type="button"
-                    aria-label="Open transaction details"
+                    aria-label={t.transactions.openTransactionDetails}
                     onClick={(event) => {
                       event.stopPropagation();
                       onOpenTransaction(transaction);
                     }}
                   >
-                    View
+                    {t.transactions.view}
                   </button>
                 </td>
               </tr>
