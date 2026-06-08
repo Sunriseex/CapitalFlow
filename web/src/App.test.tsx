@@ -546,8 +546,12 @@ describe("App query states", () => {
     expect(
       await screen.findByRole("dialog", { name: "Import transactions" }),
     ).toBeInTheDocument();
+    const importDialog = await screen.findByRole("dialog", {
+      name: "Import transactions",
+    });
+
     expect(
-      screen.getByText(
+      within(importDialog).getByText(
         "Backend import is not available yet. Manual transactions and transfers are ready.",
       ),
     ).toBeInTheDocument();
@@ -571,7 +575,7 @@ describe("App query states", () => {
     await user.click(
       within(
         await screen.findByRole("dialog", { name: "Command menu" }),
-      ).getByRole("button", { name: "+ Transaction" }),
+      ).getByRole("button", { name: "Add transaction" }),
     );
     expect(
       await screen.findByRole("dialog", { name: "Create transaction" }),

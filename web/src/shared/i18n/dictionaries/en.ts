@@ -63,6 +63,10 @@ export const en = {
       checking: "Checking",
       ok: "OK",
     },
+    backendImportUnavailable:
+      "Backend import is not available yet. Manual transactions and transfers are ready.",
+    bankImportNotConnected: "Bank import is not connected yet",
+    closeSystemHealth: "Close system health",
   },
 
   auth: {
@@ -199,6 +203,7 @@ export const en = {
       interest_income: "Interest",
       adjustment: "Adjustment",
     },
+    createTransaction: "Create transaction",
   },
 
   accounts: {

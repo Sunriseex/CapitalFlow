@@ -22,6 +22,7 @@ export function BrandBlock({
 }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [healthOpen, setHealthOpen] = useState(false);
+  const { t } = useI18n();
 
   return (
     <Box className="brand">
@@ -33,22 +34,23 @@ export function BrandBlock({
       />
       <Box className="brand-copy">
         <strong>CapitalFlow</strong>
-        <Box className="brand-meta" aria-label="Version and health">
-          <span className="version-pill" title="Release tag">
+        <Box className="brand-meta" aria-label={t.shell.versionAndHealth}>
+          {" "}
+          <span className="version-pill" title={t.shell.version}>
             {version ?? "dev"}
           </span>
           <button
             ref={triggerRef}
             className="health-trigger"
             type="button"
-            aria-label="Check system health"
+            aria-label={t.shell.checkSystemHealth}
             aria-expanded={healthOpen}
             onClick={() => {
               setHealthOpen(true);
               onCheck();
             }}
           >
-            {status}
+            {statusLabel(status, t)}
           </button>
         </Box>
         {healthOpen ? (
@@ -75,29 +77,31 @@ export function Nav({
   accountCount: number;
   navigateTo: (view: View) => void;
 }) {
+  const { t } = useI18n();
+
   return (
-    <Stack as="nav" className="nav" aria-label="Main navigation">
+    <Stack as="nav" className="nav" aria-label={t.nav.workspace}>
       <section className="nav-section">
-        <div className="nav-label">Workspace</div>
+        <div className="nav-label">{t.nav.workspace}</div>
         <NavButton
           active={view === "dashboard"}
-          label="Overview"
+          label={t.nav.overview}
           onClick={() => navigateTo("dashboard")}
         />
         <NavButton
           active={view === "transactions"}
-          label="Transactions"
+          label={t.nav.transactions}
           onClick={() => navigateTo("transactions")}
         />
         <NavButton
           active={view === "accounts"}
-          label="Accounts"
+          label={t.nav.accounts}
           count={String(accountCount)}
           onClick={() => navigateTo("accounts")}
         />
         <NavButton
           active={view === "settings"}
-          label="Settings"
+          label={t.nav.settings}
           onClick={() => navigateTo("settings")}
         />
       </section>
@@ -194,16 +198,18 @@ export function SidebarFooter({ onLogout }: { onLogout: () => void }) {
 }
 
 export function CommandTrigger({ onOpen }: { onOpen: () => void }) {
+  const { t } = useI18n();
+
   return (
     <button
       className="command-trigger"
       type="button"
-      aria-label="Open command menu"
+      aria-label={t.shell.openCommandMenu}
       onClick={onOpen}
     >
       <Command size={16} aria-hidden="true" />
-      <span>Open command menu</span>
-      <span className="kbd">Ctrl K</span>
+      <span>{t.shell.openCommandMenu}</span>
+      <span className="kbd">{t.shell.commandShortcut}</span>
     </button>
   );
 }
@@ -222,6 +228,7 @@ export function CommandMenu({
   const dialogRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const focusableRef = useRef<HTMLElement[]>([]);
+  const { t } = useI18n();
 
   useEffect(() => {
     const endMeasure = markPerformance("command-menu-open");
@@ -285,42 +292,43 @@ export function CommandMenu({
       >
         <div className="command-menu-head">
           <Command size={18} aria-hidden="true" />
-          <h2 id="command-menu-title">Command menu</h2>
+          <h2 id="command-menu-title">{t.shell.commandMenu}</h2>{" "}
           <span className="kbd">Esc</span>
         </div>
         <div className="command-menu-grid">
           <CommandMenuSection title="Navigate">
             <CommandItem onClick={() => onNavigate("dashboard")}>
-              Overview
+              {t.nav.overview}
             </CommandItem>
             <CommandItem onClick={() => onNavigate("accounts")}>
-              Accounts
+              {t.nav.accounts}
             </CommandItem>
             <CommandItem onClick={() => onNavigate("transactions")}>
-              Transactions
+              {t.nav.transactions}
             </CommandItem>
             <CommandItem onClick={() => onNavigate("settings")}>
-              Settings
+              {t.nav.settings}
             </CommandItem>
           </CommandMenuSection>
-          <CommandMenuSection title="Actions">
+          <CommandMenuSection title={t.shell.actions}>
+            {" "}
             <CommandItem
               disabled={transactionActionsDisabled}
               onClick={() => onQuickAction("transaction")}
             >
-              + Transaction
+              {t.dashboard.addTransaction}
             </CommandItem>
             <CommandItem
               disabled={transactionActionsDisabled}
               onClick={() => onQuickAction("transfer")}
             >
-              + Transfer
+              {t.dashboard.createTransfer}
             </CommandItem>
             <CommandItem onClick={() => onQuickAction("import")}>
-              Import
+              {t.dashboard.importTransactions}
             </CommandItem>
             <CommandItem onClick={() => onQuickAction("account")}>
-              Create account
+              {t.accounts.createAccount}
             </CommandItem>
           </CommandMenuSection>
         </div>
@@ -335,15 +343,13 @@ export function ImportPlaceholder({
 }: {
   onOpenTransactions: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <div className="import-placeholder">
       <div className="import-drop" aria-disabled="true">
         <Download size={22} aria-hidden="true" />
-        <strong>Bank import is not connected yet</strong>
-        <span>
-          Backend import is not available yet. Manual transactions and transfers
-          are ready.
-        </span>
+        <strong>{t.shell.bankImportNotConnected}</strong>
+        <span>{t.shell.backendImportUnavailable}</span>
       </div>
       <div className="form-actions">
         <button
@@ -351,7 +357,7 @@ export function ImportPlaceholder({
           type="button"
           onClick={onOpenTransactions}
         >
-          Open transactions
+          {t.dashboard.allTransactions}
         </button>
       </div>
     </div>
@@ -367,6 +373,7 @@ function HealthPopover({
   status: "Healthy" | "Unavailable" | "Checking";
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const popoverRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -397,29 +404,29 @@ function HealthPopover({
         }}
       >
         <div className="health-popover-head">
-          <h3 id="healthTitle">System health</h3>
+          <h3 id="healthTitle">{t.shell.systemHealth}</h3>{" "}
           <button
             className="health-close"
             type="button"
-            aria-label="Close system health"
+            aria-label={t.shell.closeSystemHealth}
             onClick={onClose}
           >
             <X size={14} aria-hidden="true" />
           </button>
         </div>
         <div className="health-row">
-          <span>API</span>
+          <span>{t.shell.api}</span>
           <span className={status === "Healthy" ? "tag good" : "tag info"}>
-            {status === "Healthy" ? "OK" : status}
+            {status === "Healthy" ? t.shell.status.ok : statusLabel(status, t)}
           </span>
         </div>
         <div className="health-row">
-          <span>Version</span>
-          <span className="tag info">{version ?? "unknown"}</span>
+          <span>{t.shell.version}</span>
+          <span className="tag info">{version ?? t.common.unknown}</span>
         </div>
         <div className="health-row">
-          <span>Rates</span>
-          <span className="tag info">On demand</span>
+          <span>{t.shell.rates}</span>
+          <span className="tag info">{t.shell.onDemand}</span>
         </div>
       </div>
     </div>,
@@ -488,6 +495,17 @@ function CommandItem({
       {children}
     </button>
   );
+}
+
+function statusLabel(
+  status: "Healthy" | "Unavailable" | "Checking",
+  t: ReturnType<typeof useI18n>["t"],
+) {
+  return {
+    Healthy: t.shell.status.healthy,
+    Unavailable: t.shell.status.unavailable,
+    Checking: t.shell.status.checking,
+  }[status];
 }
 
 const focusableSelector = [
