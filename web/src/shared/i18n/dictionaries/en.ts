@@ -98,7 +98,8 @@ export const en = {
 
     initialServiceSetup: "Initial service setup",
     oneTimeSetup: "One-time setup",
-    createOwnerAccount: "Create the owner account",
+    createOwnerAccount: "Create owner account",
+    createOwnerAccountTitle: "Create the owner account",
     setupDescription:
       "This page is available only on the first deployment, before an owner exists.",
     importantBeforeContinuing: "Important before continuing",
@@ -131,6 +132,25 @@ export const en = {
       strong: "Strong",
       excellent: "Excellent",
     },
+    capitalFlowHome: "CapitalFlow home",
+    loginForm: "Login form",
+    initialSetupForm: "Initial setup form",
+    requestFailed: "Request failed",
+    emailSignInError: "Check the email address for this sign-in.",
+    passwordSignInError: "Check the password for this sign-in.",
+    showPasswordShort: "Show",
+    hidePasswordShort: "Hide",
+    showPasswordConfirmation: "Show password confirmation",
+    hidePasswordConfirmation: "Hide password confirmation",
+    passwordStrengthScore: "Password strength score",
+    passwordStrengthEmptyFeedback:
+      "Use a memorable passphrase. Score 3 of 4 is required.",
+    passwordStrengthAcceptable: "Acceptable for setup.",
+    passwordStrengthFallback:
+      "Use a longer, less common passphrase. Score 3 of 4 is required.",
+    setupAvailableOnlyWhenOwnerMissing:
+      "Setup is available only when the backend reports that an owner is missing.",
+    authenticationStatus: "Authentication status",
   },
 
   dashboard: {
