@@ -61,6 +61,10 @@ export const ru = {
       checking: "Проверка",
       ok: "ОК",
     },
+    backendImportUnavailable:
+      "Backend-импорт пока недоступен. Ручные операции и переводы уже работают.",
+    bankImportNotConnected: "Банковский импорт ещё не подключён",
+    closeSystemHealth: "Закрыть состояние системы",
   },
 
   auth: {
@@ -177,6 +181,7 @@ export const ru = {
 
   transactions: {
     title: "Операции",
+    createTransaction: "Создать операцию",
     operation: "Операция",
     account: "Счёт",
     category: "Категория",
