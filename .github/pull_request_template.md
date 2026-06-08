@@ -1,47 +1,98 @@
-## Related issue / Change request
-<!-- Specify the issue number: Closes #XX or a link to the discussion this PR addresses. If no issue exists, briefly describe the problem you are solving. -->
+## Summary
+
+<!-- Briefly describe what changed and why. Keep it practical. -->
+
+## Scope
+
+<!-- Mark the areas touched by this PR. -->
+
+* [ ] Backend / API
+* [ ] Database / migrations
+* [ ] Web UI
+* [ ] Auth / security
+* [ ] Imports / parsers
+* [ ] Money calculations / currency handling
+* [ ] Docker / self-hosting / infra
+* [ ] Tests only
+* [ ] Docs only
 
 ## Type of change
-<!-- Put an 'x' in the boxes that apply. -->
-- [ ] ✨ New feature (non-breaking change)
-- [ ] 🐛 Bug fix
-- [ ] 🏗️ Refactoring
-- [ ] 📝 Documentation or comments
-- [ ] 🤖 CI / Build configuration
 
-## What this change does
-<!-- Describe *what* is changing and, most importantly, *why* you chose this approach. For financial operations, explaining the reasoning is critical. -->
+* [ ] Feature
+* [ ] Bug fix
+* [ ] Refactor
+* [ ] UI/UX improvement
+* [ ] i18n / localization
+* [ ] Test coverage
+* [ ] Documentation
+* [ ] CI / build / tooling
 
-## Financial & logical validations
-<!-- ⚠️ This is the most important section for CapitalFlow! Ensure your changes do not break financial logic. -->
-- [ ] Calculation accuracy is preserved (especially for money operations).
-- [ ] Edge cases are tested (e.g., negative balances or transaction cancellations).
-- [ ] Unit tests are written for new or modified business rules.
+## What changed
 
-## How to test
-<!-- Provide step-by-step instructions to verify your work. -->
-1. Run migrations: ...
-2. Call the API endpoint: ...
-3. Expected result: ...
+<!-- List the main changes. Prefer concrete bullets. -->
 
-## Additional Go‑project checks
-- [ ] Code is formatted (`gofmt` or `goimports`).
-- [ ] No unnecessary dependencies (check `go.mod` / `go.sum`).
-- [ ] Unit tests are written/updated; `go test ./...` passes.
-- [ ] No resource leaks (memory, file descriptors, goroutines).
-- [ ] Logs are added with the appropriate level (Debug, Info, Error).
+*
 
-## Security
-- [ ] Changes do not introduce new attack vectors (SQL injection, XSS, data leaks).
-- [ ] Sensitive data (passwords, tokens, keys) does not appear in logs or API responses.
+## Why this approach
 
-## Screenshots (for WebUI changes)
-<!-- If your PR affects the web interface, add screenshots or GIFs. -->
+<!-- Explain important decisions, trade-offs, or rejected alternatives. For financial logic, this section matters. -->
 
-## Author's checklist
-- [ ] I have read [CONTRIBUTING.md](https://github.com/Sunriseex/CapitalFlow/blob/master/docs/CONTRIBUTING.md) (if it exists).
-- [ ] I have run all checks locally: linters, tests, build.
-- [ ] I have added an entry to `CHANGELOG.md` (if changes are user‑visible).
+*
 
-## Additional context
-<!-- Any other information that helps understand the changes: links to external resources, complex architectural decisions, etc. -->
+## CapitalFlow safety checklist
+
+<!-- Check only what applies. Leave non-applicable items unchecked or explain below. -->
+
+* [ ] Money calculations keep decimal precision and do not use unsafe floating-point logic for stored amounts.
+* [ ] Currency codes remain stable in API/DB/storage; display-only formatting is isolated to UI.
+* [ ] Transaction, transfer, subscription, or account invariants are preserved.
+* [ ] Import/backfill behavior is safe and does not silently duplicate or mutate financial history.
+* [ ] Sensitive data is not logged or exposed in API responses.
+* [ ] Auth/session behavior is not weakened.
+* [ ] Self-hosted deployment behavior remains compatible with Docker/reverse proxy usage.
+
+## Web UI checklist
+
+* [ ] UI works in light and dark themes.
+* [ ] UI works on mobile, tablet, and desktop widths.
+* [ ] Interactive controls have accessible names.
+* [ ] Keyboard navigation still works where relevant.
+* [ ] Loading, empty, and error states are handled.
+* [ ] RU/EN text is added or updated when visible UI text changes.
+* [ ] Screenshots or short recordings are attached for visible UI changes.
+
+## Backend checklist
+
+* [ ] `go test ./...` passes.
+* [ ] Code is formatted with `gofmt` / `goimports`.
+* [ ] API changes are reflected in OpenAPI/types where needed.
+* [ ] Migrations are forward-safe and reviewed.
+* [ ] New or changed business rules have tests.
+* [ ] Logs use appropriate levels and do not expose secrets.
+
+## Local checks
+
+<!-- Mark what you actually ran. -->
+
+* [ ] Backend tests: `go test ./...`
+* [ ] Web tests: `cd web && npm run test`
+* [ ] Web build: `cd web && npm run build`
+* [ ] Lint/typecheck:
+* [ ] Manual browser check:
+* [ ] Other:
+
+## How to test manually
+
+<!-- Give short, reproducible steps. -->
+
+1.
+2.
+3.
+
+## Screenshots / recordings
+
+<!-- Required for visible Web UI changes. Add before/after when useful. -->
+
+## Notes for reviewer
+
+<!-- Mention known limitations, follow-up PRs, or anything intentionally left out. -->
