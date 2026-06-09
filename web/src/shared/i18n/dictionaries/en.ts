@@ -312,6 +312,34 @@ export const en = {
       "Running balance chart has no transactions.",
     runningBalanceChartSummary:
       "Running balance chart covers {count} transactions from {firstDate} to {lastDate}. Final balance {finalBalance}.",
+    currency: "Currency",
+    initialBalance: "Initial balance",
+    annualRate: "Annual rate %",
+    promoRate: "Promo rate %",
+    promoEnd: "Promo end",
+    capitalization: "Capitalization",
+    annualRateInvalid: "Annual rate must be a non-negative number",
+    promoRateInvalid: "Promo rate must be a non-negative number",
+    annualRateRequiredForPromo:
+      "Annual rate is required when promo fields are set",
+    promoFieldsRequiredTogether:
+      "Promo rate and promo end date must be set together",
+    types: {
+      card: "Card",
+      cash: "Cash",
+      bank_account: "Bank account",
+      savings: "Savings",
+      term_deposit: "Term deposit",
+      broker: "Brokerage",
+      crypto: "Crypto",
+      other: "Other",
+    },
+    capitalizationOptions: {
+      none: "None",
+      daily: "Daily",
+      monthly: "Monthly",
+      end_of_term: "End of term",
+    },
   },
 
   settings: {

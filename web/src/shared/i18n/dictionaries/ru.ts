@@ -312,6 +312,34 @@ export const ru = {
       "График динамики баланса не содержит операций.",
     runningBalanceChartSummary:
       "График динамики баланса охватывает {count} операций с {firstDate} по {lastDate}. Итоговый баланс {finalBalance}.",
+    currency: "Валюта",
+    initialBalance: "Начальный баланс",
+    annualRate: "Годовая ставка %",
+    promoRate: "Промо-ставка %",
+    promoEnd: "Окончание промо",
+    capitalization: "Капитализация",
+    annualRateInvalid: "Годовая ставка должна быть неотрицательным числом",
+    promoRateInvalid: "Промо-ставка должна быть неотрицательным числом",
+    annualRateRequiredForPromo:
+      "Годовая ставка обязательна, если заполнены промо-поля",
+    promoFieldsRequiredTogether:
+      "Промо-ставка и дата окончания промо должны быть заполнены вместе",
+    types: {
+      card: "Карта",
+      cash: "Наличные",
+      bank_account: "Банковский счёт",
+      savings: "Накопительный счёт",
+      term_deposit: "Вклад",
+      broker: "Брокерский счёт",
+      crypto: "Крипто",
+      other: "Другое",
+    },
+    capitalizationOptions: {
+      none: "Нет",
+      daily: "Ежедневно",
+      monthly: "Ежемесячно",
+      end_of_term: "В конце срока",
+    },
   },
 
   settings: {

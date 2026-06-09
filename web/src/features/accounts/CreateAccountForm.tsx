@@ -7,8 +7,11 @@ import { errorMessage, invalidateMoney } from "../../shared/api/query";
 import { currencyOptions } from "../../shared/currencies";
 import { accountTypes, today } from "../../shared/constants";
 import { Button, Field, FormShell, Input, Select } from "../../shared/ui";
+import { useI18n } from "../../shared/i18n/useI18n";
 
 export function CreateAccountForm({ onDone }: { onDone: () => void }) {
+  const { t } = useI18n();
+
   const queryClient = useQueryClient();
   const [error, setError] = useState("");
   const [form, setForm] = useState({
@@ -25,7 +28,9 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
   });
   const mutation = useMutation({
     mutationFn: async () => {
-      const initial = parseMoneyToMinorResult(form.initial, { currency: form.currency });
+      const initial = parseMoneyToMinorResult(form.initial, {
+        currency: form.currency,
+      });
       if (!initial.ok) {
         throw new Error(initial.error);
       }
@@ -34,19 +39,23 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
       const promoRate = Number(form.promoRate.replace(",", "."));
 
       if (Number.isNaN(rate) || rate < 0) {
-        throw new Error("Annual rate must be a non-negative number");
+        throw new Error(t.accounts.annualRateInvalid);
       }
 
       if (Number.isNaN(promoRate) || promoRate < 0) {
-        throw new Error("Promo rate must be a non-negative number");
+        throw new Error(t.accounts.promoRateInvalid);
       }
 
       if (rate <= 0 && (promoRate > 0 || form.promoEndDate)) {
-        throw new Error("Annual rate is required when promo fields are set");
+        throw new Error(t.accounts.annualRateRequiredForPromo);
       }
 
-      if (rate > 0 && ((promoRate > 0 && !form.promoEndDate) || (promoRate <= 0 && form.promoEndDate))) {
-        throw new Error("Promo rate and promo end date must be set together");
+      if (
+        rate > 0 &&
+        ((promoRate > 0 && !form.promoEndDate) ||
+          (promoRate <= 0 && form.promoEndDate))
+      ) {
+        throw new Error(t.accounts.promoFieldsRequiredTogether);
       }
 
       const account = await api.createAccount({
@@ -62,7 +71,7 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
           account_id: account.id,
           type: "initial_balance",
           amount: initial.value,
-          description: "Initial balance",
+          description: t.accounts.initialBalance,
           occurred_at: form.opened_at,
         });
       }
@@ -73,7 +82,11 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
           promo_rate_bps: promoRate > 0 ? Math.round(promoRate * 100) : null,
           promo_end_date: promoRate > 0 ? form.promoEndDate : null,
           accrual_frequency: "daily",
-          capitalization_frequency: form.capitalization as "none" | "daily" | "monthly" | "end_of_term",
+          capitalization_frequency: form.capitalization as
+            | "none"
+            | "daily"
+            | "monthly"
+            | "end_of_term",
           day_count_convention: "actual_365",
           start_date: form.opened_at,
         });
@@ -88,30 +101,137 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
     onError: (err) => setError(errorMessage(err)),
   });
   const currencies = useMemo(() => currencyOptions(), []);
-  const accountTypeOptions = useMemo(() => accountTypes.map((type) => <option key={type}>{type}</option>), []);
+  const accountTypeOptions = useMemo(
+    () =>
+      accountTypes.map((type) => (
+        <option key={type} value={type}>
+          {t.accounts.types[type]}
+        </option>
+      )),
+    [t],
+  );
   const currencySelectOptions = useMemo(
-    () => currencies.map((currency) => <option key={currency.code} value={currency.code}>{currency.label}</option>),
+    () =>
+      currencies.map((currency) => (
+        <option key={currency.code} value={currency.code}>
+          {currency.label}
+        </option>
+      )),
     [currencies],
   );
   const capitalizationOptions = useMemo(
-    () => ["none", "daily", "monthly", "end_of_term"].map((value) => <option key={value}>{value}</option>),
-    [],
+    () =>
+      (["none", "daily", "monthly", "end_of_term"] as const).map((value) => (
+        <option key={value} value={value}>
+          {t.accounts.capitalizationOptions[value]}
+        </option>
+      )),
+    [t],
   );
 
   return (
-    <FormShell title="Create account" error={error} onSubmit={() => mutation.mutate()}>
-      <Field label="Name"><Input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></Field>
-      <Field label="Bank"><Input value={form.bank} onChange={(event) => setForm({ ...form, bank: event.target.value })} /></Field>
-      <Field label="Type"><Select value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value as AccountType })}>{accountTypeOptions}</Select></Field>
-      <Field label="Currency"><Select value={form.currency} onChange={(event) => setForm({ ...form, currency: event.target.value })}>{currencySelectOptions}</Select></Field>
-      <Field label="Opened"><Input type="date" value={form.opened_at} onChange={(event) => setForm({ ...form, opened_at: event.target.value })} /></Field>
-      <Field label="Initial balance"><Input inputMode="decimal" value={form.initial} onChange={(event) => setForm({ ...form, initial: event.target.value })} /></Field>
-      <Field label="Annual rate %"><Input inputMode="decimal" value={form.rate} onChange={(event) => setForm({ ...form, rate: event.target.value })} /></Field>
-      <Field label="Promo rate %"><Input inputMode="decimal" value={form.promoRate} onChange={(event) => setForm({ ...form, promoRate: event.target.value })} /></Field>
-      <Field label="Promo end"><Input type="date" value={form.promoEndDate} onChange={(event) => setForm({ ...form, promoEndDate: event.target.value })} /></Field>
-      <Field label="Capitalization"><Select value={form.capitalization} onChange={(event) => setForm({ ...form, capitalization: event.target.value })}>{capitalizationOptions}</Select></Field>
-      <Button disabled={mutation.isPending}>Create</Button>
+    <FormShell
+      title={t.accounts.createAccount}
+      error={error}
+      onSubmit={() => mutation.mutate()}
+    >
+      <Field label={t.accounts.name}>
+        <Input
+          required
+          value={form.name}
+          onChange={(event) => setForm({ ...form, name: event.target.value })}
+        />
+      </Field>
+
+      <Field label={t.accounts.bank}>
+        <Input
+          value={form.bank}
+          onChange={(event) => setForm({ ...form, bank: event.target.value })}
+        />
+      </Field>
+
+      <Field label={t.accounts.type}>
+        <Select
+          value={form.type}
+          onChange={(event) =>
+            setForm({ ...form, type: event.target.value as AccountType })
+          }
+        >
+          {accountTypeOptions}
+        </Select>
+      </Field>
+
+      <Field label={t.accounts.currency}>
+        <Select
+          value={form.currency}
+          onChange={(event) =>
+            setForm({ ...form, currency: event.target.value })
+          }
+        >
+          {currencySelectOptions}
+        </Select>
+      </Field>
+
+      <Field label={t.accounts.opened}>
+        <Input
+          type="date"
+          value={form.opened_at}
+          onChange={(event) =>
+            setForm({ ...form, opened_at: event.target.value })
+          }
+        />
+      </Field>
+
+      <Field label={t.accounts.initialBalance}>
+        <Input
+          inputMode="decimal"
+          value={form.initial}
+          onChange={(event) =>
+            setForm({ ...form, initial: event.target.value })
+          }
+        />
+      </Field>
+
+      <Field label={t.accounts.annualRate}>
+        <Input
+          inputMode="decimal"
+          value={form.rate}
+          onChange={(event) => setForm({ ...form, rate: event.target.value })}
+        />
+      </Field>
+
+      <Field label={t.accounts.promoRate}>
+        <Input
+          inputMode="decimal"
+          value={form.promoRate}
+          onChange={(event) =>
+            setForm({ ...form, promoRate: event.target.value })
+          }
+        />
+      </Field>
+
+      <Field label={t.accounts.promoEnd}>
+        <Input
+          type="date"
+          value={form.promoEndDate}
+          onChange={(event) =>
+            setForm({ ...form, promoEndDate: event.target.value })
+          }
+        />
+      </Field>
+
+      <Field label={t.accounts.capitalization}>
+        <Select
+          value={form.capitalization}
+          onChange={(event) =>
+            setForm({ ...form, capitalization: event.target.value })
+          }
+        >
+          {capitalizationOptions}
+        </Select>
+      </Field>
+
+      <Button disabled={mutation.isPending}>{t.common.create}</Button>
     </FormShell>
   );
 }
-
