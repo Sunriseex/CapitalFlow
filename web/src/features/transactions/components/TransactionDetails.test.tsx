@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { I18nProvider } from "../../../shared/i18n/I18nProvider";
 import type { Account, Category, Transaction } from "../../../api/types";
 import { TransactionDetails } from "./TransactionDetails";
 
@@ -50,8 +51,20 @@ const transaction: Transaction = {
 };
 
 describe("TransactionDetails", () => {
+  beforeEach(() => {
+    localStorage.setItem("capitalflow_locale", "en");
+  });
+
   it("renders core transaction fields and related transfer context", () => {
-    render(<TransactionDetails transaction={transaction} accounts={accounts} categories={categories} />);
+    render(
+      <I18nProvider>
+        <TransactionDetails
+          transaction={transaction}
+          accounts={accounts}
+          categories={categories}
+        />
+      </I18nProvider>,
+    );
 
     expect(screen.getAllByText("Salary payment")).toHaveLength(2);
     expect(screen.getByText("Card")).toBeInTheDocument();

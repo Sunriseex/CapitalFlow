@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Account, Category, Transaction } from "../../api/types";
 import { TransactionsView } from "./TransactionsView";
+import { I18nProvider } from "../../shared/i18n/I18nProvider";
 
 const mocks = vi.hoisted(() => ({
   transactions: vi.fn(),
@@ -58,14 +59,17 @@ function renderTransactionsView() {
   });
 
   render(
-    <QueryClientProvider client={queryClient}>
-      <TransactionsView accounts={accounts} categories={categories} />
-    </QueryClientProvider>,
+    <I18nProvider>
+      <QueryClientProvider client={queryClient}>
+        <TransactionsView accounts={accounts} categories={categories} />
+      </QueryClientProvider>
+    </I18nProvider>,
   );
 }
 
 describe("TransactionsView", () => {
   beforeEach(() => {
+    localStorage.setItem("capitalflow_locale", "en");
     vi.clearAllMocks();
     mocks.transactions.mockResolvedValue([]);
   });
@@ -73,11 +77,21 @@ describe("TransactionsView", () => {
   it("exposes accessible names for all filters", () => {
     renderTransactionsView();
 
-    expect(screen.getByLabelText("Filter transactions by account")).toBeInTheDocument();
-    expect(screen.getByLabelText("Filter transactions by category")).toBeInTheDocument();
-    expect(screen.getByLabelText("Filter transactions by type")).toBeInTheDocument();
-    expect(screen.getByLabelText("Filter transactions from date")).toBeInTheDocument();
-    expect(screen.getByLabelText("Filter transactions to date")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Filter transactions by account"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Filter transactions by category"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Filter transactions by type"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Filter transactions from date"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Filter transactions to date"),
+    ).toBeInTheDocument();
   });
 
   it("opens the adjustment dialog with a single visible title and returns focus on Escape", async () => {
@@ -87,15 +101,30 @@ describe("TransactionsView", () => {
     const trigger = screen.getByRole("button", { name: "Adjustment" });
     await user.click(trigger);
 
-    expect(await screen.findByRole("dialog", { name: "Create adjustment" })).toBeInTheDocument();
-    expect(screen.getByRole("dialog", { name: "Create adjustment" }).closest(".transactions-panel")).toBeNull();
-    expect(screen.getByRole("dialog", { name: "Create adjustment" }).parentElement?.parentElement).toBe(document.body);
-    expect(screen.getAllByRole("heading", { name: "Create adjustment" })).toHaveLength(1);
-    expect(screen.getByText("Adjustment accepts positive or negative values.")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("dialog", { name: "Create adjustment" }),
+    ).toBeInTheDocument();
+    expect(
+      screen
+        .getByRole("dialog", { name: "Create adjustment" })
+        .closest(".transactions-panel"),
+    ).toBeNull();
+    expect(
+      screen.getByRole("dialog", { name: "Create adjustment" }).parentElement
+        ?.parentElement,
+    ).toBe(document.body);
+    expect(
+      screen.getAllByRole("heading", { name: "Create adjustment" }),
+    ).toHaveLength(1);
+    expect(
+      screen.getByText("Adjustment accepts positive or negative values."),
+    ).toBeInTheDocument();
 
     await user.keyboard("{Escape}");
 
-    expect(screen.queryByRole("dialog", { name: "Create adjustment" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("dialog", { name: "Create adjustment" }),
+    ).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
   });
 
@@ -107,7 +136,9 @@ describe("TransactionsView", () => {
     const row = await screen.findByRole("row", { name: /Salary/ });
     await user.click(row);
 
-    expect(await screen.findByRole("dialog", { name: "Transaction details" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("dialog", { name: "Transaction details" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("transaction-1")).toBeInTheDocument();
   });
 });
