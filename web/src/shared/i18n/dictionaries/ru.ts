@@ -254,6 +254,17 @@ export const ru = {
     transferId: "ID перевода",
     transfer: "Перевод",
     posted: "Проведено",
+    adjustment: "Корректировка",
+    createAdjustment: "Создать корректировку",
+    loadingCategories: "Загрузка категорий",
+    loadingTransactions: "Загрузка операций",
+    filterByAccount: "Фильтр операций по счёту",
+    filterByCategory: "Фильтр операций по категории",
+    filterByType: "Фильтр операций по типу",
+    filterFromDate: "Фильтр операций с даты",
+    filterToDate: "Фильтр операций по дату",
+    allAccounts: "Все счета",
+    allCategories: "Все категории",
   },
 
   accounts: {
