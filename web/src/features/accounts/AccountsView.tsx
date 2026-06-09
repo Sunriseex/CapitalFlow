@@ -6,6 +6,7 @@ import { accountTypes } from "../../shared/constants";
 import { errorMessage } from "../../shared/api/query";
 import { Empty, Panel, Select } from "../../shared/ui";
 import { AccountsTable } from "./components/AccountsTable";
+import { useI18n } from "../../shared/i18n/useI18n";
 
 export function AccountsView({
   accounts,
@@ -18,37 +19,64 @@ export function AccountsView({
   error?: unknown;
   onSelect: (id: string) => void;
 }) {
+  const { t } = useI18n();
   const [type, setType] = useState("");
-  const summary = useQuery({ queryKey: ["dashboard", "summary"], queryFn: api.dashboardSummary });
-  const rules = useQuery({ queryKey: ["interest-rules"], queryFn: () => api.interestRules() });
+  const summary = useQuery({
+    queryKey: ["dashboard", "summary"],
+    queryFn: api.dashboardSummary,
+  });
+  const rules = useQuery({
+    queryKey: ["interest-rules"],
+    queryFn: () => api.interestRules(),
+  });
   const balances = useMemo(
-    () => new Map((summary.data?.account_balances ?? []).map((account) => [account.account_id, account])),
+    () =>
+      new Map(
+        (summary.data?.account_balances ?? []).map((account) => [
+          account.account_id,
+          account,
+        ]),
+      ),
     [summary.data?.account_balances],
   );
-  const activeRules = useMemo(() => activeRulesByAccount(rules.data ?? []), [rules.data]);
+  const activeRules = useMemo(
+    () => activeRulesByAccount(rules.data ?? []),
+    [rules.data],
+  );
   const filtered = useMemo(
     () => accounts.filter((account) => !type || account.type === type),
     [accounts, type],
   );
   const accountTypeOptions = useMemo(
-    () => accountTypes.map((accountType) => <option key={accountType}>{accountType}</option>),
+    () =>
+      accountTypes.map((accountType) => (
+        <option key={accountType}>{accountType}</option>
+      )),
     [],
   );
 
   return (
     <Panel
       className="workspace-panel accounts-panel"
-      title="Accounts"
+      title={t.accounts.title}
       action={
-        <Select aria-label="Filter accounts by type" value={type} onChange={(event) => setType(event.target.value)}>
-          <option value="">All types</option>
+        <Select
+          aria-label={t.accounts.filterByType}
+          value={type}
+          onChange={(event) => setType(event.target.value)}
+        >
+          <option value="">{t.accounts.allTypes}</option>
           {accountTypeOptions}
         </Select>
       }
     >
-      {isLoading ? <Empty>Loading accounts</Empty> : null}
-      {error ? <div className="error inline-error">{errorMessage(error)}</div> : null}
-      {!isLoading && !error && !filtered.length ? <Empty>No accounts</Empty> : null}
+      {isLoading ? <Empty>{t.accounts.loadingAccounts}</Empty> : null}{" "}
+      {error ? (
+        <div className="error inline-error">{errorMessage(error)}</div>
+      ) : null}
+      {!isLoading && !error && !filtered.length ? (
+        <Empty>{t.accounts.noAccounts}</Empty>
+      ) : null}
       {!isLoading && !error ? (
         <AccountsTable
           accounts={filtered}

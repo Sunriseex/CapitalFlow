@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Account, DashboardSummary, InterestRule } from "../../api/types";
 import { AccountsView } from "./AccountsView";
+import { I18nProvider } from "../../shared/i18n/I18nProvider";
 
 const mocks = vi.hoisted(() => ({
   dashboardSummary: vi.fn(),
@@ -32,9 +33,33 @@ const summary: DashboardSummary = {
   monthly_expense: [],
   monthly_interest_income: [],
   account_balances: [
-    { account_id: "account-1", balance: "100.00", transaction_count: 1, name: "Card", type: "card", currency: "RUB", is_active: true },
-    { account_id: "account-2", balance: "200.00", transaction_count: 1, name: "Savings", type: "savings", currency: "RUB", is_active: true },
-    { account_id: "account-3", balance: "300.00", transaction_count: 1, name: "Term", type: "term_deposit", currency: "RUB", is_active: true },
+    {
+      account_id: "account-1",
+      balance: "100.00",
+      transaction_count: 1,
+      name: "Card",
+      type: "card",
+      currency: "RUB",
+      is_active: true,
+    },
+    {
+      account_id: "account-2",
+      balance: "200.00",
+      transaction_count: 1,
+      name: "Savings",
+      type: "savings",
+      currency: "RUB",
+      is_active: true,
+    },
+    {
+      account_id: "account-3",
+      balance: "300.00",
+      transaction_count: 1,
+      name: "Term",
+      type: "term_deposit",
+      currency: "RUB",
+      is_active: true,
+    },
   ],
   recent_transactions: [],
   recent_transactions_limit: 5,
@@ -45,8 +70,14 @@ const rules: InterestRule[] = [
   interestRule("rule-old", "account-1", 1_000, "2026-01-01"),
   interestRule("rule-new", "account-1", 1_500, "2026-02-01"),
   interestRule("rule-future", "account-1", 2_500, "2999-01-01"),
-  { ...interestRule("rule-inactive", "account-2", 2_000, "2026-02-01"), is_active: false },
-  { ...interestRule("rule-expired", "account-3", 3_000, "2020-01-01"), end_date: "2021-01-01" },
+  {
+    ...interestRule("rule-inactive", "account-2", 2_000, "2026-02-01"),
+    is_active: false,
+  },
+  {
+    ...interestRule("rule-expired", "account-3", 3_000, "2020-01-01"),
+    end_date: "2021-01-01",
+  },
 ];
 
 function renderAccountsView(inputAccounts = accounts) {
@@ -58,14 +89,18 @@ function renderAccountsView(inputAccounts = accounts) {
   });
 
   render(
-    <QueryClientProvider client={queryClient}>
-      <AccountsView accounts={inputAccounts} onSelect={vi.fn()} />
-    </QueryClientProvider>,
+    <I18nProvider>
+      <QueryClientProvider client={queryClient}>
+        <AccountsView accounts={inputAccounts} onSelect={vi.fn()} />
+      </QueryClientProvider>
+    </I18nProvider>,
   );
 }
 
 describe("AccountsView", () => {
   beforeEach(() => {
+    localStorage.setItem("capitalflow_locale", "en");
+
     vi.clearAllMocks();
     mocks.dashboardSummary.mockResolvedValue(summary);
     mocks.interestRules.mockResolvedValue(rules);
@@ -74,7 +109,9 @@ describe("AccountsView", () => {
   it("loads account interest rules once and renders currently effective rates", async () => {
     renderAccountsView();
 
-    expect(screen.getByLabelText("Filter accounts by type")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Filter accounts by type"),
+    ).toBeInTheDocument();
     expect(await screen.findByText("15.00%")).toBeInTheDocument();
     expect(screen.getAllByText("-")).toHaveLength(2);
     expect(mocks.interestRules).toHaveBeenCalledTimes(1);
@@ -109,7 +146,12 @@ function account(id: string, name: string): Account {
   };
 }
 
-function interestRule(id: string, accountID: string, annualRateBps: number, startDate: string): InterestRule {
+function interestRule(
+  id: string,
+  accountID: string,
+  annualRateBps: number,
+  startDate: string,
+): InterestRule {
   return {
     id,
     account_id: accountID,
@@ -121,4 +163,3 @@ function interestRule(id: string, accountID: string, annualRateBps: number, star
     start_date: startDate,
   };
 }
-
