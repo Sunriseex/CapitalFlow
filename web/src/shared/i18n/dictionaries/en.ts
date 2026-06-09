@@ -264,6 +264,21 @@ export const en = {
     action: "Action",
     active: "active",
     archived: "archived",
+    accountSummary: "Account summary",
+    archive: "Archive",
+    opened: "Opened",
+    runningBalance: "Running balance",
+    preparingChart: "Preparing chart",
+    interestRules: "Interest rules",
+    accrue: "Accrue",
+    noInterestRules: "No interest rules",
+    preparingTransactions: "Preparing transactions",
+    editAccount: "Edit account",
+    inactive: "inactive",
+    runningBalanceChartHasNoTransactions:
+      "Running balance chart has no transactions.",
+    runningBalanceChartSummary:
+      "Running balance chart covers {count} transactions from {firstDate} to {lastDate}. Final balance {finalBalance}.",
   },
 
   settings: {
