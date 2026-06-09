@@ -223,6 +223,15 @@ export const en = {
     },
   },
 
+  transfers: {
+    createTransfer: "Create transfer",
+    from: "From",
+    to: "To",
+    fee: "Fee",
+    loadingRate: "Loading rate",
+    conversionPair: "{fromCurrency} to {toCurrency}",
+  },
+
   transactions: {
     title: "Transactions",
     operation: "Operation",
