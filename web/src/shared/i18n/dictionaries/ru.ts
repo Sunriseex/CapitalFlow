@@ -244,6 +244,16 @@ export const ru = {
       interest_income: "Проценты",
       adjustment: "Корректировка",
     },
+    date: "Дата",
+    type: "Тип",
+    description: "Описание",
+    showMore: "Показать ещё",
+    visibleOfTotal: "{visible} из {total}",
+    transactionId: "ID операции",
+    relatedAccount: "Связанный счёт",
+    transferId: "ID перевода",
+    transfer: "Перевод",
+    posted: "Проведено",
   },
 
   accounts: {

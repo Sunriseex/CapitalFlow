@@ -1,9 +1,14 @@
+import type { ReactElement } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Account, Category, Transaction } from "../../api/types";
+import { I18nProvider } from "../../shared/i18n/I18nProvider";
 import { TransactionsTable } from "./TransactionsTable";
 
+function renderWithI18n(ui: ReactElement) {
+  return render(<I18nProvider>{ui}</I18nProvider>);
+}
 const accounts: Account[] = [
   {
     id: "account-1",
@@ -39,28 +44,56 @@ const incomeTransaction: Transaction = {
 };
 
 describe("TransactionsTable", () => {
+  beforeEach(() => {
+    localStorage.setItem("capitalflow_locale", "en");
+  });
+
   it("renders transactions without a delete action", () => {
-    render(<TransactionsTable transactions={[incomeTransaction]} accounts={accounts} categories={categories} />);
+    renderWithI18n(
+      <TransactionsTable
+        transactions={[incomeTransaction]}
+        accounts={accounts}
+        categories={categories}
+      />,
+    );
 
     expect(screen.getAllByText("Salary")).toHaveLength(2);
-    expect(screen.queryByRole("button", { name: /delete transaction/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /delete transaction/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("renders empty state", () => {
-    render(<TransactionsTable transactions={[]} accounts={accounts} categories={categories} />);
+    renderWithI18n(
+      <TransactionsTable
+        transactions={[]}
+        accounts={accounts}
+        categories={categories}
+      />,
+    );
 
     expect(screen.getByText("No transactions")).toBeInTheDocument();
   });
 
   it("renders chunked account history and reveals more rows on demand", async () => {
     const user = userEvent.setup();
-    const transactions = Array.from({ length: 205 }, (_, index): Transaction => ({
-      ...incomeTransaction,
-      id: `transaction-${index}`,
-      description: `Transaction ${index}`,
-    }));
+    const transactions = Array.from(
+      { length: 205 },
+      (_, index): Transaction => ({
+        ...incomeTransaction,
+        id: `transaction-${index}`,
+        description: `Transaction ${index}`,
+      }),
+    );
 
-    render(<TransactionsTable transactions={transactions} accounts={accounts} categories={categories} chunked />);
+    renderWithI18n(
+      <TransactionsTable
+        transactions={transactions}
+        accounts={accounts}
+        categories={categories}
+        chunked
+      />,
+    );
 
     expect(screen.getAllByRole("row")).toHaveLength(49);
     expect(screen.getByText("48 of 205")).toBeInTheDocument();
@@ -75,7 +108,14 @@ describe("TransactionsTable", () => {
     const user = userEvent.setup();
     const onOpenTransaction = vi.fn();
 
-    render(<TransactionsTable transactions={[incomeTransaction]} accounts={accounts} categories={categories} onOpenTransaction={onOpenTransaction} />);
+    renderWithI18n(
+      <TransactionsTable
+        transactions={[incomeTransaction]}
+        accounts={accounts}
+        categories={categories}
+        onOpenTransaction={onOpenTransaction}
+      />,
+    );
 
     const row = screen.getByRole("row", { name: /Salary/ });
     await user.click(row);

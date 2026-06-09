@@ -245,6 +245,16 @@ export const en = {
       adjustment: "Adjustment",
     },
     createTransaction: "Create transaction",
+    date: "Date",
+    type: "Type",
+    description: "Description",
+    showMore: "Show more",
+    visibleOfTotal: "{visible} of {total}",
+    transactionId: "Transaction ID",
+    relatedAccount: "Related account",
+    transferId: "Transfer ID",
+    transfer: "Transfer",
+    posted: "Posted",
   },
 
   accounts: {
