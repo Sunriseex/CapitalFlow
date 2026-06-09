@@ -345,6 +345,26 @@ export const ru = {
   settings: {
     title: "Настройки",
     loadingProfile: "Загрузка профиля",
+    profile: "Профиль",
+    email: "Email",
+    primaryCurrency: "Основная валюта",
+    saved: "Сохранено",
+    saveSettings: "Сохранить настройки",
+    security: "Безопасность",
+    passkeys: "Passkeys",
+    passkeysDescription:
+      "Используйте passkey устройства, чтобы входить без ввода пароля.",
+    passkeysUnsupported: "Этот браузер не поддерживает passkeys",
+    passwordConfirmation: "Подтверждение пароля",
+    passwordConfirmationRequired: "Нужно подтвердить пароль",
+    addPasskey: "Добавить passkey",
+    loadingPasskeys: "Загрузка passkeys",
+    noPasskeysYet: "Passkeys пока нет",
+    passkeyName: "Название passkey",
+    lastUsed: "Последнее использование",
+    never: "никогда",
+    renamePasskey: "Переименовать passkey",
+    deletePasskey: "Удалить passkey",
   },
 } as const;
 

@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Profile } from "../../api/types";
 import { SettingsView } from "./SettingsView";
+import { I18nProvider } from "../../shared/i18n/I18nProvider";
 
 const mocks = vi.hoisted(() => ({
   updateProfile: vi.fn(),
@@ -34,9 +35,11 @@ function renderSettingsView(inputProfile?: Profile) {
   const invalidateQueries = vi.spyOn(queryClient, "invalidateQueries");
 
   render(
-    <QueryClientProvider client={queryClient}>
-      <SettingsView profile={inputProfile} />
-    </QueryClientProvider>,
+    <I18nProvider>
+      <QueryClientProvider client={queryClient}>
+        <SettingsView profile={inputProfile} />
+      </QueryClientProvider>
+    </I18nProvider>,
   );
 
   return { invalidateQueries };
@@ -44,6 +47,8 @@ function renderSettingsView(inputProfile?: Profile) {
 
 describe("SettingsView", () => {
   beforeEach(() => {
+    localStorage.setItem("capitalflow_locale", "en");
+
     vi.restoreAllMocks();
     mocks.updateProfile.mockReset();
   });
@@ -53,7 +58,9 @@ describe("SettingsView", () => {
 
     expect(screen.getByLabelText("Email")).toHaveValue("");
     expect(screen.getByLabelText("Primary currency")).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Save settings" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Save settings" }),
+    ).toBeDisabled();
   });
 
   it("updates primary currency, invalidates dependent queries, and shows Saved", async () => {
@@ -70,9 +77,13 @@ describe("SettingsView", () => {
     await user.click(screen.getByRole("button", { name: "Save settings" }));
 
     await waitFor(() => {
-      expect(mocks.updateProfile).toHaveBeenCalledWith({ primary_currency: "USD" });
+      expect(mocks.updateProfile).toHaveBeenCalledWith({
+        primary_currency: "USD",
+      });
       expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["profile"] });
-      expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["dashboard"] });
+      expect(invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["dashboard"],
+      });
     });
     expect(await screen.findByText("Saved")).toBeInTheDocument();
   });
@@ -85,9 +96,9 @@ describe("SettingsView", () => {
     await user.selectOptions(screen.getByLabelText("Primary currency"), "USD");
     await user.click(screen.getByRole("button", { name: "Save settings" }));
 
-    expect(await screen.findByText("Profile update failed")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Profile update failed"),
+    ).toBeInTheDocument();
     expect(screen.queryByText("Saved")).not.toBeInTheDocument();
   });
 });
-
-
