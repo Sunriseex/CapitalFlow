@@ -2,13 +2,30 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { KeyRound, Pencil, Plus, Trash2 } from "lucide-react";
 import { api } from "../../api/client";
-import { registerPasskey, browserSupportsPasskeys, passkeyErrorMessage } from "../auth/passkeys";
+import {
+  registerPasskey,
+  browserSupportsPasskeys,
+  passkeyErrorMessage,
+} from "../auth/passkeys";
 import { errorMessage } from "../../shared/api/query";
-import { Button, Empty, Field, IconButton, Input, Panel } from "../../shared/ui";
+import {
+  Button,
+  Empty,
+  Field,
+  IconButton,
+  Input,
+  Panel,
+} from "../../shared/ui";
+import { useI18n } from "../../shared/i18n/useI18n";
 
 export function PasskeysPanel() {
+  const { t } = useI18n();
+
   const queryClient = useQueryClient();
-  const passkeys = useQuery({ queryKey: ["passkeys"], queryFn: () => api.passkeys?.() ?? Promise.resolve([]) });
+  const passkeys = useQuery({
+    queryKey: ["passkeys"],
+    queryFn: () => api.passkeys?.() ?? Promise.resolve([]),
+  });
   const [password, setPassword] = useState("");
   const [editingID, setEditingID] = useState("");
   const [editingName, setEditingName] = useState("");
@@ -19,7 +36,7 @@ export function PasskeysPanel() {
 
   async function addPasskey() {
     if (!password) {
-      setError("Password confirmation is required");
+      setError(t.settings.passwordConfirmationRequired);
       return;
     }
     setBusy(true);
@@ -64,19 +81,27 @@ export function PasskeysPanel() {
   }
 
   return (
-    <Panel className="workspace-panel settings-panel security-settings-panel" title="Security">
+    <Panel
+      className="workspace-panel settings-panel security-settings-panel"
+      title={t.settings.security}
+    >
       <div className="form compact-form">
         <div>
-          <strong>Passkeys</strong>
-          <p className="muted-text">Use a device passkey to sign in without typing your password.</p>
+          <strong>{t.settings.passkeys}</strong>
+          <p className="muted-text">{t.settings.passkeysDescription}</p>
         </div>
 
-        {!supported ? <div className="error">This browser does not support passkeys</div> : null}
+        {!supported ? (
+          <div className="error">{t.settings.passkeysUnsupported}</div>
+        ) : null}
         {error ? <div className="error">{error}</div> : null}
-        {passkeys.error ? <div className="error">{errorMessage(passkeys.error)}</div> : null}
+        {passkeys.error ? (
+          <div className="error">{errorMessage(passkeys.error)}</div>
+        ) : null}
 
         <div className="inline-form">
-          <Field label="Password confirmation">
+          <Field label={t.settings.passwordConfirmation}>
+            {" "}
             <Input
               type="password"
               value={password}
@@ -90,70 +115,76 @@ export function PasskeysPanel() {
               void addPasskey();
             }}
           >
-            <Plus size={16} /> Add passkey
+            <Plus size={16} /> {t.settings.addPasskey}{" "}
           </Button>
         </div>
 
-        {passkeys.isLoading ? <Empty>Loading passkeys</Empty> : null}
-
-        {!passkeys.isLoading && (passkeys.data?.length ?? 0) === 0 ? <Empty>No passkeys yet</Empty> : null}
+        {passkeys.isLoading ? (
+          <Empty>{t.settings.loadingPasskeys}</Empty>
+        ) : null}
+        {!passkeys.isLoading && (passkeys.data?.length ?? 0) === 0 ? (
+          <Empty>{t.settings.noPasskeysYet}</Empty>
+        ) : null}
 
         <div className="passkey-list">
           {passkeys.data?.map((passkey) => (
             <div key={passkey.id} className="passkey-row">
               <div className="passkey-main">
-                  <KeyRound size={18} />
-                  <div>
-                    {editingID === passkey.id ? (
-                      <Input
-                        value={editingName}
-                        onChange={(event) => setEditingName(event.target.value)}
-                        aria-label="Passkey name"
-                      />
-                    ) : (
-                      <strong>{passkey.name}</strong>
-                    )}
-                    <p className="muted-text">
-                      Last used {passkey.last_used_at ? new Date(passkey.last_used_at).toLocaleString() : "never"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="passkey-actions">
+                <KeyRound size={18} />
+                <div>
                   {editingID === passkey.id ? (
-                    <Button
-                      disabled={busy}
-                      onClick={() => {
-                        void renamePasskey(passkey.id);
-                      }}
-                    >
-                      Save
-                    </Button>
+                    <Input
+                      value={editingName}
+                      onChange={(event) => setEditingName(event.target.value)}
+                      aria-label={t.settings.passkeyName}
+                    />
                   ) : (
-                    <IconButton
-                      type="button"
-                      title="Rename passkey"
-                      aria-label="Rename passkey"
-                      onClick={() => {
-                        setEditingID(passkey.id);
-                        setEditingName(passkey.name);
-                      }}
-                    >
-                      <Pencil size={16} />
-                    </IconButton>
+                    <strong>{passkey.name}</strong>
                   )}
-                  <IconButton
-                    type="button"
-                    title="Delete passkey"
-                    aria-label="Delete passkey"
+                  <p className="muted-text">
+                    {t.settings.lastUsed}{" "}
+                    {passkey.last_used_at
+                      ? new Date(passkey.last_used_at).toLocaleString()
+                      : t.settings.never}
+                  </p>
+                </div>
+              </div>
+
+              <div className="passkey-actions">
+                {editingID === passkey.id ? (
+                  <Button
                     disabled={busy}
                     onClick={() => {
-                      void deletePasskey(passkey.id);
+                      void renamePasskey(passkey.id);
                     }}
                   >
-                    <Trash2 size={16} />
+                    {t.common.save}{" "}
+                  </Button>
+                ) : (
+                  <IconButton
+                    type="button"
+                    title={t.settings.renamePasskey}
+                    aria-label={t.settings.renamePasskey}
+                    onClick={() => {
+                      setEditingID(passkey.id);
+                      setEditingName(passkey.name);
+                    }}
+                  >
+                    <Pencil size={16} />
                   </IconButton>
-                </div>
+                )}
+                <IconButton
+                  type="button"
+                  title={t.settings.deletePasskey}
+                  aria-label={t.settings.deletePasskey}
+                  disabled={busy}
+                  onClick={() => {
+                    void deletePasskey(passkey.id);
+                  }}
+                >
+                  <Trash2 size={16} />
+                </IconButton>
+              </div>
             </div>
           ))}
         </div>

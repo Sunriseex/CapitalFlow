@@ -6,8 +6,11 @@ import { errorMessage } from "../../shared/api/query";
 import { currencyOptions } from "../../shared/currencies";
 import { Button, Field, Input, Panel, Select } from "../../shared/ui";
 import { PasskeysPanel } from "./PasskeysPanel";
+import { useI18n } from "../../shared/i18n/useI18n";
 
 export function SettingsView({ profile }: { profile?: Profile }) {
+  const { t } = useI18n();
+
   const queryClient = useQueryClient();
 
   const profileCurrency = profile?.user.primary_currency ?? "RUB";
@@ -27,7 +30,9 @@ export function SettingsView({ profile }: { profile?: Profile }) {
     setSaved(false);
 
     try {
-      const updatedProfile = await api.updateProfile({ primary_currency: primaryCurrency });
+      const updatedProfile = await api.updateProfile({
+        primary_currency: primaryCurrency,
+      });
 
       setDraftCurrency(updatedProfile.user.primary_currency);
       await queryClient.invalidateQueries({ queryKey: ["profile"] });
@@ -41,7 +46,10 @@ export function SettingsView({ profile }: { profile?: Profile }) {
 
   return (
     <div className="grid settings-grid workspace-settings">
-      <Panel className="workspace-panel settings-panel profile-settings-panel" title="Profile">
+      <Panel
+        className="workspace-panel settings-panel profile-settings-panel"
+        title={t.settings.profile}
+      >
         <form
           className="form compact-form"
           onSubmit={(event) => {
@@ -49,11 +57,12 @@ export function SettingsView({ profile }: { profile?: Profile }) {
             void save();
           }}
         >
-          <Field label="Email">
+          <Field label={t.settings.email}>
+            {" "}
             <Input value={profile?.user.email ?? ""} readOnly />
           </Field>
-
-          <Field label="Primary currency">
+          <Field label={t.settings.primaryCurrency}>
+            {" "}
             <Select
               value={primaryCurrency}
               disabled={!profile}
@@ -69,11 +78,9 @@ export function SettingsView({ profile }: { profile?: Profile }) {
               ))}
             </Select>
           </Field>
-
           {error ? <div className="error">{error}</div> : null}
-          {saved ? <div className="success">Saved</div> : null}
-
-          <Button disabled={!profile}>Save settings</Button>
+          {saved ? <div className="success">{t.settings.saved}</div> : null}
+          <Button disabled={!profile}>{t.settings.saveSettings}</Button>{" "}
         </form>
       </Panel>
 
