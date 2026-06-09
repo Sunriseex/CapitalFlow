@@ -255,6 +255,17 @@ export const en = {
     transferId: "Transfer ID",
     transfer: "Transfer",
     posted: "Posted",
+    adjustment: "Adjustment",
+    createAdjustment: "Create adjustment",
+    loadingCategories: "Loading categories",
+    loadingTransactions: "Loading transactions",
+    filterByAccount: "Filter transactions by account",
+    filterByCategory: "Filter transactions by category",
+    filterByType: "Filter transactions by type",
+    filterFromDate: "Filter transactions from date",
+    filterToDate: "Filter transactions to date",
+    allAccounts: "All accounts",
+    allCategories: "All categories",
   },
 
   accounts: {
