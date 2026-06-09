@@ -21,6 +21,7 @@ export const en = {
     search: "Search",
     notAvailable: "Unavailable",
     unknown: "Unknown",
+    none: "None",
   },
 
   nav: {
@@ -266,6 +267,8 @@ export const en = {
     filterToDate: "Filter transactions to date",
     allAccounts: "All accounts",
     allCategories: "All categories",
+    createTypedTransaction: "Create {type}",
+    adjustmentAmountHint: "Adjustment accepts positive or negative values.",
   },
 
   accounts: {

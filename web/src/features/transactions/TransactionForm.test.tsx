@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Account } from "../../api/types";
 import { TransactionForm } from "./TransactionForm";
+import { I18nProvider } from "../../shared/i18n/I18nProvider";
 
 const mocks = vi.hoisted(() => ({
   createTransaction: vi.fn(),
@@ -28,18 +29,22 @@ const account: Account = {
   updated_at: "2026-05-17T00:00:00Z",
 };
 
-function renderTransactionForm(props: Partial<ComponentProps<typeof TransactionForm>> = {}) {
+function renderTransactionForm(
+  props: Partial<ComponentProps<typeof TransactionForm>> = {},
+) {
   const onDone = vi.fn();
 
   render(
-    <QueryClientProvider client={new QueryClient()}>
-      <TransactionForm
-        accounts={[account]}
-        categories={[]}
-        onDone={onDone}
-        {...props}
-      />
-    </QueryClientProvider>,
+    <I18nProvider>
+      <QueryClientProvider client={new QueryClient()}>
+        <TransactionForm
+          accounts={[account]}
+          categories={[]}
+          onDone={onDone}
+          {...props}
+        />
+      </QueryClientProvider>
+    </I18nProvider>,
   );
 
   return { onDone };
@@ -47,6 +52,8 @@ function renderTransactionForm(props: Partial<ComponentProps<typeof TransactionF
 
 describe("TransactionForm", () => {
   beforeEach(() => {
+    localStorage.setItem("capitalflow_locale", "en");
+
     mocks.createTransaction.mockReset();
     mocks.createTransaction.mockResolvedValue({});
   });
@@ -59,7 +66,9 @@ describe("TransactionForm", () => {
     await user.type(screen.getByLabelText("Amount"), "abc");
     await user.click(screen.getByRole("button", { name: "Create" }));
 
-    await screen.findByText("Amount must be a number with up to 2 decimal places");
+    await screen.findByText(
+      "Amount must be a number with up to 2 decimal places",
+    );
     await waitFor(() => expect(mocks.createTransaction).not.toHaveBeenCalled());
   });
 
@@ -70,11 +79,15 @@ describe("TransactionForm", () => {
     await user.type(screen.getByLabelText("Amount"), "-10");
     await user.click(screen.getByRole("button", { name: "Create" }));
 
-    await waitFor(() => expect(mocks.createTransaction).toHaveBeenCalledWith(expect.objectContaining({
-      account_id: "account-1",
-      type: "adjustment",
-      amount: "-10",
-    })));
+    await waitFor(() =>
+      expect(mocks.createTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          account_id: "account-1",
+          type: "adjustment",
+          amount: "-10",
+        }),
+      ),
+    );
     await waitFor(() => expect(onDone).toHaveBeenCalled());
   });
 
@@ -89,5 +102,3 @@ describe("TransactionForm", () => {
     await waitFor(() => expect(mocks.createTransaction).not.toHaveBeenCalled());
   });
 });
-
-
