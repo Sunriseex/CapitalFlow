@@ -263,6 +263,21 @@ export const ru = {
     action: "Действие",
     active: "Активен",
     archived: "В архиве",
+    accountSummary: "Сводка счёта",
+    archive: "Архивировать",
+    opened: "Открыт",
+    runningBalance: "Динамика баланса",
+    preparingChart: "Подготовка графика",
+    interestRules: "Правила процентов",
+    accrue: "Начислить",
+    noInterestRules: "Правил процентов нет",
+    preparingTransactions: "Подготовка операций",
+    editAccount: "Изменить счёт",
+    inactive: "Неактивен",
+    runningBalanceChartHasNoTransactions:
+      "График динамики баланса не содержит операций.",
+    runningBalanceChartSummary:
+      "График динамики баланса охватывает {count} операций с {firstDate} по {lastDate}. Итоговый баланс {finalBalance}.",
   },
 
   settings: {

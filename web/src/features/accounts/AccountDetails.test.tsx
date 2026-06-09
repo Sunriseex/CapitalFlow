@@ -4,9 +4,12 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Account, Transaction } from "../../api/types";
 import { AccountDetails } from "./AccountDetails";
+import { I18nProvider } from "../../shared/i18n/I18nProvider";
 
 const chartMocks = vi.hoisted(() => ({
-  lineChart: vi.fn(({ children }: { children?: ReactNode }) => <div data-testid="line-chart">{children}</div>),
+  lineChart: vi.fn(({ children }: { children?: ReactNode }) => (
+    <div data-testid="line-chart">{children}</div>
+  )),
 }));
 
 const apiMocks = vi.hoisted(() => ({
@@ -18,7 +21,9 @@ const apiMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("recharts", () => ({
-  ResponsiveContainer: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  ResponsiveContainer: ({ children }: { children?: ReactNode }) => (
+    <div>{children}</div>
+  ),
   LineChart: chartMocks.lineChart,
   CartesianGrid: () => null,
   Line: () => null,
@@ -51,16 +56,27 @@ const account: Account = {
 
 function renderAccountDetails() {
   render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <AccountDetails account={account} onBack={vi.fn()} />
-    </QueryClientProvider>,
+    <I18nProvider>
+      <QueryClientProvider
+        client={
+          new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        }
+      >
+        <AccountDetails account={account} onBack={vi.fn()} />
+      </QueryClientProvider>
+    </I18nProvider>,
   );
 }
 
 describe("AccountDetails", () => {
   beforeEach(() => {
+    localStorage.setItem("capitalflow_locale", "en");
+
     vi.clearAllMocks();
-    apiMocks.accountBalance.mockResolvedValue({ balance: "0", currency: "RUB" });
+    apiMocks.accountBalance.mockResolvedValue({
+      balance: "0",
+      currency: "RUB",
+    });
     apiMocks.interestRules.mockResolvedValue([]);
   });
 
@@ -73,27 +89,38 @@ describe("AccountDetails", () => {
     expect(screen.getByText("Preparing chart")).toBeInTheDocument();
     expect(screen.getByText("Preparing transactions")).toBeInTheDocument();
 
-    expect(await screen.findByText("Running balance chart has no transactions.")).toHaveClass("sr-only");
+    expect(
+      await screen.findByText("Running balance chart has no transactions."),
+    ).toHaveClass("sr-only");
   });
 
   it("caps running balance chart points for large transaction histories", async () => {
-    apiMocks.transactions.mockResolvedValue(Array.from({ length: 1000 }, (_, index): Transaction => ({
-      id: `tx-${index}`,
-      account_id: account.id,
-      type: "income",
-      amount: "1.00",
-      category_id: null,
-      description: `Transaction ${index}`,
-      occurred_at: `2026-01-${String((index % 28) + 1).padStart(2, "0")}T00:00:00Z`,
-      created_at: "2026-01-01T00:00:00Z",
-    })));
+    apiMocks.transactions.mockResolvedValue(
+      Array.from(
+        { length: 1000 },
+        (_, index): Transaction => ({
+          id: `tx-${index}`,
+          account_id: account.id,
+          type: "income",
+          amount: "1.00",
+          category_id: null,
+          description: `Transaction ${index}`,
+          occurred_at: `2026-01-${String((index % 28) + 1).padStart(2, "0")}T00:00:00Z`,
+          created_at: "2026-01-01T00:00:00Z",
+        }),
+      ),
+    );
 
     renderAccountDetails();
 
     await waitFor(() => {
-      const latestProps = chartMocks.lineChart.mock.calls.at(-1)?.[0] as { data: unknown[] };
+      const latestProps = chartMocks.lineChart.mock.calls.at(-1)?.[0] as {
+        data: unknown[];
+      };
       expect(latestProps.data).toHaveLength(240);
     });
-    expect(screen.getByText(/Running balance chart covers 1000 transactions/)).toHaveClass("sr-only");
+    expect(
+      screen.getByText(/Running balance chart covers 1000 transactions/),
+    ).toHaveClass("sr-only");
   });
 });
