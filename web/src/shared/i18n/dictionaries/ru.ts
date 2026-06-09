@@ -222,6 +222,15 @@ export const ru = {
     },
   },
 
+  transfers: {
+    createTransfer: "Создать перевод",
+    from: "Откуда",
+    to: "Куда",
+    fee: "Комиссия",
+    loadingRate: "Загрузка курса",
+    conversionPair: "{fromCurrency} в {toCurrency}",
+  },
+
   transactions: {
     title: "Операции",
     createTransaction: "Создать операцию",

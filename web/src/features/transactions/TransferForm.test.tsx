@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Account } from "../../api/types";
 import { TransferForm } from "./TransferForm";
+import { I18nProvider } from "../../shared/i18n/I18nProvider";
 
 const mocks = vi.hoisted(() => ({
   createTransfer: vi.fn(),
@@ -58,14 +59,18 @@ function renderTransferForm(accounts: Account[], onDone = vi.fn()) {
   });
 
   render(
-    <QueryClientProvider client={queryClient}>
-      <TransferForm accounts={accounts} onDone={onDone} />
-    </QueryClientProvider>,
+    <I18nProvider>
+      <QueryClientProvider client={queryClient}>
+        <TransferForm accounts={accounts} onDone={onDone} />
+      </QueryClientProvider>
+    </I18nProvider>,
   );
 }
 
 describe("TransferForm", () => {
   beforeEach(() => {
+    localStorage.setItem("capitalflow_locale", "en");
+
     vi.clearAllMocks();
   });
 
@@ -77,7 +82,9 @@ describe("TransferForm", () => {
     await user.type(screen.getByLabelText("Amount"), "Infinity");
     await user.click(screen.getByRole("button", { name: "Create" }));
 
-    await screen.findByText("Amount must be a number with up to 2 decimal places");
+    await screen.findByText(
+      "Amount must be a number with up to 2 decimal places",
+    );
     await waitFor(() => expect(mocks.createTransfer).not.toHaveBeenCalled());
   });
 
@@ -97,14 +104,18 @@ describe("TransferForm", () => {
 
   it("shows rate error and does not call createTransfer", async () => {
     const user = userEvent.setup();
-    mocks.currencyRates.mockRejectedValue(new Error("Rate provider unavailable"));
+    mocks.currencyRates.mockRejectedValue(
+      new Error("Rate provider unavailable"),
+    );
 
     renderTransferForm(crossCurrencyAccounts);
 
     expect(mocks.currencyRates).not.toHaveBeenCalled();
     await user.type(screen.getByLabelText("Amount"), "10");
 
-    expect(await screen.findByText("Rate provider unavailable")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Rate provider unavailable"),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create" })).toBeDisabled();
 
     await user.click(screen.getByRole("button", { name: "Create" }));
@@ -127,7 +138,9 @@ describe("TransferForm", () => {
 
     await user.type(screen.getByLabelText("Amount"), "123.45");
     await screen.findByText("RUB to USD");
-    await waitFor(() => expect(screen.getByRole("button", { name: "Create" })).toBeEnabled());
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Create" })).toBeEnabled(),
+    );
     await user.click(screen.getByRole("button", { name: "Create" }));
 
     await waitFor(() => {
