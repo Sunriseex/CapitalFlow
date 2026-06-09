@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CreateAccountForm } from "./CreateAccountForm";
+import { I18nProvider } from "../../shared/i18n/I18nProvider";
 
 const mocks = vi.hoisted(() => ({
   createAccount: vi.fn(),
@@ -21,6 +22,7 @@ vi.mock("../../api/client", () => ({
 
 describe("CreateAccountForm", () => {
   beforeEach(() => {
+    localStorage.setItem("capitalflow_locale", "en");
     vi.clearAllMocks();
   });
 
@@ -30,21 +32,28 @@ describe("CreateAccountForm", () => {
     mocks.createAccount.mockResolvedValueOnce({ id: "account-1" });
 
     render(
-      <QueryClientProvider client={new QueryClient()}>
-        <CreateAccountForm onDone={onDone} />
-      </QueryClientProvider>,
+      <I18nProvider>
+        <QueryClientProvider client={new QueryClient()}>
+          <CreateAccountForm onDone={onDone} />
+        </QueryClientProvider>
+        ,
+      </I18nProvider>,
     );
 
     await user.type(screen.getByLabelText("Name"), "Daily card");
     await user.type(screen.getByLabelText("Bank"), "Test Bank");
     await user.click(screen.getByRole("button", { name: "Create" }));
 
-    await waitFor(() => expect(mocks.createAccount).toHaveBeenCalledWith(expect.objectContaining({
-      name: "Daily card",
-      bank: "Test Bank",
-      type: "card",
-      currency: "RUB",
-    })));
+    await waitFor(() =>
+      expect(mocks.createAccount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "Daily card",
+          bank: "Test Bank",
+          type: "card",
+          currency: "RUB",
+        }),
+      ),
+    );
     expect(onDone).toHaveBeenCalled();
   });
 
@@ -52,16 +61,21 @@ describe("CreateAccountForm", () => {
     const user = userEvent.setup();
 
     render(
-      <QueryClientProvider client={new QueryClient()}>
-        <CreateAccountForm onDone={vi.fn()} />
-      </QueryClientProvider>,
+      <I18nProvider>
+        <QueryClientProvider client={new QueryClient()}>
+          <CreateAccountForm onDone={vi.fn()} />
+        </QueryClientProvider>
+        ,
+      </I18nProvider>,
     );
 
     await user.type(screen.getByLabelText("Name"), "Daily card");
     await user.type(screen.getByLabelText("Initial balance"), "Infinity");
     await user.click(screen.getByRole("button", { name: "Create" }));
 
-    await screen.findByText("Amount must be a number with up to 2 decimal places");
+    await screen.findByText(
+      "Amount must be a number with up to 2 decimal places",
+    );
     await waitFor(() => {
       expect(mocks.createAccount).not.toHaveBeenCalled();
       expect(mocks.createTransaction).not.toHaveBeenCalled();
@@ -69,5 +83,3 @@ describe("CreateAccountForm", () => {
     });
   });
 });
-
-
