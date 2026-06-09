@@ -296,7 +296,8 @@ export function CommandMenu({
           <span className="kbd">Esc</span>
         </div>
         <div className="command-menu-grid">
-          <CommandMenuSection title="Navigate">
+          <CommandMenuSection title={t.shell.navigate}>
+            {" "}
             <CommandItem onClick={() => onNavigate("dashboard")}>
               {t.nav.overview}
             </CommandItem>

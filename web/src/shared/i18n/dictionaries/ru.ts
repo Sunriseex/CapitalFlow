@@ -66,6 +66,9 @@ export const ru = {
       "Backend-импорт пока недоступен. Ручные операции и переводы уже работают.",
     bankImportNotConnected: "Банковский импорт ещё не подключён",
     closeSystemHealth: "Закрыть состояние системы",
+    serviceVersion: "Версия сервиса {version}",
+    statusCheckFailed: "Проверка статуса не удалась",
+    systemHealthy: "Система работает",
   },
 
   auth: {
