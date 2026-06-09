@@ -6,6 +6,7 @@ import type { Account, Category, TransactionType } from "../../api/types";
 import { errorMessage, invalidateMoney } from "../../shared/api/query";
 import { today, transactionTypes } from "../../shared/constants";
 import { Button, Field, FormShell, Input, Select } from "../../shared/ui";
+import { useI18n } from "../../shared/i18n/useI18n";
 
 export function TransactionForm({
   accounts,
@@ -20,6 +21,8 @@ export function TransactionForm({
   onDone: () => void;
   showTitle?: boolean;
 }) {
+  const { t } = useI18n();
+
   const queryClient = useQueryClient();
   const [error, setError] = useState("");
   const [form, setForm] = useState({
@@ -35,16 +38,31 @@ export function TransactionForm({
     [accounts, form.account_id],
   );
   const accountOptions = useMemo(
-    () => accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>),
+    () =>
+      accounts.map((account) => (
+        <option key={account.id} value={account.id}>
+          {account.name}
+        </option>
+      )),
     [accounts],
   );
   const categoryOptions = useMemo(
-    () => categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>),
+    () =>
+      categories.map((category) => (
+        <option key={category.id} value={category.id}>
+          {category.name}
+        </option>
+      )),
     [categories],
   );
   const typeOptions = useMemo(
-    () => transactionTypes.map((type) => <option key={type}>{type}</option>),
-    [],
+    () =>
+      transactionTypes.map((type) => (
+        <option key={type} value={type}>
+          {t.transactions.types[type]}
+        </option>
+      )),
+    [t],
   );
   const mutation = useMutation({
     mutationFn: () => {
@@ -75,18 +93,90 @@ export function TransactionForm({
     onError: (err) => setError(errorMessage(err)),
   });
 
+  const transactionType = form.type as TransactionType;
+  const title = t.transactions.createTypedTransaction.replace(
+    "{type}",
+    t.transactions.types[transactionType].toLowerCase(),
+  );
+
   return (
-    <FormShell title={`Create ${form.type}`} error={error} onSubmit={() => mutation.mutate()} showTitle={showTitle}>
-      <Field label="Account"><Select value={form.account_id} onChange={(event) => setForm({ ...form, account_id: event.target.value })}>{accountOptions}</Select></Field>
-      {!fixedType ? <Field label="Type"><Select value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value as TransactionType })}>{typeOptions}</Select></Field> : null}
-      <Field label="Amount">
-        <Input aria-label="Amount" required inputMode="decimal" value={form.amount} onChange={(event) => setForm({ ...form, amount: event.target.value })} />
-        {form.type === "adjustment" ? <small className="field-hint">Adjustment accepts positive or negative values.</small> : null}
+    <FormShell
+      title={title}
+      error={error}
+      onSubmit={() => mutation.mutate()}
+      showTitle={showTitle}
+    >
+      <Field label={t.transactions.account}>
+        <Select
+          value={form.account_id}
+          onChange={(event) =>
+            setForm({ ...form, account_id: event.target.value })
+          }
+        >
+          {accountOptions}
+        </Select>
       </Field>
-      <Field label="Category"><Select value={form.category_id} onChange={(event) => setForm({ ...form, category_id: event.target.value })}><option value="">None</option>{categoryOptions}</Select></Field>
-      <Field label="Date"><Input type="date" value={form.occurred_at} onChange={(event) => setForm({ ...form, occurred_at: event.target.value })} /></Field>
-      <Field label="Description"><Input value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></Field>
-      <Button disabled={mutation.isPending}>Create</Button>
+
+      {!fixedType ? (
+        <Field label={t.transactions.type}>
+          <Select
+            value={form.type}
+            onChange={(event) =>
+              setForm({ ...form, type: event.target.value as TransactionType })
+            }
+          >
+            {typeOptions}
+          </Select>
+        </Field>
+      ) : null}
+
+      <Field label={t.transactions.amount}>
+        <Input
+          aria-label={t.transactions.amount}
+          required
+          inputMode="decimal"
+          value={form.amount}
+          onChange={(event) => setForm({ ...form, amount: event.target.value })}
+        />
+        {form.type === "adjustment" ? (
+          <small className="field-hint">
+            {t.transactions.adjustmentAmountHint}
+          </small>
+        ) : null}
+      </Field>
+
+      <Field label={t.transactions.category}>
+        <Select
+          value={form.category_id}
+          onChange={(event) =>
+            setForm({ ...form, category_id: event.target.value })
+          }
+        >
+          <option value="">{t.common.none}</option>
+          {categoryOptions}
+        </Select>
+      </Field>
+
+      <Field label={t.transactions.date}>
+        <Input
+          type="date"
+          value={form.occurred_at}
+          onChange={(event) =>
+            setForm({ ...form, occurred_at: event.target.value })
+          }
+        />
+      </Field>
+
+      <Field label={t.transactions.description}>
+        <Input
+          value={form.description}
+          onChange={(event) =>
+            setForm({ ...form, description: event.target.value })
+          }
+        />
+      </Field>
+
+      <Button disabled={mutation.isPending}>{t.common.create}</Button>
     </FormShell>
   );
 }

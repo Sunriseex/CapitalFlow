@@ -19,6 +19,7 @@ export const ru = {
     search: "Поиск",
     notAvailable: "Недоступно",
     unknown: "Неизвестно",
+    none: "Нет",
   },
 
   nav: {
@@ -265,6 +266,9 @@ export const ru = {
     filterToDate: "Фильтр операций по дату",
     allAccounts: "Все счета",
     allCategories: "Все категории",
+    createTypedTransaction: "Создать {type}",
+    adjustmentAmountHint:
+      "Корректировка принимает положительные и отрицательные значения.",
   },
 
   accounts: {
