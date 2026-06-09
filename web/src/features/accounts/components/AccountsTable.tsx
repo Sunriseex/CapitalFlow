@@ -1,7 +1,12 @@
 import { formatMoney } from "../../../api/money";
-import type { Account, DashboardAccountBalance, InterestRule } from "../../../api/types";
+import type {
+  Account,
+  DashboardAccountBalance,
+  InterestRule,
+} from "../../../api/types";
 import { errorMessage } from "../../../shared/api/query";
 import { Button } from "../../../shared/ui";
+import { useI18n } from "../../../shared/i18n/useI18n";
 
 export function AccountsTable({
   accounts,
@@ -18,22 +23,49 @@ export function AccountsTable({
   rulesError: unknown;
   onSelect: (id: string) => void;
 }) {
+  const { t } = useI18n();
   return (
     <div className="table-wrap workspace-table-wrap accounts-table-wrap">
       <table className="workspace-table accounts-table">
         <thead>
-          <tr><th>Name</th><th>Bank</th><th>Type</th><th>Balance</th><th>Rate</th><th>Status</th><th></th></tr>
+          <tr>
+            <th>{t.accounts.name}</th>
+            <th>{t.accounts.bank}</th>
+            <th>{t.accounts.type}</th>
+            <th>{t.accounts.balance}</th>
+            <th>{t.accounts.rate}</th>
+            <th>{t.accounts.status}</th>
+            <th>{t.accounts.action}</th>
+          </tr>
         </thead>
         <tbody>
           {accounts.map((account) => (
             <tr key={account.id}>
-              <td data-label="Name">{account.name}</td>
-              <td data-label="Bank">{account.bank || "-"}</td>
-              <td data-label="Type">{account.type}</td>
-              <td data-label="Balance" className="amount">{formatMoney(balances.get(account.id)?.balance ?? "0", account.currency)}</td>
-              <td data-label="Rate"><AccountRate rule={activeRules.get(account.id)} isLoading={rulesLoading} error={rulesError} /></td>
-              <td data-label="Status">{account.is_active ? "active" : "archived"}</td>
-              <td data-label="Action"><Button onClick={() => onSelect(account.id)}>Open</Button></td>
+              <td data-label={t.accounts.name}>{account.name}</td>
+              <td data-label={t.accounts.bank}>{account.bank || "-"}</td>
+              <td data-label={t.accounts.type}>{account.type}</td>
+              <td data-label={t.accounts.balance} className="amount">
+                {formatMoney(
+                  balances.get(account.id)?.balance ?? "0",
+                  account.currency,
+                )}
+              </td>
+              <td data-label={t.accounts.rate}>
+                <AccountRate
+                  rule={activeRules.get(account.id)}
+                  isLoading={rulesLoading}
+                  error={rulesError}
+                  loadingLabel={t.common.loading}
+                />
+              </td>
+              <td data-label={t.accounts.status}>
+                {account.is_active ? t.accounts.active : t.accounts.archived}
+              </td>
+              <td data-label={t.accounts.action}>
+                <Button onClick={() => onSelect(account.id)}>
+                  {t.common.open}
+                </Button>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -42,15 +74,28 @@ export function AccountsTable({
   );
 }
 
-function AccountRate({ rule, isLoading, error }: { rule?: InterestRule; isLoading: boolean; error: unknown }) {
+function AccountRate({
+  rule,
+  isLoading,
+  error,
+  loadingLabel,
+}: {
+  rule?: InterestRule;
+  isLoading: boolean;
+  error: unknown;
+  loadingLabel: string;
+}) {
   if (isLoading) {
-    return <span>Loading</span>;
+    return <span>{loadingLabel}</span>;
   }
+
   if (error) {
     return <span className="error-text">{errorMessage(error)}</span>;
   }
+
   if (!rule) {
     return <span>-</span>;
   }
+
   return <span>{(rule.annual_rate_bps / 100).toFixed(2)}%</span>;
 }
