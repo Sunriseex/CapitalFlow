@@ -219,7 +219,9 @@ export function App() {
             void serviceStatus.refetch().then((result) => {
               toaster.create({
                 type: result.error ? "error" : "success",
-                title: result.error ? "Status check failed" : "System healthy",
+                title: result.error
+                  ? t.shell.statusCheckFailed
+                  : t.shell.systemHealthy,
                 description: result.error
                   ? errorMessage(result.error)
                   : result.data?.version,
@@ -246,7 +248,10 @@ export function App() {
                 <Box
                   as="span"
                   className="version-badge"
-                  aria-label={`Service version ${serviceStatus.data.version}`}
+                  aria-label={t.shell.serviceVersion.replace(
+                    "{version}",
+                    serviceStatus.data.version,
+                  )}
                 >
                   {serviceStatus.data.version}
                 </Box>
@@ -260,8 +265,16 @@ export function App() {
               <button
                 className="rail-toggle"
                 type="button"
-                aria-label={rightRailHidden ? "Show insights" : "Hide insights"}
-                title={rightRailHidden ? "Show insights" : "Hide insights"}
+                aria-label={
+                  rightRailHidden
+                    ? t.dashboard.showInsights
+                    : t.dashboard.hideInsights
+                }
+                title={
+                  rightRailHidden
+                    ? t.dashboard.showInsights
+                    : t.dashboard.hideInsights
+                }
                 aria-controls="dashboard-right-rail"
                 aria-expanded={!rightRailHidden}
                 onClick={() => setRightRailHidden((hidden) => !hidden)}
@@ -277,7 +290,8 @@ export function App() {
         </Box>
 
         <PageTransition>
-          <Suspense fallback={<Empty>Loading view</Empty>}>
+          <Suspense fallback={<Empty>{t.common.loadingView}</Empty>}>
+            {" "}
             {view === "dashboard" ? (
               <DashboardView
                 key={primaryCurrency}
@@ -291,7 +305,6 @@ export function App() {
                 }}
               />
             ) : null}
-
             {view === "accounts" ? (
               selectedAccount ? (
                 <AccountDetails
@@ -322,7 +335,7 @@ export function App() {
 
           {view === "settings" ? (
             profile.isLoading ? (
-              <Empty>Loading profile</Empty>
+              <Empty>{t.settings.loadingProfile}</Empty>
             ) : profile.error ? (
               <Box className="error inline-error">
                 {errorMessage(profile.error)}

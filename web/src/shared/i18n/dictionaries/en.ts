@@ -68,6 +68,9 @@ export const en = {
       "Backend import is not available yet. Manual transactions and transfers are ready.",
     bankImportNotConnected: "Bank import is not connected yet",
     closeSystemHealth: "Close system health",
+    serviceVersion: "Service version {version}",
+    statusCheckFailed: "Status check failed",
+    systemHealthy: "System healthy",
   },
 
   auth: {
