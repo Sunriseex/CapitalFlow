@@ -345,6 +345,11 @@ export const en = {
       monthly: "Monthly",
       end_of_term: "End of term",
     },
+    accrualFrequencyOptions: {
+      daily: "Daily",
+      monthly: "Monthly",
+      end_of_term: "End of term",
+    },
   },
 
   settings: {
