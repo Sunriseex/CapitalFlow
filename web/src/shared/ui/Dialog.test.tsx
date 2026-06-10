@@ -1,8 +1,17 @@
 import { useState } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+import { I18nProvider } from "../i18n/I18nProvider";
 import { Button, Dialog, Input } from ".";
+
+function renderDialogHarness() {
+  return render(
+    <I18nProvider>
+      <DialogHarness />
+    </I18nProvider>,
+  );
+}
 
 function DialogHarness() {
   const [open, setOpen] = useState(false);
@@ -24,9 +33,13 @@ function DialogHarness() {
 }
 
 describe("Dialog", () => {
+  beforeEach(() => {
+    localStorage.setItem("capitalflow_locale", "en");
+  });
+
   it("sets dialog semantics, closes on Escape, and restores focus", async () => {
     const user = userEvent.setup();
-    render(<DialogHarness />);
+    renderDialogHarness();
 
     const opener = screen.getByRole("button", { name: "Open dialog" });
     await user.click(opener);
@@ -37,14 +50,15 @@ describe("Dialog", () => {
 
     await user.keyboard("{Escape}");
 
-    expect(screen.queryByRole("dialog", { name: "Edit account" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("dialog", { name: "Edit account" }),
+    ).not.toBeInTheDocument();
     expect(opener).toHaveFocus();
   });
 
   it("keeps tab focus inside the dialog", async () => {
     const user = userEvent.setup();
-    render(<DialogHarness />);
-
+    renderDialogHarness();
     await user.click(screen.getByRole("button", { name: "Open dialog" }));
     await user.tab({ shift: true });
 
@@ -53,14 +67,14 @@ describe("Dialog", () => {
 
   it("restores focus when closed by the close button", async () => {
     const user = userEvent.setup();
-    render(<DialogHarness />);
-
+    renderDialogHarness();
     const opener = screen.getByRole("button", { name: "Open dialog" });
     await user.click(opener);
     await user.click(screen.getByRole("button", { name: "Close dialog" }));
 
-    expect(screen.queryByRole("dialog", { name: "Edit account" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("dialog", { name: "Edit account" }),
+    ).not.toBeInTheDocument();
     expect(opener).toHaveFocus();
   });
 });
-
