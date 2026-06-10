@@ -28,6 +28,17 @@ export function TransferForm({
 }) {
   const { t } = useI18n();
 
+  const moneyParseMessages = useMemo(
+    () => ({
+      amountRequired: t.money.amountRequired,
+      amountFormat: (scale: number) =>
+        t.money.amountFormat.replace("{scale}", String(scale)),
+      amountNonNegative: t.money.amountNonNegative,
+      amountGreaterThanZero: t.money.amountGreaterThanZero,
+    }),
+    [t],
+  );
+
   const queryClient = useQueryClient();
   const [error, setError] = useState("");
   const [form, setForm] = useState({
@@ -37,14 +48,17 @@ export function TransferForm({
     fee_amount: "",
     description: "",
   });
+
   const fromAccount = useMemo(
     () => accounts.find((account) => account.id === form.from_account_id),
     [accounts, form.from_account_id],
   );
+
   const toAccount = useMemo(
     () => accounts.find((account) => account.id === form.to_account_id),
     [accounts, form.to_account_id],
   );
+
   const accountOptions = useMemo(
     () =>
       accounts.map((account) => (
@@ -54,12 +68,14 @@ export function TransferForm({
       )),
     [accounts],
   );
+
   const previewAmount = useMemo(
     () =>
       parseMoneyToMinorResult(form.amount, {
         currency: fromAccount?.currency ?? "RUB",
+        messages: moneyParseMessages,
       }),
-    [form.amount, fromAccount?.currency],
+    [form.amount, fromAccount?.currency, moneyParseMessages],
   );
   const amount = previewAmount.ok ? previewAmount.value : "0";
   const hasAmount = form.amount.trim().length > 0;
@@ -106,13 +122,18 @@ export function TransferForm({
         required: true,
         positive: true,
         currency: fromAccount?.currency ?? "RUB",
+        messages: moneyParseMessages,
       });
+
       if (!amount.ok) {
         throw new Error(amount.error);
       }
+
       const feeAmount = parseMoneyToMinorResult(form.fee_amount, {
         currency: fromAccount?.currency ?? "RUB",
+        messages: moneyParseMessages,
       });
+
       if (!feeAmount.ok) {
         throw new Error(feeAmount.error);
       }

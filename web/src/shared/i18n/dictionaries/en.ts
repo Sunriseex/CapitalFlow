@@ -25,6 +25,13 @@ export const en = {
     closeDialog: "Close dialog",
   },
 
+  money: {
+    amountRequired: "Amount is required",
+    amountFormat: "Amount must be a number with up to {scale} decimal places",
+    amountNonNegative: "Amount must be non-negative",
+    amountGreaterThanZero: "Amount must be greater than zero",
+  },
+
   nav: {
     workspace: "Workspace",
     overview: "Overview",
