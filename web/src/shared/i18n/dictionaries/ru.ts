@@ -159,7 +159,7 @@ export const ru = {
   dashboard: {
     overview: "Обзор",
     dashboard: "Дашборд",
-    totalCapital: "Капитал",
+    totalCapital: "Общий капитал",
     liveLedger: "Журнал",
     thisMonth: "за этот месяц",
     portfolioCurrency: "Валюта портфеля",
@@ -173,8 +173,7 @@ export const ru = {
     loadingLedgerBuckets: "Загрузка периодов журнала",
     buckets: "периодов",
     recentTransactions: "Последние операции",
-    recentTransactionsDescription:
-      "Последние 5 операций без перегрузки дашборда",
+    recentTransactionsDescription: "Последние 5 операций",
     allTransactions: "Все операции",
     cashflowData: "Данные денежного потока",
     period: "Период",
@@ -341,6 +340,11 @@ export const ru = {
     },
     capitalizationOptions: {
       none: "Нет",
+      daily: "Ежедневно",
+      monthly: "Ежемесячно",
+      end_of_term: "В конце срока",
+    },
+    accrualFrequencyOptions: {
       daily: "Ежедневно",
       monthly: "Ежемесячно",
       end_of_term: "В конце срока",

@@ -281,8 +281,10 @@ function RuleRow({
   return (
     <div className="rule-row">
       <strong>{rate}%</strong>
-      <span>{rule.accrual_frequency}</span>
-      <span>{rule.capitalization_frequency}</span>
+      <span>{t.accounts.accrualFrequencyOptions[rule.accrual_frequency]}</span>
+      <span>
+        {t.accounts.capitalizationOptions[rule.capitalization_frequency]}
+      </span>
       <span>{rule.is_active ? t.accounts.active : t.accounts.inactive}</span>
     </div>
   );
