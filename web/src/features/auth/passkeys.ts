@@ -1,7 +1,11 @@
 import { api } from "../../api/client";
 
 export function browserSupportsPasskeys() {
-  return typeof window !== "undefined" && "PublicKeyCredential" in window && Boolean(navigator.credentials);
+  return (
+    typeof window !== "undefined" &&
+    "PublicKeyCredential" in window &&
+    Boolean(navigator.credentials)
+  );
 }
 
 export async function signInWithPasskey() {
@@ -12,7 +16,9 @@ export async function signInWithPasskey() {
   if (!credential) {
     throw new Error("Passkey sign in was cancelled");
   }
-  return api.passkeyLoginVerify(publicKeyCredentialToJSON(credential as PublicKeyCredential));
+  return api.passkeyLoginVerify(
+    publicKeyCredentialToJSON(credential as PublicKeyCredential),
+  );
 }
 
 export async function registerPasskey(password: string) {
@@ -23,20 +29,47 @@ export async function registerPasskey(password: string) {
   if (!credential) {
     throw new Error("Passkey setup was cancelled");
   }
-  return api.passkeyRegistrationVerify(publicKeyCredentialToJSON(credential as PublicKeyCredential));
+  return api.passkeyRegistrationVerify(
+    publicKeyCredentialToJSON(credential as PublicKeyCredential),
+  );
 }
 
-export function passkeyErrorMessage(err: unknown) {
+type PasskeyErrorMessages = {
+  operationCancelled: string;
+  operationFailed: string;
+};
+
+const defaultPasskeyErrorMessages: PasskeyErrorMessages = {
+  operationCancelled: "Passkey operation cancelled",
+  operationFailed: "Passkey operation failed",
+};
+
+export function passkeyErrorMessage(
+  err: unknown,
+  messages: PasskeyErrorMessages = defaultPasskeyErrorMessages,
+) {
   if (err instanceof DOMException && err.name === "NotAllowedError") {
-    return "Passkey operation cancelled";
+    return messages.operationCancelled;
   }
+
+  if (
+    err instanceof Error &&
+    (err.message === "Passkey sign in was cancelled" ||
+      err.message === "Passkey setup was cancelled")
+  ) {
+    return messages.operationCancelled;
+  }
+
   if (err instanceof Error && err.message) {
     return err.message;
   }
-  return "Passkey operation failed";
+
+  return messages.operationFailed;
 }
 
-function publicKeyCreationOptions(options: PublicKeyCredentialCreationOptions): PublicKeyCredentialCreationOptions {
+function publicKeyCreationOptions(
+  options: PublicKeyCredentialCreationOptions,
+): PublicKeyCredentialCreationOptions {
   return {
     ...options,
     challenge: base64URLToBuffer(options.challenge as unknown as string),
@@ -51,7 +84,9 @@ function publicKeyCreationOptions(options: PublicKeyCredentialCreationOptions): 
   };
 }
 
-function publicKeyRequestOptions(options: PublicKeyCredentialRequestOptions): PublicKeyCredentialRequestOptions {
+function publicKeyRequestOptions(
+  options: PublicKeyCredentialRequestOptions,
+): PublicKeyCredentialRequestOptions {
   return {
     ...options,
     challenge: base64URLToBuffer(options.challenge as unknown as string),
@@ -83,7 +118,9 @@ function publicKeyCredentialToJSON(credential: PublicKeyCredential) {
       authenticatorData: bufferToBase64URL(response.authenticatorData),
       clientDataJSON: bufferToBase64URL(response.clientDataJSON),
       signature: bufferToBase64URL(response.signature),
-      userHandle: response.userHandle ? bufferToBase64URL(response.userHandle) : undefined,
+      userHandle: response.userHandle
+        ? bufferToBase64URL(response.userHandle)
+        : undefined,
     };
   }
 
@@ -91,7 +128,10 @@ function publicKeyCredentialToJSON(credential: PublicKeyCredential) {
 }
 
 function base64URLToBuffer(value: string) {
-  const base64 = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
+  const base64 = value
+    .replace(/-/g, "+")
+    .replace(/_/g, "/")
+    .padEnd(Math.ceil(value.length / 4) * 4, "=");
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index += 1) {
@@ -106,5 +146,8 @@ function bufferToBase64URL(buffer: ArrayBuffer) {
   for (const byte of bytes) {
     binary += String.fromCharCode(byte);
   }
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
 }

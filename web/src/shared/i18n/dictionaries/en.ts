@@ -382,5 +382,7 @@ export const en = {
     never: "never",
     renamePasskey: "Rename passkey",
     deletePasskey: "Delete passkey",
+    passkeyOperationCancelled: "Passkey operation cancelled",
+    passkeyOperationFailed: "Passkey operation failed",
   },
 } as const satisfies TranslationDictionary;

@@ -381,6 +381,8 @@ export const ru = {
     never: "никогда",
     renamePasskey: "Переименовать passkey",
     deletePasskey: "Удалить passkey",
+    passkeyOperationCancelled: "Операция с passkey отменена",
+    passkeyOperationFailed: "Операция с passkey не выполнена",
   },
 } as const;
 
