@@ -36,7 +36,7 @@ export function AccountDetails({
   const [editOpen, setEditOpen] = useState(false);
   const [actionError, setActionError] = useState("");
   const [chartState, setChartState] = useState<RunningBalanceState>(() =>
-    emptyRunningBalanceState(account.id, account.currency, t),
+    emptyRunningBalanceState(account.id, account.currency, t, locale),
   );
   const afterPaint = useAfterPaint();
   const transactions = useQuery({
@@ -92,6 +92,7 @@ export function AccountDetails({
           account.currency,
           240,
           t,
+          locale,
         ),
       );
     const idleWindow = window as Window & {
@@ -109,7 +110,7 @@ export function AccountDetails({
 
     const timeout = window.setTimeout(run, 16);
     return () => window.clearTimeout(timeout);
-  }, [account.currency, account.id, afterPaint, transactionsData, t]);
+  }, [account.currency, account.id, afterPaint, transactionsData, t, locale]);
 
   const chartReady = afterPaint && chartState.accountId === account.id;
 
@@ -306,9 +307,10 @@ function buildRunningBalanceState(
   currency: string,
   limit: number,
   t: ReturnType<typeof useI18n>["t"],
+  locale: ReturnType<typeof useI18n>["locale"],
 ): RunningBalanceState {
   if (!transactions.length) {
-    return emptyRunningBalanceState(accountId, currency, t);
+    return emptyRunningBalanceState(accountId, currency, t, locale);
   }
 
   let balance = "0";
@@ -348,6 +350,7 @@ function buildRunningBalanceState(
       moneyToNumber(balance),
       currency,
       t,
+      locale,
     ),
   };
 }
@@ -356,11 +359,12 @@ function emptyRunningBalanceState(
   accountId: string,
   currency: string,
   t: ReturnType<typeof useI18n>["t"],
+  locale: ReturnType<typeof useI18n>["locale"],
 ): RunningBalanceState {
   return {
     accountId,
     data: [],
-    summary: describeRunningBalance(0, "", "", 0, currency, t),
+    summary: describeRunningBalance(0, "", "", 0, currency, t, locale),
   };
 }
 
@@ -379,6 +383,7 @@ function describeRunningBalance(
   finalBalance: number,
   currency: string,
   t: ReturnType<typeof useI18n>["t"],
+  locale: ReturnType<typeof useI18n>["locale"],
 ) {
   if (!count) {
     return t.accounts.runningBalanceChartHasNoTransactions;
@@ -388,5 +393,8 @@ function describeRunningBalance(
     .replace("{count}", String(count))
     .replace("{firstDate}", firstDate)
     .replace("{lastDate}", lastDate)
-    .replace("{finalBalance}", formatMoney(String(finalBalance), currency));
+    .replace(
+      "{finalBalance}",
+      formatMoney(String(finalBalance), currency, locale),
+    );
 }
