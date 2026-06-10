@@ -1,9 +1,16 @@
 import { useEffect, useId, useRef } from "react";
-import type { ButtonHTMLAttributes, InputHTMLAttributes, KeyboardEvent, ReactNode, SelectHTMLAttributes } from "react";
+import type {
+  ButtonHTMLAttributes,
+  InputHTMLAttributes,
+  KeyboardEvent,
+  ReactNode,
+  SelectHTMLAttributes,
+} from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { markPerformance } from "../performance";
 import { PageTransition } from "./PageTransition";
+import { useI18n } from "../i18n/useI18n";
 
 export { PageTransition };
 
@@ -29,15 +36,27 @@ export function Panel({
   );
 }
 
-export function Button({ className = "", ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
+export function Button({
+  className = "",
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement>) {
   return <button className={`button ${className}`} {...props} />;
 }
 
-export function IconButton({ className = "", ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
+export function IconButton({
+  className = "",
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement>) {
   return <button className={`icon-button ${className}`} {...props} />;
 }
 
-export function Field({ label, children }: { label: string; children: ReactNode }) {
+export function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
   return (
     <label className="field">
       <span>{label}</span>
@@ -72,7 +91,13 @@ export function FormShell({
   showTitle?: boolean;
 }) {
   return (
-    <form className="form form-shell" onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
+    <form
+      className="form form-shell"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
       {showTitle ? <h2>{title}</h2> : null}
       {error ? <div className="error">{error}</div> : null}
       {children}
@@ -80,7 +105,17 @@ export function FormShell({
   );
 }
 
-export function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Dialog({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const { t } = useI18n();
+
   const titleID = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
@@ -88,10 +123,14 @@ export function Dialog({ title, onClose, children }: { title: string; onClose: (
 
   useEffect(() => {
     const endMeasure = markPerformance(`dialog-open:${title}`);
-    restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    restoreFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     const dialog = dialogRef.current;
-    focusableRef.current = [...(dialog?.querySelectorAll<HTMLElement>(focusableSelector) ?? [])]
-      .filter((element) => !element.hasAttribute("disabled"));
+    focusableRef.current = [
+      ...(dialog?.querySelectorAll<HTMLElement>(focusableSelector) ?? []),
+    ].filter((element) => !element.hasAttribute("disabled"));
     const firstFocusable = focusableRef.current[0];
     (firstFocusable ?? dialog)?.focus();
     if (typeof window.requestAnimationFrame !== "function") {
@@ -161,7 +200,12 @@ export function Dialog({ title, onClose, children }: { title: string; onClose: (
       >
         <div className="modal-header">
           <h2 id={titleID}>{title}</h2>
-          <IconButton type="button" title="Close dialog" aria-label="Close dialog" onClick={onClose}>
+          <IconButton
+            type="button"
+            title={t.common.closeDialog}
+            aria-label={t.common.closeDialog}
+            onClick={onClose}
+          >
             <X size={16} />
           </IconButton>
         </div>

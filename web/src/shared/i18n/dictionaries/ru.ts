@@ -20,6 +20,7 @@ export const ru = {
     notAvailable: "Недоступно",
     unknown: "Неизвестно",
     none: "Нет",
+    closeDialog: "Закрыть диалог",
   },
 
   nav: {

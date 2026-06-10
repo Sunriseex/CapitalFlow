@@ -22,6 +22,7 @@ export const en = {
     notAvailable: "Unavailable",
     unknown: "Unknown",
     none: "None",
+    closeDialog: "Close dialog",
   },
 
   nav: {
