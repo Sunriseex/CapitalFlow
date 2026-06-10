@@ -54,7 +54,7 @@ export function TransactionDetails({
         <span
           className={compareMoney(amount, "0") < 0 ? "delta-down" : "delta-up"}
         >
-          {formatMoney(amount, currency)}
+          {formatMoney(amount, currency, locale)}
         </span>
       </div>
 

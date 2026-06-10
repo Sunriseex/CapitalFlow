@@ -1,4 +1,5 @@
 import type { Amount, CurrencyRateTable, Transaction } from "./types";
+import type { Locale } from "../shared/i18n/i18n";
 
 type MoneyParseMessages = {
   amountRequired: string;
@@ -91,7 +92,31 @@ const currencyDisplaySymbols: Record<string, string> = {
   KRW: "₩",
 };
 
-export function formatMoney(amount: string, currency = "RUB") {
+const moneyFormatLocales: Record<
+  Locale,
+  {
+    decimal: string;
+    group: string;
+    symbolPosition: "before" | "after";
+  }
+> = {
+  ru: {
+    decimal: ",",
+    group: "\u00a0",
+    symbolPosition: "after",
+  },
+  en: {
+    decimal: ".",
+    group: ",",
+    symbolPosition: "before",
+  },
+};
+
+export function formatMoney(
+  amount: string,
+  currency = "RUB",
+  locale: Locale = "ru",
+) {
   const normalizedCurrency = currency.trim().toUpperCase();
   const scale = BigInt(currencyFractionDigits(normalizedCurrency));
   const units = roundUnits(decimalParts(amount), scale);
@@ -101,10 +126,18 @@ export function formatMoney(amount: string, currency = "RUB") {
   const raw = abs.toString().padStart(scaleNumber + 1, "0");
   const whole = scale === 0n ? raw : raw.slice(0, -scaleNumber);
   const fraction = scale === 0n ? "" : raw.slice(-scaleNumber);
-  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, "\u00a0");
+  const formatLocale = moneyFormatLocales[locale];
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, formatLocale.group);
   const displayCurrency = currencyDisplaySymbol(normalizedCurrency);
+  const formattedAmount = `${sign}${grouped}${
+    fraction ? `${formatLocale.decimal}${fraction}` : ""
+  }`;
 
-  return `${sign}${grouped}${fraction ? `,${fraction}` : ""}\u00a0${displayCurrency}`;
+  if (formatLocale.symbolPosition === "before") {
+    return `${displayCurrency}${formattedAmount}`;
+  }
+
+  return `${formattedAmount}\u00a0${displayCurrency}`;
 }
 
 export function parseMoneyResult(

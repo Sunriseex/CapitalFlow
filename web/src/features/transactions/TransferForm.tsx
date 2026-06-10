@@ -26,7 +26,7 @@ export function TransferForm({
   accounts: Account[];
   onDone: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 
   const moneyParseMessages = useMemo(
     () => ({
@@ -216,8 +216,8 @@ export function TransferForm({
 
           {rate ? (
             <strong>
-              {formatMoney(amount, fromAccount.currency)} ={" "}
-              {formatMoney(convertedAmount, toAccount.currency)}
+              {formatMoney(amount, fromAccount.currency, locale)} ={" "}
+              {formatMoney(convertedAmount, toAccount.currency, locale)}
             </strong>
           ) : null}
 

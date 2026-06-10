@@ -173,4 +173,10 @@ describe("formatMoney", () => {
   it("normalizes currency codes before formatting", () => {
     expect(formatMoney("10", "rub")).toBe("10,00\u00a0₽");
   });
+  it("formats money with English separators and symbol position", () => {
+    expect(formatMoney("1234.56", "USD", "en")).toBe("$1,234.56");
+    expect(formatMoney("1234.56", "EUR", "en")).toBe("€1,234.56");
+    expect(formatMoney("1234.56", "RUB", "en")).toBe("₽1,234.56");
+    expect(formatMoney("1234.56", "JPY", "en")).toBe("¥1,235");
+  });
 });

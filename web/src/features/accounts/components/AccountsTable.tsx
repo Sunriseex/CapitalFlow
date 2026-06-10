@@ -23,7 +23,7 @@ export function AccountsTable({
   rulesError: unknown;
   onSelect: (id: string) => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   return (
     <div className="table-wrap workspace-table-wrap accounts-table-wrap">
       <table className="workspace-table accounts-table">
@@ -50,6 +50,7 @@ export function AccountsTable({
                 {formatMoney(
                   balances.get(account.id)?.balance ?? "0",
                   account.currency,
+                  locale,
                 )}
               </td>
               <td data-label={t.accounts.rate}>
