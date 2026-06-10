@@ -193,6 +193,7 @@ const TransactionRow = memo(function TransactionRow({
         {formatMoney(
           signed,
           accountCurrencies.get(transaction.account_id) ?? "RUB",
+          locale,
         )}
       </td>
     </tr>

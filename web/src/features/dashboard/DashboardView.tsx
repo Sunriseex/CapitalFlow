@@ -42,7 +42,7 @@ export function DashboardView({
   onNavigate?: (view: View) => void;
   quickActionsDisabled?: boolean;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const summary = useQuery({
     queryKey: ["dashboard", "summary"],
     queryFn: api.dashboardSummary,
@@ -229,7 +229,7 @@ export function DashboardView({
                 <div className="balance-title">
                   <span>{t.dashboard.totalCapital}</span>{" "}
                   <div className="balance-value">
-                    {formatMoney(portfolioValue, selectedCurrency)}
+                    {formatMoney(portfolioValue, selectedCurrency, locale)}
                   </div>
                 </div>
                 <span className="pill">{t.dashboard.liveLedger}</span>{" "}
@@ -243,7 +243,7 @@ export function DashboardView({
                       : "delta-up"
                   }
                 >
-                  {formatMoney(monthlyNet, selectedCurrency)}{" "}
+                  {formatMoney(monthlyNet, selectedCurrency, locale)}{" "}
                   {t.dashboard.thisMonth}{" "}
                 </span>
               </div>
@@ -311,6 +311,7 @@ export function DashboardView({
                         rateTable,
                       ),
                       selectedCurrency,
+                      locale,
                     )}
                   </strong>
                 </div>
@@ -324,6 +325,7 @@ export function DashboardView({
                         rateTable,
                       ),
                       selectedCurrency,
+                      locale,
                     )}
                   </strong>
                 </div>
@@ -432,6 +434,7 @@ export function DashboardView({
                       rateTable,
                     ),
                     selectedCurrency,
+                    locale,
                   )}
                 </span>
                 <span className="legend-item">
@@ -444,6 +447,7 @@ export function DashboardView({
                       rateTable,
                     ),
                     selectedCurrency,
+                    locale,
                   )}
                 </span>
                 <span className="legend-item">
@@ -452,7 +456,7 @@ export function DashboardView({
                 </span>
                 <span className="legend-item">
                   {t.dashboard.interest} ·{" "}
-                  {formatMoney(totalInterest, selectedCurrency)}
+                  {formatMoney(totalInterest, selectedCurrency, locale)}
                 </span>
               </div>
             </article>
@@ -508,7 +512,9 @@ export function DashboardView({
                   <div className="row">
                     <div className="row-main">
                       <strong>{t.dashboard.monthlyNet}</strong>{" "}
-                      <span>{formatMoney(monthlyNet, selectedCurrency)}</span>
+                      <span>
+                        {formatMoney(monthlyNet, selectedCurrency, locale)}
+                      </span>
                     </div>
                     <span className="tag info">{t.dashboard.real}</span>{" "}
                   </div>
@@ -592,7 +598,7 @@ export function DashboardView({
                   <div>
                     <strong>{account.name}</strong>
                     <span>
-                      {formatMoney(account.balance, account.currency)}
+                      {formatMoney(account.balance, account.currency, locale)}
                     </span>
                   </div>
                   <span className="tag info">{account.share}%</span>

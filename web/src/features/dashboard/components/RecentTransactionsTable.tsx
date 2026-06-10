@@ -15,7 +15,7 @@ export function RecentTransactionsTable({
   selectedCurrency: string;
   onOpenTransaction: (transaction: Transaction) => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const visibleTransactions = useMemo(
     () => transactions.slice(0, 5),
     [transactions],
@@ -106,6 +106,7 @@ export function RecentTransactionsTable({
                     transaction.amount,
                     accountCurrencies.get(transaction.account_id) ??
                       selectedCurrency,
+                    locale,
                   )}
                 </td>
                 <td data-label={t.transactions.view}>

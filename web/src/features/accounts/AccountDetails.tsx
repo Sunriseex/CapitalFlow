@@ -139,7 +139,11 @@ export function AccountDetails({
           <div>
             <span>{t.accounts.balance}</span>
             <strong>
-              {formatMoney(balance.data?.balance ?? "0", account.currency)}
+              {formatMoney(
+                balance.data?.balance ?? "0",
+                account.currency,
+                locale,
+              )}
             </strong>
           </div>
           <div>
