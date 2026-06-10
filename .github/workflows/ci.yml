@@ -222,6 +222,8 @@ jobs:
           context: .
           file: Dockerfile.api
           push: false
+          build-args: |
+            APP_VERSION=pr-${{ github.event.pull_request.head.sha }}
           tags: capitalflow-api:pr-${{ github.event.pull_request.head.sha }}
           cache-from: type=gha,scope=api
 
@@ -283,6 +285,8 @@ jobs:
           api="ghcr.io/${owner}/capitalflow-api"
           web="ghcr.io/${owner}/capitalflow-web"
           {
+            echo "api_image=${api}"
+            echo "web_image=${web}"
             echo "api_tags<<EOF"
             echo "${api}:${GITHUB_REF_NAME}"
             echo "${api}:sha-${GITHUB_SHA}"
@@ -314,6 +318,26 @@ jobs:
           tags: ${{ steps.names.outputs.api_tags }}
           cache-from: type=gha,scope=api
           cache-to: type=gha,scope=api,mode=max
+
+      - name: Verify API image version
+        shell: bash
+        run: |
+          image="${{ steps.names.outputs.api_image }}:${GITHUB_REF_NAME}"
+
+          docker pull "$image"
+
+          env_version="$(docker run --rm --entrypoint /bin/sh "$image" -c 'printf "%s" "$APP_VERSION"')"
+          label_version="$(docker inspect "$image" --format '{{ index .Config.Labels "org.opencontainers.image.version" }}')"
+
+          if [ "$env_version" != "$GITHUB_REF_NAME" ]; then
+            echo "Expected APP_VERSION=${GITHUB_REF_NAME}, got ${env_version}" >&2
+            exit 1
+          fi
+
+          if [ "$label_version" != "$GITHUB_REF_NAME" ]; then
+            echo "Expected image label version=${GITHUB_REF_NAME}, got ${label_version}" >&2
+            exit 1
+          fi
 
       - name: Build and push Web image
         uses: docker/build-push-action@v6
