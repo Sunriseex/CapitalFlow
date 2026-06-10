@@ -13,12 +13,13 @@ export type CashflowChartBucket = {
   transactions: number;
 };
 
-export const cashflowPeriods: Array<{ value: CashflowPeriod; label: string }> = [
-  { value: "week", label: "Week" },
-  { value: "month", label: "Month" },
-  { value: "quarter", label: "Quarter" },
-  { value: "year", label: "Year" },
-];
+export const cashflowPeriods: Array<{ value: CashflowPeriod; label: string }> =
+  [
+    { value: "week", label: "Week" },
+    { value: "month", label: "Month" },
+    { value: "quarter", label: "Quarter" },
+    { value: "year", label: "Year" },
+  ];
 
 export function cashflowBucketsToChart(
   buckets: DashboardCashflowBucket[],
@@ -28,14 +29,23 @@ export function cashflowBucketsToChart(
   return buckets.map((bucket) => ({
     period: shortPeriod(bucket.period),
     sourcePeriod: bucket.period,
-    income: moneyToNumber(sumConverted(bucket.income, selectedCurrency, rateTable)),
-    expense: moneyToNumber(sumConverted(bucket.expense, selectedCurrency, rateTable)),
-    net: moneyToNumber(sumConverted(bucket.net_cashflow, selectedCurrency, rateTable)),
+    income: moneyToNumber(
+      sumConverted(bucket.income, selectedCurrency, rateTable),
+    ),
+    expense: moneyToNumber(
+      sumConverted(bucket.expense, selectedCurrency, rateTable),
+    ),
+    net: moneyToNumber(
+      sumConverted(bucket.net_cashflow, selectedCurrency, rateTable),
+    ),
     transactions: bucket.transaction_count,
   }));
 }
 
-export function groupCashflow(buckets: CashflowChartBucket[], period: CashflowPeriod) {
+export function groupCashflow(
+  buckets: CashflowChartBucket[],
+  period: CashflowPeriod,
+) {
   if (period === "month") {
     return buckets;
   }
@@ -46,7 +56,10 @@ export function groupCashflow(buckets: CashflowChartBucket[], period: CashflowPe
 
   const grouped = new Map<string, CashflowChartBucket>();
   for (const bucket of buckets) {
-    const key = period === "quarter" ? quarterLabel(bucket.sourcePeriod) : bucket.sourcePeriod.slice(0, 4);
+    const key =
+      period === "quarter"
+        ? quarterLabel(bucket.sourcePeriod)
+        : bucket.sourcePeriod.slice(0, 4);
     const existing = grouped.get(key);
     if (existing) {
       existing.income += bucket.income;
@@ -61,23 +74,11 @@ export function groupCashflow(buckets: CashflowChartBucket[], period: CashflowPe
   return [...grouped.values()];
 }
 
-export function cashflowEmptyState(period: CashflowPeriod, hasMonthlyData: boolean) {
-  if (period === "week" && hasMonthlyData) {
-    return {
-      title: "Weekly cashflow unavailable",
-      description: "The backend currently returns monthly cashflow buckets.",
-    };
-  }
-
-  return {
-    title: "No cashflow yet",
-    description: "Add income or expenses to build this chart.",
-  };
-}
-
 export function compactMoney(value: number, currency: string) {
-  if (Math.abs(value) >= 1000000) return `${Math.round(value / 1000000)}M ${currency}`;
-  if (Math.abs(value) >= 1000) return `${Math.round(value / 1000)}K ${currency}`;
+  if (Math.abs(value) >= 1000000)
+    return `${Math.round(value / 1000000)}M ${currency}`;
+  if (Math.abs(value) >= 1000)
+    return `${Math.round(value / 1000)}K ${currency}`;
   return `${value} ${currency}`;
 }
 
@@ -92,25 +93,6 @@ export function formatChartMoney(value: number, currency: string) {
   } catch {
     return `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${currency}`;
   }
-}
-
-export function labelForSeries(name: string) {
-  return {
-    income: "Income",
-    expense: "Expenses",
-    net: "Net cashflow",
-  }[name] ?? name;
-}
-
-export function describeCashflow(data: Array<{ period: string; income: number; expense: number; net: number }>, currency: string) {
-  if (!data.length) {
-    return "Cashflow chart has no periods.";
-  }
-
-  const totalIncome = data.reduce((sum, bucket) => sum + bucket.income, 0);
-  const totalExpense = data.reduce((sum, bucket) => sum + bucket.expense, 0);
-  const totalNet = data.reduce((sum, bucket) => sum + bucket.net, 0);
-  return `Cashflow chart covers ${data.length} periods. Income ${formatChartMoney(totalIncome, currency)}, expenses ${formatChartMoney(totalExpense, currency)}, net ${formatChartMoney(totalNet, currency)}.`;
 }
 
 function shortPeriod(period: string) {

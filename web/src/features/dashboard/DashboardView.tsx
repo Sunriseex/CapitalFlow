@@ -20,7 +20,6 @@ import { useI18n } from "../../shared/i18n/useI18n";
 import {
   cashflowBucketsToChart,
   cashflowPeriods,
-  describeCashflow,
   formatChartMoney,
   groupCashflow,
   type CashflowPeriod,
@@ -102,8 +101,11 @@ export function DashboardView({
     [portfolioValue],
   );
   const ratesSyncLabel = rateTable
-    ? formatRateSync(rateTable.fetched_at || rateTable.date)
-    : "Rates unavailable";
+    ? formatRateSync(
+        rateTable.fetched_at || rateTable.date,
+        t.dashboard.ratesUnavailable,
+      )
+    : t.dashboard.ratesUnavailable;
 
   const allocation = useMemo(
     () =>
@@ -183,10 +185,30 @@ export function DashboardView({
     selectedCurrency,
     rateTable,
   );
-  const chartSummary = describeCashflow(cashflowChart, selectedCurrency);
+  const chartSummary = useMemo(() => {
+    if (!cashflowChart.length) {
+      return t.dashboard.cashflowChartHasNoPeriods;
+    }
+
+    const totalIncome = cashflowChart.reduce(
+      (sum, bucket) => sum + bucket.income,
+      0,
+    );
+    const totalExpense = cashflowChart.reduce(
+      (sum, bucket) => sum + bucket.expense,
+      0,
+    );
+    const totalNet = cashflowChart.reduce((sum, bucket) => sum + bucket.net, 0);
+
+    return t.dashboard.cashflowChartSummary
+      .replace("{count}", String(cashflowChart.length))
+      .replace("{income}", formatChartMoney(totalIncome, selectedCurrency))
+      .replace("{expenses}", formatChartMoney(totalExpense, selectedCurrency))
+      .replace("{net}", formatChartMoney(totalNet, selectedCurrency));
+  }, [cashflowChart, selectedCurrency, t]);
 
   if (summary.isLoading) {
-    return <Empty>Loading dashboard</Empty>;
+    return <Empty>{t.dashboard.loadingDashboard}</Empty>;
   }
 
   if (summary.error) {
@@ -221,7 +243,8 @@ export function DashboardView({
                       : "delta-up"
                   }
                 >
-                  {formatMoney(monthlyNet, selectedCurrency)} this month
+                  {formatMoney(monthlyNet, selectedCurrency)}{" "}
+                  {t.dashboard.thisMonth}{" "}
                 </span>
               </div>
 
@@ -315,15 +338,15 @@ export function DashboardView({
                   </h2>{" "}
                   <p>
                     {cashflow.isLoading
-                      ? "Loading ledger buckets"
-                      : `${cashflowChart.length} ${cashflowPeriod} buckets`}
+                      ? t.dashboard.loadingLedgerBuckets
+                      : `${cashflowChart.length} ${cashflowPeriod} ${t.dashboard.buckets}`}
                   </p>
                 </div>
                 <div>
                   <div
                     className="period-switcher"
                     role="group"
-                    aria-label="Cashflow period"
+                    aria-label={t.dashboard.cashflowPeriod}
                   >
                     {cashflowPeriods.map((period) => (
                       <button
@@ -337,7 +360,7 @@ export function DashboardView({
                         aria-pressed={period.value === cashflowPeriod}
                         onClick={() => setCashflowPeriod(period.value)}
                       >
-                        {period.label}
+                        {t.dashboard.periods[period.value]}{" "}
                       </button>
                     ))}
                   </div>
@@ -347,7 +370,7 @@ export function DashboardView({
               {cashflow.error ? (
                 <div className="empty-state">
                   <strong>{errorMessage(cashflow.error)}</strong>
-                  <span>Cashflow chart could not be loaded.</span>
+                  <span>{t.dashboard.cashflowChartCouldNotBeLoaded}</span>{" "}
                 </div>
               ) : null}
               {!cashflow.error &&
@@ -361,7 +384,7 @@ export function DashboardView({
               {!cashflow.error && cashflowChart.length ? (
                 <div
                   className="chart-wrap"
-                  aria-label="Income and expense chart"
+                  aria-label={t.dashboard.incomeAndExpenseChart}
                 >
                   <CashflowChart
                     data={cashflowChart}
@@ -369,13 +392,13 @@ export function DashboardView({
                     summary={chartSummary}
                   />
                   <table className="sr-only-table">
-                    <caption>Cashflow data</caption>
+                    <caption>{t.dashboard.cashflowData}</caption>
                     <thead>
                       <tr>
-                        <th scope="col">Period</th>
-                        <th scope="col">Income</th>
-                        <th scope="col">Expense</th>
-                        <th scope="col">Net</th>
+                        <th scope="col">{t.dashboard.period}</th>
+                        <th scope="col">{t.dashboard.income}</th>
+                        <th scope="col">{t.dashboard.expense}</th>
+                        <th scope="col">{t.dashboard.net}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -400,7 +423,8 @@ export function DashboardView({
 
               <div className="legend">
                 <span className="legend-item">
-                  <span className="legend-mark income"></span>Income ·{" "}
+                  <span className="legend-mark income"></span>
+                  {t.dashboard.income} ·{" "}
                   {formatMoney(
                     sumConverted(
                       data?.monthly_income,
@@ -411,7 +435,8 @@ export function DashboardView({
                   )}
                 </span>
                 <span className="legend-item">
-                  <span className="legend-mark expense"></span>Expenses ·{" "}
+                  <span className="legend-mark expense"></span>
+                  {t.dashboard.expenses} ·{" "}
                   {formatMoney(
                     sumConverted(
                       data?.monthly_expense,
@@ -422,10 +447,12 @@ export function DashboardView({
                   )}
                 </span>
                 <span className="legend-item">
-                  <span className="legend-mark net"></span>Net cashflow
+                  <span className="legend-mark net"></span>
+                  {t.dashboard.net}{" "}
                 </span>
                 <span className="legend-item">
-                  Interest · {formatMoney(totalInterest, selectedCurrency)}
+                  {t.dashboard.interest} ·{" "}
+                  {formatMoney(totalInterest, selectedCurrency)}
                 </span>
               </div>
             </article>
@@ -457,20 +484,21 @@ export function DashboardView({
         <aside
           id="dashboard-right-rail"
           className="right-rail"
-          aria-label="Right rail summary"
+          aria-label={t.dashboard.rightRailSummary}
           aria-hidden={rightRailHidden}
         >
           <article className="card rail-card">
             <div className="card-head">
               <div className="card-title">
-                <h2>{t.dashboard.upcoming}</h2> <p>Current month status</p>
+                <h2>{t.dashboard.upcoming}</h2>
+                <p>{t.dashboard.currentMonthStatus}</p>{" "}
               </div>
               <button
                 className="btn"
                 type="button"
                 onClick={() => onNavigate?.("transactions")}
               >
-                Open ledger
+                {t.dashboard.openLedger}{" "}
               </button>
             </div>
             <div className="list">
@@ -479,27 +507,26 @@ export function DashboardView({
                 <>
                   <div className="row">
                     <div className="row-main">
-                      <strong>Monthly net</strong>
+                      <strong>{t.dashboard.monthlyNet}</strong>{" "}
                       <span>{formatMoney(monthlyNet, selectedCurrency)}</span>
                     </div>
-                    <span className="tag info">Real</span>
+                    <span className="tag info">{t.dashboard.real}</span>{" "}
                   </div>
                   <div className="row">
                     <div className="row-main">
-                      <strong>Ledger events</strong>
+                      <strong>{t.dashboard.ledgerEvents}</strong>
                       <span>
-                        {data?.recent_transactions_returned ?? 0} recent
+                        {data?.recent_transactions_returned ?? 0}{" "}
+                        {t.dashboard.recent}
                       </span>
                     </div>
-                    <span className="tag good">Loaded</span>
+                    <span className="tag good">{t.dashboard.loaded}</span>{" "}
                   </div>
                 </>
               ) : (
                 <div className="empty-state">
-                  <strong>No upcoming data</strong>
-                  <span>
-                    Recurring schedules are not available from the backend yet.
-                  </span>
+                  <strong>{t.dashboard.noUpcomingData}</strong>
+                  <span>{t.dashboard.recurringSchedulesUnavailable}</span>
                 </div>
               )}
             </div>
@@ -515,7 +542,7 @@ export function DashboardView({
                 type="button"
                 onClick={() => onNavigate?.("settings")}
               >
-                Settings
+                {t.nav.settings}{" "}
               </button>
             </div>
             <div className="list">
@@ -526,7 +553,7 @@ export function DashboardView({
                       <strong>
                         {selectedCurrency}/{currency}
                       </strong>
-                      <span>Latest synced rate</span>
+                      <span>{t.dashboard.latestSyncedRate}</span>{" "}
                     </div>
                     <span className="row-side">
                       {typeof rate === "number"
@@ -539,8 +566,8 @@ export function DashboardView({
                 ))
               ) : (
                 <div className="empty-state">
-                  <strong>Rates unavailable</strong>
-                  <span>Open settings to check currency configuration.</span>
+                  <strong>{t.dashboard.ratesUnavailable}</strong>
+                  <span>{t.dashboard.openSettingsToCheckCurrency}</span>
                 </div>
               )}
             </div>
@@ -549,7 +576,8 @@ export function DashboardView({
           <article className="card rail-card">
             <div className="card-head">
               <div className="card-title">
-                <h2>{t.dashboard.allocation}</h2> <p>Top positive balances</p>
+                <h2>{t.dashboard.allocation}</h2>
+                <p>{t.dashboard.topPositiveBalances}</p>{" "}
               </div>
               <span className="pill">{allocation.length}</span>
             </div>
@@ -572,10 +600,8 @@ export function DashboardView({
               ))}
               {!allocation.length ? (
                 <div className="empty-state">
-                  <strong>No positive balances</strong>
-                  <span>
-                    Add accounts with positive balances to see allocation.
-                  </span>
+                  <strong>{t.dashboard.noPositiveBalances}</strong>
+                  <span>{t.dashboard.addAccountsToSeeAllocation}</span>
                 </div>
               ) : null}
             </div>
@@ -584,7 +610,7 @@ export function DashboardView({
       </div>
       {selectedTransaction ? (
         <Dialog
-          title="Transaction details"
+          title={t.transactions.transactionDetails}
           onClose={() => setSelectedTransaction(null)}
         >
           <TransactionDetails
@@ -610,9 +636,9 @@ function selectRateTargets(currencies: string[], selectedCurrency: string) {
   return [...targets];
 }
 
-function formatRateSync(value: string) {
+function formatRateSync(value: string, fallback: string) {
   if (!value) {
-    return "Rates unavailable";
+    return fallback;
   }
 
   const date = new Date(value);
