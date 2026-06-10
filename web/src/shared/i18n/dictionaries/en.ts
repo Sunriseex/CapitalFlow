@@ -23,6 +23,10 @@ export const en = {
     unknown: "Unknown",
     none: "None",
     closeDialog: "Close dialog",
+    requestFailed: "Request failed",
+    apiRequestFailed: "API request failed",
+    invalidApiResponse: "Invalid API response",
+    loginRequired: "Login required",
   },
 
   money: {

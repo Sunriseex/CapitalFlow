@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import type { Account, InterestRule } from "../../api/types";
 import { accountTypes } from "../../shared/constants";
-import { errorMessage } from "../../shared/api/query";
+import { apiErrorMessages, errorMessage } from "../../shared/api/query";
 import { Empty, Panel, Select } from "../../shared/ui";
 import { AccountsTable } from "./components/AccountsTable";
 import { useI18n } from "../../shared/i18n/useI18n";
@@ -20,6 +20,8 @@ export function AccountsView({
   onSelect: (id: string) => void;
 }) {
   const { t } = useI18n();
+  const errorMessages = apiErrorMessages(t);
+
   const [type, setType] = useState("");
   const summary = useQuery({
     queryKey: ["dashboard", "summary"],
@@ -74,7 +76,9 @@ export function AccountsView({
     >
       {isLoading ? <Empty>{t.accounts.loadingAccounts}</Empty> : null}{" "}
       {error ? (
-        <div className="error inline-error">{errorMessage(error)}</div>
+        <div className="error inline-error">
+          {errorMessage(error, errorMessages)}
+        </div>
       ) : null}
       {!isLoading && !error && !filtered.length ? (
         <Empty>{t.accounts.noAccounts}</Empty>

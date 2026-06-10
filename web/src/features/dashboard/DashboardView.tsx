@@ -10,7 +10,7 @@ import {
   sumConverted,
 } from "../../api/money";
 import type { Account, Transaction } from "../../api/types";
-import { errorMessage } from "../../shared/api/query";
+import { apiErrorMessages, errorMessage } from "../../shared/api/query";
 import type { QuickAction, View } from "../../shared/constants";
 import { Dialog, Empty } from "../../shared/ui";
 import { TransactionDetails } from "../transactions/components/TransactionDetails";
@@ -43,6 +43,8 @@ export function DashboardView({
   quickActionsDisabled?: boolean;
 }) {
   const { t, locale } = useI18n();
+  const errorMessages = apiErrorMessages(t);
+
   const summary = useQuery({
     queryKey: ["dashboard", "summary"],
     queryFn: api.dashboardSummary,
@@ -212,7 +214,7 @@ export function DashboardView({
   }
 
   if (summary.error) {
-    return <Empty>{errorMessage(summary.error)}</Empty>;
+    return <Empty>{errorMessage(summary.error, errorMessages)}</Empty>;
   }
 
   return (
@@ -371,7 +373,7 @@ export function DashboardView({
 
               {cashflow.error ? (
                 <div className="empty-state">
-                  <strong>{errorMessage(cashflow.error)}</strong>
+                  <strong>{errorMessage(cashflow.error, errorMessages)}</strong>
                   <span>{t.dashboard.cashflowChartCouldNotBeLoaded}</span>{" "}
                 </div>
               ) : null}

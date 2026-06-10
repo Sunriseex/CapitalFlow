@@ -3,7 +3,11 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { parseMoneyToMinorResult } from "../../api/money";
 import type { Account, Category, TransactionType } from "../../api/types";
-import { errorMessage, invalidateMoney } from "../../shared/api/query";
+import {
+  apiErrorMessages,
+  errorMessage,
+  invalidateMoney,
+} from "../../shared/api/query";
 import { today, transactionTypes } from "../../shared/constants";
 import { Button, Field, FormShell, Input, Select } from "../../shared/ui";
 import { useI18n } from "../../shared/i18n/useI18n";
@@ -22,7 +26,7 @@ export function TransactionForm({
   showTitle?: boolean;
 }) {
   const { t } = useI18n();
-
+  const errorMessages = apiErrorMessages(t);
   const moneyParseMessages = {
     amountRequired: t.money.amountRequired,
     amountFormat: (scale: number) =>
@@ -99,7 +103,7 @@ export function TransactionForm({
       invalidateMoney(queryClient);
       onDone();
     },
-    onError: (err) => setError(errorMessage(err)),
+    onError: (err) => setError(errorMessage(err, errorMessages)),
   });
 
   const transactionType = form.type as TransactionType;

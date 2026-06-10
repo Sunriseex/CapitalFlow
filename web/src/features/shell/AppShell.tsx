@@ -5,7 +5,7 @@ import { Box, Stack } from "@chakra-ui/react";
 import { Command, Download, LogOut, Moon, Sun, X } from "lucide-react";
 import { useTheme } from "next-themes";
 import { api } from "../../api/client";
-import { errorMessage } from "../../shared/api/query";
+import { errorMessage, apiErrorMessages } from "../../shared/api/query";
 import { useI18n } from "../../shared/i18n/useI18n";
 import type { QuickAction, View } from "../../shared/constants";
 import { markPerformance } from "../../shared/performance";
@@ -112,6 +112,7 @@ export function Nav({
 export function SidebarFooter({ onLogout }: { onLogout: () => void }) {
   const { theme = "light", setTheme } = useTheme();
   const { locale, toggleLocale, t } = useI18n();
+  const errorMessages = apiErrorMessages(t);
 
   const activeTheme = theme === "dark" ? "dark" : "light";
   const nextLocaleLabel = locale === "ru" ? "EN" : "RU";
@@ -183,7 +184,7 @@ export function SidebarFooter({ onLogout }: { onLogout: () => void }) {
               toaster.create({
                 type: "error",
                 title: t.shell.logoutFailed,
-                description: errorMessage(err),
+                description: errorMessage(err, errorMessages),
               }),
             )
             .finally(() => {

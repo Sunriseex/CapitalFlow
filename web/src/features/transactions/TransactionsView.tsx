@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { api } from "../../api/client";
 import type { Account, Category, Transaction } from "../../api/types";
-import { errorMessage } from "../../shared/api/query";
+import { apiErrorMessages, errorMessage } from "../../shared/api/query";
 import { transactionTypes } from "../../shared/constants";
 import { Button, Dialog, Empty, Input, Panel, Select } from "../../shared/ui";
 import { TransactionDetails } from "./components/TransactionDetails";
@@ -27,7 +27,7 @@ export function TransactionsView({
   categoriesError?: unknown;
 }) {
   const { t } = useI18n();
-
+  const errorMessages = apiErrorMessages(t);
   const transactions = useQuery({
     queryKey: ["transactions"],
     queryFn: () => api.transactions(),
@@ -98,14 +98,16 @@ export function TransactionsView({
     >
       {accountsLoading ? <Empty>{t.accounts.loadingAccounts}</Empty> : null}{" "}
       {accountsError ? (
-        <div className="error inline-error">{errorMessage(accountsError)}</div>
+        <div className="error inline-error">
+          {errorMessage(accountsError, errorMessages)}
+        </div>
       ) : null}
       {categoriesLoading ? (
         <Empty>{t.transactions.loadingCategories}</Empty>
       ) : null}{" "}
       {categoriesError ? (
         <div className="error inline-error">
-          {errorMessage(categoriesError)}
+          {errorMessage(categoriesError, errorMessages)}
         </div>
       ) : null}
       {transactions.isLoading ? (
@@ -113,7 +115,7 @@ export function TransactionsView({
       ) : null}{" "}
       {transactions.error ? (
         <div className="error inline-error">
-          {errorMessage(transactions.error)}
+          {errorMessage(transactions.error, errorMessages)}
         </div>
       ) : null}
       <div className="filters workspace-filters transactions-filters">

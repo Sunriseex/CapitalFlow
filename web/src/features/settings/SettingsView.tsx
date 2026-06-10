@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import type { Profile } from "../../api/types";
-import { errorMessage } from "../../shared/api/query";
+import { apiErrorMessages, errorMessage } from "../../shared/api/query";
 import { currencyOptions } from "../../shared/currencies";
 import { Button, Field, Input, Panel, Select } from "../../shared/ui";
 import { PasskeysPanel } from "./PasskeysPanel";
@@ -10,7 +10,7 @@ import { useI18n } from "../../shared/i18n/useI18n";
 
 export function SettingsView({ profile }: { profile?: Profile }) {
   const { t } = useI18n();
-
+  const errorMessages = apiErrorMessages(t);
   const queryClient = useQueryClient();
 
   const profileCurrency = profile?.user.primary_currency ?? "RUB";
@@ -40,7 +40,7 @@ export function SettingsView({ profile }: { profile?: Profile }) {
 
       setSaved(true);
     } catch (err) {
-      setError(errorMessage(err));
+      setError(errorMessage(err, errorMessages));
     }
   }
 

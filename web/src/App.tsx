@@ -24,7 +24,7 @@ import {
   SidebarFooter,
 } from "./features/shell/AppShell";
 import type { QuickAction, View } from "./shared/constants";
-import { errorMessage } from "./shared/api/query";
+import { apiErrorMessages, errorMessage } from "./shared/api/query";
 import { Dialog, Empty, PageTransition } from "./shared/ui";
 import { toaster } from "./components/ui/toaster-store";
 import { useI18n } from "./shared/i18n/useI18n";
@@ -43,6 +43,8 @@ const DashboardView = lazy(() =>
 export function App() {
   const queryClient = useQueryClient();
   const { t } = useI18n();
+
+  const errorMessages = apiErrorMessages(t);
 
   const [hasSession, setHasSession] = useState(() => Boolean(getStoredToken()));
   const [sessionNonce, setSessionNonce] = useState(0);
@@ -223,7 +225,7 @@ export function App() {
                   ? t.shell.statusCheckFailed
                   : t.shell.systemHealthy,
                 description: result.error
-                  ? errorMessage(result.error)
+                  ? errorMessage(result.error, errorMessages)
                   : result.data?.version,
               });
             });
@@ -338,7 +340,7 @@ export function App() {
               <Empty>{t.settings.loadingProfile}</Empty>
             ) : profile.error ? (
               <Box className="error inline-error">
-                {errorMessage(profile.error)}
+                {errorMessage(profile.error, errorMessages)}
               </Box>
             ) : (
               <SettingsView profile={profile.data} />
