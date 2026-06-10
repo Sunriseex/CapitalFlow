@@ -17,9 +17,15 @@ import {
   Panel,
 } from "../../shared/ui";
 import { useI18n } from "../../shared/i18n/useI18n";
+import { dateTimeLabel } from "../../shared/date";
 
 export function PasskeysPanel() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+
+  const passkeyErrorMessages = {
+    operationCancelled: t.settings.passkeyOperationCancelled,
+    operationFailed: t.settings.passkeyOperationFailed,
+  };
 
   const queryClient = useQueryClient();
   const passkeys = useQuery({
@@ -46,7 +52,7 @@ export function PasskeysPanel() {
       setPassword("");
       await queryClient.invalidateQueries({ queryKey: ["passkeys"] });
     } catch (err) {
-      setError(passkeyErrorMessage(err));
+      setError(passkeyErrorMessage(err, passkeyErrorMessages));
     } finally {
       setBusy(false);
     }
@@ -144,7 +150,7 @@ export function PasskeysPanel() {
                   <p className="muted-text">
                     {t.settings.lastUsed}{" "}
                     {passkey.last_used_at
-                      ? new Date(passkey.last_used_at).toLocaleString()
+                      ? dateTimeLabel(passkey.last_used_at, locale)
                       : t.settings.never}
                   </p>
                 </div>
