@@ -237,6 +237,7 @@ export const en = {
       year: "Year",
     },
     loadingDashboard: "Loading dashboard",
+    cashflowBucketsSummary: "{count} periods · {period}",
   },
 
   transfers: {

@@ -349,7 +349,12 @@ export function DashboardView({
                   <p>
                     {cashflow.isLoading
                       ? t.dashboard.loadingLedgerBuckets
-                      : `${cashflowChart.length} ${cashflowPeriod} ${t.dashboard.buckets}`}
+                      : cashflowBucketsLabel(
+                          cashflowChart.length,
+                          cashflowPeriod,
+                          t,
+                          locale,
+                        )}
                   </p>
                 </div>
                 <div>
@@ -673,4 +678,28 @@ function formatRateSync(value: string, fallback: string) {
   }
 
   return date.toUTCString().replace(/ GMT$/, "");
+}
+
+function cashflowBucketsLabel(
+  count: number,
+  period: CashflowPeriod,
+  t: ReturnType<typeof useI18n>["t"],
+  locale: ReturnType<typeof useI18n>["locale"],
+) {
+  const periodLabel = t.dashboard.periods[period];
+
+  if (locale === "ru") {
+    return `${count} ${pluralRu(count, "период", "периода", "периодов")} · ${periodLabel}`;
+  }
+
+  return `${count} ${count === 1 ? "period" : "periods"} · ${periodLabel}`;
+}
+
+function pluralRu(count: number, one: string, few: string, many: string) {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+  return many;
 }
