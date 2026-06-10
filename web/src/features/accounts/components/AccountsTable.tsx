@@ -43,7 +43,9 @@ export function AccountsTable({
             <tr key={account.id}>
               <td data-label={t.accounts.name}>{account.name}</td>
               <td data-label={t.accounts.bank}>{account.bank || "-"}</td>
-              <td data-label={t.accounts.type}>{account.type}</td>
+              <td data-label={t.accounts.type}>
+                {t.accounts.types[account.type]}
+              </td>{" "}
               <td data-label={t.accounts.balance} className="amount">
                 {formatMoney(
                   balances.get(account.id)?.balance ?? "0",
