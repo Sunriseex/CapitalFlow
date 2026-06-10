@@ -31,7 +31,7 @@ export function AccountDetails({
   account: Account;
   onBack: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
   const [actionError, setActionError] = useState("");
@@ -154,7 +154,7 @@ export function AccountDetails({
           </div>
           <div>
             <span>{t.accounts.opened}</span>
-            <strong>{dateLabel(account.opened_at)}</strong>
+            <strong>{dateLabel(account.opened_at, locale)}</strong>
           </div>
         </div>
       </Panel>

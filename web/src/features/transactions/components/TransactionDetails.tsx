@@ -13,7 +13,7 @@ export function TransactionDetails({
   accounts: Account[];
   categories?: Category[];
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 
   const accountNames = useMemo(
     () => new Map(accounts.map((account) => [account.id, account.name])),
@@ -40,7 +40,7 @@ export function TransactionDetails({
         <div>
           <strong>{transaction.description || typeLabel}</strong>
           <small>
-            {typeLabel} · {dateLabel(transaction.occurred_at)}
+            {typeLabel} · {dateLabel(transaction.occurred_at, locale)}
           </small>
         </div>
         <span className="tag info">
@@ -61,7 +61,7 @@ export function TransactionDetails({
       <dl className="transaction-detail-list">
         <DetailItem
           label={t.transactions.date}
-          value={dateLabel(transaction.occurred_at)}
+          value={dateLabel(transaction.occurred_at, locale)}
         />
         <DetailItem label={t.transactions.type} value={typeLabel} />
         <DetailItem
