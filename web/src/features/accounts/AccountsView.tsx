@@ -50,9 +50,11 @@ export function AccountsView({
   const accountTypeOptions = useMemo(
     () =>
       accountTypes.map((accountType) => (
-        <option key={accountType}>{accountType}</option>
+        <option key={accountType} value={accountType}>
+          {t.accounts.types[accountType]}
+        </option>
       )),
-    [],
+    [t],
   );
 
   return (

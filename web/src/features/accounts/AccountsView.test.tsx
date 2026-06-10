@@ -124,6 +124,9 @@ describe("AccountsView", () => {
 
     expect(await screen.findAllByText("Loading")).toHaveLength(3);
     expect(mocks.interestRules).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("option", { name: "Card" })).toHaveValue("card");
+    expect(screen.queryByText("term_deposit")).not.toBeInTheDocument();
+    expect(screen.getByText("Term deposit")).toBeInTheDocument();
 
     mocks.interestRules.mockRejectedValueOnce(new Error("Rates unavailable"));
     renderAccountsView([accounts[0]]);
