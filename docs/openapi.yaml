@@ -874,10 +874,12 @@ components:
           format: date-time
     AuthStatusResponse:
       type: object
-      required: [setup_required]
+      required: [setup_required, version]
       properties:
         setup_required:
           type: boolean
+        version:
+          type: string
     ServiceStatus:
       type: object
       required: [status, version]
@@ -987,7 +989,16 @@ components:
       enum: [cash, card, savings, term_deposit, broker, other]
     TransactionType:
       type: string
-      enum: [initial_balance, income, expense, transfer_in, transfer_out, interest_income, adjustment]
+      enum:
+        [
+          initial_balance,
+          income,
+          expense,
+          transfer_in,
+          transfer_out,
+          interest_income,
+          adjustment,
+        ]
     AccrualFrequency:
       type: string
       enum: [daily, monthly, end_of_term]
@@ -1010,7 +1021,8 @@ components:
           pattern: "^-?\\d+(\\.\\d{1,18})?$"
     Account:
       type: object
-      required: [id, name, type, currency, is_active, opened_at, created_at, updated_at]
+      required:
+        [id, name, type, currency, is_active, opened_at, created_at, updated_at]
       properties:
         id:
           type: string
@@ -1327,7 +1339,14 @@ components:
           nullable: true
     CreateInterestRuleRequest:
       type: object
-      required: [annual_rate_bps, accrual_frequency, capitalization_frequency, day_count_convention, start_date]
+      required:
+        [
+          annual_rate_bps,
+          accrual_frequency,
+          capitalization_frequency,
+          day_count_convention,
+          start_date,
+        ]
       properties:
         annual_rate_bps:
           type: integer
@@ -1405,7 +1424,17 @@ components:
           format: date
     RecalculateInterestResponse:
       type: object
-      required: [account_id, rule_id, from_date, to_date, deleted_accruals, created_accruals, skipped_days, total_amount]
+      required:
+        [
+          account_id,
+          rule_id,
+          from_date,
+          to_date,
+          deleted_accruals,
+          created_accruals,
+          skipped_days,
+          total_amount,
+        ]
       properties:
         account_id:
           type: string
@@ -1597,15 +1626,15 @@ components:
     InterestAccrual:
       type: object
       required:
-       - id
-       - account_id
-       - rule_id
-       - transaction_id
-       - accrual_date
-       - amount
-       - balance
-       - annual_rate_bps
-       - created_at
+        - id
+        - account_id
+        - rule_id
+        - transaction_id
+        - accrual_date
+        - amount
+        - balance
+        - annual_rate_bps
+        - created_at
       properties:
         id:
           type: string

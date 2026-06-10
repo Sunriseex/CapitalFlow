@@ -33,6 +33,7 @@ export type AuthResponse = {
 
 export type AuthStatusResponse = {
   "setup_required": boolean;
+  "version": string;
 };
 
 export type ServiceStatus = {

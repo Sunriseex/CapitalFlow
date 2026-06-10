@@ -19,7 +19,11 @@ func (h *Handler) authStatus(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, fmt.Errorf("count users: %w", err))
 		return
 	}
-	writeJSON(w, http.StatusOK, dto.AuthStatusResponse{SetupRequired: count == 0})
+
+	writeJSON(w, http.StatusOK, dto.AuthStatusResponse{
+		SetupRequired: count == 0,
+		Version:       h.appVersion,
+	})
 }
 
 func (h *Handler) authSetup(w http.ResponseWriter, r *http.Request) {

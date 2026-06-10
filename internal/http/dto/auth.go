@@ -39,7 +39,8 @@ type AuthResponse struct {
 }
 
 type AuthStatusResponse struct {
-	SetupRequired bool `json:"setup_required"`
+	SetupRequired bool   `json:"setup_required"`
+	Version       string `json:"version"`
 }
 
 type ProfileResponse struct {
