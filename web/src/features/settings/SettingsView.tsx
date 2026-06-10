@@ -9,7 +9,7 @@ import { PasskeysPanel } from "./PasskeysPanel";
 import { useI18n } from "../../shared/i18n/useI18n";
 
 export function SettingsView({ profile }: { profile?: Profile }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const errorMessages = apiErrorMessages(t);
   const queryClient = useQueryClient();
 
@@ -19,7 +19,7 @@ export function SettingsView({ profile }: { profile?: Profile }) {
   const [saved, setSaved] = useState(false);
 
   const primaryCurrency = draftCurrency ?? profileCurrency;
-  const currencies = useMemo(() => currencyOptions(), []);
+  const currencies = useMemo(() => currencyOptions(locale), [locale]);
 
   async function save() {
     if (!profile) {

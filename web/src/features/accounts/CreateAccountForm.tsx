@@ -14,7 +14,7 @@ import { Button, Field, FormShell, Input, Select } from "../../shared/ui";
 import { useI18n } from "../../shared/i18n/useI18n";
 
 export function CreateAccountForm({ onDone }: { onDone: () => void }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const errorMessages = apiErrorMessages(t);
 
   const queryClient = useQueryClient();
@@ -105,7 +105,7 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
     },
     onError: (err) => setError(errorMessage(err, errorMessages)),
   });
-  const currencies = useMemo(() => currencyOptions(), []);
+  const currencies = useMemo(() => currencyOptions(locale), [locale]);
   const accountTypeOptions = useMemo(
     () =>
       accountTypes.map((type) => (
