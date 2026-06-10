@@ -163,7 +163,7 @@ export const ru = {
     passwordStrengthFallback:
       "Используйте более длинную и менее распространённую парольную фразу. Требуется оценка 3 из 4.",
     setupAvailableOnlyWhenOwnerMissing:
-      "Настройка доступна только когда backend сообщает, что владелец отсутствует.",
+      "Настройка доступна только если владелец сервиса ещё не создан.",
     authenticationStatus: "Статус авторизации",
   },
 
@@ -186,7 +186,7 @@ export const ru = {
     recentTransactions: "Последние операции",
     recentTransactionsDescription: "Последние 5 операций",
     allTransactions: "Все операции",
-    cashflowData: "Данные денежного потока",
+    cashflowData: "Данные движения денег",
     period: "Период",
     net: "Итог",
     interest: "Проценты",
@@ -197,8 +197,7 @@ export const ru = {
     recent: "последних",
     loaded: "Загружено",
     noUpcomingData: "Нет ближайших данных",
-    recurringSchedulesUnavailable:
-      "Регулярные расписания пока недоступны на backend.",
+    recurringSchedulesUnavailable: "Регулярные расписания пока недоступны.",
     rates: "Курсы",
     ratesUnavailable: "Курсы недоступны",
     latestSyncedRate: "Последний синхронизированный курс",
@@ -212,7 +211,7 @@ export const ru = {
     rightRailSummary: "Боковая сводка",
     hideInsights: "Скрыть сводку",
     showInsights: "Показать сводку",
-    cashflowPeriod: "Период денежного потока",
+    cashflowPeriod: "Период движения денег",
     cashflowChartCouldNotBeLoaded:
       "Не удалось загрузить график движения денег.",
     incomeAndExpenseChart: "График доходов и расходов",
@@ -225,9 +224,9 @@ export const ru = {
     noCashflowYet: "Движений пока нет",
     addIncomeOrExpensesToBuildChart:
       "Добавьте доходы или расходы, чтобы построить график.",
-    cashflowChartHasNoPeriods: "График денежного потока не содержит периодов.",
+    cashflowChartHasNoPeriods: "В графике движения денег пока нет периодов.",
     cashflowChartSummary:
-      "График денежного потока охватывает {count} периодов. Доходы {income}, расходы {expenses}, чистый поток {net}.",
+      "График движения денег охватывает {count} периодов. Доходы {income}, расходы {expenses}, итог {net}.",
     periods: {
       week: "Неделя",
       month: "Месяц",
