@@ -225,6 +225,7 @@ export const en = {
       quarter: "Quarter",
       year: "Year",
     },
+    loadingDashboard: "Loading dashboard",
   },
 
   transfers: {

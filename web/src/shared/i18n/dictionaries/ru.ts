@@ -224,6 +224,7 @@ export const ru = {
       quarter: "Квартал",
       year: "Год",
     },
+    loadingDashboard: "Загрузка дашборда",
   },
 
   transfers: {
