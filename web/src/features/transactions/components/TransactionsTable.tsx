@@ -148,6 +148,7 @@ const TransactionRow = memo(function TransactionRow({
   ) => void;
   t: ReturnType<typeof useI18n>["t"];
 }) {
+  const { locale } = useI18n();
   const signed = signedAmount(transaction);
 
   return (
@@ -163,7 +164,7 @@ const TransactionRow = memo(function TransactionRow({
       onKeyDown={(event) => onKeyOpen(event, transaction)}
     >
       <td data-label={t.transactions.date}>
-        {dateLabel(transaction.occurred_at)}
+        {dateLabel(transaction.occurred_at, locale)}
       </td>
       <td data-label={t.transactions.type}>
         {t.transactions.types[transaction.type]}
