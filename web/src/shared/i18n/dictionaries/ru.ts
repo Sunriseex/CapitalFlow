@@ -21,6 +21,10 @@ export const ru = {
     unknown: "Неизвестно",
     none: "Нет",
     closeDialog: "Закрыть диалог",
+    requestFailed: "Запрос не выполнен",
+    apiRequestFailed: "API-запрос не выполнен",
+    invalidApiResponse: "Некорректный ответ API",
+    loginRequired: "Требуется вход в аккаунт",
   },
   money: {
     amountRequired: "Укажите сумму",

@@ -4,7 +4,7 @@ import type {
   DashboardAccountBalance,
   InterestRule,
 } from "../../../api/types";
-import { errorMessage } from "../../../shared/api/query";
+import { apiErrorMessages, errorMessage } from "../../../shared/api/query";
 import { Button } from "../../../shared/ui";
 import { useI18n } from "../../../shared/i18n/useI18n";
 
@@ -88,12 +88,16 @@ function AccountRate({
   error: unknown;
   loadingLabel: string;
 }) {
+  const { t } = useI18n();
+  const errorMessages = apiErrorMessages(t);
   if (isLoading) {
     return <span>{loadingLabel}</span>;
   }
 
   if (error) {
-    return <span className="error-text">{errorMessage(error)}</span>;
+    return (
+      <span className="error-text">{errorMessage(error, errorMessages)}</span>
+    );
   }
 
   if (!rule) {

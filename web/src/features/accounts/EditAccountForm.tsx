@@ -2,7 +2,11 @@ import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import type { Account, AccountType } from "../../api/types";
-import { errorMessage, invalidateMoney } from "../../shared/api/query";
+import {
+  apiErrorMessages,
+  errorMessage,
+  invalidateMoney,
+} from "../../shared/api/query";
 import { accountTypes } from "../../shared/constants";
 import { currencyOptions } from "../../shared/currencies";
 import { Button, Field, FormShell, Input, Select } from "../../shared/ui";
@@ -16,6 +20,7 @@ export function EditAccountForm({
   onDone: () => void;
 }) {
   const { t } = useI18n();
+  const errorMessages = apiErrorMessages(t);
 
   const queryClient = useQueryClient();
   const [error, setError] = useState("");
@@ -33,7 +38,7 @@ export function EditAccountForm({
       invalidateMoney(queryClient);
       onDone();
     },
-    onError: (err) => setError(errorMessage(err)),
+    onError: (err) => setError(errorMessage(err, errorMessages)),
   });
   const currencies = useMemo(() => currencyOptions(), []);
   const accountTypeOptions = useMemo(

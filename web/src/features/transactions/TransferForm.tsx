@@ -8,7 +8,11 @@ import {
   parseMoneyToMinorResult,
 } from "../../api/money";
 import type { Account } from "../../api/types";
-import { errorMessage, invalidateMoney } from "../../shared/api/query";
+import {
+  apiErrorMessages,
+  errorMessage,
+  invalidateMoney,
+} from "../../shared/api/query";
 import {
   Button,
   Empty,
@@ -27,6 +31,7 @@ export function TransferForm({
   onDone: () => void;
 }) {
   const { t, locale } = useI18n();
+  const errorMessages = apiErrorMessages(t);
 
   const moneyParseMessages = useMemo(
     () => ({
@@ -152,7 +157,7 @@ export function TransferForm({
       invalidateMoney(queryClient);
       onDone();
     },
-    onError: (err) => setError(errorMessage(err)),
+    onError: (err) => setError(errorMessage(err, errorMessages)),
   });
 
   return (
@@ -221,7 +226,9 @@ export function TransferForm({
             </strong>
           ) : null}
 
-          {rates.error ? <Empty>{errorMessage(rates.error)}</Empty> : null}
+          {rates.error ? (
+            <Empty>{errorMessage(rates.error, errorMessages)}</Empty>
+          ) : null}
         </div>
       ) : null}
 

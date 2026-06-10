@@ -10,7 +10,11 @@ import {
   signedAmount,
 } from "../../api/money";
 import type { Account, InterestRule, Transaction } from "../../api/types";
-import { errorMessage, invalidateMoney } from "../../shared/api/query";
+import {
+  apiErrorMessages,
+  errorMessage,
+  invalidateMoney,
+} from "../../shared/api/query";
 import { today } from "../../shared/constants";
 import { dateLabel } from "../../shared/date";
 import { Button, Dialog, Empty, Panel } from "../../shared/ui";
@@ -32,6 +36,8 @@ export function AccountDetails({
   onBack: () => void;
 }) {
   const { t, locale } = useI18n();
+  const errorMessages = apiErrorMessages(t);
+
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
   const [actionError, setActionError] = useState("");
@@ -61,7 +67,7 @@ export function AccountDetails({
       setActionError("");
       invalidateMoney(queryClient);
     },
-    onError: (err) => setActionError(errorMessage(err)),
+    onError: (err) => setActionError(errorMessage(err, errorMessages)),
   });
   useEffect(() => {
     const endMeasure = markPerformance("account-details-open");

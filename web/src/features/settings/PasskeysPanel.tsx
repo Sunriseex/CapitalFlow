@@ -7,7 +7,7 @@ import {
   browserSupportsPasskeys,
   passkeyErrorMessage,
 } from "../auth/passkeys";
-import { errorMessage } from "../../shared/api/query";
+import { apiErrorMessages, errorMessage } from "../../shared/api/query";
 import {
   Button,
   Empty,
@@ -21,7 +21,7 @@ import { dateTimeLabel } from "../../shared/date";
 
 export function PasskeysPanel() {
   const { t, locale } = useI18n();
-
+  const errorMessages = apiErrorMessages(t);
   const passkeyErrorMessages = {
     operationCancelled: t.settings.passkeyOperationCancelled,
     operationFailed: t.settings.passkeyOperationFailed,
@@ -67,7 +67,7 @@ export function PasskeysPanel() {
       setEditingName("");
       await queryClient.invalidateQueries({ queryKey: ["passkeys"] });
     } catch (err) {
-      setError(errorMessage(err));
+      setError(errorMessage(err, errorMessages));
     } finally {
       setBusy(false);
     }
@@ -80,7 +80,7 @@ export function PasskeysPanel() {
       await api.deletePasskey(id);
       await queryClient.invalidateQueries({ queryKey: ["passkeys"] });
     } catch (err) {
-      setError(errorMessage(err));
+      setError(errorMessage(err, errorMessages));
     } finally {
       setBusy(false);
     }
@@ -102,7 +102,9 @@ export function PasskeysPanel() {
         ) : null}
         {error ? <div className="error">{error}</div> : null}
         {passkeys.error ? (
-          <div className="error">{errorMessage(passkeys.error)}</div>
+          <div className="error">
+            {errorMessage(passkeys.error, errorMessages)}
+          </div>
         ) : null}
 
         <div className="inline-form">
