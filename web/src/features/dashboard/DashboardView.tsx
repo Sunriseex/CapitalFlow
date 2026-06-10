@@ -204,10 +204,16 @@ export function DashboardView({
 
     return t.dashboard.cashflowChartSummary
       .replace("{count}", String(cashflowChart.length))
-      .replace("{income}", formatChartMoney(totalIncome, selectedCurrency))
-      .replace("{expenses}", formatChartMoney(totalExpense, selectedCurrency))
-      .replace("{net}", formatChartMoney(totalNet, selectedCurrency));
-  }, [cashflowChart, selectedCurrency, t]);
+      .replace(
+        "{income}",
+        formatChartMoney(totalIncome, selectedCurrency, locale),
+      )
+      .replace(
+        "{expenses}",
+        formatChartMoney(totalExpense, selectedCurrency, locale),
+      )
+      .replace("{net}", formatChartMoney(totalNet, selectedCurrency, locale));
+  }, [cashflowChart, selectedCurrency, t, locale]);
 
   if (summary.isLoading) {
     return <Empty>{t.dashboard.loadingDashboard}</Empty>;
@@ -410,13 +416,25 @@ export function DashboardView({
                         <tr key={bucket.period}>
                           <td>{bucket.period}</td>
                           <td>
-                            {formatChartMoney(bucket.income, selectedCurrency)}
+                            {formatChartMoney(
+                              bucket.income,
+                              selectedCurrency,
+                              locale,
+                            )}
                           </td>
                           <td>
-                            {formatChartMoney(bucket.expense, selectedCurrency)}
+                            {formatChartMoney(
+                              bucket.expense,
+                              selectedCurrency,
+                              locale,
+                            )}
                           </td>
                           <td>
-                            {formatChartMoney(bucket.net, selectedCurrency)}
+                            {formatChartMoney(
+                              bucket.net,
+                              selectedCurrency,
+                              locale,
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -565,7 +583,7 @@ export function DashboardView({
                     </div>
                     <span className="row-side">
                       {typeof rate === "number"
-                        ? rate.toLocaleString(undefined, {
+                        ? rate.toLocaleString(locale, {
                             maximumFractionDigits: 8,
                           })
                         : "—"}

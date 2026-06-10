@@ -1,6 +1,7 @@
 import { moneyToNumber, sumConverted } from "../../../api/money";
 import type { DashboardCashflowBucket } from "../../../api/types";
 import type { CurrencyRateTable } from "../../../api/generated";
+import type { Locale } from "../../../shared/i18n/i18n";
 
 export type CashflowPeriod = "week" | "month" | "quarter" | "year";
 
@@ -82,16 +83,22 @@ export function compactMoney(value: number, currency: string) {
   return `${value} ${currency}`;
 }
 
-export function formatChartMoney(value: number, currency: string) {
+export function formatChartMoney(
+  value: number,
+  currency: string,
+  locale: Locale,
+) {
   try {
-    return new Intl.NumberFormat(undefined, {
+    return new Intl.NumberFormat(locale, {
       style: "currency",
       currency,
       currencyDisplay: "code",
       maximumFractionDigits: 2,
     }).format(value);
   } catch {
-    return `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${currency}`;
+    return `${value.toLocaleString(locale, {
+      maximumFractionDigits: 2,
+    })} ${currency}`;
   }
 }
 

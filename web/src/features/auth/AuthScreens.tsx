@@ -354,7 +354,7 @@ export function InitialSetupScreen({
             method="post"
             noValidate
             onSubmit={submitSetup}
-            aria-label="Initial setup form"
+            aria-label={t.auth.initialSetupForm}
           >
             <div className="field">
               <label htmlFor="owner-name">{t.auth.ownerName}</label>{" "}
