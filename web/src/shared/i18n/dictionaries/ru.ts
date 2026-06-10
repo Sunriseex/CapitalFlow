@@ -22,6 +22,13 @@ export const ru = {
     none: "Нет",
     closeDialog: "Закрыть диалог",
   },
+  money: {
+    amountRequired: "Укажите сумму",
+    amountFormat:
+      "Сумма должна быть числом с количеством знаков после запятой не больше {scale}",
+    amountNonNegative: "Сумма не может быть отрицательной",
+    amountGreaterThanZero: "Сумма должна быть больше нуля",
+  },
 
   nav: {
     workspace: "Рабочая область",

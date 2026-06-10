@@ -1,15 +1,26 @@
-import type {
-  Amount,
-  CurrencyRateTable,
-  Transaction,
-  TransactionType,
-} from "./types";
+import type { Amount, CurrencyRateTable, Transaction } from "./types";
+
+type MoneyParseMessages = {
+  amountRequired: string;
+  amountFormat: (scale: number) => string;
+  amountNonNegative: string;
+  amountGreaterThanZero: string;
+};
 
 type MoneyParseOptions = {
   required?: boolean;
   positive?: boolean;
   allowNegative?: boolean;
   currency?: string;
+  messages?: MoneyParseMessages;
+};
+
+const defaultMoneyParseMessages: MoneyParseMessages = {
+  amountRequired: "Amount is required",
+  amountFormat: (scale) =>
+    `Amount must be a number with up to ${scale} decimal places`,
+  amountNonNegative: "Amount must be non-negative",
+  amountGreaterThanZero: "Amount must be greater than zero",
 };
 
 const customCurrencyFractionDigits: Record<string, number> = {
@@ -100,13 +111,14 @@ export function parseMoneyResult(
   value: string,
   options: MoneyParseOptions = {},
 ): MoneyParseResult {
+  const messages = options.messages ?? defaultMoneyParseMessages;
   const normalized = normalizeMoney(value);
   if (normalized === "") {
-    if (options.required) return { ok: false, error: "Amount is required" };
+    if (options.required) return { ok: false, error: messages.amountRequired };
     return { ok: true, value: "0" };
   }
   const scale = currencyFractionDigits(options.currency ?? "RUB");
-  const moneyFormatError = `Amount must be a number with up to ${scale} decimal places`;
+  const moneyFormatError = messages.amountFormat(scale);
   if (!moneyPattern.test(normalized)) {
     return { ok: false, error: moneyFormatError };
   }
@@ -115,10 +127,10 @@ export function parseMoneyResult(
     return { ok: false, error: moneyFormatError };
   }
   if (normalized.startsWith("-") && options.allowNegative !== true) {
-    return { ok: false, error: "Amount must be non-negative" };
+    return { ok: false, error: messages.amountNonNegative };
   }
   if (options.positive && !isPositiveMoney(normalized)) {
-    return { ok: false, error: "Amount must be greater than zero" };
+    return { ok: false, error: messages.amountGreaterThanZero };
   }
   return { ok: true, value: normalized };
 }
@@ -173,18 +185,6 @@ export function signedAmount(transaction: Transaction) {
     default:
       return transaction.amount;
   }
-}
-
-export function transactionTypeLabel(type: TransactionType) {
-  return {
-    initial_balance: "Initial",
-    income: "Income",
-    expense: "Expense",
-    transfer_in: "Transfer in",
-    transfer_out: "Transfer out",
-    interest_income: "Interest",
-    adjustment: "Adjustment",
-  }[type];
 }
 
 function decimalParts(value: string) {

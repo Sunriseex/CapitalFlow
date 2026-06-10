@@ -23,6 +23,14 @@ export function TransactionForm({
 }) {
   const { t } = useI18n();
 
+  const moneyParseMessages = {
+    amountRequired: t.money.amountRequired,
+    amountFormat: (scale: number) =>
+      t.money.amountFormat.replace("{scale}", String(scale)),
+    amountNonNegative: t.money.amountNonNegative,
+    amountGreaterThanZero: t.money.amountGreaterThanZero,
+  };
+
   const queryClient = useQueryClient();
   const [error, setError] = useState("");
   const [form, setForm] = useState({
@@ -72,6 +80,7 @@ export function TransactionForm({
         positive: transactionType !== "adjustment",
         allowNegative: transactionType === "adjustment",
         currency: selectedAccount?.currency ?? "RUB",
+        messages: moneyParseMessages,
       });
       if (!amount.ok) {
         throw new Error(amount.error);
