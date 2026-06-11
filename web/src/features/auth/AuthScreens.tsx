@@ -1,6 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import zxcvbn from "zxcvbn";
 import type { CurrencyOption } from "../../shared/currencies";
 import { PageTransition } from "../../shared/ui";
 import { useI18n } from "../../shared/i18n/useI18n";
@@ -9,6 +8,28 @@ export type AuthScreenError = {
   message: string;
   kind: "field" | "global";
 } | null;
+
+type PasswordStrengthScore = 0 | 1 | 2 | 3 | 4;
+type PasswordStrengthState = {
+  score: PasswordStrengthScore;
+  label: string;
+  feedback: string;
+  loading: boolean;
+};
+type PasswordStrengthAnalysis = {
+  password: string;
+  strength: PasswordStrengthState;
+};
+type ZxcvbnResult = {
+  score: PasswordStrengthScore;
+  feedback: {
+    suggestions: string[];
+    warning: string;
+  };
+};
+type ZxcvbnFn = (password: string) => ZxcvbnResult;
+
+let zxcvbnPromise: Promise<ZxcvbnFn> | null = null;
 
 type LoginScreenProps = {
   email: string;
@@ -259,7 +280,7 @@ export function InitialSetupScreen({
     target: "password" | "confirm" | "setup-confirm";
     message: string;
   } | null>(null);
-  const strength = useMemo(() => passwordStrength(password, t), [password, t]);
+  const strength = usePasswordStrength(password, t);
   const apiFieldError = error?.kind === "field";
   const emailError = apiFieldError ? t.auth.ownerEmailError : "";
   const passwordError =
@@ -282,6 +303,14 @@ export function InitialSetupScreen({
     event.preventDefault();
     setPasswordTouched(true);
     setConfirmTouched(true);
+
+    if (strength.loading) {
+      setSubmitError({
+        target: "password",
+        message: t.auth.passwordStrengthLoading,
+      });
+      return;
+    }
 
     if (strength.score < 3) {
       setSubmitError({
@@ -668,19 +697,91 @@ function submit(onSubmit: () => void) {
   };
 }
 
-function passwordStrength(
+function usePasswordStrength(
   password: string,
   t: ReturnType<typeof useI18n>["t"],
 ) {
-  if (!password) {
-    return {
-      score: 0,
-      label: t.auth.strength.empty,
-      feedback: t.auth.passwordStrengthEmptyFeedback,
+  const [analysis, setAnalysis] = useState<PasswordStrengthAnalysis | null>(
+    null,
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!password) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void loadZxcvbn()
+      .then((zxcvbn) => {
+        if (cancelled) {
+          return;
+        }
+        setAnalysis({
+          password,
+          strength: passwordStrengthFromResult(zxcvbn(password), t),
+        });
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+        setAnalysis({
+          password,
+          strength: {
+            score: 0,
+            label: t.auth.strength.weak,
+            feedback: t.auth.passwordStrengthFallback,
+            loading: false,
+          },
+        });
+      });
+
+    return () => {
+      cancelled = true;
     };
+  }, [password, t]);
+
+  if (!password) {
+    return emptyPasswordStrength(t);
   }
 
-  const result = zxcvbn(password);
+  if (analysis?.password === password) {
+    return analysis.strength;
+  }
+
+  return {
+    score: 0,
+    label: t.common.loading,
+    feedback: t.auth.passwordStrengthLoading,
+    loading: true,
+  };
+}
+
+function loadZxcvbn() {
+  zxcvbnPromise ??= import("zxcvbn").then(
+    (module) => module.default as ZxcvbnFn,
+  );
+  return zxcvbnPromise;
+}
+
+function emptyPasswordStrength(
+  t: ReturnType<typeof useI18n>["t"],
+): PasswordStrengthState {
+  return {
+    score: 0,
+    label: t.auth.strength.empty,
+    feedback: t.auth.passwordStrengthEmptyFeedback,
+    loading: false,
+  };
+}
+
+function passwordStrengthFromResult(
+  result: ZxcvbnResult,
+  t: ReturnType<typeof useI18n>["t"],
+): PasswordStrengthState {
   const score = result.score;
   const labels = [
     t.auth.strength.weak,
@@ -699,5 +800,6 @@ function passwordStrength(
     score,
     label: labels[score],
     feedback,
+    loading: false,
   };
 }

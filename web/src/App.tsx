@@ -14,13 +14,6 @@ import {
   clearStoredSession,
   getStoredToken,
 } from "./api/client";
-import { AccountsView } from "./features/accounts/AccountsView";
-import { CreateAccountForm } from "./features/accounts/CreateAccountForm";
-import { SettingsView } from "./features/settings/SettingsView";
-import { TransactionForm } from "./features/transactions/TransactionForm";
-import { TransactionSearchDialog } from "./features/transactions/TransactionSearchDialog";
-import { TransactionsView } from "./features/transactions/TransactionsView";
-import { TransferForm } from "./features/transactions/TransferForm";
 import { AuthController } from "./features/auth/AuthController";
 import {
   BrandBlock,
@@ -41,9 +34,44 @@ const AccountDetails = lazy(() =>
     default: module.AccountDetails,
   })),
 );
+const AccountsView = lazy(() =>
+  import("./features/accounts/AccountsView").then((module) => ({
+    default: module.AccountsView,
+  })),
+);
+const CreateAccountForm = lazy(() =>
+  import("./features/accounts/CreateAccountForm").then((module) => ({
+    default: module.CreateAccountForm,
+  })),
+);
 const DashboardView = lazy(() =>
   import("./features/dashboard/DashboardView").then((module) => ({
     default: module.DashboardView,
+  })),
+);
+const SettingsView = lazy(() =>
+  import("./features/settings/SettingsView").then((module) => ({
+    default: module.SettingsView,
+  })),
+);
+const TransactionForm = lazy(() =>
+  import("./features/transactions/TransactionForm").then((module) => ({
+    default: module.TransactionForm,
+  })),
+);
+const TransactionSearchDialog = lazy(() =>
+  import("./features/transactions/TransactionSearchDialog").then((module) => ({
+    default: module.TransactionSearchDialog,
+  })),
+);
+const TransactionsView = lazy(() =>
+  import("./features/transactions/TransactionsView").then((module) => ({
+    default: module.TransactionsView,
+  })),
+);
+const TransferForm = lazy(() =>
+  import("./features/transactions/TransferForm").then((module) => ({
+    default: module.TransferForm,
   })),
 );
 
@@ -396,7 +424,6 @@ export function App() {
 
         <PageTransition>
           <Suspense fallback={<Empty>{t.common.loadingView}</Empty>}>
-            {" "}
             {view === "dashboard" ? (
               <DashboardView
                 key={primaryCurrency}
@@ -427,32 +454,32 @@ export function App() {
                 />
               )
             ) : null}
+
+            {view === "transactions" ? (
+              <TransactionsView
+                accounts={accounts.data ?? []}
+                categories={categories.data ?? []}
+                accountsLoading={accounts.isLoading}
+                accountsError={accounts.error}
+                categoriesLoading={categories.isLoading}
+                categoriesError={categories.error}
+                onCreateTransaction={() => openQuickAction("transaction")}
+                onImport={() => openQuickAction("import")}
+              />
+            ) : null}
+
+            {view === "settings" ? (
+              profile.isLoading ? (
+                <Empty>{t.settings.loadingProfile}</Empty>
+              ) : profile.error ? (
+                <div className="error inline-error">
+                  {errorMessage(profile.error, errorMessages)}
+                </div>
+              ) : (
+                <SettingsView profile={profile.data} />
+              )
+            ) : null}
           </Suspense>
-
-          {view === "transactions" ? (
-            <TransactionsView
-              accounts={accounts.data ?? []}
-              categories={categories.data ?? []}
-              accountsLoading={accounts.isLoading}
-              accountsError={accounts.error}
-              categoriesLoading={categories.isLoading}
-              categoriesError={categories.error}
-              onCreateTransaction={() => openQuickAction("transaction")}
-              onImport={() => openQuickAction("import")}
-            />
-          ) : null}
-
-          {view === "settings" ? (
-            profile.isLoading ? (
-              <Empty>{t.settings.loadingProfile}</Empty>
-            ) : profile.error ? (
-              <div className="error inline-error">
-                {errorMessage(profile.error, errorMessages)}
-              </div>
-            ) : (
-              <SettingsView profile={profile.data} />
-            )
-          ) : null}
         </PageTransition>
       </main>
 
@@ -461,41 +488,43 @@ export function App() {
           title={quickActionTitle(quickAction, t)}
           onClose={() => setQuickAction(null)}
         >
-          {quickAction === "account" ? (
-            <CreateAccountForm
-              onDone={() =>
-                completeQuickAction("account", t.accounts.accountCreated)
-              }
-            />
-          ) : null}
+          <Suspense fallback={<Empty>{t.common.loadingView}</Empty>}>
+            {quickAction === "account" ? (
+              <CreateAccountForm
+                onDone={() =>
+                  completeQuickAction("account", t.accounts.accountCreated)
+                }
+              />
+            ) : null}
 
-          {quickAction === "transfer" ? (
-            <TransferForm
-              accounts={accounts.data ?? []}
-              onDone={() =>
-                completeQuickAction("transfer", t.dashboard.createTransfer)
-              }
-            />
-          ) : null}
+            {quickAction === "transfer" ? (
+              <TransferForm
+                accounts={accounts.data ?? []}
+                onDone={() =>
+                  completeQuickAction("transfer", t.dashboard.createTransfer)
+                }
+              />
+            ) : null}
 
-          {quickAction === "transaction" ? (
-            <TransactionForm
-              accounts={accounts.data ?? []}
-              categories={categories.data ?? []}
-              onDone={() =>
-                completeQuickAction("transaction", t.dashboard.addTransaction)
-              }
-            />
-          ) : null}
+            {quickAction === "transaction" ? (
+              <TransactionForm
+                accounts={accounts.data ?? []}
+                categories={categories.data ?? []}
+                onDone={() =>
+                  completeQuickAction("transaction", t.dashboard.addTransaction)
+                }
+              />
+            ) : null}
 
-          {quickAction === "import" ? (
-            <ImportPlaceholder
-              onOpenTransactions={() => {
-                setQuickAction(null);
-                navigateTo("transactions");
-              }}
-            />
-          ) : null}
+            {quickAction === "import" ? (
+              <ImportPlaceholder
+                onOpenTransactions={() => {
+                  setQuickAction(null);
+                  navigateTo("transactions");
+                }}
+              />
+            ) : null}
+          </Suspense>
         </Dialog>
       ) : null}
 
@@ -515,11 +544,13 @@ export function App() {
       ) : null}
 
       {transactionSearchOpen ? (
-        <TransactionSearchDialog
-          accounts={accounts.data ?? []}
-          categories={categories.data ?? []}
-          onClose={() => setTransactionSearchOpen(false)}
-        />
+        <Suspense fallback={null}>
+          <TransactionSearchDialog
+            accounts={accounts.data ?? []}
+            categories={categories.data ?? []}
+            onClose={() => setTransactionSearchOpen(false)}
+          />
+        </Suspense>
       ) : null}
     </div>
   );

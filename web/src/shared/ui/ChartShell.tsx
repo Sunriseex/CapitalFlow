@@ -26,7 +26,14 @@ export function ChartShell({
       ) : null}
       {summary ? <p className="sr-only">{summary}</p> : null}
       <div className="chart-shell-canvas">
-        <ResponsiveContainer width="100%" height="100%" debounce={80}>
+        <ResponsiveContainer
+          width="100%"
+          height="100%"
+          minWidth={0}
+          minHeight={180}
+          initialDimension={{ width: 0, height: 180 }}
+          debounce={80}
+        >
           {children}
         </ResponsiveContainer>
       </div>
