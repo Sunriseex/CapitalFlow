@@ -72,5 +72,9 @@ describe("TransactionDetails", () => {
     expect(screen.getByText("transaction-1")).toBeInTheDocument();
     expect(screen.getByText("Savings")).toBeInTheDocument();
     expect(screen.getByText("transfer-1")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Main details" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Source" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Relations" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Audit timeline" })).toBeInTheDocument();
   });
 });
