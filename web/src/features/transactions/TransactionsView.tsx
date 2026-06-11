@@ -1,11 +1,19 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Plus, ReceiptText } from "lucide-react";
 import { api } from "../../api/client";
 import type { Account, Category, Transaction } from "../../api/types";
 import { apiErrorMessages, errorMessage } from "../../shared/api/query";
 import { transactionTypes } from "../../shared/constants";
-import { Button, Dialog, Empty, Input, Panel, Select } from "../../shared/ui";
+import {
+  Button,
+  Dialog,
+  Empty,
+  EmptyState,
+  Input,
+  Panel,
+  Select,
+} from "../../shared/ui";
 import { TransactionDetails } from "./components/TransactionDetails";
 import { TransactionsTable } from "./components/TransactionsTable";
 import { TransactionForm } from "./TransactionForm";
@@ -18,6 +26,8 @@ export function TransactionsView({
   accountsError = null,
   categoriesLoading = false,
   categoriesError = null,
+  onCreateTransaction,
+  onImport,
 }: {
   accounts: Account[];
   categories: Category[];
@@ -25,6 +35,8 @@ export function TransactionsView({
   accountsError?: unknown;
   categoriesLoading?: boolean;
   categoriesError?: unknown;
+  onCreateTransaction?: () => void;
+  onImport?: () => void;
 }) {
   const { t } = useI18n();
   const errorMessages = apiErrorMessages(t);
@@ -162,7 +174,32 @@ export function TransactionsView({
           onChange={(event) => setTo(event.target.value)}
         />
       </div>
-      {!transactions.isLoading && !transactions.error ? (
+      {!transactions.isLoading &&
+      !transactions.error &&
+      (transactions.data?.length ?? 0) === 0 ? (
+        <EmptyState
+          icon={<ReceiptText aria-hidden="true" />}
+          title={t.transactions.emptyTitle}
+          description={t.transactions.emptyDescription}
+          primaryAction={
+            onCreateTransaction
+              ? {
+                  label: t.dashboard.addTransaction,
+                  onClick: onCreateTransaction,
+                  disabled: disabledCreate,
+                }
+              : undefined
+          }
+          secondaryAction={
+            onImport
+              ? { label: t.dashboard.importTransactions, onClick: onImport }
+              : undefined
+          }
+        />
+      ) : null}
+      {!transactions.isLoading &&
+      !transactions.error &&
+      (transactions.data?.length ?? 0) > 0 ? (
         <TransactionsTable
           transactions={filtered}
           accounts={accounts}

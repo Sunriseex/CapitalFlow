@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { CreditCard } from "lucide-react";
 import { api } from "../../api/client";
 import type { Account, InterestRule } from "../../api/types";
 import { accountTypes } from "../../shared/constants";
 import { apiErrorMessages, errorMessage } from "../../shared/api/query";
-import { Empty, Panel, Select } from "../../shared/ui";
+import { Empty, EmptyState, Panel, Select } from "../../shared/ui";
 import { AccountsTable } from "./components/AccountsTable";
 import { useI18n } from "../../shared/i18n/useI18n";
 
@@ -13,11 +14,15 @@ export function AccountsView({
   isLoading = false,
   error = null,
   onSelect,
+  onCreateAccount,
+  onImport,
 }: {
   accounts: Account[];
   isLoading?: boolean;
   error?: unknown;
   onSelect: (id: string) => void;
+  onCreateAccount?: () => void;
+  onImport?: () => void;
 }) {
   const { t } = useI18n();
   const errorMessages = apiErrorMessages(t);
@@ -80,10 +85,27 @@ export function AccountsView({
           {errorMessage(error, errorMessages)}
         </div>
       ) : null}
-      {!isLoading && !error && !filtered.length ? (
+      {!isLoading && !error && accounts.length === 0 ? (
+        <EmptyState
+          icon={<CreditCard aria-hidden="true" />}
+          title={t.accounts.emptyTitle}
+          description={t.accounts.emptyDescription}
+          primaryAction={
+            onCreateAccount
+              ? { label: t.accounts.createAccount, onClick: onCreateAccount }
+              : undefined
+          }
+          secondaryAction={
+            onImport
+              ? { label: t.dashboard.importTransactions, onClick: onImport }
+              : undefined
+          }
+        />
+      ) : null}
+      {!isLoading && !error && accounts.length > 0 && !filtered.length ? (
         <Empty>{t.accounts.noAccounts}</Empty>
       ) : null}
-      {!isLoading && !error ? (
+      {!isLoading && !error && filtered.length ? (
         <AccountsTable
           accounts={filtered}
           balances={balances}

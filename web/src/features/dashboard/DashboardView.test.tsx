@@ -196,7 +196,10 @@ describe("DashboardView", () => {
       screen.getByRole("button", { name: "Create transfer" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Import transactions" }),
+      within(screen.getByRole("group", { name: "Quick actions" })).getByRole(
+        "button",
+        { name: "Import transactions" },
+      ),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: "Accounts" }),
@@ -211,6 +214,9 @@ describe("DashboardView", () => {
     expect(
       screen.getByRole("heading", { name: "Allocation" }),
     ).toBeInTheDocument();
+    expect(screen.getByText("No review tasks")).toBeInTheDocument();
+    expect(screen.getByText("No subscriptions yet")).toBeInTheDocument();
+    expect(screen.getByText("No imported rows to review")).toBeInTheDocument();
   });
 
   it("wires dashboard buttons to real actions and navigation", async () => {
@@ -228,7 +234,10 @@ describe("DashboardView", () => {
     expect(onQuickAction).toHaveBeenCalledWith("transfer");
 
     await user.click(
-      screen.getByRole("button", { name: "Import transactions" }),
+      within(screen.getByRole("group", { name: "Quick actions" })).getByRole(
+        "button",
+        { name: "Import transactions" },
+      ),
     );
     expect(onQuickAction).toHaveBeenCalledWith("import");
 

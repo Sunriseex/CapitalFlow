@@ -77,6 +77,61 @@ export function Empty({ children }: { children: ReactNode }) {
   return <div className="empty">{children}</div>;
 }
 
+export function EmptyState({
+  icon,
+  title,
+  description,
+  primaryAction,
+  secondaryAction,
+}: {
+  icon?: ReactNode;
+  title: string;
+  description: string;
+  primaryAction?: {
+    label: string;
+    onClick: () => void;
+    disabled?: boolean;
+  };
+  secondaryAction?: {
+    label: string;
+    onClick: () => void;
+    disabled?: boolean;
+  };
+}) {
+  return (
+    <div className="empty-state-panel">
+      {icon ? <span className="empty-state-icon">{icon}</span> : null}
+      <div>
+        <strong>{title}</strong>
+        <p>{description}</p>
+      </div>
+      {primaryAction || secondaryAction ? (
+        <div className="empty-state-actions">
+          {primaryAction ? (
+            <Button
+              type="button"
+              disabled={primaryAction.disabled}
+              onClick={primaryAction.onClick}
+            >
+              {primaryAction.label}
+            </Button>
+          ) : null}
+          {secondaryAction ? (
+            <Button
+              className="secondary"
+              type="button"
+              disabled={secondaryAction.disabled}
+              onClick={secondaryAction.onClick}
+            >
+              {secondaryAction.label}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function FormShell({
   title,
   error,

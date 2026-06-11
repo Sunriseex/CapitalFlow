@@ -241,6 +241,21 @@ export const ru = {
     addAccountsToSeeAllocation:
       "Добавьте счета с положительным балансом, чтобы увидеть распределение.",
     rightRailSummary: "Боковая сводка",
+    reviewQueue: "Проверка",
+    reviewQueueDescription: "Импорт, дубликаты и подозрительные записи",
+    reviewQueueEmptyTitle: "Нет задач на проверку",
+    reviewQueueEmptyDescription:
+      "Это нормальное состояние. Проверка появится только для импорта, дубликатов, пропущенных подписок или ошибок курса.",
+    subscriptions: "Подписки",
+    subscriptionsDescription: "Поиск регулярных платежей",
+    emptySubscriptionsTitle: "Подписок пока нет",
+    emptySubscriptionsDescription:
+      "Когда расход будет отмечен категорией Подписки, CapitalFlow предложит создать регулярный платёж.",
+    importReview: "Проверка импорта",
+    importReviewDescription: "Заготовка проверки CSV",
+    importReviewEmptyTitle: "Нет импортированных строк на проверку",
+    importReviewEmptyDescription:
+      "Проверка импорта появится после подключения импорта банковской выписки.",
     hideInsights: "Скрыть сводку",
     showInsights: "Показать сводку",
     cashflowPeriod: "Период движения денег",
@@ -288,6 +303,9 @@ export const ru = {
     status: "Статус",
     view: "Просмотр",
     noTransactions: "Нет операций",
+    emptyTitle: "Операций пока нет",
+    emptyDescription:
+      "Добавьте первую операцию вручную или импортируйте выписку. После импорта строки сначала попадут на проверку.",
     addFirstTransaction:
       "Добавьте первую операцию или импортируйте банковскую выписку.",
     openTransactionDetails: "Открыть детали операции",
@@ -392,6 +410,9 @@ export const ru = {
     allTypes: "Все типы",
     loadingAccounts: "Загрузка счетов",
     noAccounts: "Счетов пока нет",
+    emptyTitle: "Счетов пока нет",
+    emptyDescription:
+      "Создайте карту, наличные или накопительный счёт, чтобы начать учёт.",
     name: "Название",
     bank: "Банк",
     type: "Тип",

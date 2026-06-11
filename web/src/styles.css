@@ -1108,6 +1108,61 @@ th {
   background: var(--surface-inset, rgba(255, 255, 255, 0.025));
 }
 
+.empty-state-panel {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  padding: 18px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-lg, 14px);
+  color: var(--text);
+  background: var(--surface-inset, rgba(255, 255, 255, 0.025));
+}
+
+.empty-state-icon {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted-foreground);
+  background: var(--surface);
+}
+
+.empty-state-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.empty-state-panel strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 860;
+}
+
+.empty-state-panel p {
+  max-width: 62ch;
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.empty-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.empty-state-actions .button.secondary {
+  color: var(--text);
+  background: var(--surface);
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -3768,6 +3823,30 @@ ol.toaster {
   display: block;
   color: var(--muted-foreground);
   font-size: 0.82rem;
+}
+
+.review-placeholder {
+  display: grid;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.review-placeholder strong {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.review-placeholder span {
+  color: var(--muted-foreground);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.review-placeholder .button {
+  width: fit-content;
+  min-height: 34px;
+  padding-inline: 11px;
+  font-size: 0.8rem;
 }
 
 .empty-state {
