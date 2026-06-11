@@ -347,6 +347,43 @@ export const en = {
     allCategories: "All categories",
     createTypedTransaction: "Create {type}",
     adjustmentAmountHint: "Adjustment accepts positive or negative values.",
+    categoryPickerTitle: "Categories",
+    categoryPickerDescription:
+      "Choose a category for this transaction. Groups are display-only.",
+    categoryPickerPlaceholder: "Find a category...",
+    categoryPickerEmpty: "No categories found",
+    categoryPickerActions: "Category actions",
+    categoryPickerTriggerHint: "Open category picker",
+    noCategoryDescription: "Leave this transaction uncategorized.",
+    categoryFilters: {
+      all: "All",
+      income: "Income",
+      expense: "Expense",
+      required: "Required",
+      regular: "Regular",
+    },
+    categoryGroups: {
+      income: "Income",
+      required: "Required expenses",
+      daily: "Daily spending",
+      planning: "Planning",
+      regular: "Recurring payments",
+      personal: "Personal",
+    },
+    categoryGroupDescriptions: {
+      income: "Money coming in.",
+      required: "Bills and obligations.",
+      daily: "Everyday spending.",
+      planning: "Savings, investing, and money movement.",
+      regular: "Regular payments and services.",
+      personal: "Personal and uncategorized spending.",
+    },
+    subscriptionPromptTitle: "This looks like a regular payment.",
+    subscriptionPromptDescription:
+      "Create a subscription or link this transaction to an existing one later. The transaction will still be saved if you skip this.",
+    createSubscription: "Create subscription",
+    linkSubscription: "Link",
+    notNow: "Not now",
   },
 
   accounts: {

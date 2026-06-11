@@ -2932,6 +2932,105 @@ ol.toaster {
   max-width: min(760px, calc(100vw - 24px));
 }
 
+.category-picker-dialog {
+  top: clamp(24px, 7vh, 64px);
+  width: min(680px, calc(100vw - 24px));
+  max-width: min(680px, calc(100vw - 24px));
+}
+
+.category-picker-dialog [data-slot="command-list"] {
+  max-height: min(58vh, 430px);
+}
+
+.category-picker-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.category-picker-field {
+  min-width: 0;
+}
+
+.category-picker-trigger {
+  min-height: 44px;
+  display: grid;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 8px 10px;
+  color: var(--text);
+  background: var(--control-bg);
+  cursor: pointer;
+  text-align: left;
+}
+
+.category-picker-trigger:hover,
+.category-picker-trigger:focus-visible {
+  background: var(--control-hover);
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.category-picker-trigger strong,
+.category-option-copy strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 820;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-picker-trigger small,
+.category-option-copy small {
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font-size: 0.76rem;
+  font-weight: 680;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-option-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  text-align: left;
+}
+
+.subscription-suggestion {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  background: var(--surface-inset);
+}
+
+.subscription-suggestion strong {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.subscription-suggestion p {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.subscription-suggestion > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .transaction-search-detail {
   display: grid;
   gap: 14px;

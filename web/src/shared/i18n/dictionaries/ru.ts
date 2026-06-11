@@ -345,6 +345,43 @@ export const ru = {
     createTypedTransaction: "Создать {type}",
     adjustmentAmountHint:
       "Можно указать положительную или отрицательную сумму.",
+    categoryPickerTitle: "Категории",
+    categoryPickerDescription:
+      "Выберите категорию для операции. Группы используются только для отображения.",
+    categoryPickerPlaceholder: "Найти категорию...",
+    categoryPickerEmpty: "Категории не найдены",
+    categoryPickerActions: "Действия с категорией",
+    categoryPickerTriggerHint: "Открыть выбор категории",
+    noCategoryDescription: "Оставить операцию без категории.",
+    categoryFilters: {
+      all: "Все",
+      income: "Доходы",
+      expense: "Расходы",
+      required: "Обязательные",
+      regular: "Регулярные",
+    },
+    categoryGroups: {
+      income: "Доходы",
+      required: "Обязательные расходы",
+      daily: "Повседневные расходы",
+      planning: "Планирование",
+      regular: "Регулярные платежи",
+      personal: "Личное",
+    },
+    categoryGroupDescriptions: {
+      income: "Поступления денег.",
+      required: "Счета и обязательства.",
+      daily: "Повседневные траты.",
+      planning: "Накопления, инвестиции и движение денег.",
+      regular: "Регулярные платежи и сервисы.",
+      personal: "Личные и прочие траты.",
+    },
+    subscriptionPromptTitle: "Это похоже на регулярный платёж.",
+    subscriptionPromptDescription:
+      "Подписку можно создать или связать позже. Операция сохранится, даже если пропустить это действие.",
+    createSubscription: "Создать подписку",
+    linkSubscription: "Связать",
+    notNow: "Не сейчас",
   },
 
   accounts: {

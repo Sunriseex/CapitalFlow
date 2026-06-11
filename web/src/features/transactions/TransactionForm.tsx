@@ -11,6 +11,7 @@ import {
 import { today, transactionTypes } from "../../shared/constants";
 import { Button, Field, FormShell, Input, Select } from "../../shared/ui";
 import { useI18n } from "../../shared/i18n/useI18n";
+import { CategoryPickerDialog } from "./CategoryPickerDialog";
 
 export function TransactionForm({
   accounts,
@@ -37,6 +38,9 @@ export function TransactionForm({
 
   const queryClient = useQueryClient();
   const [error, setError] = useState("");
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
+  const [subscriptionPromptDismissed, setSubscriptionPromptDismissed] =
+    useState(false);
   const [form, setForm] = useState({
     account_id: accounts[0]?.id ?? "",
     type: fixedType ?? "income",
@@ -58,14 +62,9 @@ export function TransactionForm({
       )),
     [accounts],
   );
-  const categoryOptions = useMemo(
-    () =>
-      categories.map((category) => (
-        <option key={category.id} value={category.id}>
-          {category.name}
-        </option>
-      )),
-    [categories],
+  const selectedCategory = useMemo(
+    () => categories.find((category) => category.id === form.category_id),
+    [categories, form.category_id],
   );
   const typeOptions = useMemo(
     () =>
@@ -107,6 +106,11 @@ export function TransactionForm({
   });
 
   const transactionType = form.type as TransactionType;
+  const showSubscriptionPrompt =
+    transactionType === "expense" &&
+    selectedCategory &&
+    isSubscriptionCategory(selectedCategory) &&
+    !subscriptionPromptDismissed;
   const title = t.transactions.createTypedTransaction.replace(
     "{type}",
     t.transactions.types[transactionType].toLowerCase(),
@@ -158,17 +162,39 @@ export function TransactionForm({
         ) : null}
       </Field>
 
-      <Field label={t.transactions.category}>
-        <Select
-          value={form.category_id}
-          onChange={(event) =>
-            setForm({ ...form, category_id: event.target.value })
-          }
+      <div className="field category-picker-field">
+        <span>{t.transactions.category}</span>
+        <button
+          className="category-picker-trigger"
+          type="button"
+          aria-haspopup="dialog"
+          onClick={() => setCategoryPickerOpen(true)}
         >
-          <option value="">{t.common.none}</option>
-          {categoryOptions}
-        </Select>
-      </Field>
+          <strong>{selectedCategory?.name ?? t.common.none}</strong>
+          <small>{t.transactions.categoryPickerTriggerHint}</small>
+        </button>
+      </div>
+
+      {showSubscriptionPrompt ? (
+        <div className="subscription-suggestion" role="status">
+          <strong>{t.transactions.subscriptionPromptTitle}</strong>
+          <p>{t.transactions.subscriptionPromptDescription}</p>
+          <div>
+            <Button type="button" disabled title={t.common.notAvailable}>
+              {t.transactions.createSubscription}
+            </Button>
+            <Button type="button" disabled title={t.common.notAvailable}>
+              {t.transactions.linkSubscription}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => setSubscriptionPromptDismissed(true)}
+            >
+              {t.transactions.notNow}
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <Field label={t.transactions.date}>
         <Input
@@ -190,6 +216,26 @@ export function TransactionForm({
       </Field>
 
       <Button disabled={mutation.isPending}>{t.common.create}</Button>
+      {categoryPickerOpen ? (
+        <CategoryPickerDialog
+          categories={categories}
+          selectedCategoryId={form.category_id}
+          onClose={() => setCategoryPickerOpen(false)}
+          onSelect={(categoryId) => {
+            setSubscriptionPromptDismissed(false);
+            setForm({ ...form, category_id: categoryId });
+          }}
+        />
+      ) : null}
     </FormShell>
+  );
+}
+
+function isSubscriptionCategory(category: Category) {
+  const value = `${category.name} ${category.slug}`.toLocaleLowerCase();
+  return (
+    value.includes("subscription") ||
+    value.includes("subscriptions") ||
+    value.includes("подпис")
   );
 }
