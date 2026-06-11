@@ -9,9 +9,18 @@ import {
   invalidateMoney,
 } from "../../shared/api/query";
 import { currencyOptions } from "../../shared/currencies";
-import { accountTypes, today } from "../../shared/constants";
+import { today } from "../../shared/constants";
 import { Button, Field, FormShell, Input, Select } from "../../shared/ui";
 import { useI18n } from "../../shared/i18n/useI18n";
+
+const createAccountTypes: AccountType[] = [
+  "card",
+  "cash",
+  "savings",
+  "term_deposit",
+  "broker",
+  "other",
+];
 
 export function CreateAccountForm({ onDone }: { onDone: () => void }) {
   const { t, locale } = useI18n();
@@ -40,8 +49,11 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
         throw new Error(initial.error);
       }
 
-      const rate = Number(form.rate.replace(",", "."));
-      const promoRate = Number(form.promoRate.replace(",", "."));
+      const interestEnabled = isInterestBearing(form.type);
+      const rate = interestEnabled ? Number(form.rate.replace(",", ".")) : 0;
+      const promoRate = interestEnabled
+        ? Number(form.promoRate.replace(",", "."))
+        : 0;
 
       if (Number.isNaN(rate) || rate < 0) {
         throw new Error(t.accounts.annualRateInvalid);
@@ -106,15 +118,6 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
     onError: (err) => setError(errorMessage(err, errorMessages)),
   });
   const currencies = useMemo(() => currencyOptions(locale), [locale]);
-  const accountTypeOptions = useMemo(
-    () =>
-      accountTypes.map((type) => (
-        <option key={type} value={type}>
-          {t.accounts.types[type]}
-        </option>
-      )),
-    [t],
-  );
   const currencySelectOptions = useMemo(
     () =>
       currencies.map((currency) => (
@@ -133,6 +136,13 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
       )),
     [t],
   );
+  const interestEnabled = isInterestBearing(form.type);
+  const showBankField = form.type !== "cash";
+  const hasHiddenInterestDraft =
+    !interestEnabled &&
+    Boolean(
+      form.rate || form.promoRate || form.promoEndDate || form.capitalization !== "none",
+    );
 
   return (
     <FormShell
@@ -140,6 +150,39 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
       error={error}
       onSubmit={() => mutation.mutate()}
     >
+      <div
+        className="account-type-picker"
+        role="radiogroup"
+        aria-label={t.accounts.type}
+      >
+        {createAccountTypes.map((type) => (
+          <button
+            key={type}
+            className={
+              form.type === type
+                ? "account-type-card is-selected"
+                : "account-type-card"
+            }
+            type="button"
+            role="radio"
+            aria-checked={form.type === type}
+            onClick={() => setForm({ ...form, type })}
+          >
+            <span className="account-type-icon" aria-hidden="true">
+              {t.accounts.types[type].slice(0, 1)}
+            </span>
+            <span>
+              <strong>{t.accounts.types[type]}</strong>
+              <small>{t.accounts.typeDescriptions[type]}</small>
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {hasHiddenInterestDraft ? (
+        <p className="form-note">{t.accounts.hiddenTypeFieldsNotice}</p>
+      ) : null}
+
       <Field label={t.accounts.name}>
         <Input
           required
@@ -148,23 +191,14 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
         />
       </Field>
 
-      <Field label={t.accounts.bank}>
-        <Input
-          value={form.bank}
-          onChange={(event) => setForm({ ...form, bank: event.target.value })}
-        />
-      </Field>
-
-      <Field label={t.accounts.type}>
-        <Select
-          value={form.type}
-          onChange={(event) =>
-            setForm({ ...form, type: event.target.value as AccountType })
-          }
-        >
-          {accountTypeOptions}
-        </Select>
-      </Field>
+      {showBankField ? (
+        <Field label={t.accounts.bank}>
+          <Input
+            value={form.bank}
+            onChange={(event) => setForm({ ...form, bank: event.target.value })}
+          />
+        </Field>
+      ) : null}
 
       <Field label={t.accounts.currency}>
         <Select
@@ -197,46 +231,61 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
         />
       </Field>
 
-      <Field label={t.accounts.annualRate}>
-        <Input
-          inputMode="decimal"
-          value={form.rate}
-          onChange={(event) => setForm({ ...form, rate: event.target.value })}
-        />
-      </Field>
+      {interestEnabled ? (
+        <div className="interest-fieldset">
+          <h3>
+            {form.type === "term_deposit"
+              ? t.accounts.depositConditions
+              : t.accounts.interestSettings}
+          </h3>
+          <Field label={t.accounts.annualRate}>
+            <Input
+              inputMode="decimal"
+              value={form.rate}
+              onChange={(event) =>
+                setForm({ ...form, rate: event.target.value })
+              }
+            />
+          </Field>
 
-      <Field label={t.accounts.promoRate}>
-        <Input
-          inputMode="decimal"
-          value={form.promoRate}
-          onChange={(event) =>
-            setForm({ ...form, promoRate: event.target.value })
-          }
-        />
-      </Field>
+          <Field label={t.accounts.promoRate}>
+            <Input
+              inputMode="decimal"
+              value={form.promoRate}
+              onChange={(event) =>
+                setForm({ ...form, promoRate: event.target.value })
+              }
+            />
+          </Field>
 
-      <Field label={t.accounts.promoEnd}>
-        <Input
-          type="date"
-          value={form.promoEndDate}
-          onChange={(event) =>
-            setForm({ ...form, promoEndDate: event.target.value })
-          }
-        />
-      </Field>
+          <Field label={t.accounts.promoEnd}>
+            <Input
+              type="date"
+              value={form.promoEndDate}
+              onChange={(event) =>
+                setForm({ ...form, promoEndDate: event.target.value })
+              }
+            />
+          </Field>
 
-      <Field label={t.accounts.capitalization}>
-        <Select
-          value={form.capitalization}
-          onChange={(event) =>
-            setForm({ ...form, capitalization: event.target.value })
-          }
-        >
-          {capitalizationOptions}
-        </Select>
-      </Field>
+          <Field label={t.accounts.capitalization}>
+            <Select
+              value={form.capitalization}
+              onChange={(event) =>
+                setForm({ ...form, capitalization: event.target.value })
+              }
+            >
+              {capitalizationOptions}
+            </Select>
+          </Field>
+        </div>
+      ) : null}
 
       <Button disabled={mutation.isPending}>{t.common.create}</Button>
     </FormShell>
   );
+}
+
+function isInterestBearing(type: AccountType) {
+  return type === "savings" || type === "term_deposit";
 }
