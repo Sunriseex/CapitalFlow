@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Account, Category, Transaction } from "../../api/types";
 import { I18nProvider } from "../../shared/i18n/I18nProvider";
 import { TransactionsTable } from "./TransactionsTable";
@@ -46,6 +46,11 @@ const incomeTransaction: Transaction = {
 describe("TransactionsTable", () => {
   beforeEach(() => {
     localStorage.setItem("capitalflow_locale", "en");
+    mockMediaQuery(false);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("renders transactions without a delete action", () => {
@@ -57,8 +62,8 @@ describe("TransactionsTable", () => {
       />,
     );
 
-    expect(screen.getAllByText("Salary")).toHaveLength(3);
-    expect(screen.getAllByText("Verified")).toHaveLength(2);
+    expect(screen.getAllByText("Salary")).toHaveLength(2);
+    expect(screen.getAllByText("Verified")).toHaveLength(1);
     expect(
       screen.queryByRole("button", { name: /delete transaction/i }),
     ).not.toBeInTheDocument();
@@ -122,12 +127,6 @@ describe("TransactionsTable", () => {
     await user.click(row);
     expect(onOpenTransaction).toHaveBeenCalledWith(incomeTransaction);
 
-    const card = screen.getByRole("button", {
-      name: /Open transaction details: Salary/,
-    });
-    await user.click(card);
-    expect(onOpenTransaction).toHaveBeenCalledWith(incomeTransaction);
-
     onOpenTransaction.mockClear();
     row.focus();
     await user.keyboard("{Enter}");
@@ -137,4 +136,44 @@ describe("TransactionsTable", () => {
     await user.keyboard(" ");
     expect(onOpenTransaction).toHaveBeenCalledWith(incomeTransaction);
   });
+
+  it("opens transaction details from the mobile card", async () => {
+    const user = userEvent.setup();
+    const onOpenTransaction = vi.fn();
+    mockMediaQuery(true);
+
+    renderWithI18n(
+      <TransactionsTable
+        transactions={[incomeTransaction]}
+        accounts={accounts}
+        categories={categories}
+        onOpenTransaction={onOpenTransaction}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /Open transaction details: Salary/,
+      }),
+    );
+
+    expect(onOpenTransaction).toHaveBeenCalledWith(incomeTransaction);
+    expect(screen.queryByRole("row", { name: /Salary/ })).not.toBeInTheDocument();
+  });
 });
+
+function mockMediaQuery(matches: boolean) {
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn().mockImplementation((query: string) => ({
+      matches,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  );
+}

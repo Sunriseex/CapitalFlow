@@ -25,6 +25,7 @@ try {
   await page.addInitScript(({ token }) => {
     localStorage.setItem("capitalflow_api_token", token);
     localStorage.setItem("capitalflow_api_base", "/api/v1");
+    localStorage.setItem("capitalflow_locale", "en");
   }, { token: session.accessToken });
 
   const results = [];
@@ -97,13 +98,16 @@ async function ensureBackend() {
 
 async function gotoApp(page, path) {
   await page.goto(`${baseURL}${path}`, { waitUntil: "networkidle" });
-  await page.getByRole("heading", { name: "Overview" }).first().waitFor({ state: "visible", timeout: 15_000 });
+  await page.getByRole("heading", { name: "Overview", exact: true }).first().waitFor({ state: "visible", timeout: 15_000 });
 }
 
 async function switchTo(page, name) {
   return measure(page, `switch to ${name.toLowerCase()}`, async () => {
-    await page.getByRole("button", { name }).click();
-    await page.getByRole("heading", { name: name === "Accounts" ? "Accounts" : name }).first().waitFor({ state: "visible" });
+    await page
+      .getByRole("navigation", { name: "Workspace", exact: true })
+      .getByRole("button", { name: new RegExp(`^${name}\\b`) })
+      .click();
+    await page.getByRole("heading", { name: name === "Accounts" ? "Accounts" : name, exact: true }).first().waitFor({ state: "visible" });
   });
 }
 

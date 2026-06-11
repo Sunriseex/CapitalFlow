@@ -191,6 +191,7 @@ export const en = {
     showPasswordConfirmation: "Show password confirmation",
     hidePasswordConfirmation: "Hide password confirmation",
     passwordStrengthScore: "Password strength score",
+    passwordStrengthLoading: "Checking password strength...",
     passwordStrengthEmptyFeedback:
       "Use a memorable passphrase. Score 3 of 4 is required.",
     passwordStrengthAcceptable: "Acceptable for setup.",

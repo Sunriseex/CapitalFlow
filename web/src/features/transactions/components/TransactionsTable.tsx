@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { compareMoney, formatMoney, signedAmount } from "../../../api/money";
 import type { Account, Category, Transaction } from "../../../api/types";
@@ -9,6 +9,7 @@ import type { TranslationDictionary } from "../../../shared/i18n/dictionaries/ru
 
 const initialChunkSize = 48;
 const nextChunkSize = 96;
+const mobileTransactionsQuery = "(max-width: 720px)";
 
 export const TransactionsTable = memo(function TransactionsTable({
   transactions,
@@ -26,6 +27,7 @@ export const TransactionsTable = memo(function TransactionsTable({
   onOpenTransaction?: (transaction: Transaction) => void;
 }) {
   const { t } = useI18n();
+  const isMobile = useMediaQuery(mobileTransactionsQuery);
   const transactionWindowKey = `${transactions.length}:${transactions[0]?.id ?? ""}:${transactions.at(-1)?.id ?? ""}`;
   const [visibleState, setVisibleState] = useState({
     key: transactionWindowKey,
@@ -77,54 +79,57 @@ export const TransactionsTable = memo(function TransactionsTable({
 
   return (
     <>
-      <div
-        className={`table-wrap workspace-table-wrap transactions-table-wrap${compact ? " is-compact" : ""}`}
-      >
-        <table className="workspace-table transactions-table">
-          <thead>
-            <tr>
-              <th>{t.transactions.operation}</th>
-              {compact ? null : <th>{t.transactions.category}</th>}
-              {compact ? null : <th>{t.transactions.account}</th>}
-              <th>{t.transactions.date}</th>
-              {compact ? null : <th>{t.transactions.status}</th>}
-              <th>{t.transactions.amount}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleTransactions.map((transaction) => (
-              <TransactionRow
-                key={transaction.id}
-                transaction={transaction}
-                compact={compact}
-                accountNames={accountNames}
-                accountCurrencies={accountCurrencies}
-                categoryNames={categoryNames}
-                isInteractive={Boolean(onOpenTransaction)}
-                onOpenTransaction={openTransaction}
-                onKeyOpen={openWithKeyboard}
-                t={t}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div
-        className={`transactions-mobile-list${compact ? " is-compact" : ""}`}
-      >
-        {visibleTransactions.map((transaction) => (
-          <TransactionCard
-            key={transaction.id}
-            transaction={transaction}
-            accountNames={accountNames}
-            accountCurrencies={accountCurrencies}
-            categoryNames={categoryNames}
-            isInteractive={Boolean(onOpenTransaction)}
-            onOpenTransaction={openTransaction}
-            t={t}
-          />
-        ))}
-      </div>
+      {!isMobile ? (
+        <div
+          className={`table-wrap workspace-table-wrap transactions-table-wrap${compact ? " is-compact" : ""}`}
+        >
+          <table className="workspace-table transactions-table">
+            <thead>
+              <tr>
+                <th>{t.transactions.operation}</th>
+                {compact ? null : <th>{t.transactions.category}</th>}
+                {compact ? null : <th>{t.transactions.account}</th>}
+                <th>{t.transactions.date}</th>
+                {compact ? null : <th>{t.transactions.status}</th>}
+                <th>{t.transactions.amount}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleTransactions.map((transaction) => (
+                <TransactionRow
+                  key={transaction.id}
+                  transaction={transaction}
+                  compact={compact}
+                  accountNames={accountNames}
+                  accountCurrencies={accountCurrencies}
+                  categoryNames={categoryNames}
+                  isInteractive={Boolean(onOpenTransaction)}
+                  onOpenTransaction={openTransaction}
+                  onKeyOpen={openWithKeyboard}
+                  t={t}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div
+          className={`transactions-mobile-list${compact ? " is-compact" : ""}`}
+        >
+          {visibleTransactions.map((transaction) => (
+            <TransactionCard
+              key={transaction.id}
+              transaction={transaction}
+              accountNames={accountNames}
+              accountCurrencies={accountCurrencies}
+              categoryNames={categoryNames}
+              isInteractive={Boolean(onOpenTransaction)}
+              onOpenTransaction={openTransaction}
+              t={t}
+            />
+          ))}
+        </div>
+      )}
       {hasMore ? (
         <div className="table-more">
           <button
@@ -152,6 +157,30 @@ export const TransactionsTable = memo(function TransactionsTable({
     </>
   );
 });
+
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(() => readMediaQuery(query));
+
+  useEffect(() => {
+    if (!("matchMedia" in window)) {
+      return undefined;
+    }
+
+    const mediaQuery = window.matchMedia(query);
+    const handleChange = (event: MediaQueryListEvent) => {
+      setMatches(event.matches);
+    };
+
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, [query]);
+
+  return matches;
+}
+
+function readMediaQuery(query: string) {
+  return "matchMedia" in window ? window.matchMedia(query).matches : false;
+}
 
 const TransactionRow = memo(function TransactionRow({
   transaction,

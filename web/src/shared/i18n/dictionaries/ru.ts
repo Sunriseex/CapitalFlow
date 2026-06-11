@@ -189,6 +189,7 @@ export const ru = {
     showPasswordConfirmation: "Показать подтверждение пароля",
     hidePasswordConfirmation: "Скрыть подтверждение пароля",
     passwordStrengthScore: "Оценка сложности пароля",
+    passwordStrengthLoading: "Проверяем сложность пароля...",
     passwordStrengthEmptyFeedback:
       "Используйте запоминающуюся парольную фразу. Требуется оценка 3 из 4.",
     passwordStrengthAcceptable: "Пароль подходит для первичной настройки.",
