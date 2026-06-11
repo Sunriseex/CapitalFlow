@@ -57,7 +57,8 @@ describe("TransactionsTable", () => {
       />,
     );
 
-    expect(screen.getAllByText("Salary")).toHaveLength(2);
+    expect(screen.getAllByText("Salary")).toHaveLength(3);
+    expect(screen.getAllByText("Verified")).toHaveLength(2);
     expect(
       screen.queryByRole("button", { name: /delete transaction/i }),
     ).not.toBeInTheDocument();
@@ -119,6 +120,12 @@ describe("TransactionsTable", () => {
 
     const row = screen.getByRole("row", { name: /Salary/ });
     await user.click(row);
+    expect(onOpenTransaction).toHaveBeenCalledWith(incomeTransaction);
+
+    const card = screen.getByRole("button", {
+      name: /Open transaction details: Salary/,
+    });
+    await user.click(card);
     expect(onOpenTransaction).toHaveBeenCalledWith(incomeTransaction);
 
     onOpenTransaction.mockClear();
