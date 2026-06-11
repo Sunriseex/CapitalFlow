@@ -1,4 +1,7 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 :root {
   color: #111827;
@@ -13,25 +16,25 @@
     sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --bg: #eef2f3;
-  --surface: #f8faf9;
-  --surface-strong: #ffffff;
-  --line: #dde5e2;
-  --line-strong: #c0ccc7;
+  --bg: oklch(0.985 0 0);
+  --surface: oklch(0.97 0 0);
+  --surface-strong: oklch(1 0 0);
+  --line: oklch(0.922 0 0);
+  --line-strong: oklch(0.87 0 0);
   --text: #111827;
-  --muted: #68746f;
+  --muted: oklch(0.97 0 0);
   --green: #24735a;
   --blue: #315f8d;
   --gold: #8a6b22;
   --red: #a23b3b;
-  --shadow: 0 18px 48px rgb(15 23 42 / 0.08);
-  --shadow-soft: 0 8px 28px rgb(15 23 42 / 0.06);
-  --app-bg: linear-gradient(180deg, #fbfcfc 0%, var(--bg) 42%, #e9eeed 100%);
-  --sidebar-bg: linear-gradient(180deg, #101820 0%, #151f25 100%);
-  --sidebar-text: #eef4f1;
-  --sidebar-muted: #b8c4bf;
-  --sidebar-active-bg: rgb(255 255 255 / 0.1);
-  --sidebar-line: rgb(255 255 255 / 0.08);
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.04);
+  --app-bg: var(--background);
+  --sidebar-bg: var(--card);
+  --sidebar-text: var(--card-foreground);
+  --sidebar-muted: var(--muted-foreground);
+  --sidebar-active-bg: var(--accent);
+  --sidebar-line: var(--border);
   --hero-bg:
     linear-gradient(135deg, rgb(17 24 39 / 0.96), rgb(31 41 55 / 0.96)),
     linear-gradient(90deg, #24735a, #315f8d);
@@ -53,41 +56,52 @@
   --chart-net: #376d9f;
   --chart-balance: #27806e;
   --chart-balance-strong: #376d9f;
-  --modal-backdrop: rgb(17 26 31 / 0.55);
+  --modal-backdrop: rgb(0 0 0 / 0.18);
   --auth-accent: #b7f2d7;
-  --card-bg: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.94),
-    rgba(247, 250, 249, 0.9)
-  );
-  --modal-bg: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.98),
-    rgba(240, 246, 244, 0.98)
-  );
-  --control-bg: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.92),
-    rgba(242, 247, 245, 0.86)
-  );
-  --control-hover: rgba(55, 109, 159, 0.1);
-  --surface-inset: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.68),
-    rgba(240, 246, 244, 0.58)
-  );
-  --row-line: rgba(26, 47, 58, 0.08);
-  --line-2: rgba(26, 47, 58, 0.18);
-  --muted-2: #7a8a84;
-  --overlay-bg: rgba(17, 26, 31, 0.46);
-  --health-bg: #ffffff;
-  --toast-bg: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.98),
-    rgba(240, 246, 244, 0.98)
-  );
+  --card-bg: var(--card);
+  --modal-bg: var(--popover);
+  --control-bg: var(--background);
+  --control-hover: var(--accent);
+  --surface-inset: var(--muted);
+  --row-line: oklch(0.922 0 0 / 70%);
+  --line-2: var(--border);
+  --muted-2: var(--muted-foreground);
+  --overlay-bg: rgb(0 0 0 / 0.16);
+  --health-bg: var(--popover);
+  --toast-bg: var(--popover);
   --toast-text: #101820;
   --toast-muted: #66766f;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
 }
 
 :root[data-theme="dark"] {
@@ -99,19 +113,19 @@
   --line: #29373c;
   --line-strong: #3a4a50;
   --text: #e5ece8;
-  --muted: #9eaba6;
+  --muted: oklch(0.269 0 0);
   --green: #4fb990;
   --blue: #75a8dc;
   --gold: #d3ae4f;
   --red: #ef8d8d;
-  --shadow: 0 18px 48px rgb(0 0 0 / 0.32);
-  --shadow-soft: 0 8px 28px rgb(0 0 0 / 0.22);
-  --app-bg: linear-gradient(180deg, #0d1418 0%, #10181c 48%, #0f1518 100%);
-  --sidebar-bg: linear-gradient(180deg, #0b1115 0%, #10181d 100%);
-  --sidebar-text: #f3f7f5;
-  --sidebar-muted: #a8b7b1;
-  --sidebar-active-bg: rgb(255 255 255 / 0.12);
-  --sidebar-line: rgb(255 255 255 / 0.1);
+  --shadow: none;
+  --shadow-soft: none;
+  --app-bg: var(--background);
+  --sidebar-bg: var(--card);
+  --sidebar-text: var(--card-foreground);
+  --sidebar-muted: var(--muted-foreground);
+  --sidebar-active-bg: var(--accent);
+  --sidebar-line: var(--border);
   --hero-bg:
     linear-gradient(135deg, rgb(15 23 28 / 0.97), rgb(26 38 45 / 0.97)),
     linear-gradient(90deg, #2f8f70, #3d78ad);
@@ -133,39 +147,19 @@
   --chart-net: #79a8d8;
   --chart-balance: #63b8ad;
   --chart-balance-strong: #79a8d8;
-  --modal-backdrop: rgb(0 0 0 / 0.58);
+  --modal-backdrop: rgb(0 0 0 / 0.44);
   --auth-accent: #8fe0bd;
-  --card-bg: linear-gradient(
-    180deg,
-    rgba(16, 25, 36, 0.96),
-    rgba(11, 18, 28, 0.96)
-  );
-  --modal-bg: linear-gradient(
-    180deg,
-    rgba(16, 25, 36, 0.985),
-    rgba(8, 14, 22, 0.985)
-  );
-  --control-bg: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.075),
-    rgba(255, 255, 255, 0.03)
-  );
-  --control-hover: rgba(121, 168, 216, 0.12);
-  --surface-inset: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.04),
-    rgba(255, 255, 255, 0.018)
-  );
-  --row-line: rgba(255, 255, 255, 0.055);
-  --line-2: rgba(170, 195, 220, 0.18);
-  --muted-2: #7d8fa3;
-  --overlay-bg: rgba(3, 8, 13, 0.62);
-  --health-bg: #101924;
-  --toast-bg: linear-gradient(
-    180deg,
-    rgba(16, 25, 36, 0.98),
-    rgba(8, 14, 22, 0.98)
-  );
+  --card-bg: var(--card);
+  --modal-bg: var(--popover);
+  --control-bg: oklch(1 0 0 / 4%);
+  --control-hover: var(--accent);
+  --surface-inset: var(--muted);
+  --row-line: oklch(1 0 0 / 8%);
+  --line-2: var(--border);
+  --muted-2: var(--muted-foreground);
+  --overlay-bg: rgb(0 0 0 / 0.46);
+  --health-bg: var(--popover);
+  --toast-bg: var(--popover);
   --toast-text: #edf4f8;
   --toast-muted: #8fa1b4;
 }
@@ -289,7 +283,7 @@ h1 {
   border: 1px solid var(--line-strong);
   border-radius: 999px;
   padding: 3px 8px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   background: var(--surface);
   font-size: 11px;
   font-weight: 750;
@@ -303,7 +297,7 @@ h2 {
 }
 
 .eyebrow {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 12px;
   text-transform: uppercase;
   font-weight: 700;
@@ -348,13 +342,13 @@ h2 {
 .metric small,
 .summary-grid span,
 .field span {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 12px;
   font-weight: 650;
 }
 
 .field-hint {
-  color: var(--muted-2, var(--muted));
+  color: var(--muted-2, var(--muted-foreground));
   font-size: 0.76rem;
   font-weight: 750;
   line-height: 1.35;
@@ -386,7 +380,7 @@ h2 {
   border-radius: 8px;
   padding: 8px 12px;
   background: transparent;
-  color: var(--muted);
+  color: var(--muted-foreground);
   cursor: pointer;
   font-weight: 750;
 }
@@ -561,7 +555,7 @@ nav button:focus-visible {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 13px;
   font-weight: 650;
 }
@@ -808,7 +802,7 @@ nav button:focus-visible {
 }
 
 .chart-shell-head span {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.76rem;
   font-weight: 800;
 }
@@ -852,7 +846,7 @@ nav button:focus-visible {
 }
 
 .allocation-row small {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 12px;
 }
 
@@ -864,7 +858,7 @@ nav button:focus-visible {
 .allocation-converted {
   grid-column: 2 / 4;
   justify-self: end;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 12px;
   font-weight: 650;
 }
@@ -885,7 +879,7 @@ nav button:focus-visible {
 
 .allocation-row em {
   justify-self: end;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 12px;
   font-style: normal;
   font-weight: 700;
@@ -944,7 +938,7 @@ tbody tr:last-child td {
 }
 
 th {
-  color: var(--muted-2, var(--muted));
+  color: var(--muted-2, var(--muted-foreground));
   font-size: 12px;
   text-transform: uppercase;
   font-weight: 900;
@@ -1018,7 +1012,7 @@ th {
 }
 
 .table-more span {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.82rem;
   font-weight: 800;
 }
@@ -1035,7 +1029,7 @@ th {
 }
 
 .stacked-amount small {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 12px;
 }
 
@@ -1049,7 +1043,7 @@ th {
 }
 
 .conversion-preview span {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 12px;
   font-weight: 700;
 }
@@ -1107,7 +1101,7 @@ th {
 }
 
 .empty {
-  color: var(--muted);
+  color: var(--muted-foreground);
   padding: 18px;
   border: 1px dashed var(--line);
   border-radius: var(--radius-lg, 14px);
@@ -1227,7 +1221,7 @@ th {
 
 .muted-text {
   margin: 0.25rem 0 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.9rem;
 }
 
@@ -1351,6 +1345,17 @@ th {
 .health-popover,
 .toast-card {
   animation: none;
+}
+
+.toaster {
+  --width: min(356px, calc(100vw - 16px));
+  --offset: 8px;
+}
+
+ol.toaster {
+  right: 8px !important;
+  left: auto !important;
+  width: min(356px, calc(100vw - 16px)) !important;
 }
 
 .command-menu {
@@ -2065,7 +2070,7 @@ th {
 }
 
 .chip {
-  color: var(--muted);
+  color: var(--muted-foreground);
   background: var(--surface-inset);
   border: 1px solid var(--line);
 }
@@ -2228,7 +2233,7 @@ th {
   padding: 0 10px;
   border: 1px solid transparent;
   border-radius: 12px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   background: transparent;
   cursor: pointer;
   text-align: left;
@@ -2268,7 +2273,7 @@ th {
   place-items: center;
   padding: 0 7px;
   border-radius: 999px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   background: var(--surface-inset);
   font-size: 0.76rem;
   font-weight: 850;
@@ -2300,7 +2305,7 @@ th {
 
 .page-head p {
   margin: 6px 0 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
   max-width: 760px;
 }
 
@@ -2353,7 +2358,7 @@ th {
   padding: 0 10px 0 14px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   background: var(--control-bg);
   cursor: pointer;
   text-align: left;
@@ -2377,10 +2382,164 @@ th {
   justify-content: center;
   border: 1px solid var(--line);
   border-radius: 7px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   background: var(--surface-inset);
   font-size: 0.72rem;
   font-weight: 900;
+}
+
+.app-shell {
+  --shell-sidebar-width: 260px;
+  grid-template-columns: var(--shell-sidebar-width) minmax(0, 1fr);
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.app-shell.is-sidebar-collapsed {
+  --shell-sidebar-width: 76px;
+}
+
+.app-shell .sidebar {
+  width: var(--shell-sidebar-width);
+  padding: 16px 10px;
+  border-color: var(--border);
+  background: var(--card);
+  color: var(--card-foreground);
+}
+
+.app-shell.is-sidebar-collapsed .brand {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.app-shell.is-sidebar-collapsed .brand-copy,
+.app-shell.is-sidebar-collapsed .nav-label,
+.app-shell.is-sidebar-collapsed .nav-btn .nav-name span:last-child,
+.app-shell.is-sidebar-collapsed .nav-count {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.app-shell.is-sidebar-collapsed .nav-btn {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.app-shell.is-sidebar-collapsed .nav-name {
+  justify-content: center;
+}
+
+.app-shell .page-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+  align-items: start;
+  gap: 12px;
+}
+
+.app-shell .page-head-title {
+  min-width: 0;
+}
+
+.shell-icon-button,
+.topbar-action,
+.sidebar-icon-button,
+.language-choice {
+  min-height: 38px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--foreground);
+  background: var(--background);
+  cursor: pointer;
+}
+
+.shell-icon-button,
+.sidebar-icon-button,
+.logout-button {
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.shell-icon-button svg,
+.sidebar-icon-button svg,
+.logout-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.shell-icon-button:hover,
+.shell-icon-button:focus-visible,
+.topbar-action:hover,
+.topbar-action:focus-visible,
+.sidebar-icon-button:hover,
+.sidebar-icon-button:focus-visible,
+.language-choice:hover,
+.language-choice:focus-visible {
+  background: var(--accent);
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.topbar-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.topbar-action.primary {
+  color: var(--primary-foreground);
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.topbar-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sidebar-footer {
+  grid-template-columns: repeat(3, 38px);
+  align-items: center;
+  justify-content: start;
+}
+
+.language-flag {
+  position: absolute;
+  transform: translate(9px, 9px);
+  font-size: 0.65rem;
+  line-height: 1;
+}
+
+.language-popover {
+  display: grid;
+  gap: 4px;
+  width: 180px;
+  padding: 6px;
+}
+
+.language-choice {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0 10px;
+  text-align: left;
+}
+
+.language-choice[aria-selected="true"] {
+  background: var(--accent);
+  font-weight: 700;
 }
 
 .layout {
@@ -2474,7 +2633,7 @@ th {
 
 .card-title p {
   margin: 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.87rem;
 }
 
@@ -2487,7 +2646,7 @@ th {
   padding: 0 9px;
   border-radius: 999px;
   background: var(--surface-inset);
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.74rem;
   font-weight: 850;
   white-space: nowrap;
@@ -2520,7 +2679,7 @@ th {
 }
 
 .balance-title span {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-weight: 850;
   font-size: 0.85rem;
 }
@@ -2538,7 +2697,7 @@ th {
   display: flex;
   flex-wrap: wrap;
   gap: 10px 14px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-weight: 760;
 }
 
@@ -2597,7 +2756,7 @@ th {
 
 .command-section h3 {
   margin: 0 0 8px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.76rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2655,7 +2814,7 @@ th {
 
 .import-drop span {
   max-width: 420px;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .form-actions {
@@ -2724,7 +2883,7 @@ th {
 
 .stat span {
   display: block;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.78rem;
   font-weight: 800;
   margin-bottom: 4px;
@@ -2802,7 +2961,7 @@ th {
   gap: 14px;
   align-items: center;
   margin-top: 10px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.84rem;
   font-weight: 800;
 }
@@ -2865,7 +3024,7 @@ th {
 }
 
 .row-main span {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.82rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2904,7 +3063,7 @@ th {
   padding: 0 14px;
   border: 0;
   border-radius: 999px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   background: transparent;
   font-weight: 850;
   cursor: pointer;
@@ -2917,7 +3076,7 @@ th {
 }
 
 .period-label {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.84rem;
   font-weight: 850;
   white-space: nowrap;
@@ -2985,7 +3144,7 @@ th {
 
 .tx-table small {
   display: block;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.8rem;
   line-height: 1.3;
 }
@@ -3006,7 +3165,7 @@ th {
   padding: 0 12px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  color: var(--muted);
+  color: var(--muted-foreground);
   background: transparent;
   font-weight: 850;
   cursor: pointer;
@@ -3055,7 +3214,7 @@ th {
 
 .transaction-detail-hero small {
   display: block;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.82rem;
   font-weight: 800;
 }
@@ -3138,7 +3297,7 @@ th {
 
 .review-action-row span {
   display: block;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.82rem;
 }
 
@@ -3152,7 +3311,7 @@ th {
 }
 
 .empty-state span {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.86rem;
 }
 
@@ -3263,7 +3422,7 @@ th {
 
   .table-wrap table:not(.tx-table) td::before {
     content: attr(data-label);
-    color: var(--muted-2, var(--muted));
+    color: var(--muted-2, var(--muted-foreground));
     font-size: 0.72rem;
     font-weight: 900;
     letter-spacing: 0.06em;
@@ -3432,5 +3591,95 @@ th {
     font-weight: 900;
     line-height: 1;
     letter-spacing: 0.04em;
+  }
+}
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root[data-theme="dark"] {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
   }
 }

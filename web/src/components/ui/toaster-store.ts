@@ -1,6 +1,17 @@
-import { createToaster } from "@chakra-ui/react";
+import { toast } from "sonner";
 
-export const toaster = createToaster({
-  placement: "bottom-end",
-  pauseOnPageIdle: true,
-});
+type ToastType = "success" | "error" | "info" | "warning" | "loading";
+
+export const toaster = {
+  create({
+    type = "info",
+    title,
+    description,
+  }: {
+    type?: ToastType;
+    title: string;
+    description?: string;
+  }) {
+    toast[type](title, { description });
+  },
+};

@@ -1,15 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Box, Stack } from "@chakra-ui/react";
-import { Command, Download, LogOut, Moon, Sun, X } from "lucide-react";
+import { Command, Download, Languages, LogOut, Moon, Sun, X } from "lucide-react";
 import { useTheme } from "next-themes";
 import { api } from "../../api/client";
 import { errorMessage, apiErrorMessages } from "../../shared/api/query";
 import { useI18n } from "../../shared/i18n/useI18n";
+import type { Locale } from "../../shared/i18n/i18n";
 import type { QuickAction, View } from "../../shared/constants";
 import { markPerformance } from "../../shared/performance";
 import { toaster } from "../../components/ui/toaster-store";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../../components/ui/popover";
 
 export function BrandBlock({
   version,
@@ -25,16 +30,16 @@ export function BrandBlock({
   const { t } = useI18n();
 
   return (
-    <Box className="brand">
+    <div className="brand">
       <img
         className="brand-mark"
         src="/app-icon.png"
         alt=""
         aria-hidden="true"
       />
-      <Box className="brand-copy">
+      <div className="brand-copy">
         <strong>CapitalFlow</strong>
-        <Box className="brand-meta" aria-label={t.shell.versionAndHealth}>
+        <div className="brand-meta" aria-label={t.shell.versionAndHealth}>
           {" "}
           <span className="version-pill" title={t.shell.version}>
             {version ?? "dev"}
@@ -52,7 +57,7 @@ export function BrandBlock({
           >
             {statusLabel(status, t)}
           </button>
-        </Box>
+        </div>
         {healthOpen ? (
           <HealthPopover
             version={version}
@@ -63,8 +68,8 @@ export function BrandBlock({
             }}
           />
         ) : null}
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 }
 
@@ -80,7 +85,7 @@ export function Nav({
   const { t } = useI18n();
 
   return (
-    <Stack as="nav" className="nav" aria-label={t.nav.workspace}>
+    <nav className="nav" aria-label={t.nav.workspace}>
       <section className="nav-section">
         <div className="nav-label">{t.nav.workspace}</div>
         <NavButton
@@ -105,43 +110,22 @@ export function Nav({
           onClick={() => navigateTo("settings")}
         />
       </section>
-    </Stack>
+    </nav>
   );
 }
 
 export function SidebarFooter({ onLogout }: { onLogout: () => void }) {
   const { theme = "light", setTheme } = useTheme();
-  const { locale, toggleLocale, t } = useI18n();
+  const { locale, setLocale, t } = useI18n();
   const errorMessages = apiErrorMessages(t);
 
   const activeTheme = theme === "dark" ? "dark" : "light";
-  const nextLocaleLabel = locale === "ru" ? "EN" : "RU";
-  const currentLocaleLabel = locale.toUpperCase();
+  const currentLocaleFlag = locale === "ru" ? "🇷🇺" : "🇬🇧";
 
   return (
     <div className="sidebar-footer">
       <button
-        className="theme-switch language-switch"
-        type="button"
-        aria-label={
-          locale === "ru" ? t.shell.switchToEnglish : t.shell.switchToRussian
-        }
-        onClick={() => {
-          toggleLocale();
-          toaster.create({ type: "info", title: t.shell.languageChanged });
-        }}
-      >
-        <span className="language-badge" aria-hidden="true">
-          {currentLocaleLabel}
-        </span>
-        <span>{t.shell.language}</span>
-        <span className="kbd" aria-hidden="true">
-          {nextLocaleLabel}
-        </span>
-      </button>
-
-      <button
-        className="theme-switch"
+        className="sidebar-icon-button"
         type="button"
         aria-label={
           activeTheme === "dark"
@@ -161,19 +145,52 @@ export function SidebarFooter({ onLogout }: { onLogout: () => void }) {
           });
         }}
       >
-        <span className="theme-switch-track" aria-hidden="true">
-          <span className="theme-switch-thumb">
-            {activeTheme === "dark" ? <Moon size={14} /> : <Sun size={14} />}
-          </span>
-        </span>
-        <span>
+        {activeTheme === "dark" ? (
+          <Moon aria-hidden="true" />
+        ) : (
+          <Sun aria-hidden="true" />
+        )}
+        <span className="sr-only">
           {activeTheme === "dark" ? t.shell.darkMode : t.shell.lightMode}
         </span>
       </button>
 
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            className="sidebar-icon-button"
+            type="button"
+            aria-label={t.shell.chooseLanguage}
+            title={t.shell.chooseLanguage}
+          >
+            <Languages aria-hidden="true" />
+            <span className="language-flag" aria-hidden="true">
+              {currentLocaleFlag}
+            </span>
+            <span className="sr-only">{t.shell.language}</span>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="language-popover" align="start">
+          <LanguageChoice
+            locale="ru"
+            active={locale === "ru"}
+            label="🇷🇺 Русский"
+            onSelect={setLocale}
+          />
+          <LanguageChoice
+            locale="en"
+            active={locale === "en"}
+            label="🇬🇧 English"
+            onSelect={setLocale}
+          />
+        </PopoverContent>
+      </Popover>
+
       <button
         className="logout-button"
         type="button"
+        aria-label={t.shell.logout}
+        title={t.shell.logout}
         onClick={() => {
           void api
             .logout()
@@ -192,9 +209,38 @@ export function SidebarFooter({ onLogout }: { onLogout: () => void }) {
             });
         }}
       >
-        <LogOut size={16} /> {t.shell.logout}
+        <LogOut aria-hidden="true" />
+        <span className="sr-only">{t.shell.logout}</span>
       </button>
     </div>
+  );
+}
+
+function LanguageChoice({
+  locale,
+  active,
+  label,
+  onSelect,
+}: {
+  locale: Locale;
+  active: boolean;
+  label: string;
+  onSelect: (locale: Locale) => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <button
+      className="language-choice"
+      type="button"
+      role="option"
+      aria-selected={active}
+      onClick={() => {
+        onSelect(locale);
+        toaster.create({ type: "info", title: t.shell.languageChanged });
+      }}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -206,6 +252,8 @@ export function CommandTrigger({ onOpen }: { onOpen: () => void }) {
       className="command-trigger"
       type="button"
       aria-label={t.shell.openCommandMenu}
+      aria-haspopup="dialog"
+      aria-keyshortcuts="Control+K Meta+K"
       onClick={onOpen}
     >
       <Command size={16} aria-hidden="true" />

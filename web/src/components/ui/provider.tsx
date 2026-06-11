@@ -1,15 +1,21 @@
-import { ChakraProvider, defaultSystem } from "@chakra-ui/react";
 import { ThemeProvider } from "next-themes";
 import type { ReactNode } from "react";
+import { TooltipProvider } from "./tooltip";
 import { Toaster } from "./toaster";
 
 export function Provider({ children }: { children: ReactNode }) {
   return (
-    <ChakraProvider value={defaultSystem}>
-      <ThemeProvider attribute="data-theme" storageKey="capitalflow_theme" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
+    <ThemeProvider
+      attribute="data-theme"
+      storageKey="capitalflow_theme"
+      defaultTheme="light"
+      enableSystem={false}
+      disableTransitionOnChange
+    >
+      <TooltipProvider>
         {children}
         <Toaster />
-      </ThemeProvider>
-    </ChakraProvider>
+      </TooltipProvider>
+    </ThemeProvider>
   );
 }
