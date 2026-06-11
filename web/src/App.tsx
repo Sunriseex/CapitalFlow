@@ -1,7 +1,13 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Box, Grid, HStack } from "@chakra-ui/react";
-import { PanelRightClose, PanelRightOpen } from "lucide-react";
+import {
+  Bell,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
+  Search,
+} from "lucide-react";
 import {
   ApiClientError,
   api,
@@ -55,7 +61,11 @@ export function App() {
   );
   const [quickAction, setQuickAction] = useState<QuickAction>(null);
   const [commandOpen, setCommandOpen] = useState(false);
+  const [transactionSearchOpen, setTransactionSearchOpen] = useState(false);
   const [rightRailHidden, setRightRailHidden] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() =>
+    readStoredBoolean("capitalflow_sidebar_collapsed"),
+  );
 
   const accounts = useQuery({
     queryKey: ["accounts", sessionNonce],
@@ -197,17 +207,25 @@ export function App() {
     }
   }
 
+  function toggleSidebar() {
+    setSidebarCollapsed((collapsed) => {
+      const next = !collapsed;
+      writeStoredBoolean("capitalflow_sidebar_collapsed", next);
+      return next;
+    });
+  }
+
   if (!hasSession || sessionInvalid) {
     return <AuthController onAuthenticated={handleAuthenticated} />;
   }
 
   return (
-    <Grid
-      className="app"
-      minH="100vh"
-      templateColumns={{ base: "1fr", lg: "244px minmax(0, 1fr)" }}
+    <div
+      className={
+        sidebarCollapsed ? "app app-shell is-sidebar-collapsed" : "app app-shell"
+      }
     >
-      <Box as="aside" className="sidebar">
+      <aside className="sidebar">
         <BrandBlock
           version={serviceStatus.data?.version}
           status={
@@ -237,18 +255,17 @@ export function App() {
           navigateTo={navigateTo}
         />
         <SidebarFooter onLogout={handleLogout} />
-      </Box>
+      </aside>
 
-      <Box as="main" pb={{ base: 24, lg: 8 }}>
-        <Box as="header" className="page-head">
-          <Box minW={0}>
-            <Box as="h1" id="pageTitle">
+      <main>
+        <header className="page-head">
+          <div className="page-head-title">
+            <h1 id="pageTitle">
               {view === "dashboard" ? t.nav.overview : pageTitle}
-            </Box>
-            <HStack className="page-title" gap={3} flexWrap="wrap">
+            </h1>
+            <div className="page-title">
               {view === "dashboard" && serviceStatus.data?.version ? (
-                <Box
-                  as="span"
+                <span
                   className="version-badge"
                   aria-label={t.shell.serviceVersion.replace(
                     "{version}",
@@ -256,13 +273,74 @@ export function App() {
                   )}
                 >
                   {serviceStatus.data.version}
-                </Box>
+                </span>
               ) : null}
-            </HStack>
-          </Box>
+            </div>
+          </div>
 
-          <Box className="head-tools">
+          <div className="head-tools">
+            <button
+              className="shell-icon-button"
+              type="button"
+              aria-label={
+                sidebarCollapsed
+                  ? t.shell.expandSidebar
+                  : t.shell.collapseSidebar
+              }
+              title={
+                sidebarCollapsed
+                  ? t.shell.expandSidebar
+                  : t.shell.collapseSidebar
+              }
+              aria-pressed={sidebarCollapsed}
+              onClick={toggleSidebar}
+            >
+              {sidebarCollapsed ? (
+                <PanelLeftOpen aria-hidden="true" />
+              ) : (
+                <PanelLeftClose aria-hidden="true" />
+              )}
+            </button>
             <CommandTrigger onOpen={() => setCommandOpen(true)} />
+            <button
+              className="shell-icon-button"
+              type="button"
+              aria-label={t.shell.searchTransactions}
+              title={t.shell.searchTransactions}
+              aria-haspopup="dialog"
+              onClick={() => setTransactionSearchOpen(true)}
+            >
+              <Search aria-hidden="true" />
+            </button>
+            <button
+              className="topbar-action"
+              type="button"
+              onClick={() => openQuickAction("import")}
+            >
+              {t.dashboard.importTransactions}
+            </button>
+            <button
+              className="topbar-action primary"
+              type="button"
+              disabled={transactionActionsDisabled}
+              onClick={() => openQuickAction("transaction")}
+            >
+              {t.dashboard.addTransaction}
+            </button>
+            <button
+              className="shell-icon-button"
+              type="button"
+              aria-label={t.shell.notifications}
+              title={t.shell.notifications}
+              onClick={() =>
+                toaster.create({
+                  type: "info",
+                  title: t.shell.notificationsUnavailable,
+                })
+              }
+            >
+              <Bell aria-hidden="true" />
+            </button>
             {view === "dashboard" ? (
               <button
                 className="rail-toggle"
@@ -288,8 +366,8 @@ export function App() {
                 )}
               </button>
             ) : null}
-          </Box>
-        </Box>
+          </div>
+        </header>
 
         <PageTransition>
           <Suspense fallback={<Empty>{t.common.loadingView}</Empty>}>
@@ -339,15 +417,15 @@ export function App() {
             profile.isLoading ? (
               <Empty>{t.settings.loadingProfile}</Empty>
             ) : profile.error ? (
-              <Box className="error inline-error">
+              <div className="error inline-error">
                 {errorMessage(profile.error, errorMessages)}
-              </Box>
+              </div>
             ) : (
               <SettingsView profile={profile.data} />
             )
           ) : null}
         </PageTransition>
-      </Box>
+      </main>
 
       {quickAction ? (
         <Dialog
@@ -406,7 +484,16 @@ export function App() {
           }}
         />
       ) : null}
-    </Grid>
+
+      {transactionSearchOpen ? (
+        <Dialog
+          title={t.shell.transactionSearch}
+          onClose={() => setTransactionSearchOpen(false)}
+        >
+          <Empty>{t.shell.transactionSearchComingSoon}</Empty>
+        </Dialog>
+      ) : null}
+    </div>
   );
 }
 
@@ -450,6 +537,22 @@ function pathForRoute(view: View, accountId = "") {
     return `/accounts/${encodeURIComponent(accountId)}`;
   }
   return `/${view}`;
+}
+
+function readStoredBoolean(key: string) {
+  try {
+    return window.localStorage.getItem(key) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function writeStoredBoolean(key: string, value: boolean) {
+  try {
+    window.localStorage.setItem(key, String(value));
+  } catch {
+    // Non-critical preference; keep the in-memory state.
+  }
 }
 
 function quickActionTitle(

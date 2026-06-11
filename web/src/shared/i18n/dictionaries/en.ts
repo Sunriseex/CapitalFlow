@@ -46,6 +46,14 @@ export const en = {
 
   shell: {
     openCommandMenu: "Open command menu",
+    collapseSidebar: "Collapse sidebar",
+    expandSidebar: "Expand sidebar",
+    searchTransactions: "Search transactions",
+    transactionSearch: "Transaction search",
+    transactionSearchComingSoon:
+      "Full transaction search will arrive in the next migration step.",
+    notifications: "Notifications",
+    notificationsUnavailable: "Notifications are not available yet",
     commandMenu: "Command menu",
     commandShortcut: "Ctrl K",
     navigate: "Navigate",
@@ -67,6 +75,7 @@ export const en = {
     lightThemeEnabled: "Light theme enabled",
     darkThemeEnabled: "Dark theme enabled",
     language: "Language",
+    chooseLanguage: "Choose interface language",
     switchToRussian: "Switch interface language to Russian",
     switchToEnglish: "Switch interface language to English",
     languageChanged: "Interface language changed",

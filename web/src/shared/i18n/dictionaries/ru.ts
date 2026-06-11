@@ -44,6 +44,14 @@ export const ru = {
 
   shell: {
     openCommandMenu: "Открыть командное меню",
+    collapseSidebar: "Свернуть боковую панель",
+    expandSidebar: "Развернуть боковую панель",
+    searchTransactions: "Поиск операций",
+    transactionSearch: "Поиск операций",
+    transactionSearchComingSoon:
+      "Полный поиск операций появится в следующем шаге миграции.",
+    notifications: "Уведомления",
+    notificationsUnavailable: "Уведомления пока недоступны",
     commandMenu: "Командное меню",
     commandShortcut: "Ctrl K",
     navigate: "Навигация",
@@ -65,6 +73,7 @@ export const ru = {
     lightThemeEnabled: "Включена светлая тема",
     darkThemeEnabled: "Включена тёмная тема",
     language: "Язык",
+    chooseLanguage: "Выбрать язык интерфейса",
     switchToRussian: "Переключить интерфейс на русский",
     switchToEnglish: "Переключить интерфейс на английский",
     languageChanged: "Язык интерфейса изменён",
