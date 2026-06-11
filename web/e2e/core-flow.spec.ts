@@ -206,7 +206,7 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
   const commandMenu = page.getByRole("dialog", { name: "Command menu" });
   await expect(commandMenu).toBeVisible();
   await expectTopCentered(page, commandMenu);
-  await commandMenu.getByRole("button", { name: "Transactions", exact: true }).click();
+  await commandMenu.getByRole("option", { name: /Transactions/ }).click();
   await expect(page).toHaveURL(/\/transactions$/);
   await clickNav(page, "Overview");
 
@@ -284,7 +284,10 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
 
 async function createAccount(page: import("@playwright/test").Page, name: string, bank: string, initialBalance: string) {
   await page.keyboard.press(process.platform === "darwin" ? "Meta+K" : "Control+K");
-  await page.getByRole("dialog", { name: "Command menu" }).getByRole("button", { name: "Create account" }).click();
+  await page
+    .getByRole("dialog", { name: "Command menu" })
+    .getByRole("option", { name: /Create account/ })
+    .click();
   await expect(page.getByRole("dialog", { name: "Create account" })).toBeVisible();
   await page.getByLabel("Name", { exact: true }).fill(name);
   await page.getByLabel("Bank", { exact: true }).fill(bank);

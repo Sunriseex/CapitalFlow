@@ -2723,6 +2723,7 @@ ol.toaster {
 }
 
 .command-menu {
+  top: clamp(24px, 7vh, 64px);
   width: min(640px, 100%);
   border: 1px solid var(--line);
   border-radius: 18px;
@@ -2792,6 +2793,104 @@ ol.toaster {
 .command-item:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.command-menu [data-slot="command-list"],
+.transaction-search-dialog [data-slot="command-list"] {
+  max-height: min(58vh, 420px);
+}
+
+.command-action-copy,
+.transaction-search-result-main {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  text-align: left;
+}
+
+.command-action-copy strong,
+.transaction-search-result-main strong {
+  overflow: hidden;
+  color: var(--foreground);
+  font-size: 0.9rem;
+  font-weight: 760;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-action-copy small,
+.transaction-search-result-main small {
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font-size: 0.78rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transaction-search-dialog {
+  width: min(760px, calc(100vw - 24px));
+  max-width: min(760px, calc(100vw - 24px));
+}
+
+.transaction-search-detail {
+  display: grid;
+  gap: 14px;
+}
+
+.transaction-search-detail > .btn,
+.transaction-search-detail > button {
+  width: fit-content;
+}
+
+.transaction-search-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.filter-chip {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 10px;
+  color: var(--muted-foreground);
+  background: var(--background);
+  font-size: 0.78rem;
+  font-weight: 720;
+  cursor: pointer;
+}
+
+.filter-chip:hover,
+.filter-chip:focus-visible {
+  color: var(--foreground);
+  background: var(--accent);
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.filter-chip.is-active {
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.transaction-search-dialog [data-slot="command-item"] {
+  min-height: 56px;
+  gap: 10px;
+}
+
+.transaction-search-amount {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 760;
+  white-space: nowrap;
 }
 
 .import-placeholder {

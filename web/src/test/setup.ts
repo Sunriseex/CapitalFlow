@@ -1,5 +1,15 @@
 import "@testing-library/jest-dom/vitest";
 
+class TestResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+globalThis.ResizeObserver ??= TestResizeObserver;
+
+Element.prototype.scrollIntoView ??= function scrollIntoView() {};
+
 Object.defineProperty(window, "matchMedia", {
   writable: true,
   value: (query: string) => ({
@@ -13,4 +23,3 @@ Object.defineProperty(window, "matchMedia", {
     dispatchEvent: () => false,
   }),
 });
-

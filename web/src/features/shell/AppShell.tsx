@@ -1,15 +1,37 @@
 import { useEffect, useRef, useState } from "react";
-import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Command, Download, Languages, LogOut, Moon, Sun, X } from "lucide-react";
+import {
+  Command as CommandIcon,
+  CreditCard,
+  Download,
+  Languages,
+  LayoutDashboard,
+  List,
+  LogOut,
+  Moon,
+  Plus,
+  Repeat,
+  Settings,
+  Sun,
+  X,
+} from "lucide-react";
 import { useTheme } from "next-themes";
 import { api } from "../../api/client";
 import { errorMessage, apiErrorMessages } from "../../shared/api/query";
 import { useI18n } from "../../shared/i18n/useI18n";
 import type { Locale } from "../../shared/i18n/i18n";
 import type { QuickAction, View } from "../../shared/constants";
-import { markPerformance } from "../../shared/performance";
 import { toaster } from "../../components/ui/toaster-store";
+import {
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandShortcut,
+} from "../../components/ui/command";
 import {
   Popover,
   PopoverContent,
@@ -256,7 +278,7 @@ export function CommandTrigger({ onOpen }: { onOpen: () => void }) {
       aria-keyshortcuts="Control+K Meta+K"
       onClick={onOpen}
     >
-      <Command size={16} aria-hidden="true" />
+      <CommandIcon size={16} aria-hidden="true" />
       <span>{t.shell.openCommandMenu}</span>
       <span className="kbd">{t.shell.commandShortcut}</span>
     </button>
@@ -274,117 +296,84 @@ export function CommandMenu({
   onNavigate: (view: View) => void;
   onQuickAction: (action: NonNullable<QuickAction>) => void;
 }) {
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const restoreFocusRef = useRef<HTMLElement | null>(null);
-  const focusableRef = useRef<HTMLElement[]>([]);
   const { t } = useI18n();
 
-  useEffect(() => {
-    const endMeasure = markPerformance("command-menu-open");
-    restoreFocusRef.current =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-    focusableRef.current = [
-      ...(dialogRef.current?.querySelectorAll<HTMLElement>(focusableSelector) ??
-        []),
-    ].filter((element) => !element.hasAttribute("disabled"));
-    const first = focusableRef.current[0];
-    first?.focus();
-    endMeasure();
-
-    return () => {
-      restoreFocusRef.current?.focus();
-    };
-  }, []);
-
-  function handleKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      onClose();
-      return;
-    }
-
-    if (event.key !== "Tab") return;
-
-    const focusable = focusableRef.current;
-    if (!focusable.length) return;
-
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  }
-
-  return createPortal(
-    <div
-      className="command-backdrop"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
+  return (
+    <CommandDialog
+      open
+      title={t.shell.commandMenu}
+      description={t.shell.commandMenuDescription}
+      className="command-menu"
+      showCloseButton
+      onOpenChange={(open) => !open && onClose()}
     >
-      <div
-        ref={dialogRef}
-        className="command-menu"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="command-menu-title"
-        tabIndex={-1}
-        onKeyDown={handleKeyDown}
-      >
-        <div className="command-menu-head">
-          <Command size={18} aria-hidden="true" />
-          <h2 id="command-menu-title">{t.shell.commandMenu}</h2>{" "}
-          <span className="kbd">Esc</span>
-        </div>
-        <div className="command-menu-grid">
-          <CommandMenuSection title={t.shell.navigate}>
-            {" "}
-            <CommandItem onClick={() => onNavigate("dashboard")}>
-              {t.nav.overview}
-            </CommandItem>
-            <CommandItem onClick={() => onNavigate("accounts")}>
-              {t.nav.accounts}
-            </CommandItem>
-            <CommandItem onClick={() => onNavigate("transactions")}>
-              {t.nav.transactions}
-            </CommandItem>
-            <CommandItem onClick={() => onNavigate("settings")}>
-              {t.nav.settings}
-            </CommandItem>
-          </CommandMenuSection>
-          <CommandMenuSection title={t.shell.actions}>
-            {" "}
-            <CommandItem
-              disabled={transactionActionsDisabled}
-              onClick={() => onQuickAction("transaction")}
-            >
-              {t.dashboard.addTransaction}
-            </CommandItem>
-            <CommandItem
-              disabled={transactionActionsDisabled}
-              onClick={() => onQuickAction("transfer")}
-            >
-              {t.dashboard.createTransfer}
-            </CommandItem>
-            <CommandItem onClick={() => onQuickAction("import")}>
-              {t.dashboard.importTransactions}
-            </CommandItem>
-            <CommandItem onClick={() => onQuickAction("account")}>
-              {t.accounts.createAccount}
-            </CommandItem>
-          </CommandMenuSection>
-        </div>
-      </div>
-    </div>,
-    document.body,
+      <CommandInput placeholder={t.shell.commandMenuPlaceholder} />
+      <CommandList>
+        <CommandEmpty>{t.shell.noCommandResults}</CommandEmpty>
+        <CommandGroup heading={t.shell.actions}>
+          <CommandAction
+            value="add transaction income expense operation manual"
+            disabled={transactionActionsDisabled}
+            icon={<Plus aria-hidden="true" />}
+            title={t.dashboard.addTransaction}
+            description={t.shell.addTransactionCommandDescription}
+            onSelect={() => onQuickAction("transaction")}
+          />
+          <CommandAction
+            value="transfer move money between accounts"
+            disabled={transactionActionsDisabled}
+            icon={<Repeat aria-hidden="true" />}
+            title={t.dashboard.createTransfer}
+            description={t.shell.createTransferCommandDescription}
+            onSelect={() => onQuickAction("transfer")}
+          />
+          <CommandAction
+            value="account create add card cash savings"
+            icon={<CreditCard aria-hidden="true" />}
+            title={t.accounts.createAccount}
+            description={t.shell.addAccountCommandDescription}
+            onSelect={() => onQuickAction("account")}
+          />
+          <CommandAction
+            value="import csv bank statement"
+            icon={<Download aria-hidden="true" />}
+            title={t.dashboard.importTransactions}
+            description={t.shell.importCommandDescription}
+            onSelect={() => onQuickAction("import")}
+          />
+        </CommandGroup>
+        <CommandGroup heading={t.shell.navigate}>
+          <CommandAction
+            value="overview dashboard balance home"
+            icon={<LayoutDashboard aria-hidden="true" />}
+            title={t.nav.overview}
+            description={t.shell.openOverviewCommandDescription}
+            onSelect={() => onNavigate("dashboard")}
+          />
+          <CommandAction
+            value="transactions ledger operations"
+            icon={<List aria-hidden="true" />}
+            title={t.nav.transactions}
+            description={t.shell.openTransactionsCommandDescription}
+            onSelect={() => onNavigate("transactions")}
+          />
+          <CommandAction
+            value="accounts cards cash savings deposits"
+            icon={<CreditCard aria-hidden="true" />}
+            title={t.nav.accounts}
+            description={t.shell.openAccountsCommandDescription}
+            onSelect={() => onNavigate("accounts")}
+          />
+          <CommandAction
+            value="settings profile security passkeys currency"
+            icon={<Settings aria-hidden="true" />}
+            title={t.nav.settings}
+            description={t.shell.openSettingsCommandDescription}
+            onSelect={() => onNavigate("settings")}
+          />
+        </CommandGroup>
+      </CommandList>
+    </CommandDialog>
   );
 }
 
@@ -511,39 +500,38 @@ function NavButton({
   );
 }
 
-function CommandMenuSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="command-section" aria-label={title}>
-      <h3>{title}</h3>
-      <div>{children}</div>
-    </section>
-  );
-}
-
-function CommandItem({
+function CommandAction({
   disabled,
-  onClick,
-  children,
+  icon,
+  title,
+  description,
+  value,
+  onSelect,
 }: {
   disabled?: boolean;
-  onClick: () => void;
-  children: ReactNode;
+  icon: ReactNode;
+  title: string;
+  description: string;
+  value: string;
+  onSelect: () => void;
 }) {
   return (
-    <button
-      className="command-item"
-      type="button"
+    <CommandItem
+      value={`${title} ${description} ${value}`}
       disabled={disabled}
-      onClick={onClick}
+      onSelect={() => {
+        if (!disabled) {
+          onSelect();
+        }
+      }}
     >
-      {children}
-    </button>
+      {icon}
+      <span className="command-action-copy">
+        <strong>{title}</strong>
+        <small>{description}</small>
+      </span>
+      <CommandShortcut>↵</CommandShortcut>
+    </CommandItem>
   );
 }
 
@@ -557,12 +545,3 @@ function statusLabel(
     Checking: t.shell.status.checking,
   }[status];
 }
-
-const focusableSelector = [
-  "button",
-  "[href]",
-  "input",
-  "select",
-  "textarea",
-  '[tabindex]:not([tabindex="-1"])',
-].join(",");
