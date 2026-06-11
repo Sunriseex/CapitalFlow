@@ -422,6 +422,8 @@ export function App() {
                   isLoading={accounts.isLoading}
                   error={accounts.error}
                   onSelect={(id) => navigateTo("accounts", id)}
+                  onCreateAccount={() => openQuickAction("account")}
+                  onImport={() => openQuickAction("import")}
                 />
               )
             ) : null}
@@ -435,6 +437,8 @@ export function App() {
               accountsError={accounts.error}
               categoriesLoading={categories.isLoading}
               categoriesError={categories.error}
+              onCreateTransaction={() => openQuickAction("transaction")}
+              onImport={() => openQuickAction("import")}
             />
           ) : null}
 

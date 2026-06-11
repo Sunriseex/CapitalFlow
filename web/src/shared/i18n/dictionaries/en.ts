@@ -245,6 +245,21 @@ export const en = {
     addAccountsToSeeAllocation:
       "Add accounts with positive balances to see allocation.",
     rightRailSummary: "Right rail summary",
+    reviewQueue: "Review queue",
+    reviewQueueDescription: "Imports, duplicates, and suspicious records",
+    reviewQueueEmptyTitle: "No review tasks",
+    reviewQueueEmptyDescription:
+      "This is normal. Review appears only for imports, duplicates, missed subscriptions, or rate errors.",
+    subscriptions: "Subscriptions",
+    subscriptionsDescription: "Regular payment detection",
+    emptySubscriptionsTitle: "No subscriptions yet",
+    emptySubscriptionsDescription:
+      "When an expense is marked as Subscriptions, CapitalFlow will suggest creating a regular payment.",
+    importReview: "Import review",
+    importReviewDescription: "CSV review placeholder",
+    importReviewEmptyTitle: "No imported rows to review",
+    importReviewEmptyDescription:
+      "Import review will appear after a bank statement import is connected.",
     hideInsights: "Hide insights",
     showInsights: "Show insights",
     cashflowPeriod: "Cashflow period",
@@ -290,6 +305,9 @@ export const en = {
     status: "Status",
     view: "View",
     noTransactions: "No transactions",
+    emptyTitle: "No transactions yet",
+    emptyDescription:
+      "Add the first transaction manually or import a statement. Imported rows will go to review first.",
     addFirstTransaction:
       "Add the first transaction or import a bank statement.",
     openTransactionDetails: "Open transaction details",
@@ -394,6 +412,9 @@ export const en = {
     allTypes: "All types",
     loadingAccounts: "Loading accounts",
     noAccounts: "No accounts",
+    emptyTitle: "No accounts yet",
+    emptyDescription:
+      "Create a card, cash account, or savings account to start tracking balances.",
     name: "Name",
     bank: "Bank",
     type: "Type",

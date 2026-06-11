@@ -463,7 +463,7 @@ describe("App query states", () => {
 
     await user.click(screen.getByRole("button", { name: /Transactions/ }));
     expect(window.location.pathname).toBe("/transactions");
-    expect(await screen.findByText("No transactions")).toBeInTheDocument();
+    expect(await screen.findByText("No transactions yet")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Accounts/ }));
     await user.click(await screen.findByRole("button", { name: "Open" }));

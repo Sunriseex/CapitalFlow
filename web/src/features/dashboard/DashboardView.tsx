@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { FileSearch, Repeat, ShieldCheck } from "lucide-react";
 import { api } from "../../api/client";
 import {
   addMoney,
@@ -12,7 +13,7 @@ import {
 import type { Account, Transaction } from "../../api/types";
 import { apiErrorMessages, errorMessage } from "../../shared/api/query";
 import type { QuickAction, View } from "../../shared/constants";
-import { Dialog, Empty } from "../../shared/ui";
+import { Button, Dialog, Empty } from "../../shared/ui";
 import { TransactionDetails } from "../transactions/components/TransactionDetails";
 import { CashflowChart } from "./components/CashflowChart";
 import { RecentTransactionsTable } from "./components/RecentTransactionsTable";
@@ -635,6 +636,54 @@ export function DashboardView({
                   <span>{t.dashboard.addAccountsToSeeAllocation}</span>
                 </div>
               ) : null}
+            </div>
+          </article>
+
+          <article className="card rail-card">
+            <div className="card-head">
+              <div className="card-title">
+                <h2>{t.dashboard.reviewQueue}</h2>
+                <p>{t.dashboard.reviewQueueDescription}</p>
+              </div>
+              <ShieldCheck aria-hidden="true" />
+            </div>
+            <div className="review-placeholder">
+              <strong>{t.dashboard.reviewQueueEmptyTitle}</strong>
+              <span>{t.dashboard.reviewQueueEmptyDescription}</span>
+            </div>
+          </article>
+
+          <article className="card rail-card">
+            <div className="card-head">
+              <div className="card-title">
+                <h2>{t.dashboard.subscriptions}</h2>
+                <p>{t.dashboard.subscriptionsDescription}</p>
+              </div>
+              <Repeat aria-hidden="true" />
+            </div>
+            <div className="review-placeholder">
+              <strong>{t.dashboard.emptySubscriptionsTitle}</strong>
+              <span>{t.dashboard.emptySubscriptionsDescription}</span>
+              <Button type="button" onClick={() => onNavigate?.("transactions")}>
+                {t.nav.transactions}
+              </Button>
+            </div>
+          </article>
+
+          <article className="card rail-card">
+            <div className="card-head">
+              <div className="card-title">
+                <h2>{t.dashboard.importReview}</h2>
+                <p>{t.dashboard.importReviewDescription}</p>
+              </div>
+              <FileSearch aria-hidden="true" />
+            </div>
+            <div className="review-placeholder">
+              <strong>{t.dashboard.importReviewEmptyTitle}</strong>
+              <span>{t.dashboard.importReviewEmptyDescription}</span>
+              <Button type="button" onClick={() => onQuickAction?.("import")}>
+                {t.dashboard.importTransactions}
+              </Button>
             </div>
           </article>
         </aside>
