@@ -18,6 +18,7 @@ import { AccountsView } from "./features/accounts/AccountsView";
 import { CreateAccountForm } from "./features/accounts/CreateAccountForm";
 import { SettingsView } from "./features/settings/SettingsView";
 import { TransactionForm } from "./features/transactions/TransactionForm";
+import { TransactionSearchDialog } from "./features/transactions/TransactionSearchDialog";
 import { TransactionsView } from "./features/transactions/TransactionsView";
 import { TransferForm } from "./features/transactions/TransferForm";
 import { AuthController } from "./features/auth/AuthController";
@@ -148,11 +149,34 @@ export function App() {
       }
 
       event.preventDefault();
-      setCommandOpen(true);
+      setCommandOpen((open) => !open);
     };
 
     window.addEventListener("keydown", handleCommandShortcut);
     return () => window.removeEventListener("keydown", handleCommandShortcut);
+  }, []);
+
+  useEffect(() => {
+    const handleTransactionSearchShortcut = (
+      event: globalThis.KeyboardEvent,
+    ) => {
+      const isSearchShortcut =
+        (event.ctrlKey || event.metaKey) &&
+        !event.shiftKey &&
+        !event.altKey &&
+        ((event.key || "").toLowerCase() === "f" || event.code === "KeyF");
+
+      if (!isSearchShortcut || isTextEditingTarget(event.target)) {
+        return;
+      }
+
+      event.preventDefault();
+      setTransactionSearchOpen(true);
+    };
+
+    window.addEventListener("keydown", handleTransactionSearchShortcut);
+    return () =>
+      window.removeEventListener("keydown", handleTransactionSearchShortcut);
   }, []);
 
   function navigateTo(nextView: View, accountId = "") {
@@ -308,6 +332,7 @@ export function App() {
               aria-label={t.shell.searchTransactions}
               title={t.shell.searchTransactions}
               aria-haspopup="dialog"
+              aria-keyshortcuts="Control+F Meta+F"
               onClick={() => setTransactionSearchOpen(true)}
             >
               <Search aria-hidden="true" />
@@ -486,12 +511,11 @@ export function App() {
       ) : null}
 
       {transactionSearchOpen ? (
-        <Dialog
-          title={t.shell.transactionSearch}
+        <TransactionSearchDialog
+          accounts={accounts.data ?? []}
+          categories={categories.data ?? []}
           onClose={() => setTransactionSearchOpen(false)}
-        >
-          <Empty>{t.shell.transactionSearchComingSoon}</Empty>
-        </Dialog>
+        />
       ) : null}
     </div>
   );
@@ -553,6 +577,20 @@ function writeStoredBoolean(key: string, value: boolean) {
   } catch {
     // Non-critical preference; keep the in-memory state.
   }
+}
+
+function isTextEditingTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  const tag = target.tagName.toLowerCase();
+  return (
+    tag === "input" ||
+    tag === "textarea" ||
+    target.isContentEditable ||
+    target.closest('[contenteditable="true"]') !== null
+  );
 }
 
 function quickActionTitle(

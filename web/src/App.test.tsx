@@ -510,6 +510,7 @@ describe("App query states", () => {
       await screen.findByRole("dialog", { name: "Command menu" }),
     ).toBeInTheDocument();
 
+    await user.keyboard("{Escape}");
     await user.click(
       screen.getByRole("button", { name: "Switch to dark theme" }),
     );
@@ -567,7 +568,7 @@ describe("App query states", () => {
     await user.click(
       within(
         await screen.findByRole("dialog", { name: "Command menu" }),
-      ).getByRole("button", { name: "Transactions" }),
+      ).getByRole("option", { name: /Transactions/ }),
     );
     expect(window.location.pathname).toBe("/transactions");
 
@@ -575,11 +576,46 @@ describe("App query states", () => {
     await user.click(
       within(
         await screen.findByRole("dialog", { name: "Command menu" }),
-      ).getByRole("button", { name: "Add transaction" }),
+      ).getByRole("option", { name: /Add transaction/ }),
     );
     expect(
       await screen.findByRole("dialog", { name: "Create transaction" }),
     ).toBeInTheDocument();
+  });
+
+  it("opens transaction search with Ctrl+F and shows details", async () => {
+    const user = userEvent.setup();
+    mocks.transactions.mockResolvedValue([
+      {
+        id: "transaction-1",
+        account_id: "account-1",
+        type: "income",
+        amount: "250",
+        category_id: null,
+        description: "Salary",
+        occurred_at: "2026-05-19",
+        created_at: "2026-05-19T00:00:00Z",
+      },
+    ]);
+
+    renderApp();
+
+    await user.keyboard("{Control>}f{/Control}");
+    const searchDialog = await screen.findByRole("dialog", {
+      name: "Transaction search",
+    });
+    await user.type(
+      within(searchDialog).getByPlaceholderText(
+        "Search by description, category, account, amount...",
+      ),
+      "salary",
+    );
+    await user.click(within(searchDialog).getByRole("option", { name: /Salary/ }));
+
+    expect(
+      await screen.findByRole("dialog", { name: "Transaction details" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Salary").length).toBeGreaterThan(0);
   });
 
   it("invalidates only targeted quick-action query keys after account creation", async () => {
@@ -593,7 +629,7 @@ describe("App query states", () => {
     await user.click(
       within(
         await screen.findByRole("dialog", { name: "Command menu" }),
-      ).getByRole("button", { name: "Create account" }),
+      ).getByRole("option", { name: /Create account/ }),
     );
     await user.type(await screen.findByLabelText("Name"), "Brokerage");
     await user.type(screen.getByLabelText("Bank"), "Bank");
