@@ -1180,6 +1180,99 @@ th {
   font-weight: 900;
 }
 
+.account-type-picker,
+.interest-fieldset,
+.form-note {
+  grid-column: 1 / -1;
+}
+
+.account-type-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.account-type-card {
+  min-height: 74px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 11px;
+  color: var(--text);
+  background: var(--surface);
+  cursor: pointer;
+  text-align: left;
+}
+
+.account-type-card:hover,
+.account-type-card:focus-visible {
+  background: var(--control-hover);
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.account-type-card.is-selected {
+  border-color: var(--primary);
+  background: var(--accent);
+}
+
+.account-type-icon {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted-foreground);
+  background: var(--surface-inset);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.account-type-card strong,
+.account-type-card small {
+  display: block;
+}
+
+.account-type-card strong {
+  font-size: 0.88rem;
+  font-weight: 830;
+}
+
+.account-type-card small,
+.form-note {
+  color: var(--muted-foreground);
+  font-size: 0.78rem;
+  font-weight: 680;
+  line-height: 1.35;
+}
+
+.form-note {
+  margin: -2px 0 0;
+}
+
+.interest-fieldset {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  background: var(--surface-inset);
+}
+
+.interest-fieldset h3 {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 860;
+}
+
 .modal .form-shell h2 {
   position: absolute;
   width: 1px;
@@ -3647,6 +3740,11 @@ ol.toaster {
 
   .form-shell,
   .inline-form {
+    grid-template-columns: 1fr;
+  }
+
+  .account-type-picker,
+  .interest-fieldset {
     grid-template-columns: 1fr;
   }
 

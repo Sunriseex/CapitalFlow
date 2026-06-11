@@ -57,6 +57,86 @@ describe("CreateAccountForm", () => {
     expect(onDone).toHaveBeenCalled();
   });
 
+  it("shows type cards and preserves hidden interest draft values", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <I18nProvider>
+        <QueryClientProvider client={new QueryClient()}>
+          <CreateAccountForm onDone={vi.fn()} />
+        </QueryClientProvider>
+        ,
+      </I18nProvider>,
+    );
+
+    expect(screen.getByRole("radio", { name: /Card/ })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    expect(screen.queryByLabelText("Annual rate %")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("radio", { name: /Savings/ }));
+    await user.type(screen.getByLabelText("Annual rate %"), "5");
+
+    await user.click(screen.getByRole("radio", { name: /Card/ }));
+    expect(screen.queryByLabelText("Annual rate %")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Interest fields are hidden/),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("radio", { name: /Savings/ }));
+    expect(screen.getByLabelText("Annual rate %")).toHaveValue("5");
+  });
+
+  it("creates an interest rule only for savings and deposits", async () => {
+    const user = userEvent.setup();
+    const onDone = vi.fn();
+    mocks.createAccount.mockResolvedValueOnce({ id: "account-1" });
+
+    render(
+      <I18nProvider>
+        <QueryClientProvider client={new QueryClient()}>
+          <CreateAccountForm onDone={onDone} />
+        </QueryClientProvider>
+        ,
+      </I18nProvider>,
+    );
+
+    await user.click(screen.getByRole("radio", { name: /Savings/ }));
+    await user.type(screen.getByLabelText("Name"), "Savings");
+    await user.type(screen.getByLabelText("Bank"), "Test Bank");
+    await user.type(screen.getByLabelText("Annual rate %"), "7.5");
+    await user.click(screen.getByRole("button", { name: "Create" }));
+
+    await waitFor(() =>
+      expect(mocks.createInterestRule).toHaveBeenCalledWith(
+        "account-1",
+        expect.objectContaining({
+          annual_rate_bps: 750,
+        }),
+      ),
+    );
+    expect(onDone).toHaveBeenCalled();
+  });
+
+  it("hides bank and interest fields for cash accounts", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <I18nProvider>
+        <QueryClientProvider client={new QueryClient()}>
+          <CreateAccountForm onDone={vi.fn()} />
+        </QueryClientProvider>
+        ,
+      </I18nProvider>,
+    );
+
+    await user.click(screen.getByRole("radio", { name: /Cash/ }));
+
+    expect(screen.queryByLabelText("Bank")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Annual rate %")).not.toBeInTheDocument();
+  });
+
   it("does not call the API when initial balance is invalid", async () => {
     const user = userEvent.setup();
 

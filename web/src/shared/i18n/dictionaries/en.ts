@@ -393,6 +393,18 @@ export const en = {
       "Annual rate is required when promo fields are set",
     promoFieldsRequiredTogether:
       "Promo rate and promo end date must be set together",
+    hiddenTypeFieldsNotice:
+      "You changed the account type. Interest fields are hidden, but the draft values are kept until the form is submitted or reset.",
+    interestSettings: "Interest settings",
+    depositConditions: "Deposit conditions",
+    typeDescriptions: {
+      card: "For daily spending. Interest fields stay hidden.",
+      cash: "For physical money and wallets. No bank or interest fields.",
+      savings: "For liquid money with interest and quick access.",
+      term_deposit: "For term-based money with interest conditions.",
+      broker: "For investment or brokerage balances.",
+      other: "For accounts that do not fit the main types yet.",
+    },
     types: {
       card: "Card",
       cash: "Cash",
