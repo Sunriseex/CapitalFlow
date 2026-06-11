@@ -7,6 +7,11 @@ const apiProxyTarget = process.env.VITE_API_PROXY_TARGET ?? "http://127.0.0.1:18
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      "@": new URL("./src", import.meta.url).pathname,
+    },
+  },
   build: {
     // zxcvbn ships one large frequency-list module. It is isolated below so the
     // main app stays small, but the lazy vendor chunk is still >500 kB.
@@ -20,8 +25,8 @@ export default defineConfig({
               test: /node_modules\/(react|react-dom)\//,
             },
             {
-              name: "chakra",
-              test: /node_modules\/(@chakra-ui|@emotion|next-themes)\//,
+              name: "ui",
+              test: /node_modules\/(radix-ui|@radix-ui|sonner|next-themes)\//,
             },
             {
               name: "charts",
