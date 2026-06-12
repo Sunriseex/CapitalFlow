@@ -48,8 +48,6 @@ export const ru = {
     expandSidebar: "Развернуть боковую панель",
     searchTransactions: "Поиск операций",
     transactionSearch: "Поиск операций",
-    transactionSearchComingSoon:
-      "Полный поиск операций появится в следующем шаге миграции.",
     notifications: "Уведомления",
     notificationsUnavailable: "Уведомления пока недоступны",
     commandMenu: "Командное меню",
