@@ -487,6 +487,27 @@ describe("App query states", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders sidebar icons and keeps the collapse control in the topbar", async () => {
+    const user = userEvent.setup();
+    renderApp();
+
+    await screen.findByLabelText("Service version v0.5.8");
+    const headTools = document.querySelector(".head-tools") as HTMLElement;
+    const topbarButtons = within(headTools).getAllByRole("button");
+
+    expect(topbarButtons[0]).toHaveAttribute("aria-label", "Collapse sidebar");
+    expect(topbarButtons[0]).toHaveAttribute("aria-pressed", "false");
+    expect(document.querySelector(".sidebar-collapse-button")).toBeNull();
+    expect(document.querySelectorAll(".nav-icon svg")).toHaveLength(4);
+
+    await user.click(topbarButtons[0]);
+
+    expect(
+      screen.getByRole("button", { name: "Expand sidebar" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(localStorage.getItem("capitalflow_sidebar_collapsed")).toBe("true");
+  });
+
   it("toggles dashboard insights from the header", async () => {
     const user = userEvent.setup();
     renderApp();
@@ -520,6 +541,33 @@ describe("App query states", () => {
     await waitFor(() =>
       expect(localStorage.getItem("capitalflow_theme")).toBe("dark"),
     );
+  });
+
+  it("renders stable command trigger and command item anatomy", async () => {
+    const user = userEvent.setup();
+    renderApp();
+
+    const trigger = await screen.findByRole("button", {
+      name: "Open command menu",
+    });
+    expect(trigger.querySelector(".command-trigger-icon")).not.toBeNull();
+    expect(trigger.querySelector(".command-trigger-text")).toHaveTextContent(
+      "Open command menu",
+    );
+    expect(trigger.querySelector(".kbd")).toHaveTextContent("Ctrl K");
+
+    await user.click(trigger);
+
+    const commandMenu = await screen.findByRole("dialog", {
+      name: "Command menu",
+    });
+    const firstCommand = within(commandMenu).getAllByRole("option")[0];
+    expect(firstCommand).toHaveClass("command-item");
+    expect(firstCommand.querySelector(".command-item-icon")).not.toBeNull();
+    expect(firstCommand.querySelector(".command-action-copy")).not.toBeNull();
+    expect(
+      firstCommand.querySelector("[data-slot='command-shortcut']"),
+    ).not.toBeNull();
   });
 
   it("opens health popover and import placeholder", async () => {
@@ -610,7 +658,9 @@ describe("App query states", () => {
       ),
       "salary",
     );
-    await user.click(within(searchDialog).getByRole("option", { name: /Salary/ }));
+    await user.click(
+      within(searchDialog).getByRole("option", { name: /Salary/ }),
+    );
 
     expect(
       await screen.findByRole("dialog", { name: "Transaction details" }),

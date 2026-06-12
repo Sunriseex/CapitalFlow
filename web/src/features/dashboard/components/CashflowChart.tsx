@@ -1,5 +1,12 @@
 import { memo } from "react";
-import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
+import {
+  Bar,
+  CartesianGrid,
+  ComposedChart,
+  Line,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { ChartShell } from "../../../shared/ui/ChartShell";
 import { chartAxisProps, chartGridProps } from "../../../shared/ui/chartTokens";
 import type { CashflowChartBucket } from "../lib/cashflow";
@@ -16,7 +23,12 @@ export const CashflowChart = memo(function CashflowChart({
 }) {
   return (
     <ChartShell summary={summary} className="cashflow-chart-shell">
-      <LineChart data={data} margin={{ top: 8, right: 10, bottom: 0, left: 0 }}>
+      <ComposedChart
+        data={data}
+        barCategoryGap="24%"
+        barGap={4}
+        margin={{ top: 8, right: 10, bottom: 0, left: 0 }}
+      >
         <CartesianGrid {...chartGridProps} />
         <XAxis {...chartAxisProps} dataKey="period" />
         <YAxis
@@ -24,26 +36,22 @@ export const CashflowChart = memo(function CashflowChart({
           tickFormatter={(value) => compactMoney(Number(value), currency)}
           width={64}
         />
-        <Line
-          type="linear"
+        <Bar
           dataKey="income"
-          stroke="var(--chart-income)"
-          strokeWidth={2}
-          dot={false}
-          activeDot={false}
+          fill="var(--chart-income)"
+          radius={[4, 4, 0, 0]}
+          maxBarSize={26}
           isAnimationActive={false}
         />
-        <Line
-          type="linear"
+        <Bar
           dataKey="expense"
-          stroke="var(--chart-expense)"
-          strokeWidth={2}
-          dot={false}
-          activeDot={false}
+          fill="var(--chart-expense)"
+          radius={[4, 4, 0, 0]}
+          maxBarSize={26}
           isAnimationActive={false}
         />
         <Line
-          type="linear"
+          type="monotone"
           dataKey="net"
           stroke="var(--chart-net)"
           strokeWidth={2}
@@ -52,7 +60,7 @@ export const CashflowChart = memo(function CashflowChart({
           activeDot={false}
           isAnimationActive={false}
         />
-      </LineChart>
+      </ComposedChart>
     </ChartShell>
   );
 });

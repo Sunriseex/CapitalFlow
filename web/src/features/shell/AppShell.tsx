@@ -5,6 +5,7 @@ import {
   Command as CommandIcon,
   CreditCard,
   Download,
+  type LucideIcon,
   LayoutDashboard,
   List,
   LogOut,
@@ -119,22 +120,26 @@ export function Nav({
         <div className="nav-label">{t.nav.workspace}</div>
         <NavButton
           active={view === "dashboard"}
+          icon={LayoutDashboard}
           label={t.nav.overview}
           onClick={() => navigateTo("dashboard")}
         />
         <NavButton
           active={view === "transactions"}
+          icon={List}
           label={t.nav.transactions}
           onClick={() => navigateTo("transactions")}
         />
         <NavButton
           active={view === "accounts"}
+          icon={CreditCard}
           label={t.nav.accounts}
           count={String(accountCount)}
           onClick={() => navigateTo("accounts")}
         />
         <NavButton
           active={view === "settings"}
+          icon={Settings}
           label={t.nav.settings}
           onClick={() => navigateTo("settings")}
         />
@@ -295,8 +300,8 @@ export function CommandTrigger({ onOpen }: { onOpen: () => void }) {
       aria-keyshortcuts="Control+K Meta+K"
       onClick={onOpen}
     >
-      <CommandIcon size={16} aria-hidden="true" />
-      <span>{t.shell.openCommandMenu}</span>
+      <CommandIcon className="command-trigger-icon" aria-hidden="true" />
+      <span className="command-trigger-text">{t.shell.openCommandMenu}</span>
       <span className="kbd">{t.shell.commandShortcut}</span>
     </button>
   );
@@ -500,11 +505,13 @@ function HealthPopover({
 
 function NavButton({
   active,
+  icon: Icon,
   label,
   count,
   onClick,
 }: {
   active: boolean;
+  icon: LucideIcon;
   label: string;
   count?: string;
   onClick: () => void;
@@ -517,7 +524,9 @@ function NavButton({
       onClick={onClick}
     >
       <span className="nav-name">
-        <span className="nav-dot"></span>
+        <span className="nav-icon" aria-hidden="true">
+          <Icon />
+        </span>
         <span>{label}</span>
       </span>
       {count ? <span className="nav-count">{count}</span> : null}
@@ -542,6 +551,7 @@ function CommandAction({
 }) {
   return (
     <CommandItem
+      className="command-item"
       value={`${title} ${description} ${value}`}
       disabled={disabled}
       onSelect={() => {
@@ -550,7 +560,9 @@ function CommandAction({
         }
       }}
     >
-      {icon}
+      <span className="command-item-icon" aria-hidden="true">
+        {icon}
+      </span>
       <span className="command-action-copy">
         <strong>{title}</strong>
         <small>{description}</small>

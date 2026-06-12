@@ -45,30 +45,32 @@ export function TransactionDetails({
   return (
     <div className="transaction-detail">
       <header className="transaction-detail-hero">
-        <span className="transaction-detail-icon" aria-hidden="true">
-          {typeLabel.slice(0, 1)}
-        </span>
-        <div>
-          <strong>{transaction.description || typeLabel}</strong>
-          <small>
-            {typeLabel} · {categoryName} · {accountName} ·{" "}
-            {dateLabel(transaction.occurred_at, locale)}
-          </small>
+        <div className="transaction-detail-title-row">
+          <div className="transaction-detail-title-copy">
+            <strong>{transaction.description || typeLabel}</strong>
+            <small>
+              {typeLabel} · {categoryName} · {accountName}
+            </small>
+          </div>
+          <span className="tag info">
+            {transaction.transfer_id
+              ? t.transactions.transfer
+              : t.transactions.posted}
+          </span>
         </div>
-        <span className="tag info">
-          {transaction.transfer_id
-            ? t.transactions.transfer
-            : t.transactions.posted}
-        </span>
-      </header>
-
-      <div className="transaction-detail-total">
-        <span
-          className={compareMoney(amount, "0") < 0 ? "delta-down" : "delta-up"}
+        <p
+          className={
+            compareMoney(amount, "0") < 0
+              ? "transaction-detail-amount delta-down"
+              : "transaction-detail-amount delta-up"
+          }
         >
           {formatMoney(amount, currency, locale)}
-        </span>
-      </div>
+        </p>
+        <p className="transaction-detail-meta">
+          {dateLabel(transaction.occurred_at, locale)}
+        </p>
+      </header>
 
       <div className="transaction-detail-actions">
         <Button type="button" disabled title={t.common.notAvailable}>

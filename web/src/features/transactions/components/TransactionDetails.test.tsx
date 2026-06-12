@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { I18nProvider } from "../../../shared/i18n/I18nProvider";
 import type { Account, Category, Transaction } from "../../../api/types";
@@ -72,9 +72,43 @@ describe("TransactionDetails", () => {
     expect(screen.getByText("transaction-1")).toBeInTheDocument();
     expect(screen.getByText("Savings")).toBeInTheDocument();
     expect(screen.getByText("transfer-1")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Main details" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Main details" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Source" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Relations" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Audit timeline" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Relations" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Audit timeline" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps transaction detail hero and audit sections in reference order", () => {
+    render(
+      <I18nProvider>
+        <TransactionDetails
+          transaction={transaction}
+          accounts={accounts}
+          categories={categories}
+        />
+      </I18nProvider>,
+    );
+
+    const hero = document.querySelector(
+      ".transaction-detail-hero",
+    ) as HTMLElement;
+    expect(within(hero).getByText("Salary payment")).toBeInTheDocument();
+    expect(within(hero).getByText(/100\.00/)).toBeInTheDocument();
+
+    const headings = screen
+      .getAllByRole("heading")
+      .map((heading) => heading.textContent);
+    expect(headings).toEqual([
+      "Main details",
+      "Source",
+      "Relations",
+      "Audit timeline",
+    ]);
   });
 });
