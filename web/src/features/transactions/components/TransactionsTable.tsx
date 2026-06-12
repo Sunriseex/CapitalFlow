@@ -9,7 +9,7 @@ import type { TranslationDictionary } from "../../../shared/i18n/dictionaries/ru
 
 const initialChunkSize = 48;
 const nextChunkSize = 96;
-const mobileTransactionsQuery = "(max-width: 720px)";
+const mobileTransactionsQuery = "(max-width: 760px)";
 
 export const TransactionsTable = memo(function TransactionsTable({
   transactions,
@@ -242,14 +242,10 @@ const TransactionRow = memo(function TransactionRow({
         </div>
       </td>
       {compact ? null : (
-        <td data-label={t.transactions.category}>
-          {details.categoryName}
-        </td>
+        <td data-label={t.transactions.category}>{details.categoryName}</td>
       )}
       {compact ? null : (
-        <td data-label={t.transactions.account}>
-          {details.accountName}
-        </td>
+        <td data-label={t.transactions.account}>{details.accountName}</td>
       )}
       <td data-label={t.transactions.date}>{details.date}</td>
       {compact ? null : (

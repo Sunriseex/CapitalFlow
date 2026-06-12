@@ -209,125 +209,121 @@ export function DashboardView({
   return (
     <div className="ref-dashboard">
       <section className="tab-panel" id="overview" aria-labelledby="pageTitle">
-            <section className="reference-note" aria-label={t.dashboard.layoutNoteTitle}>
-              <strong>{t.dashboard.layoutNoteTitle}</strong>
-              <p>{t.dashboard.layoutNoteDescription}</p>
-            </section>
+        <section
+          className="reference-alert"
+          aria-label={t.dashboard.subscriptionAlertTitle}
+        >
+          <strong>{t.dashboard.subscriptionAlertTitle}</strong>
+          <Button type="button" onClick={() => onNavigate?.("transactions")}>
+            {t.nav.transactions}
+          </Button>
+        </section>
 
-            <section className="reference-alert" aria-label={t.dashboard.subscriptionAlertTitle}>
-              <strong>{t.dashboard.subscriptionAlertTitle}</strong>
-              <p>{t.dashboard.subscriptionAlertDescription}</p>
-              <Button type="button" onClick={() => onNavigate?.("transactions")}>
-                {t.nav.transactions}
-              </Button>
-            </section>
-
-            <section className="metrics-grid" aria-label={t.dashboard.overview}>
-              <article className="card balance-card metric-card">
-                <div className="metric-card-head">
-                  <div className="balance-title">
-                    <span>{t.dashboard.totalCapital}</span>
-                    <small>{t.dashboard.allActiveAccounts}</small>
-                  </div>
-                  <span className="pill">{t.dashboard.liveLedger}</span>
-                </div>
-                <div className="metric-value">
-                  {formatMoney(portfolioValue, selectedCurrency, locale)}
-                </div>
-                <span
-                  className={
-                    compareMoney(monthlyNet, "0") < 0
-                      ? "delta-down"
-                      : "delta-up"
-                  }
-                >
-                  {formatMoney(monthlyNet, selectedCurrency, locale)}{" "}
-                  {t.dashboard.thisMonth}
-                </span>
-              </article>
-
-              <article className="card metric-card">
-                <div className="metric-card-head">
-                  <div className="balance-title">
-                    <span>{t.dashboard.expenses}</span>
-                    <small>{t.dashboard.thisMonth}</small>
-                  </div>
-                  <span className="pill">
-                    {data?.recent_transactions_returned ?? 0}
-                  </span>
-                </div>
-                <div className="metric-value">
-                  {formatMoney(
-                    sumConverted(
-                      data?.monthly_expense,
-                      selectedCurrency,
-                      rateTable,
-                    ),
-                    selectedCurrency,
-                    locale,
-                  )}
-                </div>
-                <span>{t.dashboard.real}</span>
-              </article>
-
-              <article className="card metric-card">
-                <div className="metric-card-head">
-                  <div className="balance-title">
-                    <span>{t.dashboard.reserveFund}</span>
-                    <small>{t.dashboard.topPositiveBalances}</small>
-                  </div>
-                  <span className="pill">{allocation[0]?.share ?? 0}%</span>
-                </div>
-                <div className="metric-value">
-                  {allocation[0]
-                    ? formatMoney(
-                        allocation[0].balance,
-                        allocation[0].currency,
-                        locale,
-                      )
-                    : formatMoney("0", selectedCurrency, locale)}
-                </div>
-                <span>{allocation[0]?.name ?? t.dashboard.noPositiveBalances}</span>
-              </article>
-
-              <article className="card metric-card">
-                <div className="metric-card-head">
-                  <div className="balance-title">
-                    <span>{t.dashboard.subscriptions}</span>
-                    <small>{t.dashboard.subscriptionsDescription}</small>
-                  </div>
-                  <span className="pill">{t.common.notAvailable}</span>
-                </div>
-                <div className="metric-value">
-                  {formatMoney("0", selectedCurrency, locale)}
-                </div>
-                <span>{t.dashboard.emptySubscriptionsTitle}</span>
-              </article>
-            </section>
-
-            <div
-              className="currency-switcher"
-              role="group"
-              aria-label={t.dashboard.portfolioCurrency}
-            >
-              {currencies.map((currency) => (
-                <button
-                  key={currency}
-                  className={
-                    currency === selectedCurrency
-                      ? "period-btn is-active"
-                      : "period-btn"
-                  }
-                  type="button"
-                  aria-pressed={currency === selectedCurrency}
-                  onClick={() => setSelectedCurrency(currency)}
-                >
-                  {currency}
-                </button>
-              ))}
+        <section className="metrics-grid" aria-label={t.dashboard.overview}>
+          <article className="card balance-card metric-card">
+            <div className="metric-card-head">
+              <div className="balance-title">
+                <span>{t.dashboard.totalCapital}</span>
+                <small>{t.dashboard.allActiveAccounts}</small>
+              </div>
+              <span className="pill">{t.dashboard.liveLedger}</span>
             </div>
+            <div className="metric-value">
+              {formatMoney(portfolioValue, selectedCurrency, locale)}
+            </div>
+            <span
+              className={
+                compareMoney(monthlyNet, "0") < 0 ? "delta-down" : "delta-up"
+              }
+            >
+              {formatMoney(monthlyNet, selectedCurrency, locale)}{" "}
+              {t.dashboard.thisMonth}
+            </span>
+          </article>
 
-        <div className={rightRailHidden ? "layout is-rail-collapsed" : "layout"}>
+          <article className="card metric-card">
+            <div className="metric-card-head">
+              <div className="balance-title">
+                <span>{t.dashboard.expenses}</span>
+                <small>{t.dashboard.thisMonth}</small>
+              </div>
+              <span className="pill">
+                {data?.recent_transactions_returned ?? 0}
+              </span>
+            </div>
+            <div className="metric-value">
+              {formatMoney(
+                sumConverted(
+                  data?.monthly_expense,
+                  selectedCurrency,
+                  rateTable,
+                ),
+                selectedCurrency,
+                locale,
+              )}
+            </div>
+            <span>{t.dashboard.real}</span>
+          </article>
+
+          <article className="card metric-card">
+            <div className="metric-card-head">
+              <div className="balance-title">
+                <span>{t.dashboard.reserveFund}</span>
+                <small>{t.dashboard.topPositiveBalances}</small>
+              </div>
+              <span className="pill">{allocation[0]?.share ?? 0}%</span>
+            </div>
+            <div className="metric-value">
+              {allocation[0]
+                ? formatMoney(
+                    allocation[0].balance,
+                    allocation[0].currency,
+                    locale,
+                  )
+                : formatMoney("0", selectedCurrency, locale)}
+            </div>
+            <span>{allocation[0]?.name ?? t.dashboard.noPositiveBalances}</span>
+          </article>
+
+          <article className="card metric-card">
+            <div className="metric-card-head">
+              <div className="balance-title">
+                <span>{t.dashboard.subscriptions}</span>
+              </div>
+              <span className="pill">{t.common.notAvailable}</span>
+            </div>
+            <div className="metric-value">
+              {formatMoney("0", selectedCurrency, locale)}
+            </div>
+            <span>{t.dashboard.emptySubscriptionsTitle}</span>
+          </article>
+        </section>
+
+        <div
+          className="currency-switcher"
+          role="group"
+          aria-label={t.dashboard.portfolioCurrency}
+        >
+          {currencies.map((currency) => (
+            <button
+              key={currency}
+              className={
+                currency === selectedCurrency
+                  ? "period-btn is-active"
+                  : "period-btn"
+              }
+              type="button"
+              aria-pressed={currency === selectedCurrency}
+              onClick={() => setSelectedCurrency(currency)}
+            >
+              {currency}
+            </button>
+          ))}
+        </div>
+
+        <div
+          className={rightRailHidden ? "layout is-rail-collapsed" : "layout"}
+        >
           <div className="content">
             <article className="card chart-card">
               <div className="card-head">
@@ -479,7 +475,6 @@ export function DashboardView({
               <div className="card-head">
                 <div className="card-title">
                   <h2>{t.dashboard.recentTransactions}</h2>{" "}
-                  <p>{t.dashboard.recentTransactionsDescription}</p>{" "}
                 </div>
                 <button
                   className="btn"
@@ -499,127 +494,130 @@ export function DashboardView({
           </div>
 
           <aside
-          id="dashboard-right-rail"
-          className="right-rail"
-          aria-label={t.dashboard.rightRailSummary}
-          aria-hidden={rightRailHidden}
-        >
-          <article className="card rail-card">
-            <div className="card-head">
-              <div className="card-title">
-                <h2>{t.dashboard.quickActions}</h2>
-                <p>{t.dashboard.quickActionsDescription}</p>
-              </div>
-              <Zap aria-hidden="true" />
-            </div>
-            <div className="rail-actions" role="group" aria-label={t.dashboard.quickActions}>
-              <button
-                className="btn primary"
-                type="button"
-                disabled={quickActionsDisabled}
-                onClick={() => onQuickAction?.("transaction")}
-              >
-                {t.dashboard.addTransaction}
-              </button>
-              <button
-                className="btn"
-                type="button"
-                onClick={() => onQuickAction?.("account")}
-              >
-                {t.accounts.createAccount}
-              </button>
-              <button
-                className="btn"
-                type="button"
-                disabled={quickActionsDisabled}
-                onClick={() => onQuickAction?.("transfer")}
-              >
-                {t.dashboard.createTransfer}
-              </button>
-              <button
-                className="btn"
-                type="button"
-                onClick={() => onQuickAction?.("import")}
-              >
-                {t.dashboard.importTransactions}
-              </button>
-            </div>
-          </article>
-
-          <article className="card rail-card">
-            <div className="card-head">
-              <div className="card-title">
-                <h2>{t.dashboard.accountsSummary}</h2>
-                <p>{t.dashboard.accountsSummaryDescription}</p>
-              </div>
-              <CreditCard aria-hidden="true" />
-              <span className="pill">{allocation.length}</span>
-            </div>
-            <div className="list">
-              {allocation.map((account) => (
-                <button
-                  className="account-summary-row"
-                  type="button"
-                  key={account.account_id}
-                  onClick={() => onOpenAccount(account.account_id)}
-                >
-                  <div>
-                    <strong>{account.name}</strong>
-                    <span>
-                      {formatMoney(account.balance, account.currency, locale)}
-                    </span>
-                  </div>
-                  <span className="account-summary-side">
-                    <strong>
-                      {formatMoney(
-                        account.converted_balance,
-                        selectedCurrency,
-                        locale,
-                      )}
-                    </strong>
-                    <span>{account.share}%</span>
-                  </span>
-                </button>
-              ))}
-              {!allocation.length ? (
-                <div className="empty-state">
-                  <strong>{t.dashboard.noPositiveBalances}</strong>
-                  <span>{t.dashboard.addAccountsToSeeAllocation}</span>
+            id="dashboard-right-rail"
+            className="right-rail"
+            aria-label={t.dashboard.rightRailSummary}
+            aria-hidden={rightRailHidden}
+          >
+            <article className="card rail-card">
+              <div className="card-head">
+                <div className="card-title">
+                  <h2>{t.dashboard.quickActions}</h2>
                 </div>
-              ) : null}
-            </div>
-          </article>
-
-          <article className="card rail-card">
-            <div className="card-head">
-              <div className="card-title">
-                <h2>{t.dashboard.goalsAndLimits}</h2>
-                <p>{t.dashboard.goalsAndLimitsDescription}</p>
+                <Zap aria-hidden="true" />
               </div>
-              <Target aria-hidden="true" />
-            </div>
-            <div className="review-placeholder">
-              <strong>{t.dashboard.goalsAndLimitsUnavailableTitle}</strong>
-              <span>{t.dashboard.goalsAndLimitsUnavailableDescription}</span>
-            </div>
-          </article>
-
-          <article className="card rail-card">
-            <div className="card-head">
-              <div className="card-title">
-                <h2>{t.dashboard.subscriptions}</h2>
-                <p>{t.dashboard.subscriptionsDescription}</p>
+              <div
+                className="rail-actions"
+                role="group"
+                aria-label={t.dashboard.quickActions}
+              >
+                <button
+                  className="btn primary"
+                  type="button"
+                  disabled={quickActionsDisabled}
+                  onClick={() => onQuickAction?.("transaction")}
+                >
+                  {t.dashboard.addTransaction}
+                </button>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => onQuickAction?.("account")}
+                >
+                  {t.accounts.createAccount}
+                </button>
+                <button
+                  className="btn"
+                  type="button"
+                  disabled={quickActionsDisabled}
+                  onClick={() => onQuickAction?.("transfer")}
+                >
+                  {t.dashboard.createTransfer}
+                </button>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={() => onQuickAction?.("import")}
+                >
+                  {t.dashboard.importTransactions}
+                </button>
               </div>
-              <Repeat aria-hidden="true" />
-            </div>
-            <div className="review-placeholder">
-              <strong>{t.dashboard.emptySubscriptionsTitle}</strong>
-              <span>{t.dashboard.emptySubscriptionsDescription}</span>
-              <Button type="button" onClick={() => onNavigate?.("transactions")}>
-                {t.nav.transactions}
-              </Button>
-            </div>
-          </article>
+            </article>
+
+            <article className="card rail-card">
+              <div className="card-head">
+                <div className="card-title">
+                  <h2>{t.dashboard.accountsSummary}</h2>
+                </div>
+                <CreditCard aria-hidden="true" />
+                <span className="pill">{allocation.length}</span>
+              </div>
+              <div className="list">
+                {allocation.map((account) => (
+                  <button
+                    className="account-summary-row"
+                    type="button"
+                    key={account.account_id}
+                    onClick={() => onOpenAccount(account.account_id)}
+                  >
+                    <div>
+                      <strong>{account.name}</strong>
+                      <span>
+                        {formatMoney(account.balance, account.currency, locale)}
+                      </span>
+                    </div>
+                    <span className="account-summary-side">
+                      <strong>
+                        {formatMoney(
+                          account.converted_balance,
+                          selectedCurrency,
+                          locale,
+                        )}
+                      </strong>
+                      <span>{account.share}%</span>
+                    </span>
+                  </button>
+                ))}
+                {!allocation.length ? (
+                  <div className="empty-state">
+                    <strong>{t.dashboard.noPositiveBalances}</strong>
+                    <span>{t.dashboard.addAccountsToSeeAllocation}</span>
+                  </div>
+                ) : null}
+              </div>
+            </article>
+
+            <article className="card rail-card">
+              <div className="card-head">
+                <div className="card-title">
+                  <h2>{t.dashboard.goalsAndLimits}</h2>
+                </div>
+                <Target aria-hidden="true" />
+              </div>
+              <div className="review-placeholder">
+                <strong>{t.dashboard.goalsAndLimitsUnavailableTitle}</strong>
+                <span>{t.dashboard.goalsAndLimitsUnavailableDescription}</span>
+              </div>
+            </article>
+
+            <article className="card rail-card">
+              <div className="card-head">
+                <div className="card-title">
+                  <h2>{t.dashboard.subscriptions}</h2>
+                </div>
+                <Repeat aria-hidden="true" />
+              </div>
+              <div className="review-placeholder">
+                <strong>{t.dashboard.emptySubscriptionsTitle}</strong>
+                <span>{t.dashboard.emptySubscriptionsDescription}</span>
+                <Button
+                  type="button"
+                  onClick={() => onNavigate?.("transactions")}
+                >
+                  {t.nav.transactions}
+                </Button>
+              </div>
+            </article>
           </aside>
         </div>
       </section>

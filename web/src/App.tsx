@@ -1,13 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Bell,
-  PanelLeftClose,
-  PanelLeftOpen,
-  PanelRightClose,
-  PanelRightOpen,
-  Search,
-} from "lucide-react";
+import { Bell, PanelRightClose, PanelRightOpen, Search } from "lucide-react";
 import {
   ApiClientError,
   api,
@@ -274,10 +267,30 @@ export function App() {
   return (
     <div
       className={
-        sidebarCollapsed ? "app app-shell is-sidebar-collapsed" : "app app-shell"
+        sidebarCollapsed
+          ? "app app-shell is-sidebar-collapsed"
+          : "app app-shell"
       }
     >
       <aside className="sidebar">
+        <button
+          className="sidebar-collapse-button"
+          type="button"
+          aria-label={
+            sidebarCollapsed ? t.shell.expandSidebar : t.shell.collapseSidebar
+          }
+          title={
+            sidebarCollapsed ? t.shell.expandSidebar : t.shell.collapseSidebar
+          }
+          aria-pressed={sidebarCollapsed}
+          onClick={toggleSidebar}
+        >
+          {sidebarCollapsed ? (
+            <PanelRightOpen aria-hidden="true" />
+          ) : (
+            <PanelRightClose aria-hidden="true" />
+          )}
+        </button>
         <BrandBlock
           version={serviceStatus.data?.version}
           status={
@@ -315,11 +328,6 @@ export function App() {
             <h1 id="pageTitle">
               {view === "dashboard" ? t.nav.overview : pageTitle}
             </h1>
-            {view === "dashboard" ? (
-              <p className="page-description">
-                {t.dashboard.referenceDashboardDescription}
-              </p>
-            ) : null}
             <div className="page-title">
               {view === "dashboard" && serviceStatus.data?.version ? (
                 <span
@@ -336,28 +344,6 @@ export function App() {
           </div>
 
           <div className="head-tools">
-            <button
-              className="shell-icon-button"
-              type="button"
-              aria-label={
-                sidebarCollapsed
-                  ? t.shell.expandSidebar
-                  : t.shell.collapseSidebar
-              }
-              title={
-                sidebarCollapsed
-                  ? t.shell.expandSidebar
-                  : t.shell.collapseSidebar
-              }
-              aria-pressed={sidebarCollapsed}
-              onClick={toggleSidebar}
-            >
-              {sidebarCollapsed ? (
-                <PanelLeftOpen aria-hidden="true" />
-              ) : (
-                <PanelLeftClose aria-hidden="true" />
-              )}
-            </button>
             <CommandTrigger onOpen={() => setCommandOpen(true)} />
             <button
               className="shell-icon-button"
