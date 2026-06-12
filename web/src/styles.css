@@ -2085,11 +2085,11 @@ ol.toaster {
   --info-bg: rgba(121, 168, 216, 0.08);
   --accent-contrast: #06101a;
   --health-bg: #101924;
-  --line: rgba(170, 195, 220, 0.12);
-  --line-2: rgba(170, 195, 220, 0.18);
-  --text: #edf4f8;
-  --muted: #8fa1b4;
-  --muted-2: #7d8fa3;
+  --line: var(--border);
+  --line-2: var(--border);
+  --text: var(--foreground);
+  --muted: oklch(0.269 0 0);
+  --muted-2: var(--muted-foreground);
   --blue: #79a8d8;
   --teal: #63b8ad;
   --green: #82d69e;
@@ -2101,13 +2101,7 @@ ol.toaster {
   --radius-md: calc(var(--radius) - 2px);
   --right: 316px;
   color: var(--text);
-  background:
-    linear-gradient(
-      to bottom,
-      color-mix(in oklch, var(--muted) 52%, transparent),
-      transparent 320px
-    ),
-    var(--background);
+  background: var(--background);
 }
 
 :root[data-theme="light"] .app {
@@ -2132,11 +2126,11 @@ ol.toaster {
   --info-bg: rgba(55, 109, 159, 0.1);
   --accent-contrast: #f8fafc;
   --health-bg: #ffffff;
-  --line: rgba(26, 47, 58, 0.12);
-  --line-2: rgba(26, 47, 58, 0.18);
-  --text: #101820;
-  --muted: #66766f;
-  --muted-2: #7a8a84;
+  --line: var(--border);
+  --line-2: var(--border);
+  --text: var(--foreground);
+  --muted: oklch(0.97 0 0);
+  --muted-2: var(--muted-foreground);
   --blue: #376d9f;
   --teal: #27806e;
   --green: #287a4e;
@@ -2144,13 +2138,7 @@ ol.toaster {
   --amber: #9a711c;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.05);
   color: var(--text);
-  background:
-    linear-gradient(
-      to bottom,
-      color-mix(in oklch, var(--muted) 52%, transparent),
-      transparent 320px
-    ),
-    var(--background);
+  background: var(--background);
 }
 
 .app .sidebar {
@@ -2497,7 +2485,7 @@ ol.toaster {
 
 .head-tools {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
   gap: 8px;
   grid-column: 2;
@@ -2535,11 +2523,12 @@ ol.toaster {
 }
 
 .command-trigger {
-  min-width: min(360px, 42vw);
+  width: min(100%, 300px);
+  min-width: 230px;
   min-height: 44px;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 8px;
   padding: 0 10px 0 14px;
   border: 1px solid var(--line);
@@ -2552,12 +2541,12 @@ ol.toaster {
 
 .command-trigger span:first-of-type {
   min-width: 0;
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text);
-  text-align: center;
+  text-align: left;
 }
 
 .kbd {
@@ -2622,9 +2611,9 @@ ol.toaster {
 
 .app-shell .page-head {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+  grid-template-columns: minmax(180px, 0.45fr) minmax(0, auto);
   align-items: start;
-  gap: 12px;
+  gap: 18px;
 }
 
 .app-shell .page-head-title {
@@ -2797,6 +2786,92 @@ ol.toaster {
   border-radius: var(--radius-xl);
   background: var(--card);
   box-shadow: var(--shadow);
+}
+
+.reference-note,
+.reference-alert {
+  display: grid;
+  gap: 6px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-xl);
+  padding: 14px 16px;
+  background: color-mix(in oklch, var(--muted) 48%, transparent);
+}
+
+.reference-note strong,
+.reference-alert strong {
+  color: var(--foreground);
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.reference-note p,
+.reference-alert p {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.reference-alert {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  border-style: solid;
+  border-color: color-mix(in oklch, var(--destructive) 42%, var(--border));
+  background: color-mix(in oklch, var(--destructive) 8%, var(--card));
+}
+
+.reference-alert strong,
+.reference-alert p {
+  grid-column: 1;
+}
+
+.reference-alert .button {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  width: fit-content;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.metric-card {
+  min-height: 150px;
+  display: grid;
+  align-content: space-between;
+  gap: 12px;
+  padding: 16px;
+}
+
+.metric-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.metric-card .balance-title {
+  gap: 4px;
+}
+
+.metric-card .balance-title small,
+.metric-card > span {
+  color: var(--muted-foreground);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.metric-value {
+  color: var(--foreground);
+  font-size: clamp(1.45rem, 2.4vw, 1.8rem);
+  font-weight: 850;
+  letter-spacing: 0;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
 }
 
 .card-head {
@@ -4116,7 +4191,7 @@ ol.toaster {
   font-size: 0.86rem;
 }
 
-@media (max-width: 1280px) {
+@media (max-width: 1120px) {
   .app {
     --right: 280px;
   }
@@ -4130,6 +4205,10 @@ ol.toaster {
   }
 
   .right-rail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .metrics-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -4163,6 +4242,23 @@ ol.toaster {
 }
 
 @media (max-width: 900px) {
+  .page-head {
+    grid-template-columns: 1fr;
+  }
+
+  .head-tools {
+    width: 100%;
+    grid-column: 1;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .command-trigger {
+    width: min(100%, calc(100vw - 88px));
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
   .right-rail,
   .settings-grid,
   .stat-grid {
@@ -4317,6 +4413,7 @@ ol.toaster {
   .head-tools {
     width: 100%;
     grid-column: 1;
+    flex-wrap: wrap;
     justify-content: flex-start;
   }
 
@@ -4338,9 +4435,20 @@ ol.toaster {
 
   .nav,
   .right-rail,
+  .metrics-grid,
   .settings-grid,
   .stat-grid {
     grid-template-columns: 1fr;
+  }
+
+  .reference-alert {
+    grid-template-columns: 1fr;
+  }
+
+  .reference-alert .button {
+    grid-column: 1;
+    grid-row: auto;
+    width: 100%;
   }
 
   .balance-top {

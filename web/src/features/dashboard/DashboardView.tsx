@@ -208,25 +208,32 @@ export function DashboardView({
 
   return (
     <div className="ref-dashboard">
-      <div className={rightRailHidden ? "layout is-rail-collapsed" : "layout"}>
-        <div className="content">
-          <section
-            className="tab-panel"
-            id="overview"
-            aria-labelledby="pageTitle"
-          >
-            <article className="card balance-card">
-              <div className="balance-top">
-                <div className="balance-title">
-                  <span>{t.dashboard.totalCapital}</span>{" "}
-                  <div className="balance-value">
-                    {formatMoney(portfolioValue, selectedCurrency, locale)}
-                  </div>
-                </div>
-                <span className="pill">{t.dashboard.liveLedger}</span>{" "}
-              </div>
+      <section className="tab-panel" id="overview" aria-labelledby="pageTitle">
+            <section className="reference-note" aria-label={t.dashboard.layoutNoteTitle}>
+              <strong>{t.dashboard.layoutNoteTitle}</strong>
+              <p>{t.dashboard.layoutNoteDescription}</p>
+            </section>
 
-              <div className="balance-meta">
+            <section className="reference-alert" aria-label={t.dashboard.subscriptionAlertTitle}>
+              <strong>{t.dashboard.subscriptionAlertTitle}</strong>
+              <p>{t.dashboard.subscriptionAlertDescription}</p>
+              <Button type="button" onClick={() => onNavigate?.("transactions")}>
+                {t.nav.transactions}
+              </Button>
+            </section>
+
+            <section className="metrics-grid" aria-label={t.dashboard.overview}>
+              <article className="card balance-card metric-card">
+                <div className="metric-card-head">
+                  <div className="balance-title">
+                    <span>{t.dashboard.totalCapital}</span>
+                    <small>{t.dashboard.allActiveAccounts}</small>
+                  </div>
+                  <span className="pill">{t.dashboard.liveLedger}</span>
+                </div>
+                <div className="metric-value">
+                  {formatMoney(portfolioValue, selectedCurrency, locale)}
+                </div>
                 <span
                   className={
                     compareMoney(monthlyNet, "0") < 0
@@ -235,64 +242,93 @@ export function DashboardView({
                   }
                 >
                   {formatMoney(monthlyNet, selectedCurrency, locale)}{" "}
-                  {t.dashboard.thisMonth}{" "}
+                  {t.dashboard.thisMonth}
                 </span>
-              </div>
+              </article>
 
-              <div
-                className="currency-switcher"
-                role="group"
-                aria-label={t.dashboard.portfolioCurrency}
-              >
-                {currencies.map((currency) => (
-                  <button
-                    key={currency}
-                    className={
-                      currency === selectedCurrency
-                        ? "period-btn is-active"
-                        : "period-btn"
-                    }
-                    type="button"
-                    aria-pressed={currency === selectedCurrency}
-                    onClick={() => setSelectedCurrency(currency)}
-                  >
-                    {currency}
-                  </button>
-                ))}
-              </div>
-
-              <div className="stat-grid">
-                <div className="stat">
-                  <span>{t.dashboard.income}</span>{" "}
-                  <strong>
-                    {formatMoney(
-                      sumConverted(
-                        data?.monthly_income,
-                        selectedCurrency,
-                        rateTable,
-                      ),
-                      selectedCurrency,
-                      locale,
-                    )}
-                  </strong>
+              <article className="card metric-card">
+                <div className="metric-card-head">
+                  <div className="balance-title">
+                    <span>{t.dashboard.expenses}</span>
+                    <small>{t.dashboard.thisMonth}</small>
+                  </div>
+                  <span className="pill">
+                    {data?.recent_transactions_returned ?? 0}
+                  </span>
                 </div>
-                <div className="stat">
-                  <span>{t.dashboard.expenses}</span>{" "}
-                  <strong>
-                    {formatMoney(
-                      sumConverted(
-                        data?.monthly_expense,
-                        selectedCurrency,
-                        rateTable,
-                      ),
+                <div className="metric-value">
+                  {formatMoney(
+                    sumConverted(
+                      data?.monthly_expense,
                       selectedCurrency,
-                      locale,
-                    )}
-                  </strong>
+                      rateTable,
+                    ),
+                    selectedCurrency,
+                    locale,
+                  )}
                 </div>
-              </div>
-            </article>
+                <span>{t.dashboard.real}</span>
+              </article>
 
+              <article className="card metric-card">
+                <div className="metric-card-head">
+                  <div className="balance-title">
+                    <span>{t.dashboard.reserveFund}</span>
+                    <small>{t.dashboard.topPositiveBalances}</small>
+                  </div>
+                  <span className="pill">{allocation[0]?.share ?? 0}%</span>
+                </div>
+                <div className="metric-value">
+                  {allocation[0]
+                    ? formatMoney(
+                        allocation[0].balance,
+                        allocation[0].currency,
+                        locale,
+                      )
+                    : formatMoney("0", selectedCurrency, locale)}
+                </div>
+                <span>{allocation[0]?.name ?? t.dashboard.noPositiveBalances}</span>
+              </article>
+
+              <article className="card metric-card">
+                <div className="metric-card-head">
+                  <div className="balance-title">
+                    <span>{t.dashboard.subscriptions}</span>
+                    <small>{t.dashboard.subscriptionsDescription}</small>
+                  </div>
+                  <span className="pill">{t.common.notAvailable}</span>
+                </div>
+                <div className="metric-value">
+                  {formatMoney("0", selectedCurrency, locale)}
+                </div>
+                <span>{t.dashboard.emptySubscriptionsTitle}</span>
+              </article>
+            </section>
+
+            <div
+              className="currency-switcher"
+              role="group"
+              aria-label={t.dashboard.portfolioCurrency}
+            >
+              {currencies.map((currency) => (
+                <button
+                  key={currency}
+                  className={
+                    currency === selectedCurrency
+                      ? "period-btn is-active"
+                      : "period-btn"
+                  }
+                  type="button"
+                  aria-pressed={currency === selectedCurrency}
+                  onClick={() => setSelectedCurrency(currency)}
+                >
+                  {currency}
+                </button>
+              ))}
+            </div>
+
+        <div className={rightRailHidden ? "layout is-rail-collapsed" : "layout"}>
+          <div className="content">
             <article className="card chart-card">
               <div className="card-head">
                 <div className="card-title">
@@ -460,10 +496,9 @@ export function DashboardView({
                 onOpenTransaction={setSelectedTransaction}
               />
             </article>
-          </section>
-        </div>
+          </div>
 
-        <aside
+          <aside
           id="dashboard-right-rail"
           className="right-rail"
           aria-label={t.dashboard.rightRailSummary}
@@ -585,8 +620,9 @@ export function DashboardView({
               </Button>
             </div>
           </article>
-        </aside>
-      </div>
+          </aside>
+        </div>
+      </section>
       {selectedTransaction ? (
         <Dialog
           title={t.transactions.transactionDetails}

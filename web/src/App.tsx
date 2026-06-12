@@ -315,6 +315,11 @@ export function App() {
             <h1 id="pageTitle">
               {view === "dashboard" ? t.nav.overview : pageTitle}
             </h1>
+            {view === "dashboard" ? (
+              <p className="page-description">
+                {t.dashboard.referenceDashboardDescription}
+              </p>
+            ) : null}
             <div className="page-title">
               {view === "dashboard" && serviceStatus.data?.version ? (
                 <span
@@ -368,32 +373,50 @@ export function App() {
             <button
               className="topbar-action"
               type="button"
-              onClick={() => openQuickAction("import")}
+              onClick={() =>
+                toaster.create({
+                  type: "info",
+                  title: t.dashboard.categoriesUnavailable,
+                })
+              }
             >
-              {t.dashboard.importTransactions}
+              {t.dashboard.categories}
+            </button>
+            <button
+              className="topbar-action"
+              type="button"
+              onClick={() =>
+                toaster.create({
+                  type: "info",
+                  title: t.dashboard.emptyStartUnavailable,
+                })
+              }
+            >
+              {t.dashboard.emptyStart}
             </button>
             <button
               className="topbar-action primary"
               type="button"
-              disabled={transactionActionsDisabled}
-              onClick={() => openQuickAction("transaction")}
+              onClick={() => openQuickAction("account")}
             >
-              {t.dashboard.addTransaction}
+              {t.accounts.createAccount}
             </button>
-            <button
-              className="shell-icon-button"
-              type="button"
-              aria-label={t.shell.notifications}
-              title={t.shell.notifications}
-              onClick={() =>
-                toaster.create({
-                  type: "info",
-                  title: t.shell.notificationsUnavailable,
-                })
-              }
-            >
-              <Bell aria-hidden="true" />
-            </button>
+            {view === "dashboard" ? null : (
+              <button
+                className="shell-icon-button"
+                type="button"
+                aria-label={t.shell.notifications}
+                title={t.shell.notifications}
+                onClick={() =>
+                  toaster.create({
+                    type: "info",
+                    title: t.shell.notificationsUnavailable,
+                  })
+                }
+              >
+                <Bell aria-hidden="true" />
+              </button>
+            )}
             {view === "dashboard" ? (
               <button
                 className="rail-toggle"
