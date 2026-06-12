@@ -4120,14 +4120,41 @@ ol.toaster {
   padding-bottom: 14px;
 }
 
+.chart-card .card-head {
+  align-items: center;
+}
+
+.chart-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .chart-wrap {
-  height: 190px;
-  margin-top: 2px;
-  overflow: visible;
+  height: 176px;
+  margin-top: 4px;
+  padding: 8px 8px 4px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--muted);
 }
 
 .chart-wrap .chart {
   height: 100%;
+}
+
+.cashflow-chart-shell .chart-shell-canvas {
+  height: 100%;
+  min-height: 0;
+}
+
+.chart-wrap .cashflow-chart-shell {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .chart-wrap svg {
@@ -4261,31 +4288,31 @@ ol.toaster {
   gap: 4px;
   padding: 4px;
   border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface-inset);
+  border-radius: var(--radius-md);
+  background: var(--background);
 }
 
 .currency-switcher {
   width: fit-content;
   max-width: 100%;
-  margin-top: 12px;
 }
 
 .period-btn {
-  min-height: 44px;
-  padding: 0 14px;
+  min-height: 32px;
+  padding: 0 10px;
   border: 0;
-  border-radius: 999px;
+  border-radius: calc(var(--radius-md) - 2px);
   color: var(--muted-foreground);
   background: transparent;
-  font-weight: 850;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
 }
 
 .period-btn:hover,
 .period-btn.is-active {
-  color: var(--accent-contrast);
-  background: linear-gradient(135deg, var(--teal), var(--blue));
+  color: var(--foreground);
+  background: var(--accent);
 }
 
 .period-label {

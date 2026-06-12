@@ -300,28 +300,6 @@ export function DashboardView({
         </section>
 
         <div
-          className="currency-switcher"
-          role="group"
-          aria-label={t.dashboard.portfolioCurrency}
-        >
-          {currencies.map((currency) => (
-            <button
-              key={currency}
-              className={
-                currency === selectedCurrency
-                  ? "period-btn is-active"
-                  : "period-btn"
-              }
-              type="button"
-              aria-pressed={currency === selectedCurrency}
-              onClick={() => setSelectedCurrency(currency)}
-            >
-              {currency}
-            </button>
-          ))}
-        </div>
-
-        <div
           className={rightRailHidden ? "layout is-rail-collapsed" : "layout"}
         >
           <div className="content">
@@ -342,7 +320,30 @@ export function DashboardView({
                         )}
                   </p>
                 </div>
-                <div>
+                <div className="chart-card-actions">
+                  {currencies.length > 1 ? (
+                    <div
+                      className="currency-switcher"
+                      role="group"
+                      aria-label={t.dashboard.portfolioCurrency}
+                    >
+                      {currencies.map((currency) => (
+                        <button
+                          key={currency}
+                          className={
+                            currency === selectedCurrency
+                              ? "period-btn is-active"
+                              : "period-btn"
+                          }
+                          type="button"
+                          aria-pressed={currency === selectedCurrency}
+                          onClick={() => setSelectedCurrency(currency)}
+                        >
+                          {currency}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                   <div
                     className="period-switcher"
                     role="group"
