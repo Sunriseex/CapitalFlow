@@ -5,7 +5,6 @@ import {
   Command as CommandIcon,
   CreditCard,
   Download,
-  Languages,
   LayoutDashboard,
   List,
   LogOut,
@@ -62,7 +61,10 @@ export function BrandBlock({
           <span>{t.nav.workspace}</span>
         </div>
       </div>
-      <section className="sidebar-status-card" aria-label={t.shell.versionAndHealth}>
+      <section
+        className="sidebar-status-card"
+        aria-label={t.shell.versionAndHealth}
+      >
         <div>
           <span>{t.shell.systemHealth}</span>
           <strong>{statusLabel(status, t)}</strong>
@@ -190,24 +192,26 @@ export function SidebarFooter({ onLogout }: { onLogout: () => void }) {
             aria-label={t.shell.chooseLanguage}
             title={t.shell.chooseLanguage}
           >
-            <Languages aria-hidden="true" />
-            <span className="language-flag" aria-hidden="true">
+            <span className="language-trigger-flag" aria-hidden="true">
               {currentLocaleFlag}
             </span>
             <span className="sr-only">{t.shell.language}</span>
           </button>
         </PopoverTrigger>
-        <PopoverContent className="language-popover" align="start">
+        <PopoverContent className="language-popover" align="start" role="menu">
+          <p className="language-popover-title">{t.shell.language}</p>
           <LanguageChoice
             locale="ru"
             active={locale === "ru"}
-            label="🇷🇺 Русский"
+            flag="🇷🇺"
+            label="Русский"
             onSelect={setLocale}
           />
           <LanguageChoice
             locale="en"
             active={locale === "en"}
-            label="🇬🇧 English"
+            flag="🇬🇧"
+            label="English"
             onSelect={setLocale}
           />
         </PopoverContent>
@@ -246,11 +250,13 @@ export function SidebarFooter({ onLogout }: { onLogout: () => void }) {
 function LanguageChoice({
   locale,
   active,
+  flag,
   label,
   onSelect,
 }: {
   locale: Locale;
   active: boolean;
+  flag: string;
   label: string;
   onSelect: (locale: Locale) => void;
 }) {
@@ -259,14 +265,20 @@ function LanguageChoice({
     <button
       className="language-choice"
       type="button"
-      role="option"
-      aria-selected={active}
+      role="menuitemradio"
+      aria-checked={active}
       onClick={() => {
         onSelect(locale);
         toaster.create({ type: "info", title: t.shell.languageChanged });
       }}
     >
-      {label}
+      <span className="language-choice-copy">
+        <span aria-hidden="true">{flag}</span>
+        <span>{label}</span>
+      </span>
+      <span className="language-choice-check" aria-hidden="true">
+        {active ? "✓" : ""}
+      </span>
     </button>
   );
 }
