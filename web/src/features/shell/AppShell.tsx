@@ -378,6 +378,14 @@ export function CommandMenu({
           />
         </CommandGroup>
       </CommandList>
+      <div className="command-footer">
+        <span>{t.shell.commandMenuHelp}</span>
+        <span className="command-help">
+          <span className="kbd">Enter</span>
+          {t.shell.commandMenuSelectHint}
+          <span className="kbd">Esc</span>
+        </span>
+      </div>
     </CommandDialog>
   );
 }

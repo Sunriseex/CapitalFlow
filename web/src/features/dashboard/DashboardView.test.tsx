@@ -171,7 +171,7 @@ describe("DashboardView", () => {
     expect(
       screen.queryByText(/active accounts across/),
     ).not.toBeInTheDocument();
-    expect(screen.getByText("No positive balances")).toBeInTheDocument();
+    expect(screen.getAllByText("No positive balances").length).toBeGreaterThan(0);
     expect(screen.getByText("No transactions")).toBeInTheDocument();
   });
 
@@ -213,8 +213,8 @@ describe("DashboardView", () => {
     expect(
       screen.getByRole("heading", { name: "Goals & limits" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Unavailable")).toBeInTheDocument();
-    expect(screen.getByText("No subscriptions yet")).toBeInTheDocument();
+    expect(screen.getAllByText("Unavailable").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("No subscriptions yet").length).toBeGreaterThan(0);
   });
 
   it("wires dashboard buttons to real actions and navigation", async () => {

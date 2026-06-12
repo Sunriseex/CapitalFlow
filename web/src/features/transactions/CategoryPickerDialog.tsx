@@ -41,65 +41,80 @@ export function CategoryPickerDialog({
       showCloseButton
       onOpenChange={(open) => !open && onClose()}
     >
-      <CommandInput placeholder={t.transactions.categoryPickerPlaceholder} />
-      <div className="category-picker-filters" role="group">
-        {(["all", "income", "expense", "required", "regular"] as const).map(
-          (value) => (
-            <button
-              key={value}
-              className={filter === value ? "filter-chip is-active" : "filter-chip"}
-              type="button"
-              aria-pressed={filter === value}
-              onClick={() => setFilter(value)}
+      <div className="category-picker-layout">
+        <aside
+          className="category-search-panel"
+          aria-label={t.transactions.categoryPickerActions}
+        >
+          <CommandInput placeholder={t.transactions.categoryPickerPlaceholder} />
+          <div className="category-picker-filters" role="group">
+            {(["all", "income", "expense", "required", "regular"] as const).map(
+              (value) => (
+                <button
+                  key={value}
+                  className={
+                    filter === value ? "filter-chip is-active" : "filter-chip"
+                  }
+                  type="button"
+                  aria-pressed={filter === value}
+                  onClick={() => setFilter(value)}
+                >
+                  {t.transactions.categoryFilters[value]}
+                </button>
+              ),
+            )}
+          </div>
+          <div className="preview-note">
+            <strong>{t.transactions.subscriptionPromptTitle}</strong>
+            <p>{t.transactions.subscriptionPromptDescription}</p>
+          </div>
+        </aside>
+        <CommandList className="category-picker-list" role="listbox">
+          <CommandEmpty>{t.transactions.categoryPickerEmpty}</CommandEmpty>
+          <CommandGroup heading={t.transactions.categoryPickerActions}>
+            <CommandItem
+              className="category-option"
+              value={`${t.common.none} no category uncategorized`}
+              onSelect={() => {
+                onSelect("");
+                onClose();
+              }}
             >
-              {t.transactions.categoryFilters[value]}
-            </button>
-          ),
-        )}
-      </div>
-      <CommandList>
-        <CommandEmpty>{t.transactions.categoryPickerEmpty}</CommandEmpty>
-        <CommandGroup heading={t.transactions.categoryPickerActions}>
-          <CommandItem
-            value={`${t.common.none} no category uncategorized`}
-            onSelect={() => {
-              onSelect("");
-              onClose();
-            }}
-          >
-            <Circle aria-hidden="true" />
-            <span className="category-option-copy">
-              <strong>{t.common.none}</strong>
-              <small>{t.transactions.noCategoryDescription}</small>
-            </span>
-            {!selectedCategoryId ? <BadgeCheck aria-hidden="true" /> : null}
-          </CommandItem>
-        </CommandGroup>
-        {groupedCategories.map((group) => (
-          <CommandGroup key={group.title} heading={group.title}>
-            {group.categories.map((category) => (
-              <CommandItem
-                key={category.id}
-                value={`${category.name} ${category.slug} ${group.title}`}
-                onSelect={() => {
-                  onSelect(category.id);
-                  onClose();
-                }}
-              >
-                <Tag aria-hidden="true" />
-                <span className="category-option-copy">
-                  <strong>{category.name}</strong>
-                  <small>{group.description}</small>
-                </span>
-                <span className="tag muted">{group.badge}</span>
-                {selectedCategoryId === category.id ? (
-                  <BadgeCheck aria-hidden="true" />
-                ) : null}
-              </CommandItem>
-            ))}
+              <Circle aria-hidden="true" />
+              <span className="category-option-copy">
+                <strong>{t.common.none}</strong>
+                <small>{t.transactions.noCategoryDescription}</small>
+              </span>
+              {!selectedCategoryId ? <BadgeCheck aria-hidden="true" /> : null}
+            </CommandItem>
           </CommandGroup>
-        ))}
-      </CommandList>
+          {groupedCategories.map((group) => (
+            <CommandGroup key={group.title} heading={group.title}>
+              {group.categories.map((category) => (
+                <CommandItem
+                  className="category-option"
+                  key={category.id}
+                  value={`${category.name} ${category.slug} ${group.title}`}
+                  onSelect={() => {
+                    onSelect(category.id);
+                    onClose();
+                  }}
+                >
+                  <Tag aria-hidden="true" />
+                  <span className="category-option-copy">
+                    <strong>{category.name}</strong>
+                    <small>{group.description}</small>
+                  </span>
+                  <span className="tag muted">{group.badge}</span>
+                  {selectedCategoryId === category.id ? (
+                    <BadgeCheck aria-hidden="true" />
+                  ) : null}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          ))}
+        </CommandList>
+      </div>
     </CommandDialog>
   );
 }
