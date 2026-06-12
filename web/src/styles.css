@@ -493,7 +493,7 @@ h2 {
   border-color: rgba(121, 168, 216, 0.35);
 }
 
-.button.primary-button,
+.button.button-primary,
 .button[type="submit"],
 .form-shell > .button:last-child {
   color: var(--accent-contrast, #06101a);
@@ -737,19 +737,6 @@ nav button:focus-visible {
   border: 1px solid rgb(255 255 255 / 0.12);
   border-radius: 10px;
   font-weight: 750;
-}
-
-.primary-button {
-  min-height: 44px;
-  color: #ffffff;
-  background: linear-gradient(180deg, #26765c, #1d5d48);
-  border-color: #1d5d48;
-}
-
-.primary-button:hover {
-  color: #ffffff;
-  background: linear-gradient(180deg, #2c8568, #21684f);
-  border-color: #21684f;
 }
 
 .chart {
