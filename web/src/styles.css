@@ -173,6 +173,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background: var(--app-bg);
+  font-family: Arial, "Helvetica Neue", sans-serif;
 }
 
 button,
@@ -4590,6 +4591,66 @@ ol.toaster {
 }
 
 @media (max-width: 900px) {
+  .app-shell,
+  .app-shell.is-sidebar-collapsed {
+    --shell-sidebar-width: auto;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-shell .sidebar {
+    position: static;
+    width: auto;
+    height: auto;
+    gap: 12px;
+    padding: 12px 14px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .app-shell .brand {
+    justify-content: flex-start;
+    padding-inline: 0;
+  }
+
+  .app-shell.is-sidebar-collapsed .brand-copy,
+  .app-shell.is-sidebar-collapsed .nav-btn .nav-name span:last-child,
+  .app-shell.is-sidebar-collapsed .nav-count {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
+
+  .app-shell .sidebar-status-card {
+    display: none;
+  }
+
+  .app-shell .nav {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .app-shell .nav-label {
+    display: none;
+  }
+
+  .app-shell .nav-btn {
+    flex: 0 0 auto;
+    min-width: max-content;
+    padding-inline: 12px;
+  }
+
+  .app-shell .sidebar-footer {
+    display: flex;
+    justify-content: flex-start;
+    margin-top: 0;
+    padding-top: 10px;
+  }
+
   .page-head {
     grid-template-columns: 1fr;
   }
@@ -4731,6 +4792,98 @@ ol.toaster {
   }
 }
 
+@media (min-width: 761px) and (max-width: 900px) {
+  .table-wrap table:not(.tx-table) {
+    min-width: 720px;
+    display: table;
+  }
+
+  .table-wrap table:not(.tx-table) thead {
+    display: table-header-group;
+  }
+
+  .table-wrap table:not(.tx-table) tbody {
+    display: table-row-group;
+    padding: 0;
+  }
+
+  .table-wrap table:not(.tx-table) tr,
+  .table-wrap table:not(.tx-table) tbody tr,
+  .workspace-table tbody tr {
+    display: table-row;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .table-wrap table:not(.tx-table) th,
+  .table-wrap table:not(.tx-table) td,
+  .workspace-table th,
+  .workspace-table td {
+    display: table-cell;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--row-line);
+    white-space: nowrap;
+  }
+
+  .table-wrap table:not(.tx-table) td::before {
+    display: none;
+  }
+
+  .table-wrap table:not(.tx-table) td.amount {
+    text-align: right;
+  }
+
+  .tx-table {
+    min-width: 640px;
+    display: table;
+  }
+
+  .tx-table colgroup {
+    display: table-column-group;
+  }
+
+  .tx-table col {
+    display: table-column;
+  }
+
+  .tx-table thead {
+    display: table-header-group;
+  }
+
+  .tx-table tbody {
+    display: table-row-group;
+  }
+
+  .tx-table tr {
+    display: table-row;
+    padding: 0;
+    border-top: 0;
+  }
+
+  .tx-table th,
+  .tx-table td {
+    display: table-cell;
+    padding: 10px 12px;
+    border-top: 1px solid var(--row-line);
+  }
+
+  .tx-table th {
+    text-align: left;
+  }
+
+  .tx-table th:nth-child(4),
+  .tx-table td:nth-child(4),
+  .tx-table th:nth-child(5),
+  .tx-table td:nth-child(5) {
+    text-align: right;
+  }
+
+  .tx-table td::before {
+    display: none;
+  }
+}
+
 @media (max-width: 760px) {
   .modal-backdrop {
     padding: 8vh 12px 12px;
@@ -4849,6 +5002,62 @@ ol.toaster {
   }
 
   .tx-table td:first-child::before {
+    display: none;
+  }
+
+  .table-scroll .tx-table tbody {
+    display: grid;
+    gap: 8px;
+  }
+
+  .table-scroll .tx-table tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 10px;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--muted);
+  }
+
+  .table-scroll .tx-table td {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .table-scroll .tx-table td::before {
+    display: none;
+  }
+
+  .table-scroll .tx-table td:first-child {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .table-scroll .tx-table td:nth-child(2),
+  .table-scroll .tx-table td:nth-child(3) {
+    grid-column: 1;
+    color: var(--muted-foreground);
+    font-size: 12px;
+    line-height: 1.25;
+  }
+
+  .table-scroll .tx-table td:nth-child(3)::before {
+    content: "·";
+    display: inline;
+    margin-right: 4px;
+  }
+
+  .table-scroll .tx-table td:nth-child(4) {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
+    text-align: right !important;
+    white-space: nowrap;
+  }
+
+  .table-scroll .tx-table td:nth-child(5) {
     display: none;
   }
 
