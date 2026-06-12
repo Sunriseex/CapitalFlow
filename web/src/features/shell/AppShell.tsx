@@ -52,17 +52,22 @@ export function BrandBlock({
   const { t } = useI18n();
 
   return (
-    <div className="brand">
-      <img
-        className="brand-mark"
-        src="/app-icon.png"
-        alt=""
-        aria-hidden="true"
-      />
-      <div className="brand-copy">
-        <strong>CapitalFlow</strong>
-        <div className="brand-meta" aria-label={t.shell.versionAndHealth}>
-          {" "}
+    <>
+      <div className="brand">
+        <span className="brand-mark" aria-hidden="true">
+          CF
+        </span>
+        <div className="brand-copy">
+          <strong>CapitalFlow</strong>
+          <span>{t.nav.workspace}</span>
+        </div>
+      </div>
+      <section className="sidebar-status-card" aria-label={t.shell.versionAndHealth}>
+        <div>
+          <span>{t.shell.systemHealth}</span>
+          <strong>{statusLabel(status, t)}</strong>
+        </div>
+        <div className="brand-meta">
           <span className="version-pill" title={t.shell.version}>
             {version ?? "dev"}
           </span>
@@ -90,8 +95,8 @@ export function BrandBlock({
             }}
           />
         ) : null}
-      </div>
-    </div>
+      </section>
+    </>
   );
 }
 

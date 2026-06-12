@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { FileSearch, Repeat, ShieldCheck } from "lucide-react";
+import { CreditCard, Repeat, Target, Zap } from "lucide-react";
 import { api } from "../../api/client";
 import {
   addMoney,
@@ -25,8 +25,6 @@ import {
   groupCashflow,
   type CashflowPeriod,
 } from "./lib/cashflow";
-
-const fallbackRateTargets = ["USD", "EUR", "BTC"];
 
 export function DashboardView({
   primaryCurrency,
@@ -85,15 +83,6 @@ export function DashboardView({
   });
   const rateTable =
     rates.data?.base === selectedCurrency ? rates.data : undefined;
-  const rateTargets = useMemo(
-    () => selectRateTargets(currencies, selectedCurrency),
-    [currencies, selectedCurrency],
-  );
-  const rateEntries = useMemo(() => {
-    return rateTargets.map(
-      (currency) => [currency, rateTable?.rates[currency]] as const,
-    );
-  }, [rateTable, rateTargets]);
   const portfolioValue = sumConverted(
     currencyTotals,
     selectedCurrency,
@@ -103,13 +92,6 @@ export function DashboardView({
     () => moneyToNumber(portfolioValue),
     [portfolioValue],
   );
-  const ratesSyncLabel = rateTable
-    ? formatRateSync(
-        rateTable.fetched_at || rateTable.date,
-        t.dashboard.ratesUnavailable,
-      )
-    : t.dashboard.ratesUnavailable;
-
   const allocation = useMemo(
     () =>
       balances
@@ -277,36 +259,6 @@ export function DashboardView({
                     {currency}
                   </button>
                 ))}
-              </div>
-
-              <div
-                className="balance-actions"
-                role="group"
-                aria-label={t.dashboard.quickActions}
-              >
-                <button
-                  className="btn primary"
-                  type="button"
-                  disabled={quickActionsDisabled}
-                  onClick={() => onQuickAction?.("transaction")}
-                >
-                  {t.dashboard.addTransaction}{" "}
-                </button>
-                <button
-                  className="btn"
-                  type="button"
-                  disabled={quickActionsDisabled}
-                  onClick={() => onQuickAction?.("transfer")}
-                >
-                  {t.dashboard.createTransfer}{" "}
-                </button>
-                <button
-                  className="btn"
-                  type="button"
-                  onClick={() => onQuickAction?.("import")}
-                >
-                  {t.dashboard.importTransactions}{" "}
-                </button>
               </div>
 
               <div className="stat-grid">
@@ -520,103 +472,58 @@ export function DashboardView({
           <article className="card rail-card">
             <div className="card-head">
               <div className="card-title">
-                <h2>{t.dashboard.upcoming}</h2>
-                <p>{t.dashboard.currentMonthStatus}</p>{" "}
+                <h2>{t.dashboard.quickActions}</h2>
+                <p>{t.dashboard.quickActionsDescription}</p>
               </div>
+              <Zap aria-hidden="true" />
+            </div>
+            <div className="rail-actions" role="group" aria-label={t.dashboard.quickActions}>
+              <button
+                className="btn primary"
+                type="button"
+                disabled={quickActionsDisabled}
+                onClick={() => onQuickAction?.("transaction")}
+              >
+                {t.dashboard.addTransaction}
+              </button>
               <button
                 className="btn"
                 type="button"
-                onClick={() => onNavigate?.("transactions")}
+                onClick={() => onQuickAction?.("account")}
               >
-                {t.dashboard.openLedger}{" "}
+                {t.accounts.createAccount}
               </button>
-            </div>
-            <div className="list">
-              {(data?.recent_transactions_returned ?? 0) > 0 ||
-              (data?.active_accounts_count ?? 0) > 0 ? (
-                <>
-                  <div className="row">
-                    <div className="row-main">
-                      <strong>{t.dashboard.monthlyNet}</strong>{" "}
-                      <span>
-                        {formatMoney(monthlyNet, selectedCurrency, locale)}
-                      </span>
-                    </div>
-                    <span className="tag info">{t.dashboard.real}</span>{" "}
-                  </div>
-                  <div className="row">
-                    <div className="row-main">
-                      <strong>{t.dashboard.ledgerEvents}</strong>
-                      <span>
-                        {data?.recent_transactions_returned ?? 0}{" "}
-                        {t.dashboard.recent}
-                      </span>
-                    </div>
-                    <span className="tag good">{t.dashboard.loaded}</span>{" "}
-                  </div>
-                </>
-              ) : (
-                <div className="empty-state">
-                  <strong>{t.dashboard.noUpcomingData}</strong>
-                  <span>{t.dashboard.recurringSchedulesUnavailable}</span>
-                </div>
-              )}
+              <button
+                className="btn"
+                type="button"
+                disabled={quickActionsDisabled}
+                onClick={() => onQuickAction?.("transfer")}
+              >
+                {t.dashboard.createTransfer}
+              </button>
+              <button
+                className="btn"
+                type="button"
+                onClick={() => onQuickAction?.("import")}
+              >
+                {t.dashboard.importTransactions}
+              </button>
             </div>
           </article>
 
           <article className="card rail-card">
             <div className="card-head">
               <div className="card-title">
-                <h2>{t.dashboard.rates}</h2> <p>{ratesSyncLabel}</p>
+                <h2>{t.dashboard.accountsSummary}</h2>
+                <p>{t.dashboard.accountsSummaryDescription}</p>
               </div>
-              <button
-                className="btn"
-                type="button"
-                onClick={() => onNavigate?.("settings")}
-              >
-                {t.nav.settings}{" "}
-              </button>
-            </div>
-            <div className="list">
-              {rateTable ? (
-                rateEntries.map(([currency, rate]) => (
-                  <div className="row" key={currency}>
-                    <div className="row-main">
-                      <strong>
-                        {selectedCurrency}/{currency}
-                      </strong>
-                      <span>{t.dashboard.latestSyncedRate}</span>{" "}
-                    </div>
-                    <span className="row-side">
-                      {typeof rate === "number"
-                        ? rate.toLocaleString(locale, {
-                            maximumFractionDigits: 8,
-                          })
-                        : "—"}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <div className="empty-state">
-                  <strong>{t.dashboard.ratesUnavailable}</strong>
-                  <span>{t.dashboard.openSettingsToCheckCurrency}</span>
-                </div>
-              )}
-            </div>
-          </article>
-
-          <article className="card rail-card">
-            <div className="card-head">
-              <div className="card-title">
-                <h2>{t.dashboard.allocation}</h2>
-                <p>{t.dashboard.topPositiveBalances}</p>{" "}
-              </div>
+              <CreditCard aria-hidden="true" />
               <span className="pill">{allocation.length}</span>
             </div>
             <div className="list">
               {allocation.map((account) => (
                 <button
-                  className="review-action-row"
+                  className="account-summary-row"
                   type="button"
                   key={account.account_id}
                   onClick={() => onOpenAccount(account.account_id)}
@@ -627,7 +534,16 @@ export function DashboardView({
                       {formatMoney(account.balance, account.currency, locale)}
                     </span>
                   </div>
-                  <span className="tag info">{account.share}%</span>
+                  <span className="account-summary-side">
+                    <strong>
+                      {formatMoney(
+                        account.converted_balance,
+                        selectedCurrency,
+                        locale,
+                      )}
+                    </strong>
+                    <span>{account.share}%</span>
+                  </span>
                 </button>
               ))}
               {!allocation.length ? (
@@ -642,14 +558,14 @@ export function DashboardView({
           <article className="card rail-card">
             <div className="card-head">
               <div className="card-title">
-                <h2>{t.dashboard.reviewQueue}</h2>
-                <p>{t.dashboard.reviewQueueDescription}</p>
+                <h2>{t.dashboard.goalsAndLimits}</h2>
+                <p>{t.dashboard.goalsAndLimitsDescription}</p>
               </div>
-              <ShieldCheck aria-hidden="true" />
+              <Target aria-hidden="true" />
             </div>
             <div className="review-placeholder">
-              <strong>{t.dashboard.reviewQueueEmptyTitle}</strong>
-              <span>{t.dashboard.reviewQueueEmptyDescription}</span>
+              <strong>{t.dashboard.goalsAndLimitsUnavailableTitle}</strong>
+              <span>{t.dashboard.goalsAndLimitsUnavailableDescription}</span>
             </div>
           </article>
 
@@ -669,23 +585,6 @@ export function DashboardView({
               </Button>
             </div>
           </article>
-
-          <article className="card rail-card">
-            <div className="card-head">
-              <div className="card-title">
-                <h2>{t.dashboard.importReview}</h2>
-                <p>{t.dashboard.importReviewDescription}</p>
-              </div>
-              <FileSearch aria-hidden="true" />
-            </div>
-            <div className="review-placeholder">
-              <strong>{t.dashboard.importReviewEmptyTitle}</strong>
-              <span>{t.dashboard.importReviewEmptyDescription}</span>
-              <Button type="button" onClick={() => onQuickAction?.("import")}>
-                {t.dashboard.importTransactions}
-              </Button>
-            </div>
-          </article>
         </aside>
       </div>
       {selectedTransaction ? (
@@ -701,32 +600,6 @@ export function DashboardView({
       ) : null}
     </div>
   );
-}
-
-function selectRateTargets(currencies: string[], selectedCurrency: string) {
-  const targets = new Set<string>();
-  for (const currency of [...currencies, ...fallbackRateTargets]) {
-    if (currency && currency !== selectedCurrency) {
-      targets.add(currency);
-    }
-    if (targets.size >= 5) {
-      break;
-    }
-  }
-  return [...targets];
-}
-
-function formatRateSync(value: string, fallback: string) {
-  if (!value) {
-    return fallback;
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toUTCString().replace(/ GMT$/, "");
 }
 
 function cashflowBucketsLabel(
