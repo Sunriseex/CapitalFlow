@@ -13,13 +13,16 @@ import { today } from "../../shared/constants";
 import { Button, Field, FormShell, Input, Select } from "../../shared/ui";
 import { useI18n } from "../../shared/i18n/useI18n";
 
-const createAccountTypes: AccountType[] = [
-  "card",
-  "cash",
-  "savings",
-  "term_deposit",
-  "broker",
-  "other",
+const createAccountTypes: Array<{
+  key: AccountType | "checking";
+  type?: AccountType;
+  disabled?: boolean;
+}> = [
+  { key: "card", type: "card" },
+  { key: "cash", type: "cash" },
+  { key: "checking", disabled: true },
+  { key: "savings", type: "savings" },
+  { key: "term_deposit", type: "term_deposit" },
 ];
 
 export function CreateAccountForm({ onDone }: { onDone: () => void }) {
@@ -155,28 +158,47 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
         role="radiogroup"
         aria-label={t.accounts.type}
       >
-        {createAccountTypes.map((type) => (
+        {createAccountTypes.map((option) => (
           <button
-            key={type}
+            key={option.key}
             className={
-              form.type === type
+              form.type === option.type
                 ? "account-type-card is-selected"
                 : "account-type-card"
             }
+            disabled={option.disabled}
             type="button"
             role="radio"
-            aria-checked={form.type === type}
-            onClick={() => setForm({ ...form, type })}
+            aria-checked={form.type === option.type}
+            onClick={() => {
+              if (option.type) {
+                setForm({ ...form, type: option.type });
+              }
+            }}
           >
             <span className="account-type-icon" aria-hidden="true">
-              {t.accounts.types[type].slice(0, 1)}
+              {accountTypeLabel(option.key, t).slice(0, 1)}
             </span>
             <span>
-              <strong>{t.accounts.types[type]}</strong>
-              <small>{t.accounts.typeDescriptions[type]}</small>
+              <strong>{accountTypeLabel(option.key, t)}</strong>
+              <small>
+                {accountTypeDescription(option.key, t)}
+                {option.disabled ? ` · ${t.accounts.unsupportedAccountType}` : ""}
+              </small>
             </span>
           </button>
         ))}
+      </div>
+
+      <div className="account-type-help">
+        <strong>
+          {form.type === "term_deposit"
+            ? t.accounts.depositConditions
+            : interestEnabled
+              ? t.accounts.interestSettings
+              : t.accounts.types[form.type]}
+        </strong>
+        <span>{t.accounts.typeDescriptions[form.type]}</span>
       </div>
 
       {hasHiddenInterestDraft ? (
@@ -288,4 +310,20 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
 
 function isInterestBearing(type: AccountType) {
   return type === "savings" || type === "term_deposit";
+}
+
+function accountTypeLabel(
+  type: AccountType | "checking",
+  t: ReturnType<typeof useI18n>["t"],
+) {
+  return type === "checking" ? t.accounts.checkingAccount : t.accounts.types[type];
+}
+
+function accountTypeDescription(
+  type: AccountType | "checking",
+  t: ReturnType<typeof useI18n>["t"],
+) {
+  return type === "checking"
+    ? t.accounts.checkingAccountDescription
+    : t.accounts.typeDescriptions[type];
 }

@@ -56,6 +56,8 @@ export const en = {
     commandMenuDescription: "Jump between sections and quick actions.",
     commandMenuPlaceholder: "Find a command or action...",
     commandShortcut: "Ctrl K",
+    commandMenuHelp: "Navigate with arrows",
+    commandMenuSelectHint: "selects,",
     noCommandResults: "No commands found",
     navigate: "Navigate",
     actions: "Actions",
@@ -462,6 +464,10 @@ export const en = {
       "You changed the account type. Interest fields are hidden, but the draft values are kept until the form is submitted or reset.",
     interestSettings: "Interest settings",
     depositConditions: "Deposit conditions",
+    checkingAccount: "Checking",
+    checkingAccountDescription:
+      "A current account placeholder. It will be available when the API supports it.",
+    unsupportedAccountType: "Unavailable until backend support exists",
     typeDescriptions: {
       card: "For daily spending. Interest fields stay hidden.",
       cash: "For physical money and wallets. No bank or interest fields.",

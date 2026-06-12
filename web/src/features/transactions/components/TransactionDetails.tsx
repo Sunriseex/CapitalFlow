@@ -160,7 +160,7 @@ export function TransactionDetails({
 
       <section className="transaction-detail-section">
         <h3>{t.transactions.auditTimeline}</h3>
-        <ol className="transaction-audit-list">
+        <ol className="transaction-audit-list timeline">
           <li>
             <strong>{t.transactions.auditCreated}</strong>
             <span>{dateLabel(transaction.created_at, locale)}</span>

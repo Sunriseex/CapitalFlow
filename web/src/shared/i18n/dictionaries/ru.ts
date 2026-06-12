@@ -54,6 +54,8 @@ export const ru = {
     commandMenuDescription: "Быстрый переход по разделам и действиям.",
     commandMenuPlaceholder: "Найти команду или действие...",
     commandShortcut: "Ctrl K",
+    commandMenuHelp: "Навигация стрелками",
+    commandMenuSelectHint: "выбирает,",
     noCommandResults: "Команды не найдены",
     navigate: "Навигация",
     actions: "Действия",
@@ -460,6 +462,10 @@ export const ru = {
       "Вы переключили тип счёта. Процентные поля скрыты, но данные сохранятся до сохранения или сброса формы.",
     interestSettings: "Настройки процентов",
     depositConditions: "Условия вклада",
+    checkingAccount: "Расчётный счёт",
+    checkingAccountDescription:
+      "Заготовка текущего счёта. Будет доступна после поддержки в API.",
+    unsupportedAccountType: "Недоступно без поддержки backend",
     typeDescriptions: {
       card: "Для ежедневных расходов. Без процентных полей.",
       cash: "Для наличных и кошельков. Без банка и процентов.",

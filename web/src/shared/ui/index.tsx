@@ -147,7 +147,7 @@ export function FormShell({
 }) {
   return (
     <form
-      className="form form-shell"
+      className="form form-shell dialog-form"
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit();
@@ -246,16 +246,21 @@ export function Dialog({
     >
       <div
         ref={dialogRef}
-        className="modal"
+        className="modal dialog-panel"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleID}
         tabIndex={-1}
         onKeyDown={handleKeyDown}
       >
-        <div className="modal-header">
-          <h2 id={titleID}>{title}</h2>
+        <div className="modal-header dialog-header">
+          <div className="dialog-title-stack">
+            <h2 className="dialog-title" id={titleID}>
+              {title}
+            </h2>
+          </div>
           <IconButton
+            className="dialog-close"
             type="button"
             title={t.common.closeDialog}
             aria-label={t.common.closeDialog}

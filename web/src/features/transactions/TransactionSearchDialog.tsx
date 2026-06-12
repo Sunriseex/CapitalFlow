@@ -115,7 +115,7 @@ export function TransactionSearchDialog({
             />
           </div>
         ) : (
-          <Command shouldFilter={false}>
+          <Command className="transaction-search-layout" shouldFilter={false}>
             <CommandInput
               value={query}
               placeholder={t.shell.transactionSearchPlaceholder}
@@ -138,7 +138,7 @@ export function TransactionSearchDialog({
                 onClick={() => setFilter("transfers")}
               />
             </div>
-            <CommandList>
+            <CommandList className="transaction-search-results">
               {transactions.isLoading ? (
                 <CommandEmpty>{t.transactions.loadingTransactions}</CommandEmpty>
               ) : null}
@@ -221,6 +221,7 @@ function TransactionResult({
 
   return (
     <CommandItem
+      className="transaction-search-result"
       value={searchValue(transaction, accountName, categoryName, currency)}
       onSelect={onSelect}
     >
