@@ -2063,6 +2063,354 @@ ol.toaster {
   background: var(--color-meter-strong);
 }
 
+.auth-reference-page {
+  --auth-space-2: 8px;
+  --auth-space-3: 12px;
+  --auth-space-4: 16px;
+  --auth-space-5: 20px;
+  --auth-space-6: 24px;
+  --auth-radius-md: var(--radius-md);
+  --auth-radius-lg: var(--radius-lg);
+  --auth-radius-xl: var(--radius-xl);
+  --auth-radius-full: 999px;
+  --auth-shadow: var(--shadow);
+  --auth-warning: oklch(0.72 0.11 82);
+  --auth-warning-bg: color-mix(in oklch, var(--auth-warning) 12%, transparent);
+  --auth-warning-border: color-mix(
+    in oklch,
+    var(--auth-warning) 32%,
+    var(--border)
+  );
+  --auth-warning-fg: var(--auth-warning);
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: 1fr;
+  place-items: center;
+  padding: var(--auth-space-6);
+  color: var(--foreground);
+  background:
+    linear-gradient(
+      to bottom,
+      color-mix(in oklch, var(--muted) 45%, transparent),
+      transparent 280px
+    ),
+    var(--background);
+  font-family: Arial, "Helvetica Neue", sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.auth-reference-page > .page-transition {
+  width: min(100%, 420px);
+  display: block;
+}
+
+.setup-page.auth-reference-page > .page-transition {
+  width: min(100%, 520px);
+}
+
+.auth-reference-page .auth-stack {
+  width: 100%;
+  display: grid;
+  gap: var(--auth-space-4);
+}
+
+.auth-reference-page .auth-stack-wide {
+  gap: var(--auth-space-5);
+}
+
+.auth-reference-page .brand {
+  width: fit-content;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-self: center;
+  gap: var(--auth-space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: var(--foreground);
+  text-decoration: none;
+}
+
+.auth-reference-page .brand-mark {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--auth-radius-md);
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: var(--auth-shadow);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.auth-reference-page .brand-name {
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.auth-reference-page .brand-text,
+.auth-reference-page .brand-note {
+  display: contents;
+}
+
+.auth-reference-page .brand-note {
+  display: none;
+}
+
+.auth-reference-page .auth-card,
+.auth-reference-page .setup-card {
+  width: 100%;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--auth-radius-xl);
+  background: var(--card);
+  box-shadow: var(--auth-shadow);
+}
+
+.auth-reference-page .auth-header,
+.auth-reference-page .setup-header {
+  margin: 0;
+  padding: var(--auth-space-6) var(--auth-space-6) 0;
+}
+
+.auth-reference-page .auth-card-content {
+  display: grid;
+  gap: var(--auth-space-4);
+  padding: var(--auth-space-6);
+}
+
+.auth-reference-page .auth-title,
+.auth-reference-page .setup-title {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 24px;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.auth-reference-page .auth-description,
+.auth-reference-page .setup-description {
+  margin: var(--auth-space-2) 0 0;
+  color: var(--muted-foreground);
+}
+
+.auth-reference-page .setup-kicker {
+  width: fit-content;
+  margin: 0 0 var(--auth-space-2);
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--auth-radius-full);
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.auth-reference-page .warning-box {
+  margin: 0;
+  padding: var(--auth-space-3);
+  border: 1px solid var(--auth-warning-border);
+  border-radius: var(--auth-radius-md);
+  background: var(--auth-warning-bg);
+  color: var(--muted-foreground);
+}
+
+.auth-reference-page .warning-title {
+  display: flex;
+  align-items: center;
+  gap: var(--auth-space-2);
+  margin: 0 0 4px;
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.auth-reference-page .warning-icon {
+  width: 20px;
+  height: 20px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: var(--auth-radius-full);
+  background: var(--auth-warning-bg);
+  color: var(--auth-warning-fg);
+  font-weight: 700;
+}
+
+.auth-reference-page .warning-text {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+
+.auth-reference-page .form {
+  display: grid;
+  gap: var(--auth-space-3);
+  padding: 0;
+}
+
+.auth-reference-page .field {
+  display: grid;
+  gap: 6px;
+}
+
+.auth-reference-page label {
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.auth-reference-page .helper-text,
+.auth-reference-page .form-hint,
+.auth-reference-page .footer-text {
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+
+.auth-reference-page .input {
+  width: 100%;
+  height: 40px;
+  min-height: 40px;
+  padding: 0 var(--auth-space-3);
+  border: 1px solid var(--input);
+  border-radius: var(--auth-radius-md);
+  background: var(--background);
+  color: var(--foreground);
+  caret-color: var(--primary);
+}
+
+.auth-reference-page .input:hover {
+  border-color: var(--ring);
+}
+
+.auth-reference-page .input:focus {
+  border-color: var(--ring);
+  background: var(--background);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 18%, transparent);
+  outline: none;
+}
+
+.auth-reference-page .password-control .input {
+  padding-right: 58px;
+}
+
+.auth-reference-page .password-toggle {
+  min-width: 52px;
+  min-height: 40px;
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+
+.auth-reference-page .checkbox-label,
+.auth-reference-page .confirm-label {
+  min-height: 40px;
+  color: var(--muted-foreground);
+}
+
+.auth-reference-page .checkbox {
+  accent-color: var(--primary);
+}
+
+.auth-reference-page .button {
+  width: 100%;
+  min-height: 40px;
+  border-radius: var(--auth-radius-md);
+  padding: 0 var(--auth-space-4);
+  font-weight: 600;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+.auth-reference-page .button-primary {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.auth-reference-page .button-primary:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: color-mix(in oklch, var(--primary) 90%, var(--background));
+}
+
+.auth-reference-page .button-secondary {
+  border-color: var(--border);
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.auth-reference-page .button-secondary:hover:not(:disabled) {
+  background: var(--accent);
+}
+
+.auth-reference-page .field-error,
+.auth-reference-page .form-status,
+.auth-reference-page .strength-feedback {
+  margin: 0;
+  color: var(--destructive);
+  font-size: 12px;
+}
+
+.auth-reference-page .divider {
+  gap: var(--auth-space-3);
+  color: var(--muted-foreground);
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.auth-reference-page .divider::before,
+.auth-reference-page .divider::after {
+  background: var(--border);
+}
+
+.auth-reference-page .footer-text {
+  margin: 0;
+  text-align: center;
+}
+
+.auth-reference-page a {
+  color: var(--foreground);
+}
+
+.auth-reference-page .password-strength {
+  gap: var(--auth-space-2);
+}
+
+.auth-reference-page .strength-row {
+  color: var(--muted-foreground);
+}
+
+.auth-reference-page .strength-track {
+  height: 6px;
+  background: var(--muted);
+}
+
+@media (max-width: 520px) {
+  .auth-reference-page {
+    padding: var(--auth-space-4);
+  }
+
+  .auth-reference-page .auth-header,
+  .auth-reference-page .setup-header,
+  .auth-reference-page .auth-card-content {
+    padding-right: var(--auth-space-4);
+    padding-left: var(--auth-space-4);
+  }
+}
+
 .app {
   --bg: var(--background);
   --bg-2: var(--muted);
@@ -4565,8 +4913,9 @@ ol.toaster {
 
 @theme inline {
   --font-heading: var(--font-sans);
-  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system,
-    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-sans:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
