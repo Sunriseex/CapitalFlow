@@ -171,7 +171,9 @@ describe("DashboardView", () => {
     expect(
       screen.queryByText(/active accounts across/),
     ).not.toBeInTheDocument();
-    expect(screen.getAllByText("No positive balances").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("No positive balances").length).toBeGreaterThan(
+      0,
+    );
     expect(screen.getByText("No transactions")).toBeInTheDocument();
   });
 
@@ -184,8 +186,8 @@ describe("DashboardView", () => {
       screen.getByRole("group", { name: "Quick actions" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("group", { name: "Portfolio currency" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("group", { name: "Portfolio currency" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("group", { name: "Cashflow period" }),
     ).toBeInTheDocument();
@@ -214,7 +216,9 @@ describe("DashboardView", () => {
       screen.getByRole("heading", { name: "Goals & limits" }),
     ).toBeInTheDocument();
     expect(screen.getAllByText("Unavailable").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("No subscriptions yet").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("No subscriptions yet").length).toBeGreaterThan(
+      0,
+    );
   });
 
   it("wires dashboard buttons to real actions and navigation", async () => {
@@ -364,6 +368,9 @@ describe("DashboardView", () => {
     renderDashboardView();
 
     await screen.findByRole("button", { name: "USD" });
+    expect(
+      screen.getByRole("group", { name: "Portfolio currency" }),
+    ).toBeInTheDocument();
     expect(mocks.currencyRates).toHaveBeenCalledWith("RUB");
 
     await user.click(screen.getByRole("button", { name: "USD" }));
