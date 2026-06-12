@@ -2258,7 +2258,6 @@ ol.toaster {
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--health-bg, var(--card-bg));
-  backdrop-filter: none;
   box-shadow: var(--shadow);
 }
 

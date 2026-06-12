@@ -50,8 +50,6 @@ export const en = {
     expandSidebar: "Expand sidebar",
     searchTransactions: "Search transactions",
     transactionSearch: "Transaction search",
-    transactionSearchComingSoon:
-      "Full transaction search will arrive in the next migration step.",
     notifications: "Notifications",
     notificationsUnavailable: "Notifications are not available yet",
     commandMenu: "Command menu",
