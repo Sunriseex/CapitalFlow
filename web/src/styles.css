@@ -316,8 +316,8 @@ h2 {
 
 .metric,
 .panel {
-  background: var(--card-bg, var(--surface-strong));
-  border: 1px solid var(--line);
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg, 14px);
   box-shadow: var(--shadow);
 }
@@ -2009,36 +2009,20 @@ ol.toaster {
 }
 
 .app {
-  --bg: #070d14;
-  --bg-2: #0b121c;
-  --panel: #101924;
-  --card-bg: linear-gradient(
-    180deg,
-    rgba(16, 25, 36, 0.96),
-    rgba(11, 18, 28, 0.96)
-  );
-  --modal-bg: linear-gradient(
-    180deg,
-    rgba(16, 25, 36, 0.985),
-    rgba(8, 14, 22, 0.985)
-  );
-  --control-bg: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.075),
-    rgba(255, 255, 255, 0.03)
-  );
-  --control-hover: rgba(121, 168, 216, 0.12);
-  --input-bg: rgba(255, 255, 255, 0.045);
-  --option-bg: #101924;
-  --surface-inset: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.04),
-    rgba(255, 255, 255, 0.018)
-  );
-  --table-head-bg: rgba(121, 168, 216, 0.055);
+  --bg: var(--background);
+  --bg-2: var(--muted);
+  --panel: var(--card);
+  --card-bg: var(--card);
+  --modal-bg: var(--popover);
+  --control-bg: var(--background);
+  --control-hover: var(--accent);
+  --input-bg: var(--background);
+  --option-bg: var(--popover);
+  --surface-inset: var(--muted);
+  --table-head-bg: var(--muted);
   --panel-tint: transparent;
-  --sidebar-surface: rgba(6, 12, 20, 0.76);
-  --row-line: rgba(255, 255, 255, 0.055);
+  --sidebar-surface: var(--card);
+  --row-line: var(--border);
   --good-fg: #a7ebba;
   --good-bg: rgba(130, 214, 158, 0.08);
   --good-line: rgba(130, 214, 158, 0.16);
@@ -2056,57 +2040,36 @@ ol.toaster {
   --green: #82d69e;
   --red: #ef8f91;
   --amber: #eccb79;
-  --shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
-  --radius-xl: 22px;
-  --radius-lg: 18px;
-  --radius-md: 14px;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
   --right: 316px;
   color: var(--text);
   background:
-    radial-gradient(
-      circle at 10% 0%,
-      rgba(99, 184, 173, 0.12),
-      transparent 34%
+    linear-gradient(
+      to bottom,
+      color-mix(in oklch, var(--muted) 52%, transparent),
+      transparent 320px
     ),
-    radial-gradient(
-      circle at 86% 0%,
-      rgba(121, 168, 216, 0.12),
-      transparent 30%
-    ),
-    linear-gradient(180deg, #07101a, var(--bg) 42%, #050a10);
+    var(--background);
 }
 
 :root[data-theme="light"] .app {
-  --bg: #edf4f2;
-  --bg-2: #f7faf9;
-  --panel: rgba(255, 255, 255, 0.82);
-  --card-bg: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.94),
-    rgba(247, 250, 249, 0.9)
-  );
-  --modal-bg: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.98),
-    rgba(240, 246, 244, 0.98)
-  );
-  --control-bg: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.92),
-    rgba(242, 247, 245, 0.86)
-  );
-  --control-hover: rgba(55, 109, 159, 0.1);
-  --input-bg: rgba(255, 255, 255, 0.78);
-  --option-bg: #f8fbfa;
-  --surface-inset: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.68),
-    rgba(240, 246, 244, 0.58)
-  );
-  --table-head-bg: rgba(55, 109, 159, 0.06);
+  --bg: var(--background);
+  --bg-2: var(--muted);
+  --panel: var(--card);
+  --card-bg: var(--card);
+  --modal-bg: var(--popover);
+  --control-bg: var(--background);
+  --control-hover: var(--accent);
+  --input-bg: var(--background);
+  --option-bg: var(--popover);
+  --surface-inset: var(--muted);
+  --table-head-bg: var(--muted);
   --panel-tint: transparent;
-  --sidebar-surface: rgba(255, 255, 255, 0.72);
-  --row-line: rgba(26, 47, 58, 0.08);
+  --sidebar-surface: var(--card);
+  --row-line: var(--border);
   --good-fg: #247a51;
   --good-bg: rgba(40, 122, 78, 0.1);
   --good-line: rgba(40, 122, 78, 0.18);
@@ -2124,20 +2087,15 @@ ol.toaster {
   --green: #287a4e;
   --red: #b94b55;
   --amber: #9a711c;
-  --shadow: 0 18px 50px rgba(24, 38, 45, 0.1);
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.05);
   color: var(--text);
   background:
-    radial-gradient(
-      circle at 10% 0%,
-      rgba(39, 128, 110, 0.13),
-      transparent 34%
+    linear-gradient(
+      to bottom,
+      color-mix(in oklch, var(--muted) 52%, transparent),
+      transparent 320px
     ),
-    radial-gradient(
-      circle at 86% 0%,
-      rgba(55, 109, 159, 0.13),
-      transparent 30%
-    ),
-    linear-gradient(180deg, #fbfdfc, var(--bg) 46%, #e8efed);
+    var(--background);
 }
 
 .app .sidebar {
@@ -2162,11 +2120,15 @@ ol.toaster {
 }
 
 .app .brand-mark {
-  width: 38px;
-  height: 38px;
-  border-radius: 13px;
-  background: var(--surface-inset);
-  box-shadow: var(--shadow);
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: none;
+  font-size: 0.88rem;
+  font-weight: 900;
 }
 
 .brand-copy {
@@ -2178,7 +2140,16 @@ ol.toaster {
 
 .brand-copy strong {
   font-size: 1rem;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
+}
+
+.brand-copy span {
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .brand-meta {
@@ -2186,6 +2157,32 @@ ol.toaster {
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
+}
+
+.sidebar-status-card {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--muted);
+}
+
+.sidebar-status-card > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.sidebar-status-card > div:first-child span {
+  color: var(--muted-foreground);
+  font-size: 0.74rem;
+  font-weight: 760;
+}
+
+.sidebar-status-card > div:first-child strong {
+  color: var(--foreground);
+  font-size: 0.9rem;
 }
 
 .version-pill {
@@ -2547,6 +2544,7 @@ ol.toaster {
 }
 
 .app-shell.is-sidebar-collapsed .brand-copy,
+.app-shell.is-sidebar-collapsed .sidebar-status-card,
 .app-shell.is-sidebar-collapsed .nav-label,
 .app-shell.is-sidebar-collapsed .nav-btn .nav-name span:last-child,
 .app-shell.is-sidebar-collapsed .nav-count {
@@ -2643,9 +2641,11 @@ ol.toaster {
 }
 
 .sidebar-footer {
+  display: grid;
   grid-template-columns: repeat(3, 38px);
   align-items: center;
   justify-content: start;
+  gap: 8px;
 }
 
 .language-flag {
@@ -2738,9 +2738,9 @@ ol.toaster {
 .card {
   min-width: 0;
   padding: 16px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--border);
   border-radius: var(--radius-xl);
-  background: var(--card-bg);
+  background: var(--card);
   box-shadow: var(--shadow);
 }
 
@@ -2840,15 +2840,69 @@ ol.toaster {
   font-weight: 760;
 }
 
-.balance-actions {
+.rail-actions {
   margin-top: 16px;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr;
   gap: 8px;
 }
 
-.balance-actions .btn {
+.rail-actions .btn {
+  width: 100%;
   min-height: 44px;
+  justify-content: center;
+}
+
+.account-summary-row {
+  width: 100%;
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  color: var(--foreground);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.account-summary-row:hover,
+.account-summary-row:focus-visible {
+  border-color: var(--border);
+  background: var(--accent);
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.account-summary-row > div:first-child,
+.account-summary-side {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.account-summary-row strong {
+  overflow: hidden;
+  font-size: 0.9rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-summary-row span {
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-summary-side {
+  flex: 0 0 auto;
+  justify-items: end;
+  max-width: 42%;
 }
 
 .command-backdrop {

@@ -202,21 +202,19 @@ describe("DashboardView", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("heading", { name: "Accounts" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "Create account" }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Recent transactions" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Upcoming" }),
+      screen.getByRole("heading", { name: "Accounts" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Rates" })).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Allocation" }),
+      screen.getByRole("heading", { name: "Goals & limits" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("No review tasks")).toBeInTheDocument();
+    expect(screen.getByText("Unavailable")).toBeInTheDocument();
     expect(screen.getByText("No subscriptions yet")).toBeInTheDocument();
-    expect(screen.getByText("No imported rows to review")).toBeInTheDocument();
   });
 
   it("wires dashboard buttons to real actions and navigation", async () => {
@@ -241,11 +239,11 @@ describe("DashboardView", () => {
     );
     expect(onQuickAction).toHaveBeenCalledWith("import");
 
+    await user.click(screen.getByRole("button", { name: "Create account" }));
+    expect(onQuickAction).toHaveBeenCalledWith("account");
+
     await user.click(screen.getByRole("button", { name: "All transactions" }));
     expect(onNavigate).toHaveBeenCalledWith("transactions");
-
-    await user.click(screen.getByRole("button", { name: "Settings" }));
-    expect(onNavigate).toHaveBeenCalledWith("settings");
   });
 
   it("renders cashflow chart from dashboard cashflow API buckets", async () => {
@@ -376,20 +374,20 @@ describe("DashboardView", () => {
     );
   });
 
-  it("shows a clear empty state when currency rates are unavailable", async () => {
+  it("does not expose currency rate provider errors in the dashboard rail", async () => {
     mocks.currencyRates.mockRejectedValueOnce(
       new Error("Rate provider unavailable"),
     );
 
     renderDashboardView();
 
-    expect(await screen.findAllByText("Rates unavailable")).toHaveLength(2);
+    expect(await screen.findByText("Total capital")).toBeInTheDocument();
     expect(
       screen.queryByText("Rate provider unavailable"),
     ).not.toBeInTheDocument();
   });
 
-  it("shows portfolio rate targets before fallback rates", async () => {
+  it("orders account summaries by converted balance", async () => {
     mocks.dashboardSummary.mockResolvedValueOnce({
       ...summary,
       balances: [
@@ -398,16 +396,18 @@ describe("DashboardView", () => {
         { currency: "USDT", amount: "25.00" },
       ],
       account_balances: [
-        ...summary.account_balances,
+        { ...summary.account_balances[0], balance: "1000" },
         {
           ...summary.account_balances[0],
           account_id: "eur-account",
+          balance: "10",
           currency: "EUR",
           name: "EUR cash",
         },
         {
           ...summary.account_balances[0],
           account_id: "usdt-account",
+          balance: "25",
           currency: "USDT",
           name: "Stable wallet",
         },
@@ -428,20 +428,19 @@ describe("DashboardView", () => {
 
     renderDashboardView();
 
-    const ratesCard = (
-      await screen.findByRole("heading", { name: "Rates" })
+    const accountsCard = (
+      await screen.findByRole("heading", { name: "Accounts" })
     ).closest("article");
-    expect(ratesCard).not.toBeNull();
-    const labels = within(ratesCard as HTMLElement)
-      .getAllByText(/RUB\//)
+    expect(accountsCard).not.toBeNull();
+    const accountButtons = within(accountsCard as HTMLElement)
+      .getAllByRole("button")
       .map((node) => node.textContent);
-    expect(labels).toEqual(["RUB/EUR", "RUB/USDT", "RUB/USD", "RUB/BTC"]);
-    expect(
-      within(ratesCard as HTMLElement).getByText("Fri, 05 Jun 2026 00:02:31"),
-    ).toBeInTheDocument();
+    expect(accountButtons[0]).toContain("Stable wallet");
+    expect(accountButtons[1]).toContain("Card");
+    expect(accountButtons[2]).toContain("EUR cash");
   });
 
-  it("opens account details from the keyboard-accessible allocation action", async () => {
+  it("opens account details from the keyboard-accessible account summary action", async () => {
     const user = userEvent.setup();
     const onOpenAccount = vi.fn<(id: string) => void>();
     mocks.dashboardSummary.mockResolvedValueOnce({
