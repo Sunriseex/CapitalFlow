@@ -552,6 +552,24 @@ nav button:focus-visible {
   gap: 7px;
 }
 
+.field-control {
+  display: grid;
+  gap: 7px;
+}
+
+.field-error {
+  color: var(--destructive);
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.input[aria-invalid="true"] {
+  border-color: var(--destructive);
+  box-shadow: 0 0 0 3px
+    color-mix(in oklch, var(--destructive) 18%, transparent);
+}
+
 .checkbox-field {
   display: flex;
   align-items: center;
@@ -1270,6 +1288,9 @@ th {
 .account-type-column {
   display: grid;
   gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 
 .account-type-picker {
@@ -1289,6 +1310,7 @@ th {
 }
 
 .account-type-card {
+  position: relative;
   min-height: 74px;
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr);
@@ -1303,13 +1325,13 @@ th {
   text-align: left;
 }
 
-.account-type-card:disabled {
+.account-type-card.is-disabled {
   cursor: not-allowed;
   opacity: 0.58;
 }
 
-.account-type-card:hover,
-.account-type-card:focus-visible {
+.account-type-card:not(.is-disabled):hover,
+.account-type-card:not(.is-disabled):focus-within {
   background: var(--control-hover);
   outline: 2px solid var(--ring);
   outline-offset: 2px;
@@ -1318,6 +1340,16 @@ th {
 .account-type-card.is-selected {
   border-color: var(--primary);
   background: color-mix(in oklch, var(--primary) 7%, var(--card));
+}
+
+.account-type-radio {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
 }
 
 .account-type-icon {

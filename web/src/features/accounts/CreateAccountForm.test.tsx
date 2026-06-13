@@ -36,7 +36,6 @@ describe("CreateAccountForm", () => {
         <QueryClientProvider client={new QueryClient()}>
           <CreateAccountForm onDone={onDone} />
         </QueryClientProvider>
-        ,
       </I18nProvider>,
     );
 
@@ -72,14 +71,10 @@ describe("CreateAccountForm", () => {
         <QueryClientProvider client={new QueryClient()}>
           <CreateAccountForm onDone={vi.fn()} />
         </QueryClientProvider>
-        ,
       </I18nProvider>,
     );
 
-    expect(screen.getByRole("radio", { name: /Card/ })).toHaveAttribute(
-      "aria-checked",
-      "true",
-    );
+    expect(screen.getByRole("radio", { name: /Card/ })).toBeChecked();
     expect(screen.getByLabelText("Last 4 digits")).toBeDisabled();
     expect(screen.queryByLabelText("Annual rate %")).not.toBeInTheDocument();
 
@@ -96,6 +91,25 @@ describe("CreateAccountForm", () => {
     expect(screen.getByLabelText("Annual rate %")).toHaveValue("5");
   });
 
+  it("supports native radio keyboard behavior for account type cards", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <I18nProvider>
+        <QueryClientProvider client={new QueryClient()}>
+          <CreateAccountForm onDone={vi.fn()} />
+        </QueryClientProvider>
+      </I18nProvider>,
+    );
+
+    await user.tab();
+    expect(screen.getByRole("radio", { name: /Card/ })).toHaveFocus();
+
+    await user.keyboard("{ArrowDown}");
+    expect(screen.getByRole("radio", { name: /Cash/ })).toBeChecked();
+    expect(screen.queryByLabelText("Bank")).not.toBeInTheDocument();
+  });
+
   it("creates an interest rule only for savings and deposits", async () => {
     const user = userEvent.setup();
     const onDone = vi.fn();
@@ -106,7 +120,6 @@ describe("CreateAccountForm", () => {
         <QueryClientProvider client={new QueryClient()}>
           <CreateAccountForm onDone={onDone} />
         </QueryClientProvider>
-        ,
       </I18nProvider>,
     );
 
@@ -135,7 +148,6 @@ describe("CreateAccountForm", () => {
         <QueryClientProvider client={new QueryClient()}>
           <CreateAccountForm onDone={vi.fn()} />
         </QueryClientProvider>
-        ,
       </I18nProvider>,
     );
 
@@ -156,7 +168,6 @@ describe("CreateAccountForm", () => {
         <QueryClientProvider client={new QueryClient()}>
           <CreateAccountForm onDone={onDone} />
         </QueryClientProvider>
-        ,
       </I18nProvider>,
     );
 
@@ -187,7 +198,6 @@ describe("CreateAccountForm", () => {
         <QueryClientProvider client={new QueryClient()}>
           <CreateAccountForm onDone={vi.fn()} />
         </QueryClientProvider>
-        ,
       </I18nProvider>,
     );
 
@@ -198,10 +208,37 @@ describe("CreateAccountForm", () => {
     await screen.findByText(
       "Amount must be a number with up to 2 decimal places",
     );
+    expect(screen.getByLabelText("Current balance")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
     await waitFor(() => {
       expect(mocks.createAccount).not.toHaveBeenCalled();
       expect(mocks.createTransaction).not.toHaveBeenCalled();
       expect(mocks.createInterestRule).not.toHaveBeenCalled();
     });
+  });
+
+  it("links interest validation errors to their fields", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <I18nProvider>
+        <QueryClientProvider client={new QueryClient()}>
+          <CreateAccountForm onDone={vi.fn()} />
+        </QueryClientProvider>
+      </I18nProvider>,
+    );
+
+    await user.click(screen.getByRole("radio", { name: /Savings/ }));
+    await user.type(screen.getByLabelText("Annual rate %"), "-1");
+    await user.click(screen.getByRole("button", { name: "Create" }));
+
+    const rate = screen.getByLabelText("Annual rate %");
+    expect(rate).toHaveAttribute("aria-invalid", "true");
+    expect(rate).toHaveAccessibleDescription(
+      "Annual rate must be a non-negative number",
+    );
+    expect(mocks.createAccount).not.toHaveBeenCalled();
   });
 });

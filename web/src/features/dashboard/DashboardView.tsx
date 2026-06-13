@@ -373,32 +373,38 @@ export function DashboardView({
                 </div>
               </div>
 
-              <div className="chart-summary-strip">
-                <span>
-                  <strong>{t.dashboard.period}</strong>
-                  {t.dashboard.periods[cashflowPeriod]}
-                </span>
-                <span>
-                  <strong>{t.dashboard.income}</strong>
-                  {formatChartMoney(
-                    chartTotals.income,
-                    selectedCurrency,
-                    locale,
-                  )}
-                </span>
-                <span>
-                  <strong>{t.dashboard.expense}</strong>
-                  {formatChartMoney(
-                    chartTotals.expense,
-                    selectedCurrency,
-                    locale,
-                  )}
-                </span>
-                <span>
-                  <strong>{t.dashboard.net}</strong>
-                  {formatChartMoney(chartTotals.net, selectedCurrency, locale)}
-                </span>
-              </div>
+              {!cashflow.error && !cashflow.isLoading && cashflowChart.length ? (
+                <div className="chart-summary-strip">
+                  <span>
+                    <strong>{t.dashboard.period}</strong>
+                    {t.dashboard.periods[cashflowPeriod]}
+                  </span>
+                  <span>
+                    <strong>{t.dashboard.income}</strong>
+                    {formatChartMoney(
+                      chartTotals.income,
+                      selectedCurrency,
+                      locale,
+                    )}
+                  </span>
+                  <span>
+                    <strong>{t.dashboard.expense}</strong>
+                    {formatChartMoney(
+                      chartTotals.expense,
+                      selectedCurrency,
+                      locale,
+                    )}
+                  </span>
+                  <span>
+                    <strong>{t.dashboard.net}</strong>
+                    {formatChartMoney(
+                      chartTotals.net,
+                      selectedCurrency,
+                      locale,
+                    )}
+                  </span>
+                </div>
+              ) : null}
 
               {cashflow.error ? (
                 <div className="empty-state">
@@ -417,6 +423,7 @@ export function DashboardView({
               {!cashflow.error && cashflowChart.length ? (
                 <div
                   className="chart-wrap"
+                  role="img"
                   aria-label={t.dashboard.incomeAndExpenseChart}
                 >
                   <CashflowChart
@@ -424,46 +431,44 @@ export function DashboardView({
                     currency={selectedCurrency}
                     summary={chartSummary}
                   />
-                  <table className="sr-only-table">
-                    <caption>{t.dashboard.cashflowData}</caption>
-                    <thead>
-                      <tr>
-                        <th scope="col">{t.dashboard.period}</th>
-                        <th scope="col">{t.dashboard.income}</th>
-                        <th scope="col">{t.dashboard.expense}</th>
-                        <th scope="col">{t.dashboard.net}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {cashflowChart.map((bucket) => (
-                        <tr key={bucket.period}>
-                          <td>{bucket.period}</td>
-                          <td>
-                            {formatChartMoney(
-                              bucket.income,
-                              selectedCurrency,
-                              locale,
-                            )}
-                          </td>
-                          <td>
-                            {formatChartMoney(
-                              bucket.expense,
-                              selectedCurrency,
-                              locale,
-                            )}
-                          </td>
-                          <td>
-                            {formatChartMoney(
-                              bucket.net,
-                              selectedCurrency,
-                              locale,
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
                 </div>
+              ) : null}
+              {!cashflow.error && cashflowChart.length ? (
+                <table className="sr-only-table">
+                  <caption>{t.dashboard.cashflowData}</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">{t.dashboard.period}</th>
+                      <th scope="col">{t.dashboard.income}</th>
+                      <th scope="col">{t.dashboard.expense}</th>
+                      <th scope="col">{t.dashboard.net}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cashflowChart.map((bucket) => (
+                      <tr key={bucket.period}>
+                        <td>{bucket.period}</td>
+                        <td>
+                          {formatChartMoney(
+                            bucket.income,
+                            selectedCurrency,
+                            locale,
+                          )}
+                        </td>
+                        <td>
+                          {formatChartMoney(
+                            bucket.expense,
+                            selectedCurrency,
+                            locale,
+                          )}
+                        </td>
+                        <td>
+                          {formatChartMoney(bucket.net, selectedCurrency, locale)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               ) : null}
 
               <div className="legend">
