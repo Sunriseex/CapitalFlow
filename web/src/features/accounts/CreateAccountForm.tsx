@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CreditCard, Landmark, PiggyBank, Timer, Wallet } from "lucide-react";
 import { api } from "../../api/client";
@@ -26,12 +27,24 @@ const createAccountTypes: Array<{
   { key: "term_deposit", type: "term_deposit" },
 ];
 
+type FieldErrors = Partial<
+  Record<"initial" | "rate" | "promoRate" | "promoEndDate", string>
+>;
+
+type ValidatedCreateAccount = {
+  initial: string;
+  rate: number;
+  promoRate: number;
+};
+
 export function CreateAccountForm({ onDone }: { onDone: () => void }) {
   const { t, locale } = useI18n();
   const errorMessages = apiErrorMessages(t);
+  const errorId = useId();
 
   const queryClient = useQueryClient();
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [form, setForm] = useState({
     name: "",
     bank: "",
@@ -45,40 +58,11 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
     capitalization: "none",
   });
   const mutation = useMutation({
-    mutationFn: async () => {
-      const initial = parseMoneyToMinorResult(form.initial, {
-        currency: form.currency,
-      });
-      if (!initial.ok) {
-        throw new Error(initial.error);
-      }
-
-      const interestEnabled = isInterestBearing(form.type);
-      const rate = interestEnabled ? Number(form.rate.replace(",", ".")) : 0;
-      const promoRate = interestEnabled
-        ? Number(form.promoRate.replace(",", "."))
-        : 0;
-
-      if (Number.isNaN(rate) || rate < 0) {
-        throw new Error(t.accounts.annualRateInvalid);
-      }
-
-      if (Number.isNaN(promoRate) || promoRate < 0) {
-        throw new Error(t.accounts.promoRateInvalid);
-      }
-
-      if (rate <= 0 && (promoRate > 0 || form.promoEndDate)) {
-        throw new Error(t.accounts.annualRateRequiredForPromo);
-      }
-
-      if (
-        rate > 0 &&
-        ((promoRate > 0 && !form.promoEndDate) ||
-          (promoRate <= 0 && form.promoEndDate))
-      ) {
-        throw new Error(t.accounts.promoFieldsRequiredTogether);
-      }
-
+    mutationFn: async ({
+      initial,
+      promoRate,
+      rate,
+    }: ValidatedCreateAccount) => {
       const account = await api.createAccount({
         name: form.name,
         bank: form.bank,
@@ -87,11 +71,11 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
         opened_at: form.opened_at,
       });
 
-      if (isPositiveMoney(initial.value)) {
+      if (isPositiveMoney(initial)) {
         await api.createTransaction({
           account_id: account.id,
           type: "initial_balance",
-          amount: initial.value,
+          amount: initial,
           description: t.accounts.initialBalance,
           occurred_at: form.opened_at,
         });
@@ -154,37 +138,109 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
         form.promoEndDate ||
         form.capitalization !== "none",
     );
+  const validateForm = () => {
+    const nextErrors: FieldErrors = {};
+    const initial = parseMoneyToMinorResult(form.initial, {
+      currency: form.currency,
+    });
+    if (!initial.ok) {
+      nextErrors.initial = initial.error;
+    }
+
+    const rate = interestEnabled ? Number(form.rate.replace(",", ".")) : 0;
+    const promoRate = interestEnabled
+      ? Number(form.promoRate.replace(",", "."))
+      : 0;
+
+    if (Number.isNaN(rate) || rate < 0) {
+      nextErrors.rate = t.accounts.annualRateInvalid;
+    }
+
+    if (Number.isNaN(promoRate) || promoRate < 0) {
+      nextErrors.promoRate = t.accounts.promoRateInvalid;
+    }
+
+    if (rate <= 0 && (promoRate > 0 || form.promoEndDate)) {
+      nextErrors.rate = t.accounts.annualRateRequiredForPromo;
+    }
+
+    if (rate > 0 && promoRate > 0 && !form.promoEndDate) {
+      nextErrors.promoEndDate = t.accounts.promoFieldsRequiredTogether;
+    }
+
+    if (rate > 0 && promoRate <= 0 && form.promoEndDate) {
+      nextErrors.promoRate = t.accounts.promoFieldsRequiredTogether;
+    }
+
+    return {
+      errors: nextErrors,
+      values: {
+        initial: initial.ok ? initial.value : "0",
+        promoRate,
+        rate,
+      },
+    };
+  };
+  const validateAndStore = () => {
+    const validation = validateForm();
+    setFieldErrors(validation.errors);
+    return validation;
+  };
+  const clearFieldError = (field: keyof FieldErrors) => {
+    setFieldErrors((errors) => {
+      const nextErrors = { ...errors };
+      delete nextErrors[field];
+      return nextErrors;
+    });
+  };
+  const getFieldErrorId = (field: keyof FieldErrors) =>
+    `${errorId}-${field}-error`;
+  const submitForm = () => {
+    const validation = validateAndStore();
+    if (Object.keys(validation.errors).length > 0) {
+      setError("");
+      return;
+    }
+    mutation.mutate(validation.values);
+  };
 
   return (
     <FormShell
       title={t.accounts.createAccount}
       error={error}
-      onSubmit={() => mutation.mutate()}
+      onSubmit={submitForm}
     >
       <div className="create-account-layout">
-        <aside
-          className="account-type-column"
-          role="radiogroup"
-          aria-label={t.accounts.type}
-        >
+        <fieldset className="account-type-column">
+          <legend className="sr-only">{t.accounts.type}</legend>
           {createAccountTypes.map((option) => (
-            <button
+            <label
               key={option.key}
               className={
-                form.type === option.type
-                  ? "account-type-card is-selected"
-                  : "account-type-card"
+                [
+                  "account-type-card",
+                  form.type === option.type ? "is-selected" : "",
+                  option.disabled ? "is-disabled" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")
               }
-              disabled={option.disabled}
-              type="button"
-              role="radio"
-              aria-checked={form.type === option.type}
-              onClick={() => {
-                if (option.type) {
-                  setForm({ ...form, type: option.type });
-                }
-              }}
             >
+              <input
+                className="account-type-radio"
+                type="radio"
+                name="create-account-type"
+                value={option.type ?? option.key}
+                checked={form.type === option.type}
+                disabled={option.disabled}
+                onChange={() => {
+                  if (option.type) {
+                    setForm({ ...form, type: option.type });
+                    setFieldErrors({});
+                    setError("");
+                  }
+                }}
+              />
               <span className="account-type-icon" aria-hidden="true">
                 {accountTypeIcon(option.key)}
               </span>
@@ -197,9 +253,9 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
                     : ""}
                 </small>
               </span>
-            </button>
+            </label>
           ))}
-        </aside>
+        </fieldset>
 
         <div className="account-form-column">
           <div className="account-type-help">
@@ -260,15 +316,27 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
               />
             </Field>
 
-            <Field label={isDeposit ? t.accounts.openingAmount : t.accounts.currentBalance}>
+            <ValidatedField
+              error={fieldErrors.initial}
+              errorId={getFieldErrorId("initial")}
+              label={
+                isDeposit ? t.accounts.openingAmount : t.accounts.currentBalance
+              }
+            >
               <Input
+                aria-describedby={
+                  fieldErrors.initial ? getFieldErrorId("initial") : undefined
+                }
+                aria-invalid={Boolean(fieldErrors.initial)}
                 inputMode="decimal"
                 value={form.initial}
-                onChange={(event) =>
-                  setForm({ ...form, initial: event.target.value })
-                }
+                onBlur={validateAndStore}
+                onChange={(event) => {
+                  clearFieldError("initial");
+                  setForm({ ...form, initial: event.target.value });
+                }}
               />
-            </Field>
+            </ValidatedField>
 
             {isCard ? (
               <>
@@ -304,35 +372,69 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
           {interestEnabled ? (
             <div className="interest-fieldset">
               <h3>{isDeposit ? t.accounts.depositConditions : t.accounts.interestSettings}</h3>
-              <Field label={t.accounts.annualRate}>
+              <ValidatedField
+                error={fieldErrors.rate}
+                errorId={getFieldErrorId("rate")}
+                label={t.accounts.annualRate}
+              >
                 <Input
+                  aria-describedby={
+                    fieldErrors.rate ? getFieldErrorId("rate") : undefined
+                  }
+                  aria-invalid={Boolean(fieldErrors.rate)}
                   inputMode="decimal"
                   value={form.rate}
-                  onChange={(event) =>
-                    setForm({ ...form, rate: event.target.value })
-                  }
+                  onBlur={validateAndStore}
+                  onChange={(event) => {
+                    clearFieldError("rate");
+                    setForm({ ...form, rate: event.target.value });
+                  }}
                 />
-              </Field>
+              </ValidatedField>
 
-              <Field label={t.accounts.promoRate}>
+              <ValidatedField
+                error={fieldErrors.promoRate}
+                errorId={getFieldErrorId("promoRate")}
+                label={t.accounts.promoRate}
+              >
                 <Input
+                  aria-describedby={
+                    fieldErrors.promoRate
+                      ? getFieldErrorId("promoRate")
+                      : undefined
+                  }
+                  aria-invalid={Boolean(fieldErrors.promoRate)}
                   inputMode="decimal"
                   value={form.promoRate}
-                  onChange={(event) =>
-                    setForm({ ...form, promoRate: event.target.value })
-                  }
+                  onBlur={validateAndStore}
+                  onChange={(event) => {
+                    clearFieldError("promoRate");
+                    setForm({ ...form, promoRate: event.target.value });
+                  }}
                 />
-              </Field>
+              </ValidatedField>
 
-              <Field label={t.accounts.promoEnd}>
+              <ValidatedField
+                error={fieldErrors.promoEndDate}
+                errorId={getFieldErrorId("promoEndDate")}
+                label={t.accounts.promoEnd}
+              >
                 <Input
+                  aria-describedby={
+                    fieldErrors.promoEndDate
+                      ? getFieldErrorId("promoEndDate")
+                      : undefined
+                  }
+                  aria-invalid={Boolean(fieldErrors.promoEndDate)}
                   type="date"
                   value={form.promoEndDate}
-                  onChange={(event) =>
-                    setForm({ ...form, promoEndDate: event.target.value })
-                  }
+                  onBlur={validateAndStore}
+                  onChange={(event) => {
+                    clearFieldError("promoEndDate");
+                    setForm({ ...form, promoEndDate: event.target.value });
+                  }}
                 />
-              </Field>
+              </ValidatedField>
 
               <Field label={t.accounts.capitalization}>
                 <Select
@@ -389,6 +491,32 @@ function accountTypeIcon(type: AccountType | "checking") {
   if (type === "savings") return <PiggyBank />;
   if (type === "term_deposit") return <Timer />;
   return <Landmark />;
+}
+
+function ValidatedField({
+  children,
+  error,
+  errorId,
+  label,
+}: {
+  children: ReactNode;
+  error?: string;
+  errorId: string;
+  label: string;
+}) {
+  return (
+    <div className="field">
+      <label className="field-control">
+        <span>{label}</span>
+        {children}
+      </label>
+      {error ? (
+        <span className="field-error" id={errorId}>
+          {error}
+        </span>
+      ) : null}
+    </div>
+  );
 }
 
 function PlaceholderField({ label }: { label: string }) {
