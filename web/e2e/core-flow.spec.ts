@@ -224,6 +224,15 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Create transaction" })).toBeHidden();
 
+  await clickNav(page, "Transactions");
+  await page.getByRole("row", { name: /Open transaction details: Groceries/ }).click();
+  await expect(page.getByRole("dialog", { name: "Transaction details" })).toHaveClass(
+    /dialog-panel-narrow/,
+  );
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Transaction details" })).toBeHidden();
+  await clickNav(page, "Overview");
+
   await page.getByRole("button", { name: "Create transfer" }).first().click();
   await page.getByLabel("Amount").fill("100");
   await page.getByLabel("Description").fill("Move to savings");

@@ -164,10 +164,12 @@ export function Dialog({
   title,
   onClose,
   children,
+  variant = "default",
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  variant?: "default" | "narrow" | "wide";
 }) {
   const { t } = useI18n();
 
@@ -246,7 +248,13 @@ export function Dialog({
     >
       <div
         ref={dialogRef}
-        className="modal dialog-panel"
+        className={[
+          "modal dialog-panel",
+          variant === "narrow" ? "dialog-panel-narrow" : "",
+          variant === "wide" ? "dialog-panel-wide" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleID}
