@@ -148,7 +148,13 @@ export function Nav({
   );
 }
 
-export function SidebarFooter({ onLogout }: { onLogout: () => void }) {
+export function SidebarFooter({
+  collapsed = false,
+  onLogout,
+}: {
+  collapsed?: boolean;
+  onLogout: () => void;
+}) {
   const { theme = "light", setTheme } = useTheme();
   const { locale, setLocale, t } = useI18n();
   const errorMessages = apiErrorMessages(t);
@@ -158,69 +164,77 @@ export function SidebarFooter({ onLogout }: { onLogout: () => void }) {
 
   return (
     <div className="sidebar-footer">
-      <button
-        className="sidebar-icon-button"
-        type="button"
-        aria-label={
-          activeTheme === "dark"
-            ? t.shell.switchToLightTheme
-            : t.shell.switchToDarkTheme
-        }
-        aria-pressed={activeTheme === "dark"}
-        onClick={() => {
-          const next = activeTheme === "dark" ? "light" : "dark";
-          setTheme(next);
-          toaster.create({
-            type: "info",
-            title:
-              next === "dark"
-                ? t.shell.darkThemeEnabled
-                : t.shell.lightThemeEnabled,
-          });
-        }}
-      >
-        {activeTheme === "dark" ? (
-          <Moon aria-hidden="true" />
-        ) : (
-          <Sun aria-hidden="true" />
-        )}
-        <span className="sr-only">
-          {activeTheme === "dark" ? t.shell.darkMode : t.shell.lightMode}
-        </span>
-      </button>
-
-      <Popover>
-        <PopoverTrigger asChild>
+      {!collapsed ? (
+        <>
           <button
             className="sidebar-icon-button"
             type="button"
-            aria-label={t.shell.chooseLanguage}
-            title={t.shell.chooseLanguage}
+            aria-label={
+              activeTheme === "dark"
+                ? t.shell.switchToLightTheme
+                : t.shell.switchToDarkTheme
+            }
+            aria-pressed={activeTheme === "dark"}
+            onClick={() => {
+              const next = activeTheme === "dark" ? "light" : "dark";
+              setTheme(next);
+              toaster.create({
+                type: "info",
+                title:
+                  next === "dark"
+                    ? t.shell.darkThemeEnabled
+                    : t.shell.lightThemeEnabled,
+              });
+            }}
           >
-            <span className="language-trigger-flag" aria-hidden="true">
-              {currentLocaleFlag}
+            {activeTheme === "dark" ? (
+              <Moon aria-hidden="true" />
+            ) : (
+              <Sun aria-hidden="true" />
+            )}
+            <span className="sr-only">
+              {activeTheme === "dark" ? t.shell.darkMode : t.shell.lightMode}
             </span>
-            <span className="sr-only">{t.shell.language}</span>
           </button>
-        </PopoverTrigger>
-        <PopoverContent className="language-popover" align="start" role="menu">
-          <p className="language-popover-title">{t.shell.language}</p>
-          <LanguageChoice
-            locale="ru"
-            active={locale === "ru"}
-            flag="🇷🇺"
-            label="Русский"
-            onSelect={setLocale}
-          />
-          <LanguageChoice
-            locale="en"
-            active={locale === "en"}
-            flag="🇬🇧"
-            label="English"
-            onSelect={setLocale}
-          />
-        </PopoverContent>
-      </Popover>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                className="sidebar-icon-button"
+                type="button"
+                aria-label={t.shell.chooseLanguage}
+                title={t.shell.chooseLanguage}
+              >
+                <span className="language-trigger-flag" aria-hidden="true">
+                  {currentLocaleFlag}
+                </span>
+                <span className="sr-only">{t.shell.language}</span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="language-popover"
+              align="start"
+              role="menu"
+            >
+              <p className="language-popover-title">{t.shell.language}</p>
+              <LanguageChoice
+                locale="ru"
+                active={locale === "ru"}
+                flag="🇷🇺"
+                label="Русский"
+                onSelect={setLocale}
+              />
+              <LanguageChoice
+                locale="en"
+                active={locale === "en"}
+                flag="🇬🇧"
+                label="English"
+                onSelect={setLocale}
+              />
+            </PopoverContent>
+          </Popover>
+        </>
+      ) : null}
 
       <button
         className="logout-button"

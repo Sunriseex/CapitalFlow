@@ -308,7 +308,7 @@ export function App() {
           accountCount={accounts.data?.length ?? 0}
           navigateTo={navigateTo}
         />
-        <SidebarFooter onLogout={handleLogout} />
+        <SidebarFooter collapsed={sidebarCollapsed} onLogout={handleLogout} />
       </aside>
 
       <main>
@@ -507,6 +507,7 @@ export function App() {
         <Dialog
           title={quickActionTitle(quickAction, t)}
           onClose={() => setQuickAction(null)}
+          variant={quickAction === "account" ? "wide" : "default"}
         >
           <Suspense fallback={<Empty>{t.common.loadingView}</Empty>}>
             {quickAction === "account" ? (

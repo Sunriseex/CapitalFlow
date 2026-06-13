@@ -170,33 +170,38 @@ export function DashboardView({
     selectedCurrency,
     rateTable,
   );
+  const chartTotals = useMemo(
+    () =>
+      cashflowChart.reduce(
+        (totals, bucket) => ({
+          income: totals.income + bucket.income,
+          expense: totals.expense + bucket.expense,
+          net: totals.net + bucket.net,
+        }),
+        { income: 0, expense: 0, net: 0 },
+      ),
+    [cashflowChart],
+  );
   const chartSummary = useMemo(() => {
     if (!cashflowChart.length) {
       return t.dashboard.cashflowChartHasNoPeriods;
     }
 
-    const totalIncome = cashflowChart.reduce(
-      (sum, bucket) => sum + bucket.income,
-      0,
-    );
-    const totalExpense = cashflowChart.reduce(
-      (sum, bucket) => sum + bucket.expense,
-      0,
-    );
-    const totalNet = cashflowChart.reduce((sum, bucket) => sum + bucket.net, 0);
-
     return t.dashboard.cashflowChartSummary
       .replace("{count}", String(cashflowChart.length))
       .replace(
         "{income}",
-        formatChartMoney(totalIncome, selectedCurrency, locale),
+        formatChartMoney(chartTotals.income, selectedCurrency, locale),
       )
       .replace(
         "{expenses}",
-        formatChartMoney(totalExpense, selectedCurrency, locale),
+        formatChartMoney(chartTotals.expense, selectedCurrency, locale),
       )
-      .replace("{net}", formatChartMoney(totalNet, selectedCurrency, locale));
-  }, [cashflowChart, selectedCurrency, t, locale]);
+      .replace(
+        "{net}",
+        formatChartMoney(chartTotals.net, selectedCurrency, locale),
+      );
+  }, [cashflowChart.length, chartTotals, selectedCurrency, t, locale]);
 
   if (summary.isLoading) {
     return <Empty>{t.dashboard.loadingDashboard}</Empty>;
@@ -366,6 +371,33 @@ export function DashboardView({
                     ))}
                   </div>
                 </div>
+              </div>
+
+              <div className="chart-summary-strip">
+                <span>
+                  <strong>{t.dashboard.period}</strong>
+                  {t.dashboard.periods[cashflowPeriod]}
+                </span>
+                <span>
+                  <strong>{t.dashboard.income}</strong>
+                  {formatChartMoney(
+                    chartTotals.income,
+                    selectedCurrency,
+                    locale,
+                  )}
+                </span>
+                <span>
+                  <strong>{t.dashboard.expense}</strong>
+                  {formatChartMoney(
+                    chartTotals.expense,
+                    selectedCurrency,
+                    locale,
+                  )}
+                </span>
+                <span>
+                  <strong>{t.dashboard.net}</strong>
+                  {formatChartMoney(chartTotals.net, selectedCurrency, locale)}
+                </span>
               </div>
 
               {cashflow.error ? (
