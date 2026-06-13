@@ -1174,10 +1174,13 @@ th {
 
 .modal {
   width: min(820px, calc(100vw - 32px));
+  max-width: min(820px, calc(100vw - 32px));
   max-height: min(820px, 82vh);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
+  gap: 0;
+  padding: 0;
   background: var(--popover);
   color: var(--popover-foreground);
   border-radius: var(--radius-xl);
@@ -1188,10 +1191,12 @@ th {
 
 .modal.dialog-panel-narrow {
   width: min(620px, calc(100vw - 32px));
+  max-width: min(620px, calc(100vw - 32px));
 }
 
 .modal.dialog-panel-wide {
   width: min(980px, calc(100vw - 32px));
+  max-width: min(980px, calc(100vw - 32px));
 }
 
 .modal .field {
