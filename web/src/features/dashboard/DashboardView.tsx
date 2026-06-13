@@ -58,6 +58,7 @@ export function DashboardView({
   });
   const [selectedCurrency, setSelectedCurrency] = useState(primaryCurrency);
   const [cashflowPeriod, setCashflowPeriod] = useState<CashflowPeriod>("month");
+  const [chartMotionEnabled, setChartMotionEnabled] = useState(false);
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
   const data = summary.data;
@@ -67,14 +68,16 @@ export function DashboardView({
     [data?.account_balances],
   );
   const currencyTotals = useMemo(() => data?.balances ?? [], [data?.balances]);
-  const seenCurrencies = new Set<string>([selectedCurrency]);
-  for (const amount of currencyTotals) {
-    seenCurrencies.add(amount.currency);
-  }
-  for (const account of balances) {
-    seenCurrencies.add(account.currency);
-  }
-  const currencies = [...seenCurrencies].sort();
+  const currencies = useMemo(() => {
+    const seenCurrencies = new Set<string>([selectedCurrency]);
+    for (const amount of currencyTotals) {
+      seenCurrencies.add(amount.currency);
+    }
+    for (const account of balances) {
+      seenCurrencies.add(account.currency);
+    }
+    return [...seenCurrencies].sort();
+  }, [balances, currencyTotals, selectedCurrency]);
   const rates = useQuery({
     queryKey: ["currency-rates", selectedCurrency],
     queryFn: () => api.currencyRates(selectedCurrency),
@@ -202,6 +205,16 @@ export function DashboardView({
         formatChartMoney(chartTotals.net, selectedCurrency, locale),
       );
   }, [cashflowChart.length, chartTotals, selectedCurrency, t, locale]);
+  const chartLabels = useMemo(
+    () => ({
+      income: t.dashboard.income,
+      expense: t.dashboard.expense,
+      net: t.dashboard.net,
+      transactions: t.nav.transactions,
+    }),
+    [t],
+  );
+  const chartMotionKey = `${cashflowPeriod}:${selectedCurrency}`;
 
   if (summary.isLoading) {
     return <Empty>{t.dashboard.loadingDashboard}</Empty>;
@@ -342,7 +355,10 @@ export function DashboardView({
                           }
                           type="button"
                           aria-pressed={currency === selectedCurrency}
-                          onClick={() => setSelectedCurrency(currency)}
+                          onClick={() => {
+                            setChartMotionEnabled(true);
+                            setSelectedCurrency(currency);
+                          }}
                         >
                           {currency}
                         </button>
@@ -364,7 +380,10 @@ export function DashboardView({
                         }
                         type="button"
                         aria-pressed={period.value === cashflowPeriod}
-                        onClick={() => setCashflowPeriod(period.value)}
+                        onClick={() => {
+                          setChartMotionEnabled(true);
+                          setCashflowPeriod(period.value);
+                        }}
                       >
                         {t.dashboard.periods[period.value]}{" "}
                       </button>
@@ -372,39 +391,6 @@ export function DashboardView({
                   </div>
                 </div>
               </div>
-
-              {!cashflow.error && !cashflow.isLoading && cashflowChart.length ? (
-                <div className="chart-summary-strip">
-                  <span>
-                    <strong>{t.dashboard.period}</strong>
-                    {t.dashboard.periods[cashflowPeriod]}
-                  </span>
-                  <span>
-                    <strong>{t.dashboard.income}</strong>
-                    {formatChartMoney(
-                      chartTotals.income,
-                      selectedCurrency,
-                      locale,
-                    )}
-                  </span>
-                  <span>
-                    <strong>{t.dashboard.expense}</strong>
-                    {formatChartMoney(
-                      chartTotals.expense,
-                      selectedCurrency,
-                      locale,
-                    )}
-                  </span>
-                  <span>
-                    <strong>{t.dashboard.net}</strong>
-                    {formatChartMoney(
-                      chartTotals.net,
-                      selectedCurrency,
-                      locale,
-                    )}
-                  </span>
-                </div>
-              ) : null}
 
               {cashflow.error ? (
                 <div className="empty-state">
@@ -422,53 +408,100 @@ export function DashboardView({
               ) : null}
               {!cashflow.error && cashflowChart.length ? (
                 <div
-                  className="chart-wrap"
-                  role="img"
-                  aria-label={t.dashboard.incomeAndExpenseChart}
+                  key={chartMotionKey}
+                  className={
+                    chartMotionEnabled
+                      ? "chart-motion-frame is-animated"
+                      : "chart-motion-frame"
+                  }
                 >
-                  <CashflowChart
-                    data={cashflowChart}
-                    currency={selectedCurrency}
-                    summary={chartSummary}
-                  />
-                </div>
-              ) : null}
-              {!cashflow.error && cashflowChart.length ? (
-                <table className="sr-only-table">
-                  <caption>{t.dashboard.cashflowData}</caption>
-                  <thead>
-                    <tr>
-                      <th scope="col">{t.dashboard.period}</th>
-                      <th scope="col">{t.dashboard.income}</th>
-                      <th scope="col">{t.dashboard.expense}</th>
-                      <th scope="col">{t.dashboard.net}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cashflowChart.map((bucket) => (
-                      <tr key={bucket.period}>
-                        <td>{bucket.period}</td>
-                        <td>
-                          {formatChartMoney(
-                            bucket.income,
-                            selectedCurrency,
-                            locale,
-                          )}
-                        </td>
-                        <td>
-                          {formatChartMoney(
-                            bucket.expense,
-                            selectedCurrency,
-                            locale,
-                          )}
-                        </td>
-                        <td>
-                          {formatChartMoney(bucket.net, selectedCurrency, locale)}
-                        </td>
+                  {!cashflow.isLoading ? (
+                    <div className="chart-summary-strip">
+                      <span>
+                        <strong>{t.dashboard.period}</strong>
+                        {t.dashboard.periods[cashflowPeriod]}
+                      </span>
+                      <span>
+                        <strong>{t.dashboard.income}</strong>
+                        {formatChartMoney(
+                          chartTotals.income,
+                          selectedCurrency,
+                          locale,
+                        )}
+                      </span>
+                      <span>
+                        <strong>{t.dashboard.expense}</strong>
+                        {formatChartMoney(
+                          chartTotals.expense,
+                          selectedCurrency,
+                          locale,
+                        )}
+                      </span>
+                      <span>
+                        <strong>{t.dashboard.net}</strong>
+                        {formatChartMoney(
+                          chartTotals.net,
+                          selectedCurrency,
+                          locale,
+                        )}
+                      </span>
+                    </div>
+                  ) : null}
+
+                  <div
+                    className="chart-wrap"
+                    role="img"
+                    aria-label={t.dashboard.incomeAndExpenseChart}
+                  >
+                    <CashflowChart
+                      data={cashflowChart}
+                      currency={selectedCurrency}
+                      labels={chartLabels}
+                      locale={locale}
+                      summary={chartSummary}
+                    />
+                  </div>
+
+                  <table className="sr-only-table">
+                    <caption>{t.dashboard.cashflowData}</caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">{t.dashboard.period}</th>
+                        <th scope="col">{t.dashboard.income}</th>
+                        <th scope="col">{t.dashboard.expense}</th>
+                        <th scope="col">{t.dashboard.net}</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {cashflowChart.map((bucket) => (
+                        <tr key={bucket.period}>
+                          <td>{bucket.period}</td>
+                          <td>
+                            {formatChartMoney(
+                              bucket.income,
+                              selectedCurrency,
+                              locale,
+                            )}
+                          </td>
+                          <td>
+                            {formatChartMoney(
+                              bucket.expense,
+                              selectedCurrency,
+                              locale,
+                            )}
+                          </td>
+                          <td>
+                            {formatChartMoney(
+                              bucket.net,
+                              selectedCurrency,
+                              locale,
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               ) : null}
 
               <div className="legend">
