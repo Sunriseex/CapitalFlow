@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { CreditCard, Landmark, PiggyBank, Timer, Wallet } from "lucide-react";
 import { api } from "../../api/client";
 import { isPositiveMoney, parseMoneyToMinorResult } from "../../api/money";
 import type { AccountType } from "../../api/types";
@@ -141,10 +142,17 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
   );
   const interestEnabled = isInterestBearing(form.type);
   const showBankField = form.type !== "cash";
+  const isCard = form.type === "card";
+  const isCash = form.type === "cash";
+  const isSavings = form.type === "savings";
+  const isDeposit = form.type === "term_deposit";
   const hasHiddenInterestDraft =
     !interestEnabled &&
     Boolean(
-      form.rate || form.promoRate || form.promoEndDate || form.capitalization !== "none",
+      form.rate ||
+        form.promoRate ||
+        form.promoEndDate ||
+        form.capitalization !== "none",
     );
 
   return (
@@ -153,155 +161,193 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
       error={error}
       onSubmit={() => mutation.mutate()}
     >
-      <div
-        className="account-type-picker"
-        role="radiogroup"
-        aria-label={t.accounts.type}
-      >
-        {createAccountTypes.map((option) => (
-          <button
-            key={option.key}
-            className={
-              form.type === option.type
-                ? "account-type-card is-selected"
-                : "account-type-card"
-            }
-            disabled={option.disabled}
-            type="button"
-            role="radio"
-            aria-checked={form.type === option.type}
-            onClick={() => {
-              if (option.type) {
-                setForm({ ...form, type: option.type });
-              }
-            }}
-          >
-            <span className="account-type-icon" aria-hidden="true">
-              {accountTypeLabel(option.key, t).slice(0, 1)}
-            </span>
-            <span>
-              <strong>{accountTypeLabel(option.key, t)}</strong>
-              <small>
-                {accountTypeDescription(option.key, t)}
-                {option.disabled ? ` · ${t.accounts.unsupportedAccountType}` : ""}
-              </small>
-            </span>
-          </button>
-        ))}
-      </div>
-
-      <div className="account-type-help">
-        <strong>
-          {form.type === "term_deposit"
-            ? t.accounts.depositConditions
-            : interestEnabled
-              ? t.accounts.interestSettings
-              : t.accounts.types[form.type]}
-        </strong>
-        <span>{t.accounts.typeDescriptions[form.type]}</span>
-      </div>
-
-      {hasHiddenInterestDraft ? (
-        <p className="form-note">{t.accounts.hiddenTypeFieldsNotice}</p>
-      ) : null}
-
-      <Field label={t.accounts.name}>
-        <Input
-          required
-          value={form.name}
-          onChange={(event) => setForm({ ...form, name: event.target.value })}
-        />
-      </Field>
-
-      {showBankField ? (
-        <Field label={t.accounts.bank}>
-          <Input
-            value={form.bank}
-            onChange={(event) => setForm({ ...form, bank: event.target.value })}
-          />
-        </Field>
-      ) : null}
-
-      <Field label={t.accounts.currency}>
-        <Select
-          value={form.currency}
-          onChange={(event) =>
-            setForm({ ...form, currency: event.target.value })
-          }
+      <div className="create-account-layout">
+        <aside
+          className="account-type-column"
+          role="radiogroup"
+          aria-label={t.accounts.type}
         >
-          {currencySelectOptions}
-        </Select>
-      </Field>
-
-      <Field label={t.accounts.opened}>
-        <Input
-          type="date"
-          value={form.opened_at}
-          onChange={(event) =>
-            setForm({ ...form, opened_at: event.target.value })
-          }
-        />
-      </Field>
-
-      <Field label={t.accounts.initialBalance}>
-        <Input
-          inputMode="decimal"
-          value={form.initial}
-          onChange={(event) =>
-            setForm({ ...form, initial: event.target.value })
-          }
-        />
-      </Field>
-
-      {interestEnabled ? (
-        <div className="interest-fieldset">
-          <h3>
-            {form.type === "term_deposit"
-              ? t.accounts.depositConditions
-              : t.accounts.interestSettings}
-          </h3>
-          <Field label={t.accounts.annualRate}>
-            <Input
-              inputMode="decimal"
-              value={form.rate}
-              onChange={(event) =>
-                setForm({ ...form, rate: event.target.value })
+          {createAccountTypes.map((option) => (
+            <button
+              key={option.key}
+              className={
+                form.type === option.type
+                  ? "account-type-card is-selected"
+                  : "account-type-card"
               }
-            />
-          </Field>
-
-          <Field label={t.accounts.promoRate}>
-            <Input
-              inputMode="decimal"
-              value={form.promoRate}
-              onChange={(event) =>
-                setForm({ ...form, promoRate: event.target.value })
-              }
-            />
-          </Field>
-
-          <Field label={t.accounts.promoEnd}>
-            <Input
-              type="date"
-              value={form.promoEndDate}
-              onChange={(event) =>
-                setForm({ ...form, promoEndDate: event.target.value })
-              }
-            />
-          </Field>
-
-          <Field label={t.accounts.capitalization}>
-            <Select
-              value={form.capitalization}
-              onChange={(event) =>
-                setForm({ ...form, capitalization: event.target.value })
-              }
+              disabled={option.disabled}
+              type="button"
+              role="radio"
+              aria-checked={form.type === option.type}
+              onClick={() => {
+                if (option.type) {
+                  setForm({ ...form, type: option.type });
+                }
+              }}
             >
-              {capitalizationOptions}
-            </Select>
-          </Field>
+              <span className="account-type-icon" aria-hidden="true">
+                {accountTypeIcon(option.key)}
+              </span>
+              <span>
+                <strong>{accountTypeLabel(option.key, t)}</strong>
+                <small>
+                  {accountTypeDescription(option.key, t)}
+                  {option.disabled
+                    ? ` · ${t.accounts.unsupportedAccountType}`
+                    : ""}
+                </small>
+              </span>
+            </button>
+          ))}
+        </aside>
+
+        <div className="account-form-column">
+          <div className="account-type-help">
+            <strong>
+              {isDeposit
+                ? t.accounts.depositConditions
+                : interestEnabled
+                  ? t.accounts.interestSettings
+                  : t.accounts.types[form.type]}
+            </strong>
+            <span>{t.accounts.typeDescriptions[form.type]}</span>
+          </div>
+
+          {hasHiddenInterestDraft ? (
+            <p className="form-note">{t.accounts.hiddenTypeFieldsNotice}</p>
+          ) : null}
+
+          <div className="account-field-grid">
+            <Field label={accountNameLabel(form.type, t)}>
+              <Input
+                required
+                value={form.name}
+                onChange={(event) =>
+                  setForm({ ...form, name: event.target.value })
+                }
+              />
+            </Field>
+
+            {showBankField ? (
+              <Field label={t.accounts.bank}>
+                <Input
+                  value={form.bank}
+                  onChange={(event) =>
+                    setForm({ ...form, bank: event.target.value })
+                  }
+                />
+              </Field>
+            ) : null}
+
+            <Field label={t.accounts.currency}>
+              <Select
+                value={form.currency}
+                onChange={(event) =>
+                  setForm({ ...form, currency: event.target.value })
+                }
+              >
+                {currencySelectOptions}
+              </Select>
+            </Field>
+
+            <Field label={isDeposit ? t.accounts.openingDate : t.accounts.opened}>
+              <Input
+                type="date"
+                value={form.opened_at}
+                onChange={(event) =>
+                  setForm({ ...form, opened_at: event.target.value })
+                }
+              />
+            </Field>
+
+            <Field label={isDeposit ? t.accounts.openingAmount : t.accounts.currentBalance}>
+              <Input
+                inputMode="decimal"
+                value={form.initial}
+                onChange={(event) =>
+                  setForm({ ...form, initial: event.target.value })
+                }
+              />
+            </Field>
+
+            {isCard ? (
+              <>
+                <PlaceholderField label={t.accounts.cardLast4} />
+                <PlaceholderCheckbox label={t.accounts.creditCard} />
+              </>
+            ) : null}
+
+            {isCash ? (
+              <PlaceholderField label={t.accounts.storagePlace} />
+            ) : null}
+
+            {isSavings ? (
+              <>
+                <PlaceholderField label={t.accounts.nextAccrualDate} />
+                <PlaceholderField label={t.accounts.minimumBalance} />
+              </>
+            ) : null}
+
+            {isDeposit ? (
+              <>
+                <PlaceholderField label={t.accounts.depositEndDate} />
+                <PlaceholderField label={t.accounts.refillAllowed} />
+                <PlaceholderField label={t.accounts.partialWithdrawAllowed} />
+                <PlaceholderField label={t.accounts.maturityAction} />
+              </>
+            ) : null}
+
+            <PlaceholderCheckbox checked label={t.accounts.includeInBalance} />
+            <PlaceholderField label={t.accounts.notes} />
+          </div>
+
+          {interestEnabled ? (
+            <div className="interest-fieldset">
+              <h3>{isDeposit ? t.accounts.depositConditions : t.accounts.interestSettings}</h3>
+              <Field label={t.accounts.annualRate}>
+                <Input
+                  inputMode="decimal"
+                  value={form.rate}
+                  onChange={(event) =>
+                    setForm({ ...form, rate: event.target.value })
+                  }
+                />
+              </Field>
+
+              <Field label={t.accounts.promoRate}>
+                <Input
+                  inputMode="decimal"
+                  value={form.promoRate}
+                  onChange={(event) =>
+                    setForm({ ...form, promoRate: event.target.value })
+                  }
+                />
+              </Field>
+
+              <Field label={t.accounts.promoEnd}>
+                <Input
+                  type="date"
+                  value={form.promoEndDate}
+                  onChange={(event) =>
+                    setForm({ ...form, promoEndDate: event.target.value })
+                  }
+                />
+              </Field>
+
+              <Field label={t.accounts.capitalization}>
+                <Select
+                  value={form.capitalization}
+                  onChange={(event) =>
+                    setForm({ ...form, capitalization: event.target.value })
+                  }
+                >
+                  {capitalizationOptions}
+                </Select>
+              </Field>
+            </div>
+          ) : null}
         </div>
-      ) : null}
+      </div>
 
       <Button disabled={mutation.isPending}>{t.common.create}</Button>
     </FormShell>
@@ -326,4 +372,47 @@ function accountTypeDescription(
   return type === "checking"
     ? t.accounts.checkingAccountDescription
     : t.accounts.typeDescriptions[type];
+}
+
+function accountNameLabel(
+  type: AccountType,
+  t: ReturnType<typeof useI18n>["t"],
+) {
+  if (type === "card") return t.accounts.cardName;
+  if (type === "term_deposit") return t.accounts.depositName;
+  return t.accounts.name;
+}
+
+function accountTypeIcon(type: AccountType | "checking") {
+  if (type === "card") return <CreditCard />;
+  if (type === "cash") return <Wallet />;
+  if (type === "savings") return <PiggyBank />;
+  if (type === "term_deposit") return <Timer />;
+  return <Landmark />;
+}
+
+function PlaceholderField({ label }: { label: string }) {
+  const { t } = useI18n();
+  return (
+    <Field label={label}>
+      <Input disabled placeholder={t.accounts.futureFieldPlaceholder} />
+    </Field>
+  );
+}
+
+function PlaceholderCheckbox({
+  checked = false,
+  label,
+}: {
+  checked?: boolean;
+  label: string;
+}) {
+  const { t } = useI18n();
+  return (
+    <label className="checkbox-field account-placeholder-checkbox">
+      <input type="checkbox" checked={checked} disabled readOnly />
+      <span>{label}</span>
+      <small>{t.accounts.futureFieldPlaceholder}</small>
+    </label>
+  );
 }

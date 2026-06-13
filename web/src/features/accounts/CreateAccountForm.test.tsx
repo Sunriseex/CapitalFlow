@@ -40,7 +40,7 @@ describe("CreateAccountForm", () => {
       </I18nProvider>,
     );
 
-    await user.type(screen.getByLabelText("Name"), "Daily card");
+    await user.type(screen.getByLabelText("Card name"), "Daily card");
     await user.type(screen.getByLabelText("Bank"), "Test Bank");
     await user.click(screen.getByRole("button", { name: "Create" }));
 
@@ -53,6 +53,13 @@ describe("CreateAccountForm", () => {
           currency: "RUB",
         }),
       ),
+    );
+    expect(mocks.createAccount).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        cardLast4: expect.anything(),
+        includeInBalance: expect.anything(),
+        notes: expect.anything(),
+      }),
     );
     expect(onDone).toHaveBeenCalled();
   });
@@ -73,6 +80,7 @@ describe("CreateAccountForm", () => {
       "aria-checked",
       "true",
     );
+    expect(screen.getByLabelText("Last 4 digits")).toBeDisabled();
     expect(screen.queryByLabelText("Annual rate %")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("radio", { name: /Savings/ }));
@@ -135,6 +143,40 @@ describe("CreateAccountForm", () => {
 
     expect(screen.queryByLabelText("Bank")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Annual rate %")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Storage place")).toBeDisabled();
+  });
+
+  it("shows deposit-only placeholders without changing the API payload", async () => {
+    const user = userEvent.setup();
+    const onDone = vi.fn();
+    mocks.createAccount.mockResolvedValueOnce({ id: "account-1" });
+
+    render(
+      <I18nProvider>
+        <QueryClientProvider client={new QueryClient()}>
+          <CreateAccountForm onDone={onDone} />
+        </QueryClientProvider>
+        ,
+      </I18nProvider>,
+    );
+
+    await user.click(screen.getByRole("radio", { name: /Term deposit/ }));
+    await user.type(screen.getByLabelText("Deposit name"), "Deposit");
+    await user.type(screen.getByLabelText("Bank"), "Test Bank");
+    expect(screen.getByLabelText("End date")).toBeDisabled();
+    expect(screen.getByLabelText("Refill allowed")).toBeDisabled();
+    expect(screen.getByLabelText("Partial withdrawal allowed")).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Create" }));
+
+    await waitFor(() =>
+      expect(mocks.createAccount).toHaveBeenCalledWith({
+        name: "Deposit",
+        bank: "Test Bank",
+        type: "term_deposit",
+        currency: "RUB",
+        opened_at: expect.any(String),
+      }),
+    );
   });
 
   it("does not call the API when initial balance is invalid", async () => {
@@ -149,8 +191,8 @@ describe("CreateAccountForm", () => {
       </I18nProvider>,
     );
 
-    await user.type(screen.getByLabelText("Name"), "Daily card");
-    await user.type(screen.getByLabelText("Initial balance"), "Infinity");
+    await user.type(screen.getByLabelText("Card name"), "Daily card");
+    await user.type(screen.getByLabelText("Current balance"), "Infinity");
     await user.click(screen.getByRole("button", { name: "Create" }));
 
     await screen.findByText(

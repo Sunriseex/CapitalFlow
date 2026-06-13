@@ -25,9 +25,9 @@ export const CashflowChart = memo(function CashflowChart({
     <ChartShell summary={summary} className="cashflow-chart-shell">
       <ComposedChart
         data={data}
-        barCategoryGap="24%"
-        barGap={4}
-        margin={{ top: 8, right: 10, bottom: 0, left: 0 }}
+        barCategoryGap="30%"
+        barGap={3}
+        margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
       >
         <CartesianGrid {...chartGridProps} />
         <XAxis {...chartAxisProps} dataKey="period" />
@@ -39,24 +39,23 @@ export const CashflowChart = memo(function CashflowChart({
         <Bar
           dataKey="income"
           fill="var(--chart-income)"
-          radius={[4, 4, 0, 0]}
-          maxBarSize={26}
+          radius={[3, 3, 0, 0]}
+          maxBarSize={20}
           isAnimationActive={false}
         />
         <Bar
           dataKey="expense"
           fill="var(--chart-expense)"
-          radius={[4, 4, 0, 0]}
-          maxBarSize={26}
+          radius={[3, 3, 0, 0]}
+          maxBarSize={20}
           isAnimationActive={false}
         />
         <Line
           type="monotone"
           dataKey="net"
           stroke="var(--chart-net)"
-          strokeWidth={2}
+          strokeWidth={1.75}
           dot={false}
-          strokeDasharray="4 4"
           activeDot={false}
           isAnimationActive={false}
         />

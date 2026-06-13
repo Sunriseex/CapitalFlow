@@ -506,6 +506,14 @@ describe("App query states", () => {
       screen.getByRole("button", { name: "Expand sidebar" }),
     ).toHaveAttribute("aria-pressed", "true");
     expect(localStorage.getItem("capitalflow_sidebar_collapsed")).toBe("true");
+    expect(
+      screen.queryByRole("button", { name: "Switch to dark theme" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Choose language" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Overview/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Logout" })).toBeInTheDocument();
   });
 
   it("toggles dashboard insights from the header", async () => {
@@ -532,6 +540,12 @@ describe("App query states", () => {
     ).toBeInTheDocument();
 
     await user.keyboard("{Escape}");
+    const expandSidebar = screen.queryByRole("button", {
+      name: "Expand sidebar",
+    });
+    if (expandSidebar) {
+      await user.click(expandSidebar);
+    }
     await user.click(
       screen.getByRole("button", { name: "Switch to dark theme" }),
     );
@@ -681,7 +695,7 @@ describe("App query states", () => {
         await screen.findByRole("dialog", { name: "Command menu" }),
       ).getByRole("option", { name: /Create account/ }),
     );
-    await user.type(await screen.findByLabelText("Name"), "Brokerage");
+    await user.type(await screen.findByLabelText("Card name"), "Brokerage");
     await user.type(screen.getByLabelText("Bank"), "Bank");
     await user.click(screen.getByRole("button", { name: "Create" }));
 

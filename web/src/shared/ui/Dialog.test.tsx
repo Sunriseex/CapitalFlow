@@ -46,6 +46,20 @@ function renderNarrowDialog() {
   );
 }
 
+function renderWideDialog() {
+  return render(
+    <I18nProvider>
+      <Dialog
+        title="Create account"
+        onClose={() => undefined}
+        variant="wide"
+      >
+        <p>Form</p>
+      </Dialog>
+    </I18nProvider>,
+  );
+}
+
 describe("Dialog", () => {
   beforeEach(() => {
     localStorage.setItem("capitalflow_locale", "en");
@@ -98,5 +112,13 @@ describe("Dialog", () => {
     expect(
       screen.getByRole("dialog", { name: "Transaction details" }),
     ).toHaveClass("dialog-panel-narrow");
+  });
+
+  it("supports a wide panel variant", () => {
+    renderWideDialog();
+
+    expect(screen.getByRole("dialog", { name: "Create account" })).toHaveClass(
+      "dialog-panel-wide",
+    );
   });
 });

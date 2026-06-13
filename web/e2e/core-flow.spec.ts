@@ -298,9 +298,9 @@ async function createAccount(page: import("@playwright/test").Page, name: string
     .getByRole("option", { name: /Create account/ })
     .click();
   await expect(page.getByRole("dialog", { name: "Create account" })).toBeVisible();
-  await page.getByLabel("Name", { exact: true }).fill(name);
+  await page.getByLabel("Card name", { exact: true }).fill(name);
   await page.getByLabel("Bank", { exact: true }).fill(bank);
-  await page.getByLabel("Initial balance", { exact: true }).fill(initialBalance);
+  await page.getByLabel("Current balance", { exact: true }).fill(initialBalance);
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Create account" })).toBeHidden();
 }
