@@ -32,6 +32,20 @@ function DialogHarness() {
   );
 }
 
+function renderNarrowDialog() {
+  return render(
+    <I18nProvider>
+      <Dialog
+        title="Transaction details"
+        onClose={() => undefined}
+        variant="narrow"
+      >
+        <p>Details</p>
+      </Dialog>
+    </I18nProvider>,
+  );
+}
+
 describe("Dialog", () => {
   beforeEach(() => {
     localStorage.setItem("capitalflow_locale", "en");
@@ -76,5 +90,13 @@ describe("Dialog", () => {
       screen.queryByRole("dialog", { name: "Edit account" }),
     ).not.toBeInTheDocument();
     expect(opener).toHaveFocus();
+  });
+
+  it("supports a narrow panel variant", () => {
+    renderNarrowDialog();
+
+    expect(
+      screen.getByRole("dialog", { name: "Transaction details" }),
+    ).toHaveClass("dialog-panel-narrow");
   });
 });

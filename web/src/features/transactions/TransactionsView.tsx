@@ -227,6 +227,7 @@ export function TransactionsView({
         <Dialog
           title={t.transactions.transactionDetails}
           onClose={() => setSelectedTransaction(null)}
+          variant="narrow"
         >
           <TransactionDetails
             transaction={selectedTransaction}
