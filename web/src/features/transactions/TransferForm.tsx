@@ -1,5 +1,9 @@
 import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useForm, useWatch } from "react-hook-form";
+import { z } from "zod";
 import { api } from "../../api/client";
 import {
   convertAmount,
@@ -22,6 +26,14 @@ import {
   Select,
 } from "../../shared/ui";
 import { useI18n } from "../../shared/i18n/useI18n";
+
+type TransferFormValues = {
+  from_account_id: string;
+  to_account_id: string;
+  amount: string;
+  fee_amount: string;
+  description: string;
+};
 
 export function TransferForm({
   accounts,
@@ -46,13 +58,30 @@ export function TransferForm({
 
   const queryClient = useQueryClient();
   const [error, setError] = useState("");
-  const [form, setForm] = useState({
+  const formDefaults = useMemo<TransferFormValues>(() => ({
     from_account_id: accounts[0]?.id ?? "",
     to_account_id: accounts[1]?.id ?? "",
     amount: "",
     fee_amount: "",
     description: "",
+  }), [accounts]);
+  const formSchema = useMemo(
+    () => createTransferFormSchema(accounts, moneyParseMessages),
+    [accounts, moneyParseMessages],
+  );
+  const {
+    clearErrors,
+    control,
+    formState: { errors },
+    handleSubmit,
+    register,
+  } = useForm<TransferFormValues>({
+    defaultValues: formDefaults,
+    mode: "onBlur",
+    resolver: zodResolver(formSchema),
   });
+  const watchedForm = useWatch({ control });
+  const form = { ...formDefaults, ...watchedForm };
 
   const fromAccount = useMemo(
     () => accounts.find((account) => account.id === form.from_account_id),
@@ -122,11 +151,14 @@ export function TransferForm({
   const cannotConvert =
     needsConversion && (!rate || rates.isLoading || Boolean(rates.error));
   const mutation = useMutation({
-    mutationFn: () => {
-      const amount = parseMoneyToMinorResult(form.amount, {
+    mutationFn: (values: TransferFormValues) => {
+      const submittedFromAccount = accounts.find(
+        (account) => account.id === values.from_account_id,
+      );
+      const amount = parseMoneyToMinorResult(values.amount, {
         required: true,
         positive: true,
-        currency: fromAccount?.currency ?? "RUB",
+        currency: submittedFromAccount?.currency ?? "RUB",
         messages: moneyParseMessages,
       });
 
@@ -134,8 +166,8 @@ export function TransferForm({
         throw new Error(amount.error);
       }
 
-      const feeAmount = parseMoneyToMinorResult(form.fee_amount, {
-        currency: fromAccount?.currency ?? "RUB",
+      const feeAmount = parseMoneyToMinorResult(values.fee_amount, {
+        currency: submittedFromAccount?.currency ?? "RUB",
         messages: moneyParseMessages,
       });
 
@@ -144,13 +176,13 @@ export function TransferForm({
       }
 
       return api.createTransfer({
-        from_account_id: form.from_account_id,
-        to_account_id: form.to_account_id,
+        from_account_id: values.from_account_id,
+        to_account_id: values.to_account_id,
         amount: amount.value,
         ...(isPositiveMoney(feeAmount.value)
           ? { fee_amount: feeAmount.value }
           : {}),
-        description: form.description,
+        description: values.description,
       });
     },
     onSuccess: () => {
@@ -159,55 +191,69 @@ export function TransferForm({
     },
     onError: (err) => setError(errorMessage(err, errorMessages)),
   });
+  const submitForm = handleSubmit((values) => {
+    setError("");
+    mutation.mutate(values);
+  });
 
   return (
     <FormShell
       title={t.transfers.createTransfer}
       error={error}
-      onSubmit={() => mutation.mutate()}
+      onSubmit={submitForm}
     >
       <Field label={t.transfers.from}>
         <Select
-          value={form.from_account_id}
-          onChange={(event) =>
-            setForm({ ...form, from_account_id: event.target.value })
-          }
+          {...register("from_account_id", {
+            onChange: () => clearErrors(["amount", "fee_amount"]),
+          })}
         >
           {accountOptions}
         </Select>
       </Field>
 
       <Field label={t.transfers.to}>
-        <Select
-          value={form.to_account_id}
-          onChange={(event) =>
-            setForm({ ...form, to_account_id: event.target.value })
-          }
-        >
+        <Select {...register("to_account_id")}>
           {accountOptions}
         </Select>
       </Field>
 
-      <Field label={t.transactions.amount}>
+      <ValidatedField
+        error={errors.amount?.message}
+        errorId="transfer-amount-error"
+        label={t.transactions.amount}
+      >
         <Input
+          aria-describedby={
+            errors.amount ? "transfer-amount-error" : undefined
+          }
           aria-label={t.transactions.amount}
+          aria-invalid={Boolean(errors.amount)}
           required
           inputMode="decimal"
-          value={form.amount}
-          onChange={(event) => setForm({ ...form, amount: event.target.value })}
+          {...register("amount", {
+            onChange: () => clearErrors("amount"),
+          })}
         />
-      </Field>
+      </ValidatedField>
 
-      <Field label={t.transfers.fee}>
+      <ValidatedField
+        error={errors.fee_amount?.message}
+        errorId="transfer-fee-error"
+        label={t.transfers.fee}
+      >
         <Input
-          aria-label={t.transfers.fee}
-          inputMode="decimal"
-          value={form.fee_amount}
-          onChange={(event) =>
-            setForm({ ...form, fee_amount: event.target.value })
+          aria-describedby={
+            errors.fee_amount ? "transfer-fee-error" : undefined
           }
+          aria-label={t.transfers.fee}
+          aria-invalid={Boolean(errors.fee_amount)}
+          inputMode="decimal"
+          {...register("fee_amount", {
+            onChange: () => clearErrors("fee_amount"),
+          })}
         />
-      </Field>
+      </ValidatedField>
 
       {needsConversion && fromAccount && toAccount ? (
         <div className="conversion-preview">
@@ -233,17 +279,88 @@ export function TransferForm({
       ) : null}
 
       <Field label={t.transactions.description}>
-        <Input
-          value={form.description}
-          onChange={(event) =>
-            setForm({ ...form, description: event.target.value })
-          }
-        />
+        <Input {...register("description")} />
       </Field>
 
       <Button disabled={mutation.isPending || cannotConvert}>
         {t.common.create}
       </Button>
     </FormShell>
+  );
+}
+
+function createTransferFormSchema(
+  accounts: Account[],
+  moneyParseMessages: {
+    amountRequired: string;
+    amountFormat: (scale: number) => string;
+    amountNonNegative: string;
+    amountGreaterThanZero: string;
+  },
+) {
+  return z
+    .object({
+      from_account_id: z.string(),
+      to_account_id: z.string(),
+      amount: z.string(),
+      fee_amount: z.string(),
+      description: z.string(),
+    })
+    .superRefine((values, context) => {
+      const fromAccount = accounts.find(
+        (account) => account.id === values.from_account_id,
+      );
+      const amount = parseMoneyToMinorResult(values.amount, {
+        required: true,
+        positive: true,
+        currency: fromAccount?.currency ?? "RUB",
+        messages: moneyParseMessages,
+      });
+      const feeAmount = parseMoneyToMinorResult(values.fee_amount, {
+        currency: fromAccount?.currency ?? "RUB",
+        messages: moneyParseMessages,
+      });
+
+      if (!amount.ok) {
+        context.addIssue({
+          code: "custom",
+          message: amount.error,
+          path: ["amount"],
+        });
+      }
+
+      if (!feeAmount.ok) {
+        context.addIssue({
+          code: "custom",
+          message: feeAmount.error,
+          path: ["fee_amount"],
+        });
+      }
+    });
+}
+
+function ValidatedField({
+  children,
+  error,
+  errorId,
+  label,
+}: {
+  children: ReactNode;
+  error?: string;
+  errorId: string;
+  label: string;
+}) {
+  return (
+    <div className="field">
+      <label className="field-control">
+        <span>{label}</span>
+        {children}
+      </label>
+      {error ? (
+        <span className="field-error" id={errorId}>
+          {error}
+        </span>
+      ) : null}
+    </div>
   );
 }
