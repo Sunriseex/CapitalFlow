@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import type { CurrencyOption } from "../../shared/currencies";
-import { PageTransition } from "../../shared/ui";
+import { Button, PageTransition } from "../../shared/ui";
 import { useI18n } from "../../shared/i18n/useI18n";
 
 export type AuthScreenError = {
@@ -106,8 +106,7 @@ export function LoginScreen({
                 onSubmit={submit(onSubmit)}
                 aria-label={t.auth.loginForm}
               >
-                <button
-                  className="button button-primary"
+                <Button
                   id="passkey-button"
                   type="button"
                   aria-describedby="passkey-hint"
@@ -117,7 +116,7 @@ export function LoginScreen({
                   {passkeyLoading
                     ? t.auth.checkingPasskey
                     : t.auth.signInWithPasskey}{" "}
-                </button>
+                </Button>
                 <p className="form-hint" id="passkey-hint">
                   {t.auth.passkeyHint}
                 </p>
@@ -238,13 +237,13 @@ export function LoginScreen({
                     {globalError}
                   </p>
                 ) : null}
-                <button
-                  className="button button-secondary"
+                <Button
+                  variant="outline"
                   type="submit"
                   disabled={statusLoading}
                 >
                   {t.auth.signInWithEmail}{" "}
-                </button>
+                </Button>
               </form>
 
               <p className="footer-text">
@@ -629,14 +628,13 @@ export function InitialSetupScreen({
                     {globalError}
                   </p>
                 ) : null}
-                <button
-                  className="button button-primary"
+                <Button
                   id="setup-submit"
                   type="submit"
                   disabled={statusLoading}
                 >
                   {t.auth.createOwnerAccount}
-                </button>
+                </Button>
               </form>
 
               <p className="footer-text">
@@ -680,13 +678,12 @@ export function AuthStatusScreen({
             </header>
             {action ? (
               <div className="auth-card-content">
-                <button
-                  className="button button-primary"
+                <Button
                   type="button"
                   onClick={action.onClick}
                 >
                   {action.label}
-                </button>
+                </Button>
               </div>
             ) : null}
           </section>

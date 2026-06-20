@@ -582,7 +582,6 @@ export function DashboardView({
                 aria-label={t.dashboard.quickActions}
               >
                 <Button
-                  className="button-primary"
                   type="button"
                   disabled={quickActionsDisabled}
                   onClick={() => onQuickAction?.("transaction")}

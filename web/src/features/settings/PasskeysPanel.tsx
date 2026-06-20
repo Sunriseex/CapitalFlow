@@ -117,7 +117,6 @@ export function PasskeysPanel() {
             />
           </Field>
           <Button
-            className="button-primary"
             disabled={!supported || busy || !password}
             onClick={() => {
               void addPasskey();

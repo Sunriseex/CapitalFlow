@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import type {
   ButtonHTMLAttributes,
+  ComponentProps,
   InputHTMLAttributes,
   ReactNode,
   SelectHTMLAttributes,
@@ -44,16 +45,26 @@ export function Panel({
   );
 }
 
+type SharedButtonProps = ComponentProps<typeof ShadcnButton>;
+
 export function Button({
   className = "",
+  variant,
   type,
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement>) {
+}: SharedButtonProps) {
+  const resolvedVariant = variant ?? buttonVariant(className, type);
+
   return (
     <ShadcnButton
-      className={cn("button", className)}
+      className={cn(
+        "button",
+        resolvedVariant === "default" ? "button-primary" : "",
+        resolvedVariant === "outline" ? "button-secondary" : "",
+        className,
+      )}
       type={type}
-      variant={buttonVariant(className, type)}
+      variant={resolvedVariant}
       {...props}
     />
   );
@@ -267,8 +278,8 @@ export function Dialog({
 
 function buttonVariant(
   className: string,
-  type: ButtonHTMLAttributes<HTMLButtonElement>["type"],
-) {
+  type: SharedButtonProps["type"],
+): SharedButtonProps["variant"] {
   if (className.includes("secondary")) {
     return "outline";
   }

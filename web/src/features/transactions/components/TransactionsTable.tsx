@@ -3,7 +3,7 @@ import type { KeyboardEvent } from "react";
 import { compareMoney, formatMoney, signedAmount } from "../../../api/money";
 import type { Account, Category, Transaction } from "../../../api/types";
 import { dateLabel } from "../../../shared/date";
-import { Empty } from "../../../shared/ui";
+import { Button, Empty } from "../../../shared/ui";
 import { useI18n } from "../../../shared/i18n/useI18n";
 import type { TranslationDictionary } from "../../../shared/i18n/dictionaries/ru";
 
@@ -132,8 +132,8 @@ export const TransactionsTable = memo(function TransactionsTable({
       )}
       {hasMore ? (
         <div className="table-more">
-          <button
-            className="button"
+          <Button
+            variant="outline"
             type="button"
             onClick={() =>
               setVisibleState((state) => ({
@@ -146,7 +146,7 @@ export const TransactionsTable = memo(function TransactionsTable({
             }
           >
             {t.transactions.showMore}{" "}
-          </button>
+          </Button>
           <span>
             {t.transactions.visibleOfTotal
               .replace("{visible}", String(visibleTransactions.length))
