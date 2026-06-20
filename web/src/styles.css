@@ -2212,24 +2212,8 @@ ol.toaster {
   cursor: pointer;
 }
 
-.popover-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 70;
-  pointer-events: auto;
-}
-
 .health-popover {
-  display: none;
-}
-
-.health-popover.is-open {
-  position: fixed;
-  top: 72px;
-  left: 18px;
-  z-index: 71;
   width: min(260px, 78vw);
-  display: block;
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -4985,10 +4969,8 @@ html.language-ripple-fallback::after {
     grid-template-columns: 1fr;
   }
 
-  .health-popover.is-open {
-    right: 14px;
-    left: 14px;
-    width: auto;
+  .health-popover {
+    width: calc(100vw - 28px);
   }
 
   .nav,

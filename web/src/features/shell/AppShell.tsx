@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import type { ReactNode } from "react";
-import { createPortal } from "react-dom";
 import {
   Command as CommandIcon,
   CreditCard,
@@ -48,7 +47,6 @@ export function BrandBlock({
   status: "Healthy" | "Unavailable" | "Checking";
   onCheck: () => void;
 }) {
-  const triggerRef = useRef<HTMLButtonElement>(null);
   const [healthOpen, setHealthOpen] = useState(false);
   const { t } = useI18n();
 
@@ -75,31 +73,33 @@ export function BrandBlock({
           <span className="version-pill" title={t.shell.version}>
             {version ?? "dev"}
           </span>
-          <Button
-            ref={triggerRef}
-            className="health-trigger"
-            type="button"
-            variant="ghost"
-            aria-label={t.shell.checkSystemHealth}
-            aria-expanded={healthOpen}
-            onClick={() => {
-              setHealthOpen(true);
-              onCheck();
+          <Popover
+            open={healthOpen}
+            onOpenChange={(open) => {
+              setHealthOpen(open);
+              if (open) {
+                onCheck();
+              }
             }}
           >
-            {statusLabel(status, t)}
-          </Button>
+            <PopoverTrigger asChild>
+              <Button
+                className="health-trigger"
+                type="button"
+                variant="ghost"
+                aria-label={t.shell.checkSystemHealth}
+                aria-expanded={healthOpen}
+              >
+                {statusLabel(status, t)}
+              </Button>
+            </PopoverTrigger>
+            <HealthPopover
+              version={version}
+              status={status}
+              onClose={() => setHealthOpen(false)}
+            />
+          </Popover>
         </div>
-        {healthOpen ? (
-          <HealthPopover
-            version={version}
-            status={status}
-            onClose={() => {
-              setHealthOpen(false);
-              triggerRef.current?.focus();
-            }}
-          />
-        ) : null}
       </section>
     </>
   );
@@ -574,65 +574,43 @@ function HealthPopover({
   onClose: () => void;
 }) {
   const { t } = useI18n();
-  const popoverRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    popoverRef.current?.focus();
-  }, []);
-
-  return createPortal(
-    <div
-      className="popover-layer"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
+  return (
+    <PopoverContent
+      className="health-popover"
+      align="start"
+      side="right"
+      sideOffset={8}
+      aria-labelledby="healthTitle"
     >
-      <div
-        ref={popoverRef}
-        className="health-popover is-open"
-        role="dialog"
-        aria-modal="false"
-        aria-labelledby="healthTitle"
-        tabIndex={-1}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.preventDefault();
-            onClose();
-          }
-        }}
-      >
-        <div className="health-popover-head">
-          <h3 id="healthTitle">{t.shell.systemHealth}</h3>{" "}
-          <Button
-            className="health-close"
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            aria-label={t.shell.closeSystemHealth}
-            onClick={onClose}
-          >
-            <X aria-hidden="true" />
-          </Button>
-        </div>
-        <div className="health-row">
-          <span>{t.shell.api}</span>
-          <span className={status === "Healthy" ? "tag good" : "tag info"}>
-            {status === "Healthy" ? t.shell.status.ok : statusLabel(status, t)}
-          </span>
-        </div>
-        <div className="health-row">
-          <span>{t.shell.version}</span>
-          <span className="tag info">{version ?? t.common.unknown}</span>
-        </div>
-        <div className="health-row">
-          <span>{t.shell.rates}</span>
-          <span className="tag info">{t.shell.onDemand}</span>
-        </div>
+      <div className="health-popover-head">
+        <h3 id="healthTitle">{t.shell.systemHealth}</h3>{" "}
+        <Button
+          className="health-close"
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          aria-label={t.shell.closeSystemHealth}
+          onClick={onClose}
+        >
+          <X aria-hidden="true" />
+        </Button>
       </div>
-    </div>,
-    document.body,
+      <div className="health-row">
+        <span>{t.shell.api}</span>
+        <span className={status === "Healthy" ? "tag good" : "tag info"}>
+          {status === "Healthy" ? t.shell.status.ok : statusLabel(status, t)}
+        </span>
+      </div>
+      <div className="health-row">
+        <span>{t.shell.version}</span>
+        <span className="tag info">{version ?? t.common.unknown}</span>
+      </div>
+      <div className="health-row">
+        <span>{t.shell.rates}</span>
+        <span className="tag info">{t.shell.onDemand}</span>
+      </div>
+    </PopoverContent>
   );
 }
 
