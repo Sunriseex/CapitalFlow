@@ -547,13 +547,12 @@ export function DashboardView({
                 <div className="card-title">
                   <h2>{t.dashboard.recentTransactions}</h2>{" "}
                 </div>
-                <button
-                  className="btn"
+                <Button
                   type="button"
                   onClick={() => onNavigate?.("transactions")}
                 >
                   {t.dashboard.allTransactions}{" "}
-                </button>
+                </Button>
               </div>
               <RecentTransactionsTable
                 accounts={recentAccounts}
@@ -582,36 +581,33 @@ export function DashboardView({
                 role="group"
                 aria-label={t.dashboard.quickActions}
               >
-                <button
-                  className="btn primary"
+                <Button
+                  className="button-primary"
                   type="button"
                   disabled={quickActionsDisabled}
                   onClick={() => onQuickAction?.("transaction")}
                 >
                   {t.dashboard.addTransaction}
-                </button>
-                <button
-                  className="btn"
+                </Button>
+                <Button
                   type="button"
                   onClick={() => onQuickAction?.("account")}
                 >
                   {t.accounts.createAccount}
-                </button>
-                <button
-                  className="btn"
+                </Button>
+                <Button
                   type="button"
                   disabled={quickActionsDisabled}
                   onClick={() => onQuickAction?.("transfer")}
                 >
                   {t.dashboard.createTransfer}
-                </button>
-                <button
-                  className="btn"
+                </Button>
+                <Button
                   type="button"
                   onClick={() => onQuickAction?.("import")}
                 >
                   {t.dashboard.importTransactions}
-                </button>
+                </Button>
               </div>
             </article>
 
