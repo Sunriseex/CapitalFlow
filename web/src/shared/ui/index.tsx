@@ -101,6 +101,32 @@ export function Field({
   );
 }
 
+export function ValidatedField({
+  children,
+  error,
+  errorId,
+  label,
+}: {
+  children: ReactNode;
+  error?: string;
+  errorId: string;
+  label: string;
+}) {
+  return (
+    <div className="field">
+      <label className="field-control">
+        <span>{label}</span>
+        {children}
+      </label>
+      {error ? (
+        <span className="field-error" id={errorId}>
+          {error}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 export function Input({
   className = "",
   ...props
