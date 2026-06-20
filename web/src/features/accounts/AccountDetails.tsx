@@ -245,20 +245,6 @@ const RunningBalanceChart = memo(function RunningBalanceChart({
         data={data}
         margin={{ top: 14, right: 18, bottom: 6, left: 0 }}
       >
-        <defs>
-          <linearGradient id="runningBalanceStroke" x1="0" x2="1" y1="0" y2="0">
-            <stop
-              offset="0%"
-              stopColor="var(--chart-balance)"
-              stopOpacity={0.72}
-            />
-            <stop
-              offset="100%"
-              stopColor="var(--chart-balance-strong)"
-              stopOpacity={1}
-            />
-          </linearGradient>
-        </defs>
         <CartesianGrid {...chartGridProps} />
         <XAxis {...chartAxisProps} dataKey="date" />
         <YAxis
@@ -269,8 +255,8 @@ const RunningBalanceChart = memo(function RunningBalanceChart({
         <Line
           type="monotone"
           dataKey="balance"
-          stroke="url(#runningBalanceStroke)"
-          strokeWidth={3}
+          stroke="var(--chart-balance)"
+          strokeWidth={2}
           dot={false}
           activeDot={false}
           isAnimationActive={false}
