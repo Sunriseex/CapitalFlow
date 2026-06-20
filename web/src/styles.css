@@ -455,7 +455,6 @@ h2 {
   justify-content: flex-end;
 }
 
-.button,
 .icon-button {
   min-height: 44px;
   border: 1px solid var(--line-2, var(--line-strong));
@@ -477,30 +476,15 @@ h2 {
   transition: none;
 }
 
-.button {
-  padding: 0 16px;
-  font-weight: 850;
-}
-
 .icon-button {
   min-width: 44px;
   width: 44px;
   height: 44px;
 }
 
-.button:hover,
 .icon-button:hover {
   background: var(--control-hover, rgba(121, 168, 216, 0.12));
   border-color: rgba(121, 168, 216, 0.35);
-}
-
-.button.button-primary,
-.button[type="submit"],
-.form-shell > .button:last-child {
-  color: var(--accent-contrast, #06101a);
-  border-color: transparent;
-  background: linear-gradient(135deg, var(--teal, var(--green)), var(--blue));
-  box-shadow: 0 12px 30px rgba(99, 184, 173, 0.18);
 }
 
 .icon-button:focus-visible,
@@ -510,7 +494,6 @@ nav button:focus-visible {
   outline-offset: 2px;
 }
 
-.button:disabled,
 .icon-button:disabled {
   opacity: 0.55;
   cursor: not-allowed;
@@ -3017,7 +3000,6 @@ ol.toaster {
   grid-column: 1;
 }
 
-.btn,
 .button,
 .chip {
   min-height: 40px;
@@ -3041,12 +3023,10 @@ ol.toaster {
     box-shadow 150ms ease;
 }
 
-.btn,
 .button {
   cursor: pointer;
 }
 
-.btn.primary,
 .button.button-primary,
 .button[type="submit"],
 .form-shell > .button:last-child {
@@ -3056,13 +3036,11 @@ ol.toaster {
   box-shadow: none;
 }
 
-.btn:hover,
 .button:hover {
   background: var(--accent);
   border-color: var(--border);
 }
 
-.btn.primary:hover,
 .button.button-primary:hover,
 .button[type="submit"]:hover,
 .form-shell > .button:last-child:hover {
@@ -3071,13 +3049,11 @@ ol.toaster {
   border-color: var(--primary);
 }
 
-.btn:disabled,
 .button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
 
-.btn:disabled:hover,
 .button:disabled:hover {
   background: var(--control-bg);
   border-color: var(--line);
@@ -3614,12 +3590,6 @@ ol.toaster {
   gap: 8px;
 }
 
-.rail-actions .btn {
-  width: 100%;
-  min-height: 44px;
-  justify-content: center;
-}
-
 .rail-actions .button {
   width: 100%;
   min-height: 44px;
@@ -4076,7 +4046,6 @@ ol.toaster {
   gap: 14px;
 }
 
-.transaction-search-detail > .btn,
 .transaction-search-detail > button {
   width: fit-content;
 }
