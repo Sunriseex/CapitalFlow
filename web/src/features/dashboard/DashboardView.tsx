@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CreditCard, Repeat, Target, Zap } from "lucide-react";
 import { api } from "../../api/client";
@@ -248,7 +248,11 @@ export function DashboardView({
               <span className="pill">{t.dashboard.liveLedger}</span>
             </div>
             <div className="metric-value">
-              {formatMoney(portfolioValue, selectedCurrency, locale)}
+              <AnimatedMoneyValue
+                amount={portfolioValue}
+                currency={selectedCurrency}
+                locale={locale}
+              />
             </div>
             <span
               className={
@@ -704,6 +708,66 @@ export function DashboardView({
         </Dialog>
       ) : null}
     </div>
+  );
+}
+
+function AnimatedMoneyValue({
+  amount,
+  currency,
+  locale,
+}: {
+  amount: string;
+  currency: string;
+  locale: ReturnType<typeof useI18n>["locale"];
+}) {
+  const target = useMemo(() => moneyToNumber(amount), [amount]);
+  const [displayValue, setDisplayValue] = useState(target);
+  const previousTarget = useRef(target);
+
+  useEffect(() => {
+    const prefersReducedMotion =
+      "matchMedia" in window &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (prefersReducedMotion) {
+      previousTarget.current = target;
+      const frame = window.requestAnimationFrame(() => setDisplayValue(target));
+      return () => window.cancelAnimationFrame(frame);
+    }
+
+    const from = previousTarget.current;
+    const delta = target - from;
+    previousTarget.current = target;
+
+    if (Math.abs(delta) < 0.005) {
+      const frame = window.requestAnimationFrame(() => setDisplayValue(target));
+      return () => window.cancelAnimationFrame(frame);
+    }
+
+    const duration = 720;
+    const startedAt = window.performance.now();
+    let frame = 0;
+
+    const tick = (now: number) => {
+      const progress = Math.min((now - startedAt) / duration, 1);
+      const eased = 1 - (1 - progress) ** 3;
+      setDisplayValue(from + delta * eased);
+
+      if (progress < 1) {
+        frame = window.requestAnimationFrame(tick);
+      }
+    };
+
+    frame = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frame);
+  }, [target]);
+
+  const finalValueLabel = formatMoney(amount, currency, locale);
+
+  return (
+    <span className="animated-money-value" aria-label={finalValueLabel}>
+      {formatMoney(displayValue.toFixed(6), currency, locale)}
+    </span>
   );
 }
 

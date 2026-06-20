@@ -1482,6 +1482,11 @@ ol.toaster {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html.theme-view-transition::view-transition-new(root),
+  html.theme-ripple-fallback::after {
+    animation: none !important;
+  }
+
   *,
   *::before,
   *::after {
@@ -2924,6 +2929,50 @@ ol.toaster {
   letter-spacing: 0;
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
+}
+
+.animated-money-value {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  min-width: max-content;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+html.theme-view-transition::view-transition-new(root) {
+  animation: theme-ripple-reveal 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+html.theme-view-transition::view-transition-old(root) {
+  animation: none;
+}
+
+html.theme-ripple-fallback::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+  background: var(--background);
+  clip-path: circle(0 at var(--theme-ripple-x, 50vw) var(--theme-ripple-y, 50vh));
+  animation: theme-ripple-reveal 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes theme-ripple-reveal {
+  from {
+    clip-path: circle(0 at var(--theme-ripple-x, 50vw) var(--theme-ripple-y, 50vh));
+  }
+
+  to {
+    clip-path: circle(
+      var(--theme-ripple-radius, 140vmax) at var(--theme-ripple-x, 50vw)
+        var(--theme-ripple-y, 50vh)
+    );
+  }
 }
 
 .card-head {
