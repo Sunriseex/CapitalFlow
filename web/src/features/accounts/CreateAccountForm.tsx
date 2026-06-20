@@ -1,6 +1,9 @@
 import { useId, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm, useWatch } from "react-hook-form";
+import { z } from "zod";
 import { CreditCard, Landmark, PiggyBank, Timer, Wallet } from "lucide-react";
 import { api } from "../../api/client";
 import { isPositiveMoney, parseMoneyToMinorResult } from "../../api/money";
@@ -27,15 +30,122 @@ const createAccountTypes: Array<{
   { key: "term_deposit", type: "term_deposit" },
 ];
 
-type FieldErrors = Partial<
-  Record<"initial" | "rate" | "promoRate" | "promoEndDate", string>
->;
+const supportedAccountTypes = [
+  "card",
+  "cash",
+  "savings",
+  "term_deposit",
+] as const;
+const capitalizationValues = [
+  "none",
+  "daily",
+  "monthly",
+  "end_of_term",
+] as const;
 
-type ValidatedCreateAccount = {
+type SupportedAccountType = (typeof supportedAccountTypes)[number];
+type CapitalizationValue = (typeof capitalizationValues)[number];
+
+type CreateAccountFormValues = {
+  name: string;
+  bank: string;
+  type: SupportedAccountType;
+  currency: string;
+  opened_at: string;
   initial: string;
-  rate: number;
-  promoRate: number;
+  rate: string;
+  promoRate: string;
+  promoEndDate: string;
+  capitalization: CapitalizationValue;
 };
+
+const createAccountFormDefaults: CreateAccountFormValues = {
+  name: "",
+  bank: "",
+  type: "card",
+  currency: "RUB",
+  opened_at: today,
+  initial: "",
+  rate: "",
+  promoRate: "",
+  promoEndDate: "",
+  capitalization: "none",
+};
+
+function createAccountFormSchema(t: ReturnType<typeof useI18n>["t"]) {
+  return z
+    .object({
+      name: z.string(),
+      bank: z.string(),
+      type: z.enum(supportedAccountTypes),
+      currency: z.string().min(1),
+      opened_at: z.string(),
+      initial: z.string(),
+      rate: z.string(),
+      promoRate: z.string(),
+      promoEndDate: z.string(),
+      capitalization: z.enum(capitalizationValues),
+    })
+    .superRefine((values, context) => {
+      const initial = parseMoneyToMinorResult(values.initial, {
+        currency: values.currency,
+      });
+      if (!initial.ok) {
+        context.addIssue({
+          code: "custom",
+          message: initial.error,
+          path: ["initial"],
+        });
+      }
+
+      if (!isInterestBearing(values.type)) {
+        return;
+      }
+
+      const rate = parsePercent(values.rate);
+      const promoRate = parsePercent(values.promoRate);
+
+      if (Number.isNaN(rate) || rate < 0) {
+        context.addIssue({
+          code: "custom",
+          message: t.accounts.annualRateInvalid,
+          path: ["rate"],
+        });
+      }
+
+      if (Number.isNaN(promoRate) || promoRate < 0) {
+        context.addIssue({
+          code: "custom",
+          message: t.accounts.promoRateInvalid,
+          path: ["promoRate"],
+        });
+      }
+
+      if (rate <= 0 && (promoRate > 0 || values.promoEndDate)) {
+        context.addIssue({
+          code: "custom",
+          message: t.accounts.annualRateRequiredForPromo,
+          path: ["rate"],
+        });
+      }
+
+      if (rate > 0 && promoRate > 0 && !values.promoEndDate) {
+        context.addIssue({
+          code: "custom",
+          message: t.accounts.promoFieldsRequiredTogether,
+          path: ["promoEndDate"],
+        });
+      }
+
+      if (rate > 0 && promoRate <= 0 && values.promoEndDate) {
+        context.addIssue({
+          code: "custom",
+          message: t.accounts.promoFieldsRequiredTogether,
+          path: ["promoRate"],
+        });
+      }
+    });
+}
 
 export function CreateAccountForm({ onDone }: { onDone: () => void }) {
   const { t, locale } = useI18n();
@@ -44,31 +154,39 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
 
   const queryClient = useQueryClient();
   const [error, setError] = useState("");
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-  const [form, setForm] = useState({
-    name: "",
-    bank: "",
-    type: "card" as AccountType,
-    currency: "RUB",
-    opened_at: today,
-    initial: "",
-    rate: "",
-    promoRate: "",
-    promoEndDate: "",
-    capitalization: "none",
+  const formSchema = useMemo(() => createAccountFormSchema(t), [t]);
+  const {
+    clearErrors,
+    control,
+    formState: { errors },
+    handleSubmit,
+    register,
+    setValue,
+  } = useForm<CreateAccountFormValues>({
+    defaultValues: createAccountFormDefaults,
+    mode: "onBlur",
+    resolver: zodResolver(formSchema),
   });
+  const watchedForm = useWatch({ control });
+  const form = {
+    ...createAccountFormDefaults,
+    ...watchedForm,
+  };
   const mutation = useMutation({
-    mutationFn: async ({
-      initial,
-      promoRate,
-      rate,
-    }: ValidatedCreateAccount) => {
+    mutationFn: async (values: CreateAccountFormValues) => {
+      const initial = parseValidatedMoney(values.initial, values.currency);
+      const interestEnabledForPayload = isInterestBearing(values.type);
+      const rate = interestEnabledForPayload ? parsePercent(values.rate) : 0;
+      const promoRate = interestEnabledForPayload
+        ? parsePercent(values.promoRate)
+        : 0;
+
       const account = await api.createAccount({
-        name: form.name,
-        bank: form.bank,
-        type: form.type,
-        currency: form.currency,
-        opened_at: form.opened_at,
+        name: values.name,
+        bank: values.bank,
+        type: values.type,
+        currency: values.currency,
+        opened_at: values.opened_at,
       });
 
       if (isPositiveMoney(initial)) {
@@ -77,7 +195,7 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
           type: "initial_balance",
           amount: initial,
           description: t.accounts.initialBalance,
-          occurred_at: form.opened_at,
+          occurred_at: values.opened_at,
         });
       }
 
@@ -85,15 +203,11 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
         await api.createInterestRule(account.id, {
           annual_rate_bps: Math.round(rate * 100),
           promo_rate_bps: promoRate > 0 ? Math.round(promoRate * 100) : null,
-          promo_end_date: promoRate > 0 ? form.promoEndDate : null,
+          promo_end_date: promoRate > 0 ? values.promoEndDate : null,
           accrual_frequency: "daily",
-          capitalization_frequency: form.capitalization as
-            | "none"
-            | "daily"
-            | "monthly"
-            | "end_of_term",
+          capitalization_frequency: values.capitalization,
           day_count_convention: "actual_365",
-          start_date: form.opened_at,
+          start_date: values.opened_at,
         });
       }
 
@@ -117,7 +231,7 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
   );
   const capitalizationOptions = useMemo(
     () =>
-      (["none", "daily", "monthly", "end_of_term"] as const).map((value) => (
+      capitalizationValues.map((value) => (
         <option key={value} value={value}>
           {t.accounts.capitalizationOptions[value]}
         </option>
@@ -138,71 +252,12 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
         form.promoEndDate ||
         form.capitalization !== "none",
     );
-  const validateForm = () => {
-    const nextErrors: FieldErrors = {};
-    const initial = parseMoneyToMinorResult(form.initial, {
-      currency: form.currency,
-    });
-    if (!initial.ok) {
-      nextErrors.initial = initial.error;
-    }
-
-    const rate = interestEnabled ? Number(form.rate.replace(",", ".")) : 0;
-    const promoRate = interestEnabled
-      ? Number(form.promoRate.replace(",", "."))
-      : 0;
-
-    if (Number.isNaN(rate) || rate < 0) {
-      nextErrors.rate = t.accounts.annualRateInvalid;
-    }
-
-    if (Number.isNaN(promoRate) || promoRate < 0) {
-      nextErrors.promoRate = t.accounts.promoRateInvalid;
-    }
-
-    if (rate <= 0 && (promoRate > 0 || form.promoEndDate)) {
-      nextErrors.rate = t.accounts.annualRateRequiredForPromo;
-    }
-
-    if (rate > 0 && promoRate > 0 && !form.promoEndDate) {
-      nextErrors.promoEndDate = t.accounts.promoFieldsRequiredTogether;
-    }
-
-    if (rate > 0 && promoRate <= 0 && form.promoEndDate) {
-      nextErrors.promoRate = t.accounts.promoFieldsRequiredTogether;
-    }
-
-    return {
-      errors: nextErrors,
-      values: {
-        initial: initial.ok ? initial.value : "0",
-        promoRate,
-        rate,
-      },
-    };
-  };
-  const validateAndStore = () => {
-    const validation = validateForm();
-    setFieldErrors(validation.errors);
-    return validation;
-  };
-  const clearFieldError = (field: keyof FieldErrors) => {
-    setFieldErrors((errors) => {
-      const nextErrors = { ...errors };
-      delete nextErrors[field];
-      return nextErrors;
-    });
-  };
-  const getFieldErrorId = (field: keyof FieldErrors) =>
+  const getFieldErrorId = (field: keyof CreateAccountFormValues) =>
     `${errorId}-${field}-error`;
-  const submitForm = () => {
-    const validation = validateAndStore();
-    if (Object.keys(validation.errors).length > 0) {
-      setError("");
-      return;
-    }
-    mutation.mutate(validation.values);
-  };
+  const submitForm = handleSubmit((values) => {
+    setError("");
+    mutation.mutate(values);
+  });
 
   return (
     <FormShell
@@ -235,8 +290,11 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
                 disabled={option.disabled}
                 onChange={() => {
                   if (option.type) {
-                    setForm({ ...form, type: option.type });
-                    setFieldErrors({});
+                    setValue("type", option.type as SupportedAccountType, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    });
+                    clearErrors();
                     setError("");
                   }
                 }}
@@ -286,21 +344,14 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
             </div>
             <div className="account-field-grid">
               <Field label={accountNameLabel(form.type, t)}>
-                <Input
-                  required
-                  value={form.name}
-                  onChange={(event) =>
-                    setForm({ ...form, name: event.target.value })
-                  }
-                />
+                <Input required {...register("name")} />
               </Field>
 
               <Field label={t.accounts.currency}>
                 <Select
-                  value={form.currency}
-                  onChange={(event) =>
-                    setForm({ ...form, currency: event.target.value })
-                  }
+                  {...register("currency", {
+                    onChange: () => clearErrors("initial"),
+                  })}
                 >
                   {currencySelectOptions}
                 </Select>
@@ -309,17 +360,11 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
               <Field
                 label={isDeposit ? t.accounts.openingDate : t.accounts.opened}
               >
-                <Input
-                  type="date"
-                  value={form.opened_at}
-                  onChange={(event) =>
-                    setForm({ ...form, opened_at: event.target.value })
-                  }
-                />
+                <Input type="date" {...register("opened_at")} />
               </Field>
 
               <ValidatedField
-                error={fieldErrors.initial}
+                error={errors.initial?.message}
                 errorId={getFieldErrorId("initial")}
                 label={
                   isDeposit
@@ -329,18 +374,15 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
               >
                 <Input
                   aria-describedby={
-                    fieldErrors.initial
+                    errors.initial
                       ? getFieldErrorId("initial")
                       : undefined
                   }
-                  aria-invalid={Boolean(fieldErrors.initial)}
+                  aria-invalid={Boolean(errors.initial)}
                   inputMode="decimal"
-                  value={form.initial}
-                  onBlur={validateAndStore}
-                  onChange={(event) => {
-                    clearFieldError("initial");
-                    setForm({ ...form, initial: event.target.value });
-                  }}
+                  {...register("initial", {
+                    onChange: () => clearErrors("initial"),
+                  })}
                 />
               </ValidatedField>
 
@@ -361,12 +403,7 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
                 </div>
                 <div className="account-field-grid">
                   <Field label={t.accounts.bank}>
-                    <Input
-                      value={form.bank}
-                      onChange={(event) =>
-                        setForm({ ...form, bank: event.target.value })
-                      }
-                    />
+                    <Input {...register("bank")} />
                   </Field>
 
                   {isCard ? (
@@ -422,76 +459,65 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
                     : t.accounts.interestSettings}
                 </h3>
                 <ValidatedField
-                  error={fieldErrors.rate}
+                  error={errors.rate?.message}
                   errorId={getFieldErrorId("rate")}
                   label={t.accounts.annualRate}
                 >
                   <Input
                     aria-describedby={
-                      fieldErrors.rate ? getFieldErrorId("rate") : undefined
+                      errors.rate ? getFieldErrorId("rate") : undefined
                     }
-                    aria-invalid={Boolean(fieldErrors.rate)}
+                    aria-invalid={Boolean(errors.rate)}
                     inputMode="decimal"
-                    value={form.rate}
-                    onBlur={validateAndStore}
-                    onChange={(event) => {
-                      clearFieldError("rate");
-                      setForm({ ...form, rate: event.target.value });
-                    }}
+                    {...register("rate", {
+                      onChange: () =>
+                        clearErrors(["rate", "promoRate", "promoEndDate"]),
+                    })}
                   />
                 </ValidatedField>
 
                 <ValidatedField
-                  error={fieldErrors.promoRate}
+                  error={errors.promoRate?.message}
                   errorId={getFieldErrorId("promoRate")}
                   label={t.accounts.promoRate}
                 >
                   <Input
                     aria-describedby={
-                      fieldErrors.promoRate
+                      errors.promoRate
                         ? getFieldErrorId("promoRate")
                         : undefined
                     }
-                    aria-invalid={Boolean(fieldErrors.promoRate)}
+                    aria-invalid={Boolean(errors.promoRate)}
                     inputMode="decimal"
-                    value={form.promoRate}
-                    onBlur={validateAndStore}
-                    onChange={(event) => {
-                      clearFieldError("promoRate");
-                      setForm({ ...form, promoRate: event.target.value });
-                    }}
+                    {...register("promoRate", {
+                      onChange: () =>
+                        clearErrors(["rate", "promoRate", "promoEndDate"]),
+                    })}
                   />
                 </ValidatedField>
 
                 <ValidatedField
-                  error={fieldErrors.promoEndDate}
+                  error={errors.promoEndDate?.message}
                   errorId={getFieldErrorId("promoEndDate")}
                   label={t.accounts.promoEnd}
                 >
                   <Input
                     aria-describedby={
-                      fieldErrors.promoEndDate
+                      errors.promoEndDate
                         ? getFieldErrorId("promoEndDate")
                         : undefined
                     }
-                    aria-invalid={Boolean(fieldErrors.promoEndDate)}
+                    aria-invalid={Boolean(errors.promoEndDate)}
                     type="date"
-                    value={form.promoEndDate}
-                    onBlur={validateAndStore}
-                    onChange={(event) => {
-                      clearFieldError("promoEndDate");
-                      setForm({ ...form, promoEndDate: event.target.value });
-                    }}
+                    {...register("promoEndDate", {
+                      onChange: () =>
+                        clearErrors(["rate", "promoRate", "promoEndDate"]),
+                    })}
                   />
                 </ValidatedField>
 
                 <Field label={t.accounts.capitalization}>
-                  <Select
-                    value={form.capitalization}
-                    onChange={(event) =>
-                      setForm({ ...form, capitalization: event.target.value })
-                    }
-                  >
+                  <Select {...register("capitalization")}>
                     {capitalizationOptions}
                   </Select>
                 </Field>
@@ -512,11 +538,22 @@ function isInterestBearing(type: AccountType) {
   return type === "savings" || type === "term_deposit";
 }
 
+function parsePercent(value: string) {
+  return value ? Number(value.replace(",", ".")) : 0;
+}
+
+function parseValidatedMoney(value: string, currency: string) {
+  const result = parseMoneyToMinorResult(value, { currency });
+  return result.ok ? result.value : "0";
+}
+
 function accountTypeLabel(
   type: AccountType | "checking",
   t: ReturnType<typeof useI18n>["t"],
 ) {
-  return type === "checking" ? t.accounts.checkingAccount : t.accounts.types[type];
+  return type === "checking"
+    ? t.accounts.checkingAccount
+    : t.accounts.types[type];
 }
 
 function accountTypeDescription(
