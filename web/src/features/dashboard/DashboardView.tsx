@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { CreditCard, Repeat, Target, Zap } from "lucide-react";
 import { api } from "../../api/client";
@@ -721,18 +721,27 @@ function AnimatedMoneyValue({
   locale: ReturnType<typeof useI18n>["locale"];
 }) {
   const target = useMemo(() => moneyToNumber(amount), [amount]);
-  const [displayValue, setDisplayValue] = useState(target);
   const previousTarget = useRef(target);
+  const valueRef = useRef<HTMLSpanElement>(null);
+  const finalValueLabel = formatMoney(amount, currency, locale);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    const valueNode = valueRef.current;
+    if (!valueNode) {
+      return undefined;
+    }
+
     const prefersReducedMotion =
       "matchMedia" in window &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const setFormattedValue = (value: number) => {
+      valueNode.textContent = formatMoney(value.toFixed(6), currency, locale);
+    };
 
     if (prefersReducedMotion) {
       previousTarget.current = target;
-      const frame = window.requestAnimationFrame(() => setDisplayValue(target));
-      return () => window.cancelAnimationFrame(frame);
+      valueNode.textContent = finalValueLabel;
+      return undefined;
     }
 
     const from = previousTarget.current;
@@ -740,33 +749,38 @@ function AnimatedMoneyValue({
     previousTarget.current = target;
 
     if (Math.abs(delta) < 0.005) {
-      const frame = window.requestAnimationFrame(() => setDisplayValue(target));
-      return () => window.cancelAnimationFrame(frame);
+      valueNode.textContent = finalValueLabel;
+      return undefined;
     }
 
-    const duration = 720;
+    const duration = 240;
     const startedAt = window.performance.now();
     let frame = 0;
 
     const tick = (now: number) => {
       const progress = Math.min((now - startedAt) / duration, 1);
       const eased = 1 - (1 - progress) ** 3;
-      setDisplayValue(from + delta * eased);
+      setFormattedValue(from + delta * eased);
 
       if (progress < 1) {
         frame = window.requestAnimationFrame(tick);
+      } else {
+        valueNode.textContent = finalValueLabel;
       }
     };
 
+    setFormattedValue(from);
     frame = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(frame);
-  }, [target]);
-
-  const finalValueLabel = formatMoney(amount, currency, locale);
+  }, [currency, finalValueLabel, locale, target]);
 
   return (
-    <span className="animated-money-value" aria-label={finalValueLabel}>
-      {formatMoney(displayValue.toFixed(6), currency, locale)}
+    <span
+      ref={valueRef}
+      className="animated-money-value"
+      aria-label={finalValueLabel}
+    >
+      {finalValueLabel}
     </span>
   );
 }
