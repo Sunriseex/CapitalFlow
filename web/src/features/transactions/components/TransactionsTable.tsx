@@ -159,8 +159,17 @@ function useMediaQuery(query: string) {
       setMatches(event.matches);
     };
 
-    mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
+    if ("addEventListener" in mediaQuery) {
+      mediaQuery.addEventListener("change", handleChange);
+      return () => mediaQuery.removeEventListener("change", handleChange);
+    }
+
+    const legacyMediaQuery = mediaQuery as MediaQueryList & {
+      addListener: (listener: (event: MediaQueryListEvent) => void) => void;
+      removeListener: (listener: (event: MediaQueryListEvent) => void) => void;
+    };
+    legacyMediaQuery.addListener(handleChange);
+    return () => legacyMediaQuery.removeListener(handleChange);
   }, [query]);
 
   return matches;
