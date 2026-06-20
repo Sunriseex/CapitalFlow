@@ -1,5 +1,4 @@
 import { useId, useMemo, useState } from "react";
-import type { ReactNode } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, useWatch } from "react-hook-form";
@@ -15,7 +14,14 @@ import {
 } from "../../shared/api/query";
 import { currencyOptions } from "../../shared/currencies";
 import { today } from "../../shared/constants";
-import { Button, Field, FormShell, Input, Select } from "../../shared/ui";
+import {
+  Button,
+  Field,
+  FormShell,
+  Input,
+  Select,
+  ValidatedField,
+} from "../../shared/ui";
 import { useI18n } from "../../shared/i18n/useI18n";
 
 const createAccountTypes: Array<{
@@ -580,32 +586,6 @@ function accountTypeIcon(type: AccountType | "checking") {
   if (type === "savings") return <PiggyBank />;
   if (type === "term_deposit") return <Timer />;
   return <Landmark />;
-}
-
-function ValidatedField({
-  children,
-  error,
-  errorId,
-  label,
-}: {
-  children: ReactNode;
-  error?: string;
-  errorId: string;
-  label: string;
-}) {
-  return (
-    <div className="field">
-      <label className="field-control">
-        <span>{label}</span>
-        {children}
-      </label>
-      {error ? (
-        <span className="field-error" id={errorId}>
-          {error}
-        </span>
-      ) : null}
-    </div>
-  );
 }
 
 function PlaceholderField({ label }: { label: string }) {

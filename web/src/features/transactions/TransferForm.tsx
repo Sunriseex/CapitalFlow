@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import type { ReactNode } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm, useWatch } from "react-hook-form";
@@ -24,6 +23,7 @@ import {
   FormShell,
   Input,
   Select,
+  ValidatedField,
 } from "../../shared/ui";
 import { useI18n } from "../../shared/i18n/useI18n";
 
@@ -337,30 +337,4 @@ function createTransferFormSchema(
         });
       }
     });
-}
-
-function ValidatedField({
-  children,
-  error,
-  errorId,
-  label,
-}: {
-  children: ReactNode;
-  error?: string;
-  errorId: string;
-  label: string;
-}) {
-  return (
-    <div className="field">
-      <label className="field-control">
-        <span>{label}</span>
-        {children}
-      </label>
-      {error ? (
-        <span className="field-error" id={errorId}>
-          {error}
-        </span>
-      ) : null}
-    </div>
-  );
 }
