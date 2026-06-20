@@ -1,5 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
+import { useForm, useWatch } from "react-hook-form";
+import { z } from "zod";
 import { api } from "../../api/client";
 import type { Profile } from "../../api/types";
 import { apiErrorMessages, errorMessage } from "../../shared/api/query";
@@ -8,37 +11,61 @@ import { Button, Field, Input, Panel, Select } from "../../shared/ui";
 import { PasskeysPanel } from "./PasskeysPanel";
 import { useI18n } from "../../shared/i18n/useI18n";
 
+type SettingsFormValues = {
+  primary_currency: string;
+};
+
+const settingsFormSchema = z.object({
+  primary_currency: z.string().min(1),
+});
+
 export function SettingsView({ profile }: { profile?: Profile }) {
   const { t, locale } = useI18n();
   const errorMessages = apiErrorMessages(t);
   const queryClient = useQueryClient();
 
   const profileCurrency = profile?.user.primary_currency ?? "RUB";
-  const [draftCurrency, setDraftCurrency] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [saved, setSaved] = useState(false);
+  const [savedKey, setSavedKey] = useState<string | null>(null);
 
-  const primaryCurrency = draftCurrency ?? profileCurrency;
   const currencies = useMemo(() => currencyOptions(locale), [locale]);
+  const { control, handleSubmit, register, reset } =
+    useForm<SettingsFormValues>({
+      defaultValues: { primary_currency: profileCurrency },
+      mode: "onBlur",
+      resolver: zodResolver(settingsFormSchema),
+    });
+  const primaryCurrency =
+    useWatch({ control, name: "primary_currency" }) ?? profileCurrency;
+  const currentSavedKey = profile
+    ? `${profile.user.id}:${primaryCurrency}`
+    : null;
+  const saved = Boolean(savedKey && savedKey === currentSavedKey);
 
-  async function save() {
+  useEffect(() => {
+    reset({ primary_currency: profileCurrency });
+  }, [profileCurrency, reset]);
+
+  async function save(values: SettingsFormValues) {
     if (!profile) {
       return;
     }
 
     setError("");
-    setSaved(false);
+    setSavedKey(null);
 
     try {
       const updatedProfile = await api.updateProfile({
-        primary_currency: primaryCurrency,
+        primary_currency: values.primary_currency,
       });
 
-      setDraftCurrency(updatedProfile.user.primary_currency);
+      reset({ primary_currency: updatedProfile.user.primary_currency });
       await queryClient.invalidateQueries({ queryKey: ["profile"] });
       await queryClient.invalidateQueries({ queryKey: ["dashboard"] });
 
-      setSaved(true);
+      setSavedKey(
+        `${updatedProfile.user.id}:${updatedProfile.user.primary_currency}`,
+      );
     } catch (err) {
       setError(errorMessage(err, errorMessages));
     }
@@ -52,24 +79,23 @@ export function SettingsView({ profile }: { profile?: Profile }) {
       >
         <form
           className="form compact-form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void save();
-          }}
+          onSubmit={handleSubmit((values) => {
+            void save(values);
+          })}
         >
           <Field label={t.settings.email}>
-            {" "}
             <Input value={profile?.user.email ?? ""} readOnly />
           </Field>
           <Field label={t.settings.primaryCurrency}>
-            {" "}
             <Select
-              value={primaryCurrency}
               disabled={!profile}
-              onChange={(event) => {
-                setDraftCurrency(event.target.value);
-                setSaved(false);
-              }}
+              {...register("primary_currency", {
+                onChange: () => {
+                  setError("");
+                  setSavedKey(null);
+                },
+              })}
+              value={primaryCurrency}
             >
               {currencies.map((currency) => (
                 <option key={currency.code} value={currency.code}>
@@ -80,7 +106,7 @@ export function SettingsView({ profile }: { profile?: Profile }) {
           </Field>
           {error ? <div className="error">{error}</div> : null}
           {saved ? <div className="success">{t.settings.saved}</div> : null}
-          <Button disabled={!profile}>{t.settings.saveSettings}</Button>{" "}
+          <Button disabled={!profile}>{t.settings.saveSettings}</Button>
         </form>
       </Panel>
 
