@@ -1505,6 +1505,19 @@ ol.toaster {
   }
 }
 
+@media (pointer: coarse) {
+  [data-slot="button"][data-size="xs"],
+  [data-slot="button"][data-size="sm"],
+  [data-slot="button"][data-size="icon-xs"],
+  [data-slot="button"][data-size="icon-sm"],
+  [data-slot="button"][data-size="icon"],
+  [data-slot="dialog-close"],
+  [data-slot="dialog-close"] [data-slot="button"] {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
 .brand-mark {
   width: 38px;
   height: 38px;
@@ -3825,6 +3838,27 @@ html.language-ripple-fallback::after {
   background: var(--surface-inset);
   font-size: 0.78rem;
   font-weight: 900;
+}
+
+.transaction-row-action {
+  width: fit-content;
+  max-width: 100%;
+  height: auto;
+  min-height: 32px;
+  justify-content: flex-start;
+  padding: 0;
+  color: var(--foreground);
+  background: transparent;
+  white-space: normal;
+  text-align: left;
+}
+
+.transaction-row-action:hover,
+.transaction-row-action:focus-visible {
+  color: var(--foreground);
+  background: transparent;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .transaction-operation-copy {

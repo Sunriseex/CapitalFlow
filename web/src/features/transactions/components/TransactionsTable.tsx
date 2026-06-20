@@ -1,5 +1,4 @@
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import type { KeyboardEvent } from "react";
 import { compareMoney, formatMoney, signedAmount } from "../../../api/money";
 import type { Account, Category, Transaction } from "../../../api/types";
 import { dateLabel } from "../../../shared/date";
@@ -63,17 +62,6 @@ export const TransactionsTable = memo(function TransactionsTable({
     [onOpenTransaction],
   );
 
-  const openWithKeyboard = useCallback(
-    (event: KeyboardEvent<HTMLTableRowElement>, transaction: Transaction) => {
-      if (!onOpenTransaction || (event.key !== "Enter" && event.key !== " ")) {
-        return;
-      }
-      event.preventDefault();
-      onOpenTransaction(transaction);
-    },
-    [onOpenTransaction],
-  );
-
   if (!transactions.length) {
     return <Empty>{t.transactions.noTransactions}</Empty>;
   }
@@ -106,7 +94,6 @@ export const TransactionsTable = memo(function TransactionsTable({
                   categoryNames={categoryNames}
                   isInteractive={Boolean(onOpenTransaction)}
                   onOpenTransaction={openTransaction}
-                  onKeyOpen={openWithKeyboard}
                   t={t}
                 />
               ))}
@@ -191,7 +178,6 @@ const TransactionRow = memo(function TransactionRow({
   categoryNames,
   isInteractive,
   onOpenTransaction,
-  onKeyOpen,
   t,
 }: {
   transaction: Transaction;
@@ -201,10 +187,6 @@ const TransactionRow = memo(function TransactionRow({
   categoryNames: Map<string, string>;
   isInteractive: boolean;
   onOpenTransaction: (transaction: Transaction) => void;
-  onKeyOpen: (
-    event: KeyboardEvent<HTMLTableRowElement>,
-    transaction: Transaction,
-  ) => void;
   t: ReturnType<typeof useI18n>["t"];
 }) {
   const { locale } = useI18n();
@@ -222,14 +204,7 @@ const TransactionRow = memo(function TransactionRow({
       className={
         isInteractive ? "transaction-row is-clickable-row" : "transaction-row"
       }
-      tabIndex={isInteractive ? 0 : undefined}
-      aria-label={
-        isInteractive
-          ? `${t.transactions.openTransactionDetails}: ${details.title}`
-          : undefined
-      }
       onClick={isInteractive ? () => onOpenTransaction(transaction) : undefined}
-      onKeyDown={(event) => onKeyOpen(event, transaction)}
     >
       <td data-label={t.transactions.operation}>
         <div className="transaction-operation-cell">
@@ -237,7 +212,22 @@ const TransactionRow = memo(function TransactionRow({
             {details.icon}
           </span>
           <span className="transaction-operation-copy">
-            <strong>{details.title}</strong>
+            {isInteractive ? (
+              <ShadcnButton
+                className="transaction-row-action"
+                type="button"
+                variant="ghost"
+                aria-label={`${t.transactions.openTransactionDetails}: ${details.title}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onOpenTransaction(transaction);
+                }}
+              >
+                {details.title}
+              </ShadcnButton>
+            ) : (
+              <strong>{details.title}</strong>
+            )}
             <small>{details.secondary}</small>
           </span>
         </div>
