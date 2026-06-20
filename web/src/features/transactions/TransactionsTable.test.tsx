@@ -110,7 +110,7 @@ describe("TransactionsTable", () => {
     expect(screen.getByText("144 of 205")).toBeInTheDocument();
   });
 
-  it("opens transaction details from click and keyboard", async () => {
+  it("opens transaction details from row click and the row action button", async () => {
     const user = userEvent.setup();
     const onOpenTransaction = vi.fn();
 
@@ -123,17 +123,19 @@ describe("TransactionsTable", () => {
       />,
     );
 
-    const row = screen.getByRole("row", { name: /Salary/ });
+    const row = screen.getByText("Verified").closest("tr");
+    if (!row) {
+      throw new Error("Expected transaction row to render");
+    }
     await user.click(row);
     expect(onOpenTransaction).toHaveBeenCalledWith(incomeTransaction);
 
     onOpenTransaction.mockClear();
-    row.focus();
+    const action = screen.getByRole("button", {
+      name: /Open transaction details: Salary/,
+    });
+    action.focus();
     await user.keyboard("{Enter}");
-    expect(onOpenTransaction).toHaveBeenCalledWith(incomeTransaction);
-
-    onOpenTransaction.mockClear();
-    await user.keyboard(" ");
     expect(onOpenTransaction).toHaveBeenCalledWith(incomeTransaction);
   });
 
