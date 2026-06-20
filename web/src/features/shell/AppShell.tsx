@@ -325,6 +325,56 @@ function runThemeRipple(
   });
 }
 
+function runLanguageRipple(trigger: HTMLElement, applyLocale: () => void) {
+  const reducedMotion =
+    "matchMedia" in window &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  if (reducedMotion) {
+    applyLocale();
+    return;
+  }
+
+  const rect = trigger.getBoundingClientRect();
+  const x = rect.left + rect.width / 2;
+  const y = rect.top + rect.height / 2;
+  const radius = Math.ceil(
+    Math.hypot(
+      Math.max(x, window.innerWidth - x),
+      Math.max(y, window.innerHeight - y),
+    ),
+  );
+  const root = document.documentElement;
+
+  root.style.setProperty("--language-ripple-x", `${x}px`);
+  root.style.setProperty("--language-ripple-y", `${y}px`);
+  root.style.setProperty("--language-ripple-radius", `${radius}px`);
+
+  const viewTransitionDocument = document as Document & {
+    startViewTransition?: (callback: () => void) => {
+      finished: Promise<void>;
+    };
+  };
+
+  if (typeof viewTransitionDocument.startViewTransition === "function") {
+    root.classList.add("language-view-transition");
+    const transition = viewTransitionDocument.startViewTransition(applyLocale);
+    void transition.finished.finally(() => {
+      root.classList.remove("language-view-transition");
+    });
+    return;
+  }
+
+  root.classList.remove("language-ripple-fallback");
+  applyLocale();
+  window.requestAnimationFrame(() => {
+    root.classList.add("language-ripple-fallback");
+    window.setTimeout(() => {
+      root.classList.remove("language-ripple-fallback");
+    }, 440);
+  });
+}
+
 function LanguageChoice({
   locale,
   active,
@@ -346,8 +396,11 @@ function LanguageChoice({
       variant="ghost"
       role="menuitemradio"
       aria-checked={active}
-      onClick={() => {
-        onSelect(locale);
+      onClick={(event) => {
+        if (active) {
+          return;
+        }
+        runLanguageRipple(event.currentTarget, () => onSelect(locale));
         toaster.create({ type: "info", title: t.shell.languageChanged });
       }}
     >
