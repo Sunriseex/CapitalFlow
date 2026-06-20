@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import type { CurrencyOption } from "../../shared/currencies";
-import { Button, Input, PageTransition, Select } from "../../shared/ui";
+import {
+  Button,
+  FieldError,
+  Input,
+  PageTransition,
+  Select,
+} from "../../shared/ui";
 import { Button as ShadcnButton } from "../../components/ui/button";
 import { useI18n } from "../../shared/i18n/useI18n";
 
@@ -151,13 +157,9 @@ export function LoginScreen({
                     onChange={(event) => onEmailChange(event.target.value)}
                   />
                   {emailError ? (
-                    <p
-                      className="field-error"
-                      id="email-error"
-                      aria-live="polite"
-                    >
+                    <FieldError id="email-error">
                       {emailError}
-                    </p>
+                    </FieldError>
                   ) : null}
                 </div>
 
@@ -207,13 +209,9 @@ export function LoginScreen({
                     </ShadcnButton>
                   </div>
                   {passwordError ? (
-                    <p
-                      className="field-error"
-                      id="password-error"
-                      aria-live="polite"
-                    >
+                    <FieldError id="password-error">
                       {passwordError}
-                    </p>
+                    </FieldError>
                   ) : null}
                 </div>
 
@@ -410,13 +408,9 @@ export function InitialSetupScreen({
                     onChange={(event) => onEmailChange(event.target.value)}
                   />
                   {emailError ? (
-                    <p
-                      className="field-error"
-                      id="owner-email-error"
-                      aria-live="polite"
-                    >
+                    <FieldError id="owner-email-error">
                       {emailError}
-                    </p>
+                    </FieldError>
                   ) : null}
                 </div>
 
@@ -499,13 +493,9 @@ export function InitialSetupScreen({
                     </p>
                   </div>
                   {passwordError ? (
-                    <p
-                      className="field-error"
-                      id="owner-password-error"
-                      aria-live="polite"
-                    >
+                    <FieldError id="owner-password-error">
                       {passwordError}
-                    </p>
+                    </FieldError>
                   ) : null}
                 </div>
 
@@ -557,13 +547,9 @@ export function InitialSetupScreen({
                     </ShadcnButton>
                   </div>
                   {confirmError ? (
-                    <p
-                      className="field-error"
-                      id="owner-password-confirm-error"
-                      aria-live="polite"
-                    >
+                    <FieldError id="owner-password-confirm-error">
                       {confirmError}
-                    </p>
+                    </FieldError>
                   ) : null}
                 </div>
 
@@ -607,13 +593,9 @@ export function InitialSetupScreen({
                   {t.auth.ownerAccountRequirement}
                 </label>
                 {setupConfirmError ? (
-                  <p
-                    className="field-error"
-                    id="setup-confirm-error"
-                    aria-live="polite"
-                  >
+                  <FieldError id="setup-confirm-error">
                     {setupConfirmError}
-                  </p>
+                  </FieldError>
                 ) : null}
 
                 {globalError ? (

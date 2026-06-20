@@ -127,6 +127,20 @@ export function ValidatedField({
   );
 }
 
+export function FieldError({
+  children,
+  id,
+}: {
+  children: ReactNode;
+  id: string;
+}) {
+  return (
+    <p className="field-error" id={id} aria-live="polite">
+      {children}
+    </p>
+  );
+}
+
 export function Input({
   className = "",
   ...props
