@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
-import type { FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm, useWatch } from "react-hook-form";
+import { z } from "zod";
 import type { CurrencyOption } from "../../shared/currencies";
 import {
   Button,
@@ -39,50 +41,69 @@ type ZxcvbnFn = (password: string) => ZxcvbnResult;
 let zxcvbnPromise: Promise<ZxcvbnFn> | null = null;
 
 type LoginScreenProps = {
-  email: string;
-  password: string;
   error: AuthScreenError;
   passkeyError: string;
   passkeysSupported: boolean;
   passkeyLoading: boolean;
   statusLoading: boolean;
-  onEmailChange: (value: string) => void;
-  onPasswordChange: (value: string) => void;
-  onSubmit: () => void;
+  onSubmit: (values: LoginSubmitValues) => void;
   onPasskeySubmit: () => void;
 };
 
-type InitialSetupScreenProps = {
+export type LoginSubmitValues = {
   email: string;
   password: string;
-  primaryCurrency: string;
+};
+
+type InitialSetupScreenProps = {
   currencyOptions: CurrencyOption[];
   error: AuthScreenError;
   statusLoading: boolean;
-  onEmailChange: (value: string) => void;
-  onPasswordChange: (value: string) => void;
-  onPrimaryCurrencyChange: (value: string) => void;
-  onSubmit: () => void;
+  onSubmit: (values: InitialSetupSubmitValues) => void;
+};
+
+export type InitialSetupSubmitValues = {
+  email: string;
+  password: string;
+  primaryCurrency: string;
+};
+
+type InitialSetupFormValues = InitialSetupSubmitValues & {
+  ownerName: string;
+  passwordConfirm: string;
+  setupConfirm: boolean;
 };
 
 export function LoginScreen({
-  email,
-  password,
   error,
   passkeyError,
   passkeysSupported,
   passkeyLoading,
   statusLoading,
-  onEmailChange,
-  onPasswordChange,
   onSubmit,
   onPasskeySubmit,
 }: LoginScreenProps) {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const { t } = useI18n();
+  const formSchema = useMemo(() => loginSchema(t), [t]);
+  const {
+    clearErrors,
+    formState: { errors },
+    handleSubmit,
+    register,
+  } = useForm<LoginSubmitValues>({
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+    mode: "onBlur",
+    resolver: zodResolver(formSchema),
+  });
   const fieldError = error?.kind === "field";
-  const emailError = fieldError ? t.auth.emailSignInError : "";
-  const passwordError = fieldError ? t.auth.passwordSignInError : "";
+  const emailError =
+    errors.email?.message ?? (fieldError ? t.auth.emailSignInError : "");
+  const passwordError =
+    errors.password?.message ?? (fieldError ? t.auth.passwordSignInError : "");
   const globalError = error?.kind === "global" ? error.message : "";
 
   return (
@@ -110,7 +131,7 @@ export function LoginScreen({
                 action="/login"
                 method="post"
                 noValidate
-                onSubmit={submit(onSubmit)}
+                onSubmit={handleSubmit(onSubmit)}
                 aria-label={t.auth.loginForm}
               >
                 <Button
@@ -146,15 +167,15 @@ export function LoginScreen({
                   <label htmlFor="email">{t.auth.email}</label>{" "}
                   <Input
                     id="email"
-                    name="email"
                     type="email"
                     autoComplete="email"
                     placeholder={t.auth.emailPlaceholder}
                     required
                     aria-invalid={Boolean(emailError)}
                     aria-errormessage={emailError ? "email-error" : undefined}
-                    value={email}
-                    onChange={(event) => onEmailChange(event.target.value)}
+                    {...register("email", {
+                      onChange: () => clearErrors("email"),
+                    })}
                   />
                   {emailError ? (
                     <FieldError id="email-error">
@@ -176,7 +197,6 @@ export function LoginScreen({
                   <div className="password-control">
                     <Input
                       id="password"
-                      name="password"
                       type={passwordVisible ? "text" : "password"}
                       autoComplete="current-password"
                       placeholder={t.auth.passwordPlaceholder}
@@ -185,8 +205,9 @@ export function LoginScreen({
                       aria-errormessage={
                         passwordError ? "password-error" : undefined
                       }
-                      value={password}
-                      onChange={(event) => onPasswordChange(event.target.value)}
+                      {...register("password", {
+                        onChange: () => clearErrors("password"),
+                      })}
                     />
                     <ShadcnButton
                       className="password-toggle"
@@ -256,52 +277,66 @@ export function LoginScreen({
 }
 
 export function InitialSetupScreen({
-  email,
-  password,
-  primaryCurrency,
   currencyOptions,
   error,
   statusLoading,
-  onEmailChange,
-  onPasswordChange,
-  onPrimaryCurrencyChange,
   onSubmit,
 }: InitialSetupScreenProps) {
   const [passwordVisible, setPasswordVisible] = useState(false);
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
-  const [passwordTouched, setPasswordTouched] = useState(false);
-  const [confirmTouched, setConfirmTouched] = useState(false);
-  const [setupConfirmed, setSetupConfirmed] = useState(false);
   const { t } = useI18n();
   const [submitError, setSubmitError] = useState<{
     target: "password" | "confirm" | "setup-confirm";
     message: string;
   } | null>(null);
+  const formSchema = useMemo(() => initialSetupSchema(t), [t]);
+  const {
+    clearErrors,
+    control,
+    formState: { errors, touchedFields },
+    handleSubmit,
+    register,
+  } = useForm<InitialSetupFormValues>({
+    defaultValues: {
+      ownerName: "",
+      email: "",
+      password: "",
+      passwordConfirm: "",
+      primaryCurrency: "RUB",
+      setupConfirm: false,
+    },
+    mode: "onBlur",
+    resolver: zodResolver(formSchema),
+  });
+  const password = useWatch({ control, name: "password" }) ?? "";
+  const passwordConfirm = useWatch({ control, name: "passwordConfirm" }) ?? "";
+  const setupConfirmed = useWatch({ control, name: "setupConfirm" }) ?? false;
   const strength = usePasswordStrength(password, t);
   const apiFieldError = error?.kind === "field";
-  const emailError = apiFieldError ? t.auth.ownerEmailError : "";
+  const emailError =
+    errors.email?.message ?? (apiFieldError ? t.auth.ownerEmailError : "");
   const passwordError =
     submitError?.target === "password"
       ? submitError.message
-      : passwordTouched && password && strength.score < 3
+      : errors.password?.message ??
+        (touchedFields.password && password && strength.score < 3
         ? t.auth.passwordScoreRequirement
-        : "";
+        : "");
   const confirmError =
     submitError?.target === "confirm"
       ? submitError.message
-      : (confirmTouched || confirmPassword) && confirmPassword !== password
+      : errors.passwordConfirm?.message ??
+        ((touchedFields.passwordConfirm || passwordConfirm) &&
+        passwordConfirm !== password
         ? t.auth.passwordsDoNotMatch
-        : "";
+        : "");
   const setupConfirmError =
-    submitError?.target === "setup-confirm" ? submitError.message : "";
+    submitError?.target === "setup-confirm"
+      ? submitError.message
+      : errors.setupConfirm?.message;
   const globalError = error?.kind === "global" ? error.message : "";
 
-  function submitSetup(event: FormEvent) {
-    event.preventDefault();
-    setPasswordTouched(true);
-    setConfirmTouched(true);
-
+  const submitSetup = handleSubmit((values) => {
     if (strength.loading) {
       setSubmitError({
         target: "password",
@@ -318,7 +353,7 @@ export function InitialSetupScreen({
       return;
     }
 
-    if (confirmPassword !== password) {
+    if (values.passwordConfirm !== values.password) {
       setSubmitError({
         target: "confirm",
         message: t.auth.passwordConfirmationDoesNotMatch,
@@ -335,8 +370,12 @@ export function InitialSetupScreen({
     }
 
     setSubmitError(null);
-    onSubmit();
-  }
+    onSubmit({
+      email: values.email,
+      password: values.password,
+      primaryCurrency: values.primaryCurrency,
+    });
+  });
 
   return (
     <main className="setup-page auth-reference-page">
@@ -384,10 +423,10 @@ export function InitialSetupScreen({
                   <label htmlFor="owner-name">{t.auth.ownerName}</label>{" "}
                   <Input
                     id="owner-name"
-                    name="ownerName"
                     type="text"
                     autoComplete="name"
                     placeholder={t.auth.ownerNamePlaceholder}
+                    {...register("ownerName")}
                   />
                 </div>
 
@@ -395,7 +434,6 @@ export function InitialSetupScreen({
                   <label htmlFor="owner-email">{t.auth.ownerEmail}</label>
                   <Input
                     id="owner-email"
-                    name="email"
                     type="email"
                     autoComplete="email"
                     placeholder={t.auth.emailPlaceholder}
@@ -404,8 +442,9 @@ export function InitialSetupScreen({
                     aria-errormessage={
                       emailError ? "owner-email-error" : undefined
                     }
-                    value={email}
-                    onChange={(event) => onEmailChange(event.target.value)}
+                    {...register("email", {
+                      onChange: () => clearErrors("email"),
+                    })}
                   />
                   {emailError ? (
                     <FieldError id="owner-email-error">
@@ -419,7 +458,6 @@ export function InitialSetupScreen({
                   <div className="password-control">
                     <Input
                       id="owner-password"
-                      name="password"
                       type={passwordVisible ? "text" : "password"}
                       autoComplete="new-password"
                       placeholder={t.auth.useStrongPassphrase}
@@ -429,13 +467,13 @@ export function InitialSetupScreen({
                       aria-errormessage={
                         passwordError ? "owner-password-error" : undefined
                       }
-                      value={password}
+                      {...register("password", {
+                        onChange: () => {
+                          setSubmitError(null);
+                          clearErrors(["password", "passwordConfirm"]);
+                        },
+                      })}
                       onFocus={preloadPasswordStrength}
-                      onBlur={() => setPasswordTouched(true)}
-                      onChange={(event) => {
-                        setSubmitError(null);
-                        onPasswordChange(event.target.value);
-                      }}
                     />
                     <ShadcnButton
                       className="password-toggle"
@@ -506,7 +544,6 @@ export function InitialSetupScreen({
                   <div className="password-control">
                     <Input
                       id="owner-password-confirm"
-                      name="passwordConfirm"
                       type={confirmPasswordVisible ? "text" : "password"}
                       autoComplete="new-password"
                       placeholder={t.auth.confirmPasswordPlaceholder}
@@ -516,12 +553,12 @@ export function InitialSetupScreen({
                           ? "owner-password-confirm-error"
                           : undefined
                       }
-                      value={confirmPassword}
-                      onBlur={() => setConfirmTouched(true)}
-                      onChange={(event) => {
-                        setSubmitError(null);
-                        setConfirmPassword(event.target.value);
-                      }}
+                      {...register("passwordConfirm", {
+                        onChange: () => {
+                          setSubmitError(null);
+                          clearErrors("passwordConfirm");
+                        },
+                      })}
                     />
                     <ShadcnButton
                       className="password-toggle"
@@ -559,11 +596,7 @@ export function InitialSetupScreen({
                   </label>{" "}
                   <Select
                     id="primary-currency"
-                    name="primaryCurrency"
-                    value={primaryCurrency}
-                    onChange={(event) =>
-                      onPrimaryCurrencyChange(event.target.value)
-                    }
+                    {...register("primaryCurrency")}
                   >
                     {currencyOptions.map((currency) => (
                       <option key={currency.code} value={currency.code}>
@@ -577,18 +610,18 @@ export function InitialSetupScreen({
                   <input
                     className="checkbox"
                     id="setup-confirm"
-                    name="setupConfirm"
                     type="checkbox"
                     required
-                    checked={setupConfirmed}
                     aria-invalid={Boolean(setupConfirmError)}
                     aria-errormessage={
                       setupConfirmError ? "setup-confirm-error" : undefined
                     }
-                    onChange={(event) => {
-                      setSubmitError(null);
-                      setSetupConfirmed(event.target.checked);
-                    }}
+                    {...register("setupConfirm", {
+                      onChange: () => {
+                        setSubmitError(null);
+                        clearErrors("setupConfirm");
+                      },
+                    })}
                   />
                   {t.auth.ownerAccountRequirement}
                 </label>
@@ -673,11 +706,30 @@ export function AuthStatusScreen({
   );
 }
 
-function submit(onSubmit: () => void) {
-  return (event: FormEvent) => {
-    event.preventDefault();
-    onSubmit();
-  };
+function loginSchema(t: ReturnType<typeof useI18n>["t"]) {
+  return z.object({
+    email: z
+      .string()
+      .trim()
+      .min(1, t.auth.emailSignInError)
+      .email(t.auth.emailSignInError),
+    password: z.string().min(1, t.auth.passwordSignInError),
+  });
+}
+
+function initialSetupSchema(t: ReturnType<typeof useI18n>["t"]) {
+  return z.object({
+    ownerName: z.string(),
+    email: z
+      .string()
+      .trim()
+      .min(1, t.auth.ownerEmailError)
+      .email(t.auth.ownerEmailError),
+    password: z.string().min(1, t.auth.passwordScoreRequirement),
+    passwordConfirm: z.string(),
+    primaryCurrency: z.string().min(1),
+    setupConfirm: z.boolean(),
+  });
 }
 
 function usePasswordStrength(

@@ -209,7 +209,11 @@ export function SidebarFooter({
                 aria-label={t.shell.chooseLanguage}
                 title={t.shell.chooseLanguage}
               >
-                <span className="language-trigger-flag" aria-hidden="true">
+                <span
+                  key={locale}
+                  className="language-trigger-flag"
+                  aria-hidden="true"
+                >
                   {currentLocaleFlag}
                 </span>
                 <span className="sr-only">{t.shell.language}</span>

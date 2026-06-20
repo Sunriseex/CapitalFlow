@@ -12,7 +12,11 @@ import {
   InitialSetupScreen,
   LoginScreen,
 } from "./AuthScreens";
-import type { AuthScreenError } from "./AuthScreens";
+import type {
+  AuthScreenError,
+  InitialSetupSubmitValues,
+  LoginSubmitValues,
+} from "./AuthScreens";
 import { useI18n } from "../../shared/i18n/useI18n";
 
 export function AuthController({
@@ -26,9 +30,6 @@ export function AuthController({
     queryFn: api.authStatus,
     retry: false,
   });
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [primaryCurrency, setPrimaryCurrency] = useState("RUB");
   const [error, setError] = useState<AuthScreenError>(null);
   const [passkeyError, setPasskeyError] = useState("");
   const [passkeyLoading, setPasskeyLoading] = useState(false);
@@ -37,16 +38,26 @@ export function AuthController({
   const isSetup = status.data?.setup_required === true;
   const passkeysSupported = browserSupportsPasskeys();
 
-  async function submit() {
+  async function submitLogin(values: LoginSubmitValues) {
     setError(null);
 
     try {
-      if (isSetup) {
-        await api.setup({ email, password, primary_currency: primaryCurrency });
-      } else {
-        await api.login({ email, password });
-      }
+      await api.login(values);
+      onAuthenticated();
+    } catch (err) {
+      setError(authScreenError(err, t));
+    }
+  }
 
+  async function submitSetup(values: InitialSetupSubmitValues) {
+    setError(null);
+
+    try {
+      await api.setup({
+        email: values.email,
+        password: values.password,
+        primary_currency: values.primaryCurrency,
+      });
       onAuthenticated();
     } catch (err) {
       setError(authScreenError(err, t));
@@ -95,17 +106,11 @@ export function AuthController({
   if (isSetup) {
     return (
       <InitialSetupScreen
-        email={email}
-        password={password}
-        primaryCurrency={primaryCurrency}
         currencyOptions={currencies}
         error={error}
         statusLoading={status.isLoading}
-        onEmailChange={setEmail}
-        onPasswordChange={setPassword}
-        onPrimaryCurrencyChange={setPrimaryCurrency}
-        onSubmit={() => {
-          void submit();
+        onSubmit={(values) => {
+          void submitSetup(values);
         }}
       />
     );
@@ -113,17 +118,13 @@ export function AuthController({
 
   return (
     <LoginScreen
-      email={email}
-      password={password}
       error={error}
       passkeyError={passkeyError}
       passkeysSupported={passkeysSupported}
       passkeyLoading={passkeyLoading}
       statusLoading={status.isLoading}
-      onEmailChange={setEmail}
-      onPasswordChange={setPassword}
-      onSubmit={() => {
-        void submit();
+      onSubmit={(values) => {
+        void submitLogin(values);
       }}
       onPasskeySubmit={() => {
         void submitPasskey();
