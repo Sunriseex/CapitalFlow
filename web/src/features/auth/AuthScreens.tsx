@@ -436,6 +436,7 @@ export function InitialSetupScreen({
                         passwordError ? "owner-password-error" : undefined
                       }
                       value={password}
+                      onFocus={preloadPasswordStrength}
                       onBlur={() => setPasswordTouched(true)}
                       onChange={(event) => {
                         setSubmitError(null);
@@ -765,6 +766,10 @@ function loadZxcvbn() {
     (module) => module.default as ZxcvbnFn,
   );
   return zxcvbnPromise;
+}
+
+function preloadPasswordStrength() {
+  void loadZxcvbn().catch(() => undefined);
 }
 
 function emptyPasswordStrength(
