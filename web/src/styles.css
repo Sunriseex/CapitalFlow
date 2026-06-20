@@ -1483,7 +1483,10 @@ ol.toaster {
 
 @media (prefers-reduced-motion: reduce) {
   html.theme-view-transition::view-transition-new(root),
-  html.theme-ripple-fallback::after {
+  html.theme-ripple-fallback::after,
+  html.language-view-transition::view-transition-new(root),
+  html.language-view-transition::view-transition-old(root),
+  html.language-ripple-fallback::after {
     animation: none !important;
   }
 
@@ -2962,6 +2965,27 @@ html.theme-ripple-fallback::after {
   animation: theme-ripple-reveal 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+html.language-view-transition::view-transition-new(root) {
+  animation: language-ripple-reveal 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+html.language-view-transition::view-transition-old(root) {
+  animation: language-ripple-fade 220ms ease-out both;
+}
+
+html.language-ripple-fallback::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+  background: color-mix(in oklch, var(--accent) 70%, transparent);
+  clip-path: circle(
+    0 at var(--language-ripple-x, 50vw) var(--language-ripple-y, 50vh)
+  );
+  animation: language-ripple-flash 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @keyframes theme-ripple-reveal {
   from {
     clip-path: circle(0 at var(--theme-ripple-x, 50vw) var(--theme-ripple-y, 50vh));
@@ -2971,6 +2995,56 @@ html.theme-ripple-fallback::after {
     clip-path: circle(
       var(--theme-ripple-radius, 140vmax) at var(--theme-ripple-x, 50vw)
         var(--theme-ripple-y, 50vh)
+    );
+  }
+}
+
+@keyframes language-ripple-reveal {
+  from {
+    clip-path: circle(
+      0 at var(--language-ripple-x, 50vw) var(--language-ripple-y, 50vh)
+    );
+  }
+
+  to {
+    clip-path: circle(
+      var(--language-ripple-radius, 140vmax) at var(--language-ripple-x, 50vw)
+        var(--language-ripple-y, 50vh)
+    );
+  }
+}
+
+@keyframes language-ripple-fade {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0.88;
+  }
+}
+
+@keyframes language-ripple-flash {
+  0% {
+    opacity: 0.38;
+    clip-path: circle(
+      0 at var(--language-ripple-x, 50vw) var(--language-ripple-y, 50vh)
+    );
+  }
+
+  72% {
+    opacity: 0.16;
+    clip-path: circle(
+      var(--language-ripple-radius, 140vmax) at var(--language-ripple-x, 50vw)
+        var(--language-ripple-y, 50vh)
+    );
+  }
+
+  100% {
+    opacity: 0;
+    clip-path: circle(
+      var(--language-ripple-radius, 140vmax) at var(--language-ripple-x, 50vw)
+        var(--language-ripple-y, 50vh)
     );
   }
 }
