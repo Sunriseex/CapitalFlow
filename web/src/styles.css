@@ -94,6 +94,7 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --z-transition-overlay: 2147483647;
 }
 
 :root[data-theme="dark"] {
@@ -320,7 +321,7 @@ h2 {
   position: absolute;
   inset: 0 auto 0 0;
   width: 4px;
-  background: linear-gradient(180deg, var(--green), var(--gold), var(--blue));
+  background: var(--border);
 }
 
 .metric span,
@@ -342,10 +343,6 @@ h2 {
 .metric strong {
   font-size: 22px;
   letter-spacing: 0;
-}
-
-.primary-metric::before {
-  background: linear-gradient(180deg, var(--gold), var(--green));
 }
 
 .currency-tabs {
@@ -648,20 +645,6 @@ nav button:focus-visible {
   color: var(--muted-foreground);
   font-size: 12px;
   font-weight: 650;
-}
-
-.allocation-bar {
-  grid-column: 1 / 3;
-  height: 7px;
-  overflow: hidden;
-  background: var(--line);
-  border-radius: 999px;
-}
-
-.allocation-bar i {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, var(--green), var(--blue));
 }
 
 .allocation-row em {
@@ -1525,8 +1508,8 @@ ol.toaster {
   place-items: center;
   flex: 0 0 auto;
   border-radius: 12px;
-  background: linear-gradient(135deg, var(--green), var(--blue));
-  color: #061014;
+  background: var(--primary);
+  color: var(--primary-foreground);
   object-fit: cover;
 }
 
@@ -2288,7 +2271,6 @@ ol.toaster {
   border-top: 1px solid var(--line);
 }
 
-.theme-switch,
 .logout-button {
   width: 100%;
   min-height: 44px;
@@ -2304,35 +2286,8 @@ ol.toaster {
   cursor: pointer;
 }
 
-.theme-switch:hover,
 .logout-button:hover {
   background: var(--control-hover);
-}
-
-.theme-switch-track {
-  width: 46px;
-  height: 26px;
-  display: inline-flex;
-  align-items: center;
-  padding: 3px;
-  border-radius: 999px;
-  background: var(--surface-inset);
-  border: 1px solid var(--line);
-}
-
-.theme-switch[aria-pressed="true"] .theme-switch-track {
-  justify-content: flex-end;
-  background: rgba(121, 168, 216, 0.18);
-}
-
-.theme-switch-thumb {
-  width: 20px;
-  height: 20px;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  color: var(--accent-contrast);
-  background: linear-gradient(135deg, var(--teal), var(--blue));
 }
 
 .health-row {
@@ -2971,7 +2926,7 @@ html.theme-ripple-fallback::after {
   content: "";
   position: fixed;
   inset: 0;
-  z-index: 2147483647;
+  z-index: var(--z-transition-overlay);
   pointer-events: none;
   background: var(--background);
   clip-path: circle(0 at var(--theme-ripple-x, 50vw) var(--theme-ripple-y, 50vh));
@@ -2990,7 +2945,7 @@ html.language-ripple-fallback::after {
   content: "";
   position: fixed;
   inset: 0;
-  z-index: 2147483647;
+  z-index: var(--z-transition-overlay);
   pointer-events: none;
   background: color-mix(in oklch, var(--accent) 70%, transparent);
   clip-path: circle(
