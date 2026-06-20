@@ -37,6 +37,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "../../components/ui/popover";
+import { Button } from "../../components/ui/button";
 
 export function BrandBlock({
   version,
@@ -435,13 +436,12 @@ export function ImportPlaceholder({
         <span>{t.shell.backendImportUnavailable}</span>
       </div>
       <div className="form-actions">
-        <button
-          className="btn primary"
+        <Button
           type="button"
           onClick={onOpenTransactions}
         >
           {t.dashboard.allTransactions}
-        </button>
+        </Button>
       </div>
     </div>
   );

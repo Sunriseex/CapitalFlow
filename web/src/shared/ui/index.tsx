@@ -1,13 +1,21 @@
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useRef } from "react";
 import type {
   ButtonHTMLAttributes,
   InputHTMLAttributes,
-  KeyboardEvent,
   ReactNode,
   SelectHTMLAttributes,
 } from "react";
-import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { Button as ShadcnButton } from "../../components/ui/button";
+import {
+  Dialog as RadixDialog,
+  DialogClose,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "../../components/ui/dialog";
+import { Input as ShadcnInput } from "../../components/ui/input";
+import { cn } from "../../lib/utils";
 import { markPerformance } from "../performance";
 import { PageTransition } from "./PageTransition";
 import { useI18n } from "../i18n/useI18n";
@@ -38,16 +46,33 @@ export function Panel({
 
 export function Button({
   className = "",
+  type,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement>) {
-  return <button className={`button ${className}`} {...props} />;
+  return (
+    <ShadcnButton
+      className={cn("button", className)}
+      type={type}
+      variant={buttonVariant(className, type)}
+      {...props}
+    />
+  );
 }
 
 export function IconButton({
   className = "",
+  type = "button",
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement>) {
-  return <button className={`icon-button ${className}`} {...props} />;
+  return (
+    <ShadcnButton
+      className={cn("icon-button", className)}
+      size="icon"
+      type={type}
+      variant="outline"
+      {...props}
+    />
+  );
 }
 
 export function Field({
@@ -65,12 +90,18 @@ export function Field({
   );
 }
 
-export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className="input" {...props} />;
+export function Input({
+  className = "",
+  ...props
+}: InputHTMLAttributes<HTMLInputElement>) {
+  return <ShadcnInput className={cn("input", className)} {...props} />;
 }
 
-export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className="input" {...props} />;
+export function Select({
+  className = "",
+  ...props
+}: SelectHTMLAttributes<HTMLSelectElement>) {
+  return <select className={cn("input", className)} {...props} />;
 }
 
 export function Empty({ children }: { children: ReactNode }) {
@@ -172,11 +203,7 @@ export function Dialog({
   variant?: "default" | "narrow" | "wide";
 }) {
   const { t } = useI18n();
-
-  const titleID = useId();
-  const dialogRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
-  const focusableRef = useRef<HTMLElement[]>([]);
 
   useEffect(() => {
     const endMeasure = markPerformance(`dialog-open:${title}`);
@@ -184,12 +211,6 @@ export function Dialog({
       document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
-    const dialog = dialogRef.current;
-    focusableRef.current = [
-      ...(dialog?.querySelectorAll<HTMLElement>(focusableSelector) ?? []),
-    ].filter((element) => !element.hasAttribute("disabled"));
-    const firstFocusable = focusableRef.current[0];
-    (firstFocusable ?? dialog)?.focus();
     if (typeof window.requestAnimationFrame !== "function") {
       const timeout = window.setTimeout(endMeasure, 0);
       return () => {
@@ -208,46 +229,9 @@ export function Dialog({
     };
   }, [title]);
 
-  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      onClose();
-      return;
-    }
-
-    if (event.key !== "Tab") {
-      return;
-    }
-
-    const focusable = focusableRef.current;
-    if (!focusable.length) {
-      event.preventDefault();
-      dialogRef.current?.focus();
-      return;
-    }
-
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  }
-
-  return createPortal(
-    <div
-      className="modal-backdrop"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
-    >
-      <div
-        ref={dialogRef}
+  return (
+    <RadixDialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
         className={[
           "modal dialog-panel",
           variant === "narrow" ? "dialog-panel-narrow" : "",
@@ -255,40 +239,47 @@ export function Dialog({
         ]
           .filter(Boolean)
           .join(" ")}
-        role="dialog"
+        aria-describedby={undefined}
         aria-modal="true"
-        aria-labelledby={titleID}
-        tabIndex={-1}
-        onKeyDown={handleKeyDown}
+        showCloseButton={false}
       >
-        <div className="modal-header dialog-header">
+        <DialogHeader className="modal-header dialog-header">
           <div className="dialog-title-stack">
-            <h2 className="dialog-title" id={titleID}>
+            <DialogTitle className="dialog-title">
               {title}
-            </h2>
+            </DialogTitle>
           </div>
-          <IconButton
-            className="dialog-close"
-            type="button"
-            title={t.common.closeDialog}
-            aria-label={t.common.closeDialog}
-            onClick={onClose}
-          >
-            <X size={16} />
-          </IconButton>
-        </div>
+          <DialogClose asChild>
+            <IconButton
+              className="dialog-close"
+              title={t.common.closeDialog}
+              aria-label={t.common.closeDialog}
+            >
+              <X aria-hidden="true" />
+            </IconButton>
+          </DialogClose>
+        </DialogHeader>
         {children}
-      </div>
-    </div>,
-    document.body,
+      </DialogContent>
+    </RadixDialog>
   );
 }
 
-const focusableSelector = [
-  "button",
-  "[href]",
-  "input",
-  "select",
-  "textarea",
-  '[tabindex]:not([tabindex="-1"])',
-].join(",");
+function buttonVariant(
+  className: string,
+  type: ButtonHTMLAttributes<HTMLButtonElement>["type"],
+) {
+  if (className.includes("secondary")) {
+    return "outline";
+  }
+
+  if (className.includes("danger")) {
+    return "destructive";
+  }
+
+  if (className.includes("button-primary") || type === "submit") {
+    return "default";
+  }
+
+  return "outline";
+}

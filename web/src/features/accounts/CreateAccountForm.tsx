@@ -253,12 +253,14 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
                     : ""}
                 </small>
               </span>
+              {option.type && isInterestBearing(option.type) ? (
+                <span className="account-type-badge" aria-hidden="true">
+                  %
+                </span>
+              ) : null}
             </label>
           ))}
-        </fieldset>
-
-        <div className="account-form-column">
-          <div className="account-type-help">
+          <div className="account-type-help" aria-live="polite">
             <strong>
               {isDeposit
                 ? t.accounts.depositConditions
@@ -268,190 +270,240 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
             </strong>
             <span>{t.accounts.typeDescriptions[form.type]}</span>
           </div>
+        </fieldset>
 
+        <div className="account-form-column">
           {hasHiddenInterestDraft ? (
             <p className="form-note">{t.accounts.hiddenTypeFieldsNotice}</p>
           ) : null}
 
-          <div className="account-field-grid">
-            <Field label={accountNameLabel(form.type, t)}>
-              <Input
-                required
-                value={form.name}
-                onChange={(event) =>
-                  setForm({ ...form, name: event.target.value })
-                }
-              />
-            </Field>
-
-            {showBankField ? (
-              <Field label={t.accounts.bank}>
+          <section className="form-section-card">
+            <div className="form-section-header">
+              <h3 className="form-section-title">{t.accounts.accountSummary}</h3>
+              <span className="badge badge-outline">
+                {t.accounts.types[form.type]}
+              </span>
+            </div>
+            <div className="account-field-grid">
+              <Field label={accountNameLabel(form.type, t)}>
                 <Input
-                  value={form.bank}
+                  required
+                  value={form.name}
                   onChange={(event) =>
-                    setForm({ ...form, bank: event.target.value })
+                    setForm({ ...form, name: event.target.value })
                   }
                 />
               </Field>
-            ) : null}
 
-            <Field label={t.accounts.currency}>
-              <Select
-                value={form.currency}
-                onChange={(event) =>
-                  setForm({ ...form, currency: event.target.value })
-                }
-              >
-                {currencySelectOptions}
-              </Select>
-            </Field>
-
-            <Field label={isDeposit ? t.accounts.openingDate : t.accounts.opened}>
-              <Input
-                type="date"
-                value={form.opened_at}
-                onChange={(event) =>
-                  setForm({ ...form, opened_at: event.target.value })
-                }
-              />
-            </Field>
-
-            <ValidatedField
-              error={fieldErrors.initial}
-              errorId={getFieldErrorId("initial")}
-              label={
-                isDeposit ? t.accounts.openingAmount : t.accounts.currentBalance
-              }
-            >
-              <Input
-                aria-describedby={
-                  fieldErrors.initial ? getFieldErrorId("initial") : undefined
-                }
-                aria-invalid={Boolean(fieldErrors.initial)}
-                inputMode="decimal"
-                value={form.initial}
-                onBlur={validateAndStore}
-                onChange={(event) => {
-                  clearFieldError("initial");
-                  setForm({ ...form, initial: event.target.value });
-                }}
-              />
-            </ValidatedField>
-
-            {isCard ? (
-              <>
-                <PlaceholderField label={t.accounts.cardLast4} />
-                <PlaceholderCheckbox label={t.accounts.creditCard} />
-              </>
-            ) : null}
-
-            {isCash ? (
-              <PlaceholderField label={t.accounts.storagePlace} />
-            ) : null}
-
-            {isSavings ? (
-              <>
-                <PlaceholderField label={t.accounts.nextAccrualDate} />
-                <PlaceholderField label={t.accounts.minimumBalance} />
-              </>
-            ) : null}
-
-            {isDeposit ? (
-              <>
-                <PlaceholderField label={t.accounts.depositEndDate} />
-                <PlaceholderField label={t.accounts.refillAllowed} />
-                <PlaceholderField label={t.accounts.partialWithdrawAllowed} />
-                <PlaceholderField label={t.accounts.maturityAction} />
-              </>
-            ) : null}
-
-            <PlaceholderCheckbox checked label={t.accounts.includeInBalance} />
-            <PlaceholderField label={t.accounts.notes} />
-          </div>
-
-          {interestEnabled ? (
-            <div className="interest-fieldset">
-              <h3>{isDeposit ? t.accounts.depositConditions : t.accounts.interestSettings}</h3>
-              <ValidatedField
-                error={fieldErrors.rate}
-                errorId={getFieldErrorId("rate")}
-                label={t.accounts.annualRate}
-              >
-                <Input
-                  aria-describedby={
-                    fieldErrors.rate ? getFieldErrorId("rate") : undefined
-                  }
-                  aria-invalid={Boolean(fieldErrors.rate)}
-                  inputMode="decimal"
-                  value={form.rate}
-                  onBlur={validateAndStore}
-                  onChange={(event) => {
-                    clearFieldError("rate");
-                    setForm({ ...form, rate: event.target.value });
-                  }}
-                />
-              </ValidatedField>
-
-              <ValidatedField
-                error={fieldErrors.promoRate}
-                errorId={getFieldErrorId("promoRate")}
-                label={t.accounts.promoRate}
-              >
-                <Input
-                  aria-describedby={
-                    fieldErrors.promoRate
-                      ? getFieldErrorId("promoRate")
-                      : undefined
-                  }
-                  aria-invalid={Boolean(fieldErrors.promoRate)}
-                  inputMode="decimal"
-                  value={form.promoRate}
-                  onBlur={validateAndStore}
-                  onChange={(event) => {
-                    clearFieldError("promoRate");
-                    setForm({ ...form, promoRate: event.target.value });
-                  }}
-                />
-              </ValidatedField>
-
-              <ValidatedField
-                error={fieldErrors.promoEndDate}
-                errorId={getFieldErrorId("promoEndDate")}
-                label={t.accounts.promoEnd}
-              >
-                <Input
-                  aria-describedby={
-                    fieldErrors.promoEndDate
-                      ? getFieldErrorId("promoEndDate")
-                      : undefined
-                  }
-                  aria-invalid={Boolean(fieldErrors.promoEndDate)}
-                  type="date"
-                  value={form.promoEndDate}
-                  onBlur={validateAndStore}
-                  onChange={(event) => {
-                    clearFieldError("promoEndDate");
-                    setForm({ ...form, promoEndDate: event.target.value });
-                  }}
-                />
-              </ValidatedField>
-
-              <Field label={t.accounts.capitalization}>
+              <Field label={t.accounts.currency}>
                 <Select
-                  value={form.capitalization}
+                  value={form.currency}
                   onChange={(event) =>
-                    setForm({ ...form, capitalization: event.target.value })
+                    setForm({ ...form, currency: event.target.value })
                   }
                 >
-                  {capitalizationOptions}
+                  {currencySelectOptions}
                 </Select>
               </Field>
+
+              <Field
+                label={isDeposit ? t.accounts.openingDate : t.accounts.opened}
+              >
+                <Input
+                  type="date"
+                  value={form.opened_at}
+                  onChange={(event) =>
+                    setForm({ ...form, opened_at: event.target.value })
+                  }
+                />
+              </Field>
+
+              <ValidatedField
+                error={fieldErrors.initial}
+                errorId={getFieldErrorId("initial")}
+                label={
+                  isDeposit
+                    ? t.accounts.openingAmount
+                    : t.accounts.currentBalance
+                }
+              >
+                <Input
+                  aria-describedby={
+                    fieldErrors.initial
+                      ? getFieldErrorId("initial")
+                      : undefined
+                  }
+                  aria-invalid={Boolean(fieldErrors.initial)}
+                  inputMode="decimal"
+                  value={form.initial}
+                  onBlur={validateAndStore}
+                  onChange={(event) => {
+                    clearFieldError("initial");
+                    setForm({ ...form, initial: event.target.value });
+                  }}
+                />
+              </ValidatedField>
+
+              <PlaceholderCheckbox checked label={t.accounts.includeInBalance} />
+              <PlaceholderField label={t.accounts.notes} />
             </div>
+          </section>
+
+          {showBankField ? (
+            <section className="conditional-section is-visible">
+              <div className="form-section-card">
+                <div className="form-section-header">
+                  <h3 className="form-section-title">
+                    {isDeposit
+                      ? t.accounts.depositConditions
+                      : t.accounts.types[form.type]}
+                  </h3>
+                </div>
+                <div className="account-field-grid">
+                  <Field label={t.accounts.bank}>
+                    <Input
+                      value={form.bank}
+                      onChange={(event) =>
+                        setForm({ ...form, bank: event.target.value })
+                      }
+                    />
+                  </Field>
+
+                  {isCard ? (
+                    <>
+                      <PlaceholderField label={t.accounts.cardLast4} />
+                      <PlaceholderCheckbox label={t.accounts.creditCard} />
+                    </>
+                  ) : null}
+
+                  {isSavings ? (
+                    <>
+                      <PlaceholderField label={t.accounts.nextAccrualDate} />
+                      <PlaceholderField label={t.accounts.minimumBalance} />
+                    </>
+                  ) : null}
+
+                  {isDeposit ? (
+                    <>
+                      <PlaceholderField label={t.accounts.depositEndDate} />
+                      <PlaceholderField label={t.accounts.refillAllowed} />
+                      <PlaceholderField
+                        label={t.accounts.partialWithdrawAllowed}
+                      />
+                      <PlaceholderField label={t.accounts.maturityAction} />
+                    </>
+                  ) : null}
+                </div>
+              </div>
+            </section>
+          ) : null}
+
+          {isCash ? (
+            <section className="conditional-section is-visible">
+              <div className="form-section-card">
+                <div className="form-section-header">
+                  <h3 className="form-section-title">
+                    {t.accounts.types.cash}
+                  </h3>
+                </div>
+                <div className="account-field-grid">
+                  <PlaceholderField label={t.accounts.storagePlace} />
+                </div>
+              </div>
+            </section>
+          ) : null}
+
+          {interestEnabled ? (
+            <section className="conditional-section is-visible">
+              <div className="interest-fieldset">
+                <h3>
+                  {isDeposit
+                    ? t.accounts.depositConditions
+                    : t.accounts.interestSettings}
+                </h3>
+                <ValidatedField
+                  error={fieldErrors.rate}
+                  errorId={getFieldErrorId("rate")}
+                  label={t.accounts.annualRate}
+                >
+                  <Input
+                    aria-describedby={
+                      fieldErrors.rate ? getFieldErrorId("rate") : undefined
+                    }
+                    aria-invalid={Boolean(fieldErrors.rate)}
+                    inputMode="decimal"
+                    value={form.rate}
+                    onBlur={validateAndStore}
+                    onChange={(event) => {
+                      clearFieldError("rate");
+                      setForm({ ...form, rate: event.target.value });
+                    }}
+                  />
+                </ValidatedField>
+
+                <ValidatedField
+                  error={fieldErrors.promoRate}
+                  errorId={getFieldErrorId("promoRate")}
+                  label={t.accounts.promoRate}
+                >
+                  <Input
+                    aria-describedby={
+                      fieldErrors.promoRate
+                        ? getFieldErrorId("promoRate")
+                        : undefined
+                    }
+                    aria-invalid={Boolean(fieldErrors.promoRate)}
+                    inputMode="decimal"
+                    value={form.promoRate}
+                    onBlur={validateAndStore}
+                    onChange={(event) => {
+                      clearFieldError("promoRate");
+                      setForm({ ...form, promoRate: event.target.value });
+                    }}
+                  />
+                </ValidatedField>
+
+                <ValidatedField
+                  error={fieldErrors.promoEndDate}
+                  errorId={getFieldErrorId("promoEndDate")}
+                  label={t.accounts.promoEnd}
+                >
+                  <Input
+                    aria-describedby={
+                      fieldErrors.promoEndDate
+                        ? getFieldErrorId("promoEndDate")
+                        : undefined
+                    }
+                    aria-invalid={Boolean(fieldErrors.promoEndDate)}
+                    type="date"
+                    value={form.promoEndDate}
+                    onBlur={validateAndStore}
+                    onChange={(event) => {
+                      clearFieldError("promoEndDate");
+                      setForm({ ...form, promoEndDate: event.target.value });
+                    }}
+                  />
+                </ValidatedField>
+
+                <Field label={t.accounts.capitalization}>
+                  <Select
+                    value={form.capitalization}
+                    onChange={(event) =>
+                      setForm({ ...form, capitalization: event.target.value })
+                    }
+                  >
+                    {capitalizationOptions}
+                  </Select>
+                </Field>
+              </div>
+            </section>
           ) : null}
         </div>
-      </div>
 
-      <Button disabled={mutation.isPending}>{t.common.create}</Button>
+        <div className="account-dialog-footer">
+          <Button disabled={mutation.isPending}>{t.common.create}</Button>
+        </div>
+      </div>
     </FormShell>
   );
 }

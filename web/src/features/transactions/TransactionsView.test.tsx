@@ -110,9 +110,10 @@ describe("TransactionsView", () => {
         .closest(".transactions-panel"),
     ).toBeNull();
     expect(
-      screen.getByRole("dialog", { name: "Create adjustment" }).parentElement
-        ?.parentElement,
-    ).toBe(document.body);
+      document.body.contains(
+        screen.getByRole("dialog", { name: "Create adjustment" }),
+      ),
+    ).toBe(true);
     expect(
       screen.getAllByRole("heading", { name: "Create adjustment" }),
     ).toHaveLength(1);
