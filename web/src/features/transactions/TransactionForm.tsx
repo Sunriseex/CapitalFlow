@@ -10,6 +10,7 @@ import {
 } from "../../shared/api/query";
 import { today, transactionTypes } from "../../shared/constants";
 import { Button, Field, FormShell, Input, Select } from "../../shared/ui";
+import { Button as ShadcnButton } from "../../components/ui/button";
 import { useI18n } from "../../shared/i18n/useI18n";
 import { CategoryPickerDialog } from "./CategoryPickerDialog";
 
@@ -164,15 +165,16 @@ export function TransactionForm({
 
       <div className="field category-picker-field">
         <span>{t.transactions.category}</span>
-        <button
+        <ShadcnButton
           className="category-picker-trigger"
           type="button"
+          variant="outline"
           aria-haspopup="dialog"
           onClick={() => setCategoryPickerOpen(true)}
         >
           <strong>{selectedCategory?.name ?? t.common.none}</strong>
           <small>{t.transactions.categoryPickerTriggerHint}</small>
-        </button>
+        </ShadcnButton>
       </div>
 
       {showSubscriptionPrompt ? (

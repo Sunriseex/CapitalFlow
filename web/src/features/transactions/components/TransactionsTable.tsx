@@ -4,6 +4,7 @@ import { compareMoney, formatMoney, signedAmount } from "../../../api/money";
 import type { Account, Category, Transaction } from "../../../api/types";
 import { dateLabel } from "../../../shared/date";
 import { Button, Empty } from "../../../shared/ui";
+import { Button as ShadcnButton } from "../../../components/ui/button";
 import { useI18n } from "../../../shared/i18n/useI18n";
 import type { TranslationDictionary } from "../../../shared/i18n/dictionaries/ru";
 
@@ -307,14 +308,15 @@ const TransactionCard = memo(function TransactionCard({
   }
 
   return (
-    <button
+    <ShadcnButton
       className="transaction-mobile-card is-clickable-card"
       type="button"
+      variant="ghost"
       aria-label={`${t.transactions.openTransactionDetails}: ${details.title}`}
       onClick={() => onOpenTransaction(transaction)}
     >
       {content}
-    </button>
+    </ShadcnButton>
   );
 });
 

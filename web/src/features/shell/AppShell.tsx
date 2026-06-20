@@ -75,10 +75,11 @@ export function BrandBlock({
           <span className="version-pill" title={t.shell.version}>
             {version ?? "dev"}
           </span>
-          <button
+          <Button
             ref={triggerRef}
             className="health-trigger"
             type="button"
+            variant="ghost"
             aria-label={t.shell.checkSystemHealth}
             aria-expanded={healthOpen}
             onClick={() => {
@@ -87,7 +88,7 @@ export function BrandBlock({
             }}
           >
             {statusLabel(status, t)}
-          </button>
+          </Button>
         </div>
         {healthOpen ? (
           <HealthPopover
@@ -167,9 +168,10 @@ export function SidebarFooter({
     <div className="sidebar-footer">
       {!collapsed ? (
         <>
-          <button
+          <Button
             className="sidebar-icon-button"
             type="button"
+            variant="outline"
             aria-label={
               activeTheme === "dark"
                 ? t.shell.switchToLightTheme
@@ -196,13 +198,14 @@ export function SidebarFooter({
             <span className="sr-only">
               {activeTheme === "dark" ? t.shell.darkMode : t.shell.lightMode}
             </span>
-          </button>
+          </Button>
 
           <Popover>
             <PopoverTrigger asChild>
-              <button
+              <Button
                 className="sidebar-icon-button"
                 type="button"
+                variant="outline"
                 aria-label={t.shell.chooseLanguage}
                 title={t.shell.chooseLanguage}
               >
@@ -210,7 +213,7 @@ export function SidebarFooter({
                   {currentLocaleFlag}
                 </span>
                 <span className="sr-only">{t.shell.language}</span>
-              </button>
+              </Button>
             </PopoverTrigger>
             <PopoverContent
               className="language-popover"
@@ -237,9 +240,10 @@ export function SidebarFooter({
         </>
       ) : null}
 
-      <button
+      <Button
         className="logout-button"
         type="button"
+        variant="ghost"
         aria-label={t.shell.logout}
         title={t.shell.logout}
         onClick={() => {
@@ -262,7 +266,7 @@ export function SidebarFooter({
       >
         <LogOut aria-hidden="true" />
         <span className="sr-only">{t.shell.logout}</span>
-      </button>
+      </Button>
     </div>
   );
 }
@@ -282,9 +286,10 @@ function LanguageChoice({
 }) {
   const { t } = useI18n();
   return (
-    <button
+    <Button
       className="language-choice"
       type="button"
+      variant="ghost"
       role="menuitemradio"
       aria-checked={active}
       onClick={() => {
@@ -299,7 +304,7 @@ function LanguageChoice({
       <span className="language-choice-check" aria-hidden="true">
         {active ? "✓" : ""}
       </span>
-    </button>
+    </Button>
   );
 }
 
@@ -307,9 +312,10 @@ export function CommandTrigger({ onOpen }: { onOpen: () => void }) {
   const { t } = useI18n();
 
   return (
-    <button
+    <Button
       className="command-trigger"
       type="button"
+      variant="outline"
       aria-label={t.shell.openCommandMenu}
       aria-haspopup="dialog"
       aria-keyshortcuts="Control+K Meta+K"
@@ -318,7 +324,7 @@ export function CommandTrigger({ onOpen }: { onOpen: () => void }) {
       <CommandIcon className="command-trigger-icon" aria-hidden="true" />
       <span className="command-trigger-text">{t.shell.openCommandMenu}</span>
       <span className="kbd">{t.shell.commandShortcut}</span>
-    </button>
+    </Button>
   );
 }
 
@@ -488,14 +494,16 @@ function HealthPopover({
       >
         <div className="health-popover-head">
           <h3 id="healthTitle">{t.shell.systemHealth}</h3>{" "}
-          <button
+          <Button
             className="health-close"
             type="button"
+            variant="ghost"
+            size="icon-xs"
             aria-label={t.shell.closeSystemHealth}
             onClick={onClose}
           >
-            <X size={14} aria-hidden="true" />
-          </button>
+            <X aria-hidden="true" />
+          </Button>
         </div>
         <div className="health-row">
           <span>{t.shell.api}</span>
@@ -531,9 +539,10 @@ function NavButton({
   onClick: () => void;
 }) {
   return (
-    <button
+    <Button
       className="nav-btn"
       type="button"
+      variant="ghost"
       aria-current={active ? "page" : undefined}
       onClick={onClick}
     >
@@ -544,7 +553,7 @@ function NavButton({
         <span>{label}</span>
       </span>
       {count ? <span className="nav-count">{count}</span> : null}
-    </button>
+    </Button>
   );
 }
 

@@ -10,6 +10,7 @@ import {
   CommandItem,
   CommandList,
 } from "../../components/ui/command";
+import { Button as ShadcnButton } from "../../components/ui/button";
 
 type CategoryFilter = "all" | "income" | "expense" | "required" | "regular";
 
@@ -50,17 +51,18 @@ export function CategoryPickerDialog({
           <div className="category-picker-filters" role="group">
             {(["all", "income", "expense", "required", "regular"] as const).map(
               (value) => (
-                <button
+                <ShadcnButton
                   key={value}
                   className={
                     filter === value ? "filter-chip is-active" : "filter-chip"
                   }
                   type="button"
+                  variant="ghost"
                   aria-pressed={filter === value}
                   onClick={() => setFilter(value)}
                 >
                   {t.transactions.categoryFilters[value]}
-                </button>
+                </ShadcnButton>
               ),
             )}
           </div>

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import type { CurrencyOption } from "../../shared/currencies";
-import { Button, PageTransition } from "../../shared/ui";
+import { Button, Input, PageTransition, Select } from "../../shared/ui";
+import { Button as ShadcnButton } from "../../components/ui/button";
 import { useI18n } from "../../shared/i18n/useI18n";
 
 export type AuthScreenError = {
@@ -137,8 +138,7 @@ export function LoginScreen({
 
                 <div className="field">
                   <label htmlFor="email">{t.auth.email}</label>{" "}
-                  <input
-                    className="input"
+                  <Input
                     id="email"
                     name="email"
                     type="email"
@@ -172,8 +172,7 @@ export function LoginScreen({
                     </span>
                   </div>
                   <div className="password-control">
-                    <input
-                      className="input"
+                    <Input
                       id="password"
                       name="password"
                       type={passwordVisible ? "text" : "password"}
@@ -187,9 +186,10 @@ export function LoginScreen({
                       value={password}
                       onChange={(event) => onPasswordChange(event.target.value)}
                     />
-                    <button
+                    <ShadcnButton
                       className="password-toggle"
                       type="button"
+                      variant="ghost"
                       aria-label={
                         passwordVisible
                           ? t.auth.hidePassword
@@ -204,7 +204,7 @@ export function LoginScreen({
                           ? t.auth.hidePasswordShort
                           : t.auth.showPasswordShort}
                       </span>
-                    </button>
+                    </ShadcnButton>
                   </div>
                   {passwordError ? (
                     <p
@@ -384,8 +384,7 @@ export function InitialSetupScreen({
               >
                 <div className="field">
                   <label htmlFor="owner-name">{t.auth.ownerName}</label>{" "}
-                  <input
-                    className="input"
+                  <Input
                     id="owner-name"
                     name="ownerName"
                     type="text"
@@ -396,8 +395,7 @@ export function InitialSetupScreen({
 
                 <div className="field">
                   <label htmlFor="owner-email">{t.auth.ownerEmail}</label>
-                  <input
-                    className="input"
+                  <Input
                     id="owner-email"
                     name="email"
                     type="email"
@@ -425,8 +423,7 @@ export function InitialSetupScreen({
                 <div className="field">
                   <label htmlFor="owner-password">{t.auth.password}</label>{" "}
                   <div className="password-control">
-                    <input
-                      className="input"
+                    <Input
                       id="owner-password"
                       name="password"
                       type={passwordVisible ? "text" : "password"}
@@ -445,9 +442,10 @@ export function InitialSetupScreen({
                         onPasswordChange(event.target.value);
                       }}
                     />
-                    <button
+                    <ShadcnButton
                       className="password-toggle"
                       type="button"
+                      variant="ghost"
                       data-target="owner-password"
                       aria-label={
                         passwordVisible
@@ -463,7 +461,7 @@ export function InitialSetupScreen({
                           ? t.auth.hidePasswordShort
                           : t.auth.showPasswordShort}
                       </span>
-                    </button>
+                    </ShadcnButton>
                   </div>
                   <div
                     className="password-strength"
@@ -515,8 +513,7 @@ export function InitialSetupScreen({
                     {t.auth.confirmPassword}
                   </label>{" "}
                   <div className="password-control">
-                    <input
-                      className="input"
+                    <Input
                       id="owner-password-confirm"
                       name="passwordConfirm"
                       type={confirmPasswordVisible ? "text" : "password"}
@@ -535,9 +532,10 @@ export function InitialSetupScreen({
                         setConfirmPassword(event.target.value);
                       }}
                     />
-                    <button
+                    <ShadcnButton
                       className="password-toggle"
                       type="button"
+                      variant="ghost"
                       data-target="owner-password-confirm"
                       aria-label={
                         confirmPasswordVisible
@@ -555,7 +553,7 @@ export function InitialSetupScreen({
                           ? t.auth.hidePasswordShort
                           : t.auth.showPasswordShort}
                       </span>
-                    </button>
+                    </ShadcnButton>
                   </div>
                   {confirmError ? (
                     <p
@@ -572,8 +570,7 @@ export function InitialSetupScreen({
                   <label htmlFor="primary-currency">
                     {t.auth.primaryCurrency}
                   </label>{" "}
-                  <select
-                    className="input"
+                  <Select
                     id="primary-currency"
                     name="primaryCurrency"
                     value={primaryCurrency}
@@ -586,7 +583,7 @@ export function InitialSetupScreen({
                         {currency.label}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
 
                 <label className="confirm-label" htmlFor="setup-confirm">
