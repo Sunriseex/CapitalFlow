@@ -3,6 +3,7 @@ import type { KeyboardEvent } from "react";
 import { formatMoney } from "../../../api/money";
 import type { Account, Transaction } from "../../../api/types";
 import { useI18n } from "../../../shared/i18n/useI18n";
+import { Button as ShadcnButton } from "../../../components/ui/button";
 
 export function RecentTransactionsTable({
   accounts,
@@ -110,9 +111,10 @@ export function RecentTransactionsTable({
                   )}
                 </td>
                 <td data-label={t.transactions.view}>
-                  <button
+                  <ShadcnButton
                     className="view-cell"
                     type="button"
+                    variant="ghost"
                     aria-label={t.transactions.openTransactionDetails}
                     onClick={(event) => {
                       event.stopPropagation();
@@ -120,7 +122,7 @@ export function RecentTransactionsTable({
                     }}
                   >
                     {t.transactions.view}
-                  </button>
+                  </ShadcnButton>
                 </td>
               </tr>
             );

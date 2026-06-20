@@ -2438,6 +2438,7 @@ ol.toaster {
 }
 
 .head-tools {
+  min-width: 0;
   display: flex;
   flex-wrap: nowrap;
   justify-content: center;
@@ -2511,6 +2512,7 @@ ol.toaster {
 .command-trigger {
   width: min(100%, 340px);
   min-width: 230px;
+  flex-shrink: 1;
   min-height: 40px;
   display: inline-flex;
   align-items: center;

@@ -14,6 +14,7 @@ import type { Account, Transaction } from "../../api/types";
 import { apiErrorMessages, errorMessage } from "../../shared/api/query";
 import type { QuickAction, View } from "../../shared/constants";
 import { Button, Dialog, Empty } from "../../shared/ui";
+import { Button as ShadcnButton } from "../../components/ui/button";
 import { TransactionDetails } from "../transactions/components/TransactionDetails";
 import { CashflowChart } from "./components/CashflowChart";
 import { RecentTransactionsTable } from "./components/RecentTransactionsTable";
@@ -346,7 +347,7 @@ export function DashboardView({
                       aria-label={t.dashboard.portfolioCurrency}
                     >
                       {currencies.map((currency) => (
-                        <button
+                        <ShadcnButton
                           key={currency}
                           className={
                             currency === selectedCurrency
@@ -354,6 +355,7 @@ export function DashboardView({
                               : "period-btn"
                           }
                           type="button"
+                          variant="ghost"
                           aria-pressed={currency === selectedCurrency}
                           onClick={() => {
                             setChartMotionEnabled(true);
@@ -361,7 +363,7 @@ export function DashboardView({
                           }}
                         >
                           {currency}
-                        </button>
+                        </ShadcnButton>
                       ))}
                     </div>
                   ) : null}
@@ -371,7 +373,7 @@ export function DashboardView({
                     aria-label={t.dashboard.cashflowPeriod}
                   >
                     {cashflowPeriods.map((period) => (
-                      <button
+                      <ShadcnButton
                         key={period.value}
                         className={
                           period.value === cashflowPeriod
@@ -379,6 +381,7 @@ export function DashboardView({
                             : "period-btn"
                         }
                         type="button"
+                        variant="ghost"
                         aria-pressed={period.value === cashflowPeriod}
                         onClick={() => {
                           setChartMotionEnabled(true);
@@ -386,7 +389,7 @@ export function DashboardView({
                         }}
                       >
                         {t.dashboard.periods[period.value]}{" "}
-                      </button>
+                      </ShadcnButton>
                     ))}
                   </div>
                 </div>
@@ -620,9 +623,10 @@ export function DashboardView({
               </div>
               <div className="list">
                 {allocation.map((account) => (
-                  <button
+                  <ShadcnButton
                     className="account-summary-row"
                     type="button"
+                    variant="ghost"
                     key={account.account_id}
                     onClick={() => onOpenAccount(account.account_id)}
                   >
@@ -642,7 +646,7 @@ export function DashboardView({
                       </strong>
                       <span>{account.share}%</span>
                     </span>
-                  </button>
+                  </ShadcnButton>
                 ))}
                 {!allocation.length ? (
                   <div className="empty-state">

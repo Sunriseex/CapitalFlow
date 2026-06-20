@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import type { CurrencyOption } from "../../shared/currencies";
 import { Button, Input, PageTransition, Select } from "../../shared/ui";
+import { Button as ShadcnButton } from "../../components/ui/button";
 import { useI18n } from "../../shared/i18n/useI18n";
 
 export type AuthScreenError = {
@@ -185,9 +186,10 @@ export function LoginScreen({
                       value={password}
                       onChange={(event) => onPasswordChange(event.target.value)}
                     />
-                    <button
+                    <ShadcnButton
                       className="password-toggle"
                       type="button"
+                      variant="ghost"
                       aria-label={
                         passwordVisible
                           ? t.auth.hidePassword
@@ -202,7 +204,7 @@ export function LoginScreen({
                           ? t.auth.hidePasswordShort
                           : t.auth.showPasswordShort}
                       </span>
-                    </button>
+                    </ShadcnButton>
                   </div>
                   {passwordError ? (
                     <p
@@ -440,9 +442,10 @@ export function InitialSetupScreen({
                         onPasswordChange(event.target.value);
                       }}
                     />
-                    <button
+                    <ShadcnButton
                       className="password-toggle"
                       type="button"
+                      variant="ghost"
                       data-target="owner-password"
                       aria-label={
                         passwordVisible
@@ -458,7 +461,7 @@ export function InitialSetupScreen({
                           ? t.auth.hidePasswordShort
                           : t.auth.showPasswordShort}
                       </span>
-                    </button>
+                    </ShadcnButton>
                   </div>
                   <div
                     className="password-strength"
@@ -529,9 +532,10 @@ export function InitialSetupScreen({
                         setConfirmPassword(event.target.value);
                       }}
                     />
-                    <button
+                    <ShadcnButton
                       className="password-toggle"
                       type="button"
+                      variant="ghost"
                       data-target="owner-password-confirm"
                       aria-label={
                         confirmPasswordVisible
@@ -549,7 +553,7 @@ export function InitialSetupScreen({
                           ? t.auth.hidePasswordShort
                           : t.auth.showPasswordShort}
                       </span>
-                    </button>
+                    </ShadcnButton>
                   </div>
                   {confirmError ? (
                     <p

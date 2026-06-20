@@ -190,14 +190,15 @@ function FilterButton({
   onClick: () => void;
 }) {
   return (
-    <button
+    <Button
       className={active ? "filter-chip is-active" : "filter-chip"}
       type="button"
+      variant="ghost"
       aria-pressed={active}
       onClick={onClick}
     >
       {label}
-    </button>
+    </Button>
   );
 }
 
