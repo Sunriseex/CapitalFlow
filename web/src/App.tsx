@@ -14,7 +14,6 @@ import {
   clearStoredSession,
   getStoredToken,
 } from "./api/client";
-import { AuthController } from "./features/auth/AuthController";
 import {
   BrandBlock,
   CommandMenu,
@@ -29,6 +28,11 @@ import { Dialog, Empty, PageTransition } from "./shared/ui";
 import { toaster } from "./components/ui/toaster-store";
 import { useI18n } from "./shared/i18n/useI18n";
 
+const AuthController = lazy(() =>
+  import("./features/auth/AuthController").then((module) => ({
+    default: module.AuthController,
+  })),
+);
 const AccountDetails = lazy(() =>
   import("./features/accounts/AccountDetails").then((module) => ({
     default: module.AccountDetails,
@@ -268,7 +272,11 @@ export function App() {
   }
 
   if (!hasSession || sessionInvalid) {
-    return <AuthController onAuthenticated={handleAuthenticated} />;
+    return (
+      <Suspense fallback={<Empty>{t.common.loadingView}</Empty>}>
+        <AuthController onAuthenticated={handleAuthenticated} />
+      </Suspense>
+    );
   }
 
   return (
