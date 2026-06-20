@@ -1,5 +1,9 @@
 import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm, useWatch } from "react-hook-form";
+import { z } from "zod";
 import { api } from "../../api/client";
 import { parseMoneyToMinorResult } from "../../api/money";
 import type { Account, Category, TransactionType } from "../../api/types";
@@ -13,6 +17,15 @@ import { Button, Field, FormShell, Input, Select } from "../../shared/ui";
 import { Button as ShadcnButton } from "../../components/ui/button";
 import { useI18n } from "../../shared/i18n/useI18n";
 import { CategoryPickerDialog } from "./CategoryPickerDialog";
+
+type TransactionFormValues = {
+  account_id: string;
+  type: TransactionType;
+  amount: string;
+  category_id: string;
+  description: string;
+  occurred_at: string;
+};
 
 export function TransactionForm({
   accounts,
@@ -29,31 +42,48 @@ export function TransactionForm({
 }) {
   const { t } = useI18n();
   const errorMessages = apiErrorMessages(t);
-  const moneyParseMessages = {
-    amountRequired: t.money.amountRequired,
-    amountFormat: (scale: number) =>
-      t.money.amountFormat.replace("{scale}", String(scale)),
-    amountNonNegative: t.money.amountNonNegative,
-    amountGreaterThanZero: t.money.amountGreaterThanZero,
-  };
+  const moneyParseMessages = useMemo(
+    () => ({
+      amountRequired: t.money.amountRequired,
+      amountFormat: (scale: number) =>
+        t.money.amountFormat.replace("{scale}", String(scale)),
+      amountNonNegative: t.money.amountNonNegative,
+      amountGreaterThanZero: t.money.amountGreaterThanZero,
+    }),
+    [t],
+  );
 
   const queryClient = useQueryClient();
   const [error, setError] = useState("");
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [subscriptionPromptDismissed, setSubscriptionPromptDismissed] =
     useState(false);
-  const [form, setForm] = useState({
+  const formDefaults = useMemo<TransactionFormValues>(() => ({
     account_id: accounts[0]?.id ?? "",
     type: fixedType ?? "income",
     amount: "",
     category_id: "",
     description: "",
     occurred_at: today,
-  });
-  const selectedAccount = useMemo(
-    () => accounts.find((account) => account.id === form.account_id),
-    [accounts, form.account_id],
+  }), [accounts, fixedType]);
+  const formSchema = useMemo(
+    () => createTransactionFormSchema(accounts, moneyParseMessages),
+    [accounts, moneyParseMessages],
   );
+  const {
+    clearErrors,
+    control,
+    formState: { errors },
+    handleSubmit,
+    register,
+    setValue,
+  } = useForm<TransactionFormValues>({
+    defaultValues: formDefaults,
+    mode: "onBlur",
+    resolver: zodResolver(formSchema),
+  });
+  const watchedForm = useWatch({ control });
+  const form = { ...formDefaults, ...watchedForm };
   const accountOptions = useMemo(
     () =>
       accounts.map((account) => (
@@ -77,13 +107,16 @@ export function TransactionForm({
     [t],
   );
   const mutation = useMutation({
-    mutationFn: () => {
-      const transactionType = form.type as TransactionType;
-      const amount = parseMoneyToMinorResult(form.amount, {
+    mutationFn: (values: TransactionFormValues) => {
+      const transactionType = values.type;
+      const submittedAccount = accounts.find(
+        (account) => account.id === values.account_id,
+      );
+      const amount = parseMoneyToMinorResult(values.amount, {
         required: true,
         positive: transactionType !== "adjustment",
         allowNegative: transactionType === "adjustment",
-        currency: selectedAccount?.currency ?? "RUB",
+        currency: submittedAccount?.currency ?? "RUB",
         messages: moneyParseMessages,
       });
       if (!amount.ok) {
@@ -91,12 +124,12 @@ export function TransactionForm({
       }
 
       return api.createTransaction({
-        account_id: form.account_id,
+        account_id: values.account_id,
         type: transactionType,
         amount: amount.value,
-        category_id: form.category_id || null,
-        description: form.description,
-        occurred_at: form.occurred_at,
+        category_id: values.category_id || null,
+        description: values.description,
+        occurred_at: values.occurred_at,
       });
     },
     onSuccess: () => {
@@ -116,20 +149,23 @@ export function TransactionForm({
     "{type}",
     t.transactions.types[transactionType].toLowerCase(),
   );
+  const submitForm = handleSubmit((values) => {
+    setError("");
+    mutation.mutate(values);
+  });
 
   return (
     <FormShell
       title={title}
       error={error}
-      onSubmit={() => mutation.mutate()}
+      onSubmit={submitForm}
       showTitle={showTitle}
     >
       <Field label={t.transactions.account}>
         <Select
-          value={form.account_id}
-          onChange={(event) =>
-            setForm({ ...form, account_id: event.target.value })
-          }
+          {...register("account_id", {
+            onChange: () => clearErrors("amount"),
+          })}
         >
           {accountOptions}
         </Select>
@@ -138,30 +174,38 @@ export function TransactionForm({
       {!fixedType ? (
         <Field label={t.transactions.type}>
           <Select
-            value={form.type}
-            onChange={(event) =>
-              setForm({ ...form, type: event.target.value as TransactionType })
-            }
+            {...register("type", {
+              onChange: () => clearErrors("amount"),
+            })}
           >
             {typeOptions}
           </Select>
         </Field>
       ) : null}
 
-      <Field label={t.transactions.amount}>
+      <ValidatedField
+        error={errors.amount?.message}
+        errorId="transaction-amount-error"
+        label={t.transactions.amount}
+      >
         <Input
+          aria-describedby={
+            errors.amount ? "transaction-amount-error" : undefined
+          }
           aria-label={t.transactions.amount}
+          aria-invalid={Boolean(errors.amount)}
           required
           inputMode="decimal"
-          value={form.amount}
-          onChange={(event) => setForm({ ...form, amount: event.target.value })}
+          {...register("amount", {
+            onChange: () => clearErrors("amount"),
+          })}
         />
         {form.type === "adjustment" ? (
           <small className="field-hint">
             {t.transactions.adjustmentAmountHint}
           </small>
         ) : null}
-      </Field>
+      </ValidatedField>
 
       <div className="field category-picker-field">
         <span>{t.transactions.category}</span>
@@ -199,22 +243,11 @@ export function TransactionForm({
       ) : null}
 
       <Field label={t.transactions.date}>
-        <Input
-          type="date"
-          value={form.occurred_at}
-          onChange={(event) =>
-            setForm({ ...form, occurred_at: event.target.value })
-          }
-        />
+        <Input type="date" {...register("occurred_at")} />
       </Field>
 
       <Field label={t.transactions.description}>
-        <Input
-          value={form.description}
-          onChange={(event) =>
-            setForm({ ...form, description: event.target.value })
-          }
-        />
+        <Input {...register("description")} />
       </Field>
 
       <Button disabled={mutation.isPending}>{t.common.create}</Button>
@@ -225,11 +258,80 @@ export function TransactionForm({
           onClose={() => setCategoryPickerOpen(false)}
           onSelect={(categoryId) => {
             setSubscriptionPromptDismissed(false);
-            setForm({ ...form, category_id: categoryId });
+            setValue("category_id", categoryId, {
+              shouldDirty: true,
+              shouldValidate: true,
+            });
           }}
         />
       ) : null}
     </FormShell>
+  );
+}
+
+function createTransactionFormSchema(
+  accounts: Account[],
+  moneyParseMessages: {
+    amountRequired: string;
+    amountFormat: (scale: number) => string;
+    amountNonNegative: string;
+    amountGreaterThanZero: string;
+  },
+) {
+  return z
+    .object({
+      account_id: z.string(),
+      type: z.enum(transactionTypes),
+      amount: z.string(),
+      category_id: z.string(),
+      description: z.string(),
+      occurred_at: z.string(),
+    })
+    .superRefine((values, context) => {
+      const selectedAccount = accounts.find(
+        (account) => account.id === values.account_id,
+      );
+      const amount = parseMoneyToMinorResult(values.amount, {
+        required: true,
+        positive: values.type !== "adjustment",
+        allowNegative: values.type === "adjustment",
+        currency: selectedAccount?.currency ?? "RUB",
+        messages: moneyParseMessages,
+      });
+
+      if (!amount.ok) {
+        context.addIssue({
+          code: "custom",
+          message: amount.error,
+          path: ["amount"],
+        });
+      }
+    });
+}
+
+function ValidatedField({
+  children,
+  error,
+  errorId,
+  label,
+}: {
+  children: ReactNode;
+  error?: string;
+  errorId: string;
+  label: string;
+}) {
+  return (
+    <div className="field">
+      <label className="field-control">
+        <span>{label}</span>
+        {children}
+      </label>
+      {error ? (
+        <span className="field-error" id={errorId}>
+          {error}
+        </span>
+      ) : null}
+    </div>
   );
 }
 
