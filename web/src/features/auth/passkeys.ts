@@ -72,14 +72,14 @@ function publicKeyCreationOptions(
 ): PublicKeyCredentialCreationOptions {
   return {
     ...options,
-    challenge: base64URLToBuffer(options.challenge as unknown as string),
+    challenge: credentialBuffer(options.challenge),
     user: {
       ...options.user,
-      id: base64URLToBuffer(options.user.id as unknown as string),
+      id: credentialBuffer(options.user.id),
     },
     excludeCredentials: options.excludeCredentials?.map((credential) => ({
       ...credential,
-      id: base64URLToBuffer(credential.id as unknown as string),
+      id: credentialBuffer(credential.id),
     })),
   };
 }
@@ -89,10 +89,10 @@ function publicKeyRequestOptions(
 ): PublicKeyCredentialRequestOptions {
   return {
     ...options,
-    challenge: base64URLToBuffer(options.challenge as unknown as string),
+    challenge: credentialBuffer(options.challenge),
     allowCredentials: options.allowCredentials?.map((credential) => ({
       ...credential,
-      id: base64URLToBuffer(credential.id as unknown as string),
+      id: credentialBuffer(credential.id),
     })),
   };
 }
@@ -125,6 +125,19 @@ function publicKeyCredentialToJSON(credential: PublicKeyCredential) {
   }
 
   return payload;
+}
+
+function credentialBuffer(value: BufferSource | string): ArrayBuffer {
+  if (typeof value === "string") {
+    return base64URLToBuffer(value);
+  }
+
+  if (value instanceof ArrayBuffer) {
+    return value.slice(0);
+  }
+
+  return new Uint8Array(value.buffer, value.byteOffset, value.byteLength).slice()
+    .buffer;
 }
 
 function base64URLToBuffer(value: string) {
