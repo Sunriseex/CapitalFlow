@@ -161,6 +161,7 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
     () => page.locator(".toast-card").first().evaluate((element) => getComputedStyle(element).color),
   ).toBe("oklch(0.145 0 0)");
   await page.getByRole("button", { name: "Switch to dark theme" }).click();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("capitalflow_theme"))).toBe("dark");
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expectAppTheme(page, "dark", "oklch(0.145 0 0)");
@@ -205,10 +206,18 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
   await page.keyboard.press(process.platform === "darwin" ? "Meta+K" : "Control+K");
   const commandMenu = page.getByRole("dialog", { name: "Command menu" });
   await expect(commandMenu).toBeVisible();
-  await expectTopCentered(page, commandMenu);
+  await expectOverlayGeometry(page, commandMenu, { maxWidth: 640, viewportMargin: 32, maxTop: 96 });
   await commandMenu.getByRole("option", { name: /Transactions/ }).click();
   await expect(page).toHaveURL(/\/transactions$/);
   await clickNav(page, "Overview");
+
+  await page.getByRole("button", { name: "Search transactions" }).click();
+  const transactionSearch = page.getByRole("dialog", { name: "Transaction search" });
+  await expect(transactionSearch).toBeVisible();
+  await expectOverlayGeometry(page, transactionSearch, { maxWidth: 760, viewportMargin: 24, maxTop: 260 });
+  await page.keyboard.press("Escape");
+  await expect(transactionSearch).toBeHidden();
+  await expect(page.getByRole("button", { name: "Search transactions" })).toBeFocused();
 
   await page.getByRole("button", { name: "Add transaction" }).first().click();
   await page.getByLabel("Type").selectOption("income");
@@ -285,6 +294,14 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
     expect(overflow.offenders).toEqual([]);
     await expect(page.getByRole("button", { name: "Open command menu" })).toBeVisible();
     await expect(page.getByText("Total capital")).toBeVisible();
+    if (width === 320) {
+      await page.keyboard.press(process.platform === "darwin" ? "Meta+K" : "Control+K");
+      const mobileCommandMenu = page.getByRole("dialog", { name: "Command menu" });
+      await expect(mobileCommandMenu).toBeVisible();
+      await expectOverlayGeometry(page, mobileCommandMenu, { maxWidth: 640, viewportMargin: 24, maxTop: 96 });
+      await page.keyboard.press("Escape");
+      await expect(mobileCommandMenu).toBeHidden();
+    }
   }
 
   await page.getByRole("button", { name: /Logout/ }).click();
@@ -297,7 +314,9 @@ async function createAccount(page: import("@playwright/test").Page, name: string
     .getByRole("dialog", { name: "Command menu" })
     .getByRole("option", { name: /Create account/ })
     .click();
-  await expect(page.getByRole("dialog", { name: "Create account" })).toBeVisible();
+  const createAccountDialog = page.getByRole("dialog", { name: "Create account" });
+  await expect(createAccountDialog).toBeVisible();
+  await expectOverlayGeometry(page, createAccountDialog, { maxWidth: 980, viewportMargin: 32, maxTop: 320 });
   await page.getByLabel("Card name", { exact: true }).fill(name);
   await page.getByLabel("Bank", { exact: true }).fill(bank);
   await page.getByLabel("Current balance", { exact: true }).fill(initialBalance);
@@ -327,14 +346,26 @@ async function expectHeaderControlsInOneRow(page: import("@playwright/test").Pag
   expect(Math.abs((commandBox?.y ?? 0) - (insightsBox?.y ?? 0))).toBeLessThanOrEqual(2);
 }
 
-async function expectTopCentered(page: import("@playwright/test").Page, locator: import("@playwright/test").Locator) {
+async function expectOverlayGeometry(
+  page: import("@playwright/test").Page,
+  locator: import("@playwright/test").Locator,
+  {
+    maxWidth,
+    viewportMargin,
+    maxTop,
+  }: { maxWidth: number; viewportMargin: number; maxTop: number },
+) {
   const viewport = page.viewportSize();
-  const box = await locator.boundingBox();
   expect(viewport).not.toBeNull();
+  const expectedWidth = Math.min(maxWidth, (viewport?.width ?? 0) - viewportMargin);
+  await expect
+    .poll(async () => (await locator.boundingBox())?.width ?? 0)
+    .toBeCloseTo(expectedWidth, 0);
+  const box = await locator.boundingBox();
   expect(box).not.toBeNull();
-  expect(box?.y ?? 999).toBeLessThan(96);
-  const menuCenter = (box?.x ?? 0) + (box?.width ?? 0) / 2;
-  expect(Math.abs(menuCenter - (viewport?.width ?? 0) / 2)).toBeLessThanOrEqual(2);
+  expect(box?.y ?? 999).toBeLessThan(maxTop);
+  const overlayCenter = (box?.x ?? 0) + (box?.width ?? 0) / 2;
+  expect(Math.abs(overlayCenter - (viewport?.width ?? 0) / 2)).toBeLessThanOrEqual(2);
 }
 
 async function surfaceSnapshot(page: import("@playwright/test").Page, selector: string) {

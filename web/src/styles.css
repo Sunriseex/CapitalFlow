@@ -1405,8 +1405,9 @@ th {
 }
 
 .health-popover,
+.language-popover,
 .toast-card {
-  animation: none;
+  animation: overlay-enter 160ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .toaster {
@@ -1421,31 +1422,38 @@ ol.toaster {
 }
 
 .command-menu {
-  animation: none;
+  animation: command-enter 160ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .modal {
-  animation: none;
+  animation: dialog-enter 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .card,
 .panel,
 .chart {
-  transition: none;
+  transition:
+    border-color 160ms ease-out,
+    box-shadow 160ms ease-out,
+    transform 160ms ease-out;
 }
 
 .row,
 .review-action-row,
 .command-item,
 .nav-btn {
-  transition: none;
+  transition:
+    background-color 140ms ease-out,
+    border-color 140ms ease-out,
+    color 140ms ease-out,
+    transform 140ms ease-out;
 }
 
 .row:hover,
 .review-action-row:hover,
 .command-item:hover,
 .nav-btn:hover {
-  transform: none;
+  transform: translateY(-1px);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2715,6 +2723,9 @@ ol.toaster {
   grid-template-columns: minmax(0, 1fr) var(--right);
   gap: 16px;
   align-items: start;
+  transition:
+    grid-template-columns 180ms ease-out,
+    gap 180ms ease-out;
 }
 
 .rail-toggle {
@@ -2731,7 +2742,11 @@ ol.toaster {
   background: var(--control-bg);
   box-shadow: var(--shadow-soft);
   cursor: pointer;
-  transition: none;
+  transition:
+    background-color 140ms ease-out,
+    border-color 140ms ease-out,
+    box-shadow 140ms ease-out,
+    transform 140ms ease-out;
 }
 
 .rail-toggle:hover,
@@ -2742,7 +2757,7 @@ ol.toaster {
 }
 
 .rail-toggle:active {
-  transform: none;
+  transform: translateY(1px);
 }
 
 .layout.is-rail-collapsed {
@@ -4185,6 +4200,39 @@ html.language-ripple-fallback::after {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes dialog-enter {
+  from {
+    opacity: 0;
+    scale: 0.985;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes command-enter {
+  from {
+    opacity: 0;
+    scale: 0.985;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes overlay-enter {
+  from {
+    opacity: 0;
+    scale: 0.985;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
   }
 }
 
