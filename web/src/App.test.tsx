@@ -65,18 +65,22 @@ vi.mock("./features/dashboard/DashboardView", () => ({
     <div>
       Dashboard mock
       <button
+        type="button"
         disabled={quickActionsDisabled}
         onClick={() => onQuickAction?.("transaction")}
       >
         + Transaction
       </button>
       <button
+        type="button"
         disabled={quickActionsDisabled}
         onClick={() => onQuickAction?.("transfer")}
       >
         + Transfer
       </button>
-      <button onClick={() => onQuickAction?.("import")}>Import</button>
+      <button type="button" onClick={() => onQuickAction?.("import")}>
+        Import
+      </button>
     </div>
   ),
 }));
@@ -91,7 +95,9 @@ vi.mock("./features/accounts/AccountDetails", () => ({
   }) => (
     <div>
       <h2>{account.name}</h2>
-      <button onClick={onBack}>Back to accounts</button>
+      <button type="button" onClick={onBack}>
+        Back to accounts
+      </button>
     </div>
   ),
 }));
