@@ -176,7 +176,7 @@ export function App() {
         !event.altKey &&
         ((event.key || "").toLowerCase() === "k" || event.code === "KeyK");
 
-      if (!isCommandShortcut) {
+      if (!isCommandShortcut || isTextEditingTarget(event.target)) {
         return;
       }
 

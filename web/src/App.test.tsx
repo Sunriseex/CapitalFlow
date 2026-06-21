@@ -557,6 +557,25 @@ describe("App query states", () => {
     );
   });
 
+  it("keeps command menu open when Ctrl+K is pressed in its search input", async () => {
+    const user = userEvent.setup();
+    renderApp();
+
+    await user.keyboard("{Control>}k{/Control}");
+    const commandMenu = await screen.findByRole("dialog", {
+      name: "Command menu",
+    });
+    await user.click(
+      within(commandMenu).getByPlaceholderText("Find a command or action..."),
+    );
+
+    await user.keyboard("{Control>}k{/Control}");
+
+    expect(
+      screen.getByRole("dialog", { name: "Command menu" }),
+    ).toBeInTheDocument();
+  });
+
   it("renders stable command trigger and command item anatomy", async () => {
     const user = userEvent.setup();
     renderApp();
