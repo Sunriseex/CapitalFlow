@@ -439,14 +439,7 @@ h2 {
 .icon-button {
   min-height: 44px;
   border: 1px solid var(--line-2, var(--line-strong));
-  background: var(
-    --control-bg,
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.075),
-      rgba(255, 255, 255, 0.03)
-    )
-  );
+  background: var(--control-bg, var(--background));
   color: var(--text);
   border-radius: 999px;
   cursor: pointer;
@@ -660,16 +653,7 @@ nav button:focus-visible {
   overflow-x: auto;
   border: 1px solid var(--line);
   border-radius: var(--radius-lg, 14px);
-  background:
-    var(
-      --surface-inset,
-      linear-gradient(
-        180deg,
-        rgba(255, 255, 255, 0.04),
-        rgba(255, 255, 255, 0.018)
-      )
-    ),
-    var(--panel, rgba(255, 255, 255, 0.025));
+  background: var(--surface-inset, var(--panel));
   overscroll-behavior-inline: contain;
   contain: layout paint;
 }
@@ -1596,13 +1580,7 @@ ol.toaster {
   place-items: center;
   padding: var(--auth-space-6);
   color: var(--foreground);
-  background:
-    linear-gradient(
-      to bottom,
-      color-mix(in oklch, var(--muted) 45%, transparent),
-      transparent 280px
-    ),
-    var(--background);
+  background: var(--background);
   font-family: Arial, "Helvetica Neue", sans-serif;
   font-size: 13px;
   line-height: 1.5;
