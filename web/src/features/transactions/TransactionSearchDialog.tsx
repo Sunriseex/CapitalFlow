@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ReceiptText } from "lucide-react";
 import { api } from "../../api/client";
@@ -42,6 +42,7 @@ export function TransactionSearchDialog({
   const [filter, setFilter] = useState<QuickFilter>("all");
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
   const transactions = useQuery({
     queryKey: ["transactions"],
     queryFn: () => api.transactions(),
@@ -81,6 +82,17 @@ export function TransactionSearchDialog({
       transactions.data,
     ],
   );
+
+  useEffect(() => {
+    restoreFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+
+    return () => {
+      restoreFocusRef.current?.focus();
+    };
+  }, []);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
