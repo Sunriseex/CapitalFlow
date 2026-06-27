@@ -505,6 +505,11 @@ describe("App query states", () => {
     expect(topbarButtons[0]).toHaveAttribute("aria-pressed", "false");
     expect(document.querySelector(".sidebar-collapse-button")).toBeNull();
     expect(document.querySelectorAll(".nav-icon svg")).toHaveLength(4);
+    const sidebar = document.querySelector(".sidebar");
+    expect(sidebar).not.toBeNull();
+    expect([...(sidebar?.children ?? [])].map((element) => element.className)).toEqual(
+      ["brand", "nav", "sidebar-status-card", "sidebar-footer"],
+    );
 
     await user.click(topbarButtons[0]);
 

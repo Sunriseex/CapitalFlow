@@ -20,6 +20,7 @@ import {
   CommandTrigger,
   ImportPlaceholder,
   Nav,
+  SidebarStatusCard,
   SidebarFooter,
 } from "./features/shell/AppShell";
 import type { QuickAction, View } from "./shared/constants";
@@ -288,7 +289,13 @@ export function App() {
       }
     >
       <aside className="sidebar">
-        <BrandBlock
+        <BrandBlock />
+        <Nav
+          view={view}
+          accountCount={accounts.data?.length ?? 0}
+          navigateTo={navigateTo}
+        />
+        <SidebarStatusCard
           version={serviceStatus.data?.version}
           status={
             serviceStatus.error
@@ -310,11 +317,6 @@ export function App() {
               });
             });
           }}
-        />
-        <Nav
-          view={view}
-          accountCount={accounts.data?.length ?? 0}
-          navigateTo={navigateTo}
         />
         <SidebarFooter collapsed={sidebarCollapsed} onLogout={handleLogout} />
       </aside>

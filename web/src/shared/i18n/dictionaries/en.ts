@@ -265,8 +265,6 @@ export const en = {
     goalsAndLimits: "Goals & limits",
     goalsAndLimitsDescription: "Budget controls are not connected yet",
     goalsAndLimitsUnavailableTitle: "Unavailable",
-    goalsAndLimitsUnavailableDescription:
-      "Goals and limits need backend support before CapitalFlow can show real targets.",
     rightRailSummary: "Right rail summary",
     reviewQueue: "Review queue",
     reviewQueueDescription: "Imports, duplicates, and suspicious records",
@@ -276,8 +274,6 @@ export const en = {
     subscriptions: "Subscriptions",
     subscriptionsDescription: "Regular payment detection",
     emptySubscriptionsTitle: "No subscriptions yet",
-    emptySubscriptionsDescription:
-      "When an expense is marked as Subscriptions, CapitalFlow will suggest creating a regular payment.",
     importReview: "Import review",
     importReviewDescription: "CSV review placeholder",
     importReviewEmptyTitle: "No imported rows to review",

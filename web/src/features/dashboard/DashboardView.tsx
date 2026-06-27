@@ -670,7 +670,6 @@ export function DashboardView({
               </div>
               <div className="review-placeholder">
                 <strong>{t.dashboard.goalsAndLimitsUnavailableTitle}</strong>
-                <span>{t.dashboard.goalsAndLimitsUnavailableDescription}</span>
               </div>
             </article>
 
@@ -683,7 +682,6 @@ export function DashboardView({
               </div>
               <div className="review-placeholder">
                 <strong>{t.dashboard.emptySubscriptionsTitle}</strong>
-                <span>{t.dashboard.emptySubscriptionsDescription}</span>
                 <Button
                   type="button"
                   onClick={() => onNavigate?.("transactions")}

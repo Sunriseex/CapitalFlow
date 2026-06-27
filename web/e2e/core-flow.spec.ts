@@ -149,6 +149,7 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
   await expect(page.getByRole("heading", { name: "Overview" }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Open command menu" })).toBeVisible();
   await expectHeaderControlsInOneRow(page);
+  await expectGridColumns(page, ".rail-actions", 2);
 
   await expectAppTheme(page, "light", "oklch(1 0 0)");
   await page.getByRole("button", { name: "Switch to dark theme" }).click();
@@ -295,6 +296,7 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
     await expect(page.getByRole("button", { name: "Open command menu" })).toBeVisible();
     await expect(page.getByText("Total capital")).toBeVisible();
     if (width === 320) {
+      await expectGridColumns(page, ".rail-actions", 1);
       await page.keyboard.press(process.platform === "darwin" ? "Meta+K" : "Control+K");
       const mobileCommandMenu = page.getByRole("dialog", { name: "Command menu" });
       await expect(mobileCommandMenu).toBeVisible();
@@ -344,6 +346,21 @@ async function expectHeaderControlsInOneRow(page: import("@playwright/test").Pag
   expect(commandBox).not.toBeNull();
   expect(insightsBox).not.toBeNull();
   expect(Math.abs((commandBox?.y ?? 0) - (insightsBox?.y ?? 0))).toBeLessThanOrEqual(2);
+}
+
+async function expectGridColumns(
+  page: import("@playwright/test").Page,
+  selector: string,
+  count: number,
+) {
+  await expect
+    .poll(() =>
+      page.locator(selector).evaluate((element) =>
+        getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean)
+          .length,
+      ),
+    )
+    .toBe(count);
 }
 
 async function expectOverlayGeometry(

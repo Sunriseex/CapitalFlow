@@ -261,8 +261,6 @@ export const ru = {
     goalsAndLimits: "Цели и лимиты",
     goalsAndLimitsDescription: "Бюджетные правила пока не подключены",
     goalsAndLimitsUnavailableTitle: "Недоступно",
-    goalsAndLimitsUnavailableDescription:
-      "Для настоящих целей и лимитов нужна поддержка backend.",
     rightRailSummary: "Боковая сводка",
     reviewQueue: "Проверка",
     reviewQueueDescription: "Импорт, дубликаты и подозрительные записи",
@@ -272,8 +270,6 @@ export const ru = {
     subscriptions: "Подписки",
     subscriptionsDescription: "Поиск регулярных платежей",
     emptySubscriptionsTitle: "Подписок пока нет",
-    emptySubscriptionsDescription:
-      "Когда расход будет отмечен категорией Подписки, CapitalFlow предложит создать регулярный платёж.",
     importReview: "Проверка импорта",
     importReviewDescription: "Заготовка проверки CSV",
     importReviewEmptyTitle: "Нет импортированных строк на проверку",
