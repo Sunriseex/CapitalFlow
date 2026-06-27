@@ -38,7 +38,23 @@ import {
 } from "../../components/ui/popover";
 import { Button } from "../../components/ui/button";
 
-export function BrandBlock({
+export function BrandBlock() {
+  const { t } = useI18n();
+
+  return (
+    <div className="brand">
+      <span className="brand-mark" aria-hidden="true">
+        CF
+      </span>
+      <div className="brand-copy">
+        <strong>CapitalFlow</strong>
+        <span>{t.nav.workspace}</span>
+      </div>
+    </div>
+  );
+}
+
+export function SidebarStatusCard({
   version,
   status,
   onCheck,
@@ -51,57 +67,46 @@ export function BrandBlock({
   const { t } = useI18n();
 
   return (
-    <>
-      <div className="brand">
-        <span className="brand-mark" aria-hidden="true">
-          CF
-        </span>
-        <div className="brand-copy">
-          <strong>CapitalFlow</strong>
-          <span>{t.nav.workspace}</span>
-        </div>
+    <section
+      className="sidebar-status-card"
+      aria-label={t.shell.versionAndHealth}
+    >
+      <div>
+        <span>{t.shell.systemHealth}</span>
+        <strong>{statusLabel(status, t)}</strong>
       </div>
-      <section
-        className="sidebar-status-card"
-        aria-label={t.shell.versionAndHealth}
-      >
-        <div>
-          <span>{t.shell.systemHealth}</span>
-          <strong>{statusLabel(status, t)}</strong>
-        </div>
-        <div className="brand-meta">
-          <span className="version-pill" title={t.shell.version}>
-            {version ?? "dev"}
-          </span>
-          <Popover
-            open={healthOpen}
-            onOpenChange={(open) => {
-              setHealthOpen(open);
-              if (open) {
-                onCheck();
-              }
-            }}
-          >
-            <PopoverTrigger asChild>
-              <Button
-                className="health-trigger"
-                type="button"
-                variant="ghost"
-                aria-label={t.shell.checkSystemHealth}
-                aria-expanded={healthOpen}
-              >
-                {statusLabel(status, t)}
-              </Button>
-            </PopoverTrigger>
-            <HealthPopover
-              version={version}
-              status={status}
-              onClose={() => setHealthOpen(false)}
-            />
-          </Popover>
-        </div>
-      </section>
-    </>
+      <div className="brand-meta">
+        <span className="version-pill" title={t.shell.version}>
+          {version ?? "dev"}
+        </span>
+        <Popover
+          open={healthOpen}
+          onOpenChange={(open) => {
+            setHealthOpen(open);
+            if (open) {
+              onCheck();
+            }
+          }}
+        >
+          <PopoverTrigger asChild>
+            <Button
+              className="health-trigger"
+              type="button"
+              variant="ghost"
+              aria-label={t.shell.checkSystemHealth}
+              aria-expanded={healthOpen}
+            >
+              {statusLabel(status, t)}
+            </Button>
+          </PopoverTrigger>
+          <HealthPopover
+            version={version}
+            status={status}
+            onClose={() => setHealthOpen(false)}
+          />
+        </Popover>
+      </div>
+    </section>
   );
 }
 

@@ -2147,6 +2147,10 @@ ol.toaster {
   background: var(--muted);
 }
 
+.app-shell .sidebar-status-card {
+  margin-top: auto;
+}
+
 .sidebar-status-card > div:first-child {
   display: grid;
   gap: 3px;
@@ -2239,6 +2243,10 @@ ol.toaster {
   margin-top: auto;
   padding-top: 14px;
   border-top: 1px solid var(--line);
+}
+
+.app-shell .sidebar-footer {
+  margin-top: 0;
 }
 
 .logout-button {
@@ -2665,6 +2673,7 @@ ol.toaster {
 .app-shell.is-sidebar-collapsed .sidebar-footer {
   grid-template-columns: 40px;
   justify-content: center;
+  margin-top: auto;
 }
 
 .language-trigger-flag {
@@ -3119,15 +3128,16 @@ html.language-ripple-fallback::after {
 }
 
 .rail-actions {
-  margin-top: 16px;
+  margin-top: 12px;
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
 .rail-actions .button {
   width: 100%;
-  min-height: 44px;
+  min-height: 40px;
+  padding-inline: 10px;
 }
 
 .account-summary-row {
@@ -4960,6 +4970,10 @@ html.language-ripple-fallback::after {
     grid-template-columns: 1fr;
   }
 
+  .rail-actions .button {
+    min-height: 44px;
+  }
+
   .chart-wrap {
     height: 220px;
   }
@@ -5186,6 +5200,12 @@ html.language-ripple-fallback::after {
     font-weight: 900;
     line-height: 1;
     letter-spacing: 0.04em;
+  }
+}
+
+@media (max-width: 480px) {
+  .rail-actions {
+    grid-template-columns: 1fr;
   }
 }
 
