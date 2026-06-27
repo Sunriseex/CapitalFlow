@@ -150,6 +150,7 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
   await expect(page.getByRole("button", { name: "Open command menu" })).toBeVisible();
   await expectHeaderControlsInOneRow(page);
   await expectGridColumns(page, ".rail-actions", 2);
+  await expectCashflowChart(page);
 
   await expectAppTheme(page, "light", "oklch(1 0 0)");
   await page.getByRole("button", { name: "Switch to dark theme" }).click();
@@ -278,6 +279,34 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
 
   for (const width of [320, 768, 1280]) {
     await page.setViewportSize({ width, height: 720 });
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            document.documentElement.scrollWidth -
+            document.documentElement.clientWidth,
+        ),
+      )
+      .toBeLessThanOrEqual(0);
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const frame = document.querySelector<HTMLElement>(
+            ".cashflow-chart-shell .chart-shell-canvas",
+          );
+          const chart = document.querySelector<HTMLElement>(
+            ".chart-wrap .recharts-wrapper",
+          );
+          if (!frame || !chart) {
+            return 0;
+          }
+          return Math.abs(
+            chart.getBoundingClientRect().width -
+              frame.getBoundingClientRect().width,
+          );
+        }),
+      )
+      .toBeLessThanOrEqual(1);
     const overflow = await page.evaluate(() => ({
       scrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,
@@ -439,8 +468,54 @@ function dashboardResponse(accounts: Account[], transactions: Transaction[], now
     recent_transactions_returned: Math.min(transactions.length, 10),
     months: 6,
     total: [{ currency: "RUB", amount: "0" }],
-    buckets: [],
+    buckets: cashflowBuckets(transactions),
   };
+}
+
+function cashflowBuckets(transactions: Transaction[]) {
+  const income = sumByType(transactions, "income");
+  const expense = sumByType(transactions, "expense");
+
+  return [
+    {
+      period: "2026-04",
+      income: [{ currency: "RUB", amount: "900" }],
+      expense: [{ currency: "RUB", amount: "350" }],
+      net_cashflow: [{ currency: "RUB", amount: "550" }],
+      transaction_count: 2,
+    },
+    {
+      period: "2026-05",
+      income: [{ currency: "RUB", amount: String(income) }],
+      expense: [{ currency: "RUB", amount: String(expense) }],
+      net_cashflow: [{ currency: "RUB", amount: String(income - expense) }],
+      transaction_count: transactions.length,
+    },
+  ];
+}
+
+async function expectCashflowChart(page: import("@playwright/test").Page) {
+  const chart = page.getByLabel("Income and expense chart");
+  await expect(chart).toBeVisible();
+  await expect(chart.locator(".recharts-bar-rectangle")).toHaveCount(2);
+  await expect(chart.locator(".recharts-line-curve")).toHaveCount(1);
+  await expect(page.getByRole("table", { name: "Cashflow data" })).toBeAttached();
+
+  await chart.locator(".recharts-bar-rectangle").first().hover();
+  const tooltip = page.locator(".chart-tooltip");
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip).toContainText("Income");
+  await expect(tooltip).toContainText("Expense");
+  await expect(tooltip).toContainText("Net");
+  await expect(tooltip).toContainText("Transactions: 2");
+
+  await page.getByRole("button", { name: "Quarter" }).click();
+  await expect(page.getByText("1 period · Quarter")).toBeVisible();
+  await expect(
+    page.getByRole("table", { name: "Cashflow data" }).getByText("2026 Q2"),
+  ).toBeAttached();
+  await page.getByRole("button", { name: "Month" }).click();
+  await expect(page.getByText("2 periods · Month")).toBeVisible();
 }
 
 function sumByType(transactions: Transaction[], type: string) {
