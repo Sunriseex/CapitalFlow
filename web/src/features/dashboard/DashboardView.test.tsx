@@ -48,6 +48,8 @@ const summary: DashboardSummary = {
       is_active: true,
     },
   ],
+  financial_goals: [],
+  category_limits: [],
   recent_transactions: [],
   recent_transactions_limit: 5,
   recent_transactions_returned: 0,
@@ -109,6 +111,15 @@ function renderDashboardView({
         <QueryClientProvider client={queryClient}>
           <DashboardView
             primaryCurrency={primaryCurrency}
+            categories={[
+              {
+                id: "category-food",
+                slug: "food",
+                name: "Food",
+                created_at: "2026-05-19T00:00:00Z",
+                updated_at: "2026-05-19T00:00:00Z",
+              },
+            ]}
             rightRailHidden={rightRailHidden}
             onOpenAccount={onOpenAccount}
             onQuickAction={onQuickAction}
@@ -323,7 +334,7 @@ describe("DashboardView", () => {
           account_id: "account-1",
           type: "expense",
           amount: "25.00",
-          category_id: null,
+          category_id: "category-food",
           description: "Coffee",
           occurred_at: "2026-05-19T00:00:00Z",
           created_at: "2026-05-19T00:00:00Z",
@@ -338,6 +349,7 @@ describe("DashboardView", () => {
     });
     const row = within(table).getByRole("row", { name: /Coffee/ });
     expect(row).toHaveAttribute("tabindex", "0");
+    expect(within(row).getByText("Food")).toBeInTheDocument();
 
     await userEvent.click(row);
     expect(

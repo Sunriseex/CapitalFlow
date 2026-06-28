@@ -174,6 +174,30 @@ func TestPostgresRepositoriesIntegration(t *testing.T) {
 		t.Fatalf("get category by slug: %v", err)
 	}
 
+	goalOwnerID := seedUser(ctx, t, store, "goal-owner@example.com")
+	targetDate := now.AddDate(1, 0, 0)
+	goal := &models.FinancialGoal{
+		ID:           uuid.NewString(),
+		OwnerUserID:  goalOwnerID,
+		Name:         "Emergency fund",
+		TargetAmount: dec("300000"),
+		Currency:     "RUB",
+		TargetDate:   &targetDate,
+		Status:       models.FinancialGoalActive,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+	if err := store.FinancialGoals().Create(ctx, goal); err != nil {
+		t.Fatalf("create financial goal: %v", err)
+	}
+	goals, err := store.FinancialGoals().ListByUser(ctx, goalOwnerID)
+	if err != nil {
+		t.Fatalf("list financial goals: %v", err)
+	}
+	if len(goals) != 1 || goals[0].ID != goal.ID || !goals[0].TargetAmount.Equal(goal.TargetAmount) {
+		t.Fatalf("financial goals = %#v, want goal %s", goals, goal.ID)
+	}
+
 	initialBalance := models.Transaction{
 		ID:          uuid.NewString(),
 		AccountID:   account.ID,
@@ -2177,8 +2201,72 @@ func TestTransactionRepositoryListByUserFilteredAppliesSQLFiltersAndPagination(t
 	if len(filtered) != 1 {
 		t.Fatalf("filtered count = %d, want 1: %+v", len(filtered), filtered)
 	}
-	if filtered[0].ID != transactions[2].ID {
-		t.Fatalf("filtered transaction = %s, want %s", filtered[0].ID, transactions[2].ID)
+	if filtered[0].ID != transactions[0].ID {
+		t.Fatalf("filtered transaction = %s, want %s", filtered[0].ID, transactions[0].ID)
+	}
+}
+
+func TestTransactionRepositoryListByUserFilteredHasStableDescendingPagination(t *testing.T) {
+	ctx := t.Context()
+	store := newTestStore(t)
+	userID := seedUser(ctx, t, store, "stable-transactions@example.com")
+	account := transferTestAccount(t, store, userID, "stable-transactions")
+	stamp := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
+	ids := []string{
+		"00000000-0000-0000-0000-000000000001",
+		"00000000-0000-0000-0000-000000000003",
+		"00000000-0000-0000-0000-000000000002",
+	}
+	for _, id := range ids {
+		if err := store.Transactions().CreateForUser(ctx, userID, &models.Transaction{
+			ID: id, AccountID: account.ID, Type: models.TransactionTypeIncome,
+			Amount: dec("1"), OccurredAt: stamp, CreatedAt: stamp,
+		}); err != nil {
+			t.Fatalf("create transaction %s: %v", id, err)
+		}
+	}
+
+	for page, want := range []string{ids[1], ids[2], ids[0]} {
+		got, err := store.Transactions().(*TransactionRepository).ListByUserFiltered(ctx, userID, &repository.TransactionListFilter{Limit: 1, Page: page + 1})
+		if err != nil {
+			t.Fatalf("list page %d: %v", page+1, err)
+		}
+		if len(got) != 1 || got[0].ID != want {
+			t.Fatalf("page %d = %#v, want %s", page+1, got, want)
+		}
+	}
+}
+
+func TestCategoryLimitRepositoryEnforcesUniquenessAndOwnerIsolation(t *testing.T) {
+	ctx := t.Context()
+	store := newTestStore(t)
+	ownerID := seedUser(ctx, t, store, "limit-owner@example.com")
+	otherID := seedUser(ctx, t, store, "limit-other@example.com")
+	now := time.Now().UTC()
+	category := &models.Category{ID: uuid.NewString(), Slug: "limit-food", Name: "Food", CreatedAt: now, UpdatedAt: now}
+	if err := store.Categories().Create(ctx, category); err != nil {
+		t.Fatalf("create category: %v", err)
+	}
+	limit := &models.CategoryLimit{
+		ID: uuid.NewString(), OwnerUserID: ownerID, CategoryID: category.ID,
+		Amount: dec("1000"), Currency: "RUB", IsActive: true, CreatedAt: now, UpdatedAt: now,
+	}
+	if err := store.CategoryLimits().Create(ctx, limit); err != nil {
+		t.Fatalf("create category limit: %v", err)
+	}
+	if _, err := store.CategoryLimits().GetByIDForUser(ctx, limit.ID, otherID); !errors.Is(err, repository.ErrNotFound) {
+		t.Fatalf("foreign owner error = %v, want not found", err)
+	}
+	duplicate := *limit
+	duplicate.ID = uuid.NewString()
+	if err := store.CategoryLimits().Create(ctx, &duplicate); !errors.Is(err, repository.ErrConflict) {
+		t.Fatalf("duplicate error = %v, want conflict", err)
+	}
+	otherOwner := duplicate
+	otherOwner.ID = uuid.NewString()
+	otherOwner.OwnerUserID = otherID
+	if err := store.CategoryLimits().Create(ctx, &otherOwner); err != nil {
+		t.Fatalf("same category for another owner: %v", err)
 	}
 }
 

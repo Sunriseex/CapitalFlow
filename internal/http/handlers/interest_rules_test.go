@@ -184,6 +184,14 @@ func (s *testInterestAccrualStore) Categories() repository.CategoryRepository {
 	return nil
 }
 
+func (s *testInterestAccrualStore) FinancialGoals() repository.FinancialGoalRepository {
+	return nil
+}
+
+func (s *testInterestAccrualStore) CategoryLimits() repository.CategoryLimitRepository {
+	return nil
+}
+
 func (s *testInterestAccrualStore) InterestRules() repository.InterestRuleRepository {
 	return s.rules
 }

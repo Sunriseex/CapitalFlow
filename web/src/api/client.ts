@@ -7,7 +7,10 @@ import type {
   AuthSetupRequest,
   AuthStatusResponse,
   Category,
+  CategoryLimit,
   CreateAccountRequest,
+  CreateCategoryLimitRequest,
+  CreateFinancialGoalRequest,
   CreateInterestRuleRequest,
   CreateTransactionRequest,
   CreateTransferRequest,
@@ -15,6 +18,7 @@ import type {
   DashboardInterestIncome,
   DashboardSummary,
   CurrencyRateTable,
+  FinancialGoal,
   InterestRule,
   PasskeyCredential,
   PasskeyCredentialsResponse,
@@ -26,6 +30,8 @@ import type {
   TransferResponse,
   Transaction,
   UpdateAccountRequest,
+  UpdateCategoryLimitRequest,
+  UpdateFinancialGoalRequest,
   UpdateProfileRequest,
 } from "./types";
 
@@ -293,6 +299,25 @@ export const api = {
     apiFetch<Transaction[]>(accountId ? `/transactions?account_id=${accountId}` : "/transactions"),
 
   categories: () => apiFetch<Category[]>("/categories"),
+
+  createCategory: (input: { name: string; slug: string }) =>
+    apiFetch<Category>("/categories", { method: "POST", body: JSON.stringify(input) }),
+
+  financialGoals: () => apiFetch<FinancialGoal[]>("/financial-goals"),
+
+  createFinancialGoal: (input: CreateFinancialGoalRequest) =>
+    apiFetch<FinancialGoal>("/financial-goals", { method: "POST", body: JSON.stringify(input) }),
+
+  updateFinancialGoal: (id: string, input: UpdateFinancialGoalRequest) =>
+    apiFetch<FinancialGoal>(`/financial-goals/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+
+  categoryLimits: () => apiFetch<CategoryLimit[]>("/category-limits"),
+
+  createCategoryLimit: (input: CreateCategoryLimitRequest) =>
+    apiFetch<CategoryLimit>("/category-limits", { method: "POST", body: JSON.stringify(input) }),
+
+  updateCategoryLimit: (id: string, input: UpdateCategoryLimitRequest) =>
+    apiFetch<CategoryLimit>(`/category-limits/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
 
   interestRules: (accountId?: string) =>
     apiFetch<InterestRule[]>(accountId ? `/accounts/${accountId}/interest-rules` : "/interest-rules"),

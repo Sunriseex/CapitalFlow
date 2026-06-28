@@ -311,7 +311,7 @@ func (r *TransactionRepository) GetByIDForUser(ctx context.Context, id, userID s
 }
 
 func (r *TransactionRepository) List(ctx context.Context) ([]models.Transaction, error) {
-	return listTransactions(ctx, r.pool, transactionSelectSQL+` ORDER BY occurred_at, created_at`)
+	return listTransactions(ctx, r.pool, transactionSelectSQL+` ORDER BY t.occurred_at DESC, t.created_at DESC, t.id DESC`)
 }
 
 func (r *TransactionRepository) ListByUser(ctx context.Context, userID string) ([]models.Transaction, error) {
@@ -319,7 +319,7 @@ func (r *TransactionRepository) ListByUser(ctx context.Context, userID string) (
 		WHERE EXISTS (
 			SELECT 1 FROM accounts a WHERE a.id = t.account_id AND a.owner_user_id = $1
 		)
-		ORDER BY occurred_at, created_at
+		ORDER BY t.occurred_at DESC, t.created_at DESC, t.id DESC
 	`, userID)
 }
 
@@ -359,7 +359,7 @@ func (r *TransactionRepository) ListByUserFiltered(ctx context.Context, userID s
 		query += " AND strpos(lower(t.description), " + addArg(search) + ") > 0"
 	}
 
-	query += " ORDER BY t.occurred_at, t.created_at"
+	query += " ORDER BY t.occurred_at DESC, t.created_at DESC, t.id DESC"
 	if filter.Limit > 0 {
 		query += " LIMIT " + addArg(filter.Limit)
 		page := filter.Page
@@ -379,7 +379,7 @@ func transactionFilterDate(date time.Time) time.Time {
 func (r *TransactionRepository) ListByAccount(ctx context.Context, accountID string) ([]models.Transaction, error) {
 	return listTransactions(ctx, r.pool, transactionSelectSQL+`
 		WHERE t.account_id = $1
-		ORDER BY occurred_at, created_at
+		ORDER BY t.occurred_at DESC, t.created_at DESC, t.id DESC
 	`, accountID)
 }
 
@@ -389,7 +389,7 @@ func (r *TransactionRepository) ListByAccountForUser(ctx context.Context, accoun
 			AND EXISTS (
 				SELECT 1 FROM accounts a WHERE a.id = t.account_id AND a.owner_user_id = $2
 			)
-		ORDER BY occurred_at, created_at
+		ORDER BY t.occurred_at DESC, t.created_at DESC, t.id DESC
 	`, accountID, userID)
 }
 

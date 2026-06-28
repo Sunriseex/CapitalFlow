@@ -55,8 +55,28 @@ func TestApplyTransactionListFilter(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("filtered len = %d, want 1", len(got))
 	}
-	if got[0].ID != "new-income" {
-		t.Fatalf("filtered transaction = %s, want new-income", got[0].ID)
+	if got[0].ID != "old-income" {
+		t.Fatalf("filtered transaction = %s, want old-income", got[0].ID)
+	}
+}
+
+func TestApplyTransactionListFilterUsesStableNewestFirstOrder(t *testing.T) {
+	stamp := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
+	transactions := []models.Transaction{
+		{ID: "00000000-0000-0000-0000-000000000001", OccurredAt: stamp, CreatedAt: stamp},
+		{ID: "00000000-0000-0000-0000-000000000003", OccurredAt: stamp, CreatedAt: stamp},
+		{ID: "00000000-0000-0000-0000-000000000002", OccurredAt: stamp, CreatedAt: stamp},
+	}
+
+	for page, want := range []string{
+		"00000000-0000-0000-0000-000000000003",
+		"00000000-0000-0000-0000-000000000002",
+		"00000000-0000-0000-0000-000000000001",
+	} {
+		got := applyTransactionListFilter(transactions, &repository.TransactionListFilter{Limit: 1, Page: page + 1})
+		if len(got) != 1 || got[0].ID != want {
+			t.Fatalf("page %d = %#v, want %s", page+1, got, want)
+		}
 	}
 }
 

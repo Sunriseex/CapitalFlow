@@ -23,7 +23,7 @@ WEB_LOG := $(DEV_LOG_DIR)/web.log
 
 WEB_API_PROXY_TARGET := http://127.0.0.1:$(API_PORT)
 
-.PHONY: help test race lint check check-race check-all web-api-types web-lint web-test web-build web-check db-up db-down db-migrate db-rollback run-dev stop-dev reset-dev dev-dirs dev-db-wait dev-backend dev-web dev-status dev-logs deploy-vm fix fix-check
+.PHONY: help test race lint check check-race check-all web-api-types web-lint web-test web-build web-check db-up db-down db-migrate db-rollback demo-seed demo-reset run-dev stop-dev reset-dev dev-dirs dev-db-wait dev-backend dev-web dev-status dev-logs deploy-vm fix fix-check
 
 help:
 	@echo "Targets:"
@@ -41,6 +41,8 @@ help:
 	@echo "  db-down       - stop local PostgreSQL"
 	@echo "  db-migrate    - run PostgreSQL migrations"
 	@echo "  db-rollback   - rollback one PostgreSQL migration"
+	@echo "  demo-seed    - replace local demo user data (requires DEMO_PASSWORD)"
+	@echo "  demo-reset   - remove local demo user data"
 	@echo "  run-dev       - start local dev stack: PostgreSQL, migrations, backend, WebUI"
 	@echo "  stop-dev      - stop local dev stack"
 	@echo "  reset-dev     - wipe local dev database and start dev stack"
@@ -89,6 +91,13 @@ db-migrate:
 
 db-rollback:
 	@go run github.com/pressly/goose/v3/cmd/goose@v3.27.1 -dir migrations postgres "$(DATABASE_URL)" down
+
+demo-seed:
+	@test -n "$(DEMO_PASSWORD)" || (echo "DEMO_PASSWORD is required" >&2; exit 1)
+	@APP_ENV=development DATABASE_URL="$(DATABASE_URL)" DEMO_PASSWORD="$(DEMO_PASSWORD)" go run ./cmd/seed-demo
+
+demo-reset:
+	@APP_ENV=development DATABASE_URL="$(DATABASE_URL)" go run ./cmd/seed-demo --reset
 
 run-dev:
 	@$(MAKE) stop-dev

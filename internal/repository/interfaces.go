@@ -61,6 +61,20 @@ type CategoryRepository interface {
 	List(ctx context.Context) ([]models.Category, error)
 }
 
+type FinancialGoalRepository interface {
+	Create(ctx context.Context, goal *models.FinancialGoal) error
+	GetByIDForUser(ctx context.Context, id, userID string) (*models.FinancialGoal, error)
+	ListByUser(ctx context.Context, userID string) ([]models.FinancialGoal, error)
+	UpdateForUser(ctx context.Context, goal *models.FinancialGoal, userID string) error
+}
+
+type CategoryLimitRepository interface {
+	Create(ctx context.Context, limit *models.CategoryLimit) error
+	GetByIDForUser(ctx context.Context, id, userID string) (*models.CategoryLimit, error)
+	ListByUser(ctx context.Context, userID string) ([]models.CategoryLimit, error)
+	UpdateForUser(ctx context.Context, limit *models.CategoryLimit, userID string) error
+}
+
 type InterestRuleRepository interface {
 	Create(ctx context.Context, rule *models.InterestRule) error
 	GetByID(ctx context.Context, id string) (*models.InterestRule, error)

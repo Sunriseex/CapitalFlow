@@ -40,7 +40,10 @@ func TestHandlersDoNotBypassFinancialServices(t *testing.T) {
 }
 
 func TestTransactionHardDeleteIsLimitedToGeneratedInterestReplacement(t *testing.T) {
-	allowed := filepath.Clean("../postgres/interest_accruals.go")
+	allowed := map[string]bool{
+		filepath.Clean("../postgres/interest_accruals.go"): true,
+		filepath.Clean("../demo/seed.go"):                  true,
+	}
 
 	walkGoFiles(t, "..", func(path, content string) {
 		if strings.HasSuffix(path, "_test.go") {
@@ -49,7 +52,7 @@ func TestTransactionHardDeleteIsLimitedToGeneratedInterestReplacement(t *testing
 		if !strings.Contains(content, "DELETE FROM transactions") {
 			return
 		}
-		if filepath.Clean(path) != allowed {
+		if !allowed[filepath.Clean(path)] {
 			t.Fatalf("%s contains transaction hard delete outside generated interest replacement", path)
 		}
 	})

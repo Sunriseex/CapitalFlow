@@ -54,9 +54,19 @@ const DashboardView = lazy(() =>
     default: module.DashboardView,
   })),
 );
+const CategoryManager = lazy(() =>
+  import("./features/categories/CategoryManager").then((module) => ({
+    default: module.CategoryManager,
+  })),
+);
 const SettingsView = lazy(() =>
   import("./features/settings/SettingsView").then((module) => ({
     default: module.SettingsView,
+  })),
+);
+const GoalsView = lazy(() =>
+  import("./features/goals/GoalsView").then((module) => ({
+    default: module.GoalsView,
   })),
 );
 const TransactionForm = lazy(() =>
@@ -96,6 +106,7 @@ export function App() {
   const [quickAction, setQuickAction] = useState<QuickAction>(null);
   const [commandOpen, setCommandOpen] = useState(false);
   const [transactionSearchOpen, setTransactionSearchOpen] = useState(false);
+  const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const [rightRailHidden, setRightRailHidden] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() =>
     readStoredBoolean("capitalflow_sidebar_collapsed"),
@@ -380,12 +391,7 @@ export function App() {
             <button
               className="topbar-action"
               type="button"
-              onClick={() =>
-                toaster.create({
-                  type: "info",
-                  title: t.dashboard.categoriesUnavailable,
-                })
-              }
+              onClick={() => setCategoryManagerOpen(true)}
             >
               {t.dashboard.categories}
             </button>
@@ -458,6 +464,7 @@ export function App() {
               <DashboardView
                 key={primaryCurrency}
                 primaryCurrency={primaryCurrency}
+                categories={categories.data ?? []}
                 rightRailHidden={rightRailHidden}
                 quickActionsDisabled={transactionActionsDisabled}
                 onQuickAction={openQuickAction}
@@ -495,6 +502,14 @@ export function App() {
                 categoriesError={categories.error}
                 onCreateTransaction={() => openQuickAction("transaction")}
                 onImport={() => openQuickAction("import")}
+              />
+            ) : null}
+
+            {view === "goals" ? (
+              <GoalsView
+                accounts={accounts.data ?? []}
+                categories={categories.data ?? []}
+                primaryCurrency={primaryCurrency}
               />
             ) : null}
 
@@ -583,6 +598,26 @@ export function App() {
           />
         </Suspense>
       ) : null}
+
+      {categoryManagerOpen ? (
+        <Dialog
+          title={t.categoriesManagement.title}
+          onClose={() => setCategoryManagerOpen(false)}
+          variant="wide"
+        >
+          <Suspense fallback={<Empty>{t.common.loading}</Empty>}>
+            {categories.isLoading ? (
+              <Empty>{t.common.loading}</Empty>
+            ) : categories.error ? (
+              <div className="error inline-error">
+                {errorMessage(categories.error, errorMessages)}
+              </div>
+            ) : (
+              <CategoryManager categories={categories.data ?? []} />
+            )}
+          </Suspense>
+        </Dialog>
+      ) : null}
     </div>
   );
 }
@@ -592,6 +627,7 @@ function titleForView(view: View, t: ReturnType<typeof useI18n>["t"]) {
     dashboard: t.dashboard.dashboard,
     accounts: t.accounts.title,
     transactions: t.transactions.title,
+    goals: t.goals.title,
     settings: t.settings.title,
   }[view];
 }
@@ -607,7 +643,7 @@ function currentRoute(): { view: View; accountId: string } {
     };
   }
 
-  if (view === "transactions" || view === "settings" || view === "dashboard") {
+  if (view === "transactions" || view === "goals" || view === "settings" || view === "dashboard") {
     return { view, accountId: "" };
   }
 

@@ -352,6 +352,138 @@ paths:
                   $ref: "#/components/schemas/Category"
         default:
           $ref: "#/components/responses/APIError"
+    post:
+      tags: [Categories]
+      summary: Create category
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCategoryRequest"
+      responses:
+        "201":
+          description: Category created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        default:
+          $ref: "#/components/responses/APIError"
+  /financial-goals:
+    get:
+      tags: [Goals]
+      summary: List financial goals
+      responses:
+        "200":
+          description: Financial goals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FinancialGoal"
+        default:
+          $ref: "#/components/responses/APIError"
+    post:
+      tags: [Goals]
+      summary: Create financial goal
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFinancialGoalRequest"
+      responses:
+        "201":
+          description: Financial goal created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinancialGoal"
+        default:
+          $ref: "#/components/responses/APIError"
+  /financial-goals/{id}:
+    patch:
+      tags: [Goals]
+      summary: Update financial goal
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFinancialGoalRequest"
+      responses:
+        "200":
+          description: Financial goal updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinancialGoal"
+        default:
+          $ref: "#/components/responses/APIError"
+  /category-limits:
+    get:
+      tags: [Goals]
+      summary: List monthly category limits
+      responses:
+        "200":
+          description: Category limits
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CategoryLimit"
+        default:
+          $ref: "#/components/responses/APIError"
+    post:
+      tags: [Goals]
+      summary: Create monthly category limit
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCategoryLimitRequest"
+      responses:
+        "201":
+          description: Category limit created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryLimit"
+        default:
+          $ref: "#/components/responses/APIError"
+  /category-limits/{id}:
+    patch:
+      tags: [Goals]
+      summary: Update monthly category limit
+      parameters:
+        - $ref: "#/components/parameters/ID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCategoryLimitRequest"
+      responses:
+        "200":
+          description: Category limit updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryLimit"
+        default:
+          $ref: "#/components/responses/APIError"
   /currency-rates:
     get:
       tags: [Currencies]
@@ -1109,6 +1241,144 @@ components:
         updated_at:
           type: string
           format: date-time
+    CreateCategoryRequest:
+      type: object
+      required: [name, slug]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 80
+          pattern: "^[a-z0-9]+(?:[-_][a-z0-9]+)*$"
+    FinancialGoal:
+      type: object
+      required: [id, name, target_amount, currency, status, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        account_id:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+        target_amount:
+          type: string
+          pattern: "^\\d+(\\.\\d{1,18})?$"
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        target_date:
+          type: string
+          format: date
+          nullable: true
+        status:
+          type: string
+          enum: [active, completed, archived]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CreateFinancialGoalRequest:
+      type: object
+      required: [account_id, name, target_amount]
+      properties:
+        account_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        target_amount:
+          type: string
+          pattern: "^\\d+(\\.\\d{1,18})?$"
+        target_date:
+          type: string
+          format: date
+    UpdateFinancialGoalRequest:
+      type: object
+      properties:
+        account_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        target_amount:
+          type: string
+          pattern: "^\\d+(\\.\\d{1,18})?$"
+        target_date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [active, completed, archived]
+    CategoryLimit:
+      type: object
+      required: [id, category_id, amount, currency, is_active, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        category_id:
+          type: string
+          format: uuid
+        amount:
+          type: string
+          pattern: "^\\d+(\\.\\d{1,18})?$"
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CreateCategoryLimitRequest:
+      type: object
+      required: [category_id, amount, currency]
+      properties:
+        category_id:
+          type: string
+          format: uuid
+        amount:
+          type: string
+          pattern: "^\\d+(\\.\\d{1,18})?$"
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        is_active:
+          type: boolean
+    UpdateCategoryLimitRequest:
+      type: object
+      properties:
+        category_id:
+          type: string
+          format: uuid
+        amount:
+          type: string
+          pattern: "^\\d+(\\.\\d{1,18})?$"
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        is_active:
+          type: boolean
     Transaction:
       type: object
       required: [id, account_id, type, amount, occurred_at, created_at]
@@ -1487,6 +1757,8 @@ components:
         - monthly_expense
         - monthly_interest_income
         - account_balances
+        - financial_goals
+        - category_limits
         - recent_transactions
         - recent_transactions_limit
         - recent_transactions_returned
@@ -1518,6 +1790,14 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DashboardAccountBalance"
+        financial_goals:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardGoalProgress"
+        category_limits:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardCategoryLimitProgress"
         recent_transactions:
           type: array
           items:
@@ -1526,6 +1806,49 @@ components:
           type: integer
         recent_transactions_returned:
           type: integer
+    DashboardGoalProgress:
+      type: object
+      required: [id, account_id, name, current_amount, target_amount, currency, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        account_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        current_amount:
+          type: string
+        target_amount:
+          type: string
+        currency:
+          type: string
+        target_date:
+          type: string
+          format: date
+          nullable: true
+        status:
+          type: string
+          enum: [active, completed, archived]
+    DashboardCategoryLimitProgress:
+      type: object
+      required: [id, category_id, category_name, current_amount, target_amount, currency]
+      properties:
+        id:
+          type: string
+          format: uuid
+        category_id:
+          type: string
+          format: uuid
+        category_name:
+          type: string
+        current_amount:
+          type: string
+        target_amount:
+          type: string
+        currency:
+          type: string
     DashboardNetWorth:
       type: object
       required: [generated_at, balances, account_balances]

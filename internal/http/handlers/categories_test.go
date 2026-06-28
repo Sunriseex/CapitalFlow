@@ -1,9 +1,14 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"github.com/sunriseex/capitalflow/internal/models"
+	"github.com/sunriseex/capitalflow/internal/repository"
 )
 
 func TestCategoriesRouteRequiresAuth(t *testing.T) {
@@ -18,6 +23,42 @@ func TestCategoriesRouteRequiresAuth(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
 	}
 }
+
+func TestCreateCategory(t *testing.T) {
+	tokens, pair := testProfileTokenPair(t)
+	store := newTestProfileStore()
+	repo := &testCategoryRepo{}
+	store.categories = repo
+	store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
+	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/categories", strings.NewReader(`{"name":"Home repair","slug":"home-repair"}`))
+	req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
+	req.Header.Set("Idempotency-Key", "create-category-1")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusCreated, rec.Body.String())
+	}
+	if repo.created == nil || repo.created.Name != "Home repair" || repo.created.Slug != "home-repair" {
+		t.Fatalf("created category = %#v", repo.created)
+	}
+}
+
+type testCategoryRepo struct{ created *models.Category }
+
+func (r *testCategoryRepo) Create(_ context.Context, category *models.Category) error {
+	r.created = category
+	return nil
+}
+
+func (r *testCategoryRepo) GetByID(context.Context, string) (*models.Category, error) {
+	return nil, repository.ErrNotFound
+}
+
+func (r *testCategoryRepo) GetBySlug(context.Context, string) (*models.Category, error) {
+	return nil, repository.ErrNotFound
+}
+func (r *testCategoryRepo) List(context.Context) ([]models.Category, error) { return nil, nil }
 
 func TestCategoriesPreflightSkipsAuth(t *testing.T) {
 	router := NewRouter(nil, &RouterConfig{

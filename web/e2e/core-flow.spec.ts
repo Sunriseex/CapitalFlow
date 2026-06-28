@@ -101,7 +101,7 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
       return;
     }
 
-    await route.fulfill({ json: transactions });
+    await route.fulfill({ json: [...transactions].reverse() });
   });
   await page.route("**/api/v1/transfers", async (route) => {
     const input = await route.request().postDataJSON();
@@ -151,6 +151,9 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
   await expectHeaderControlsInOneRow(page);
   await expectGridColumns(page, ".rail-actions", 2);
   await expectCashflowChart(page);
+  await expect(page.getByRole("progressbar", { name: "Subscriptions: 110%" })).toHaveAttribute("aria-valuenow", "100");
+  await expect(page.getByRole("progressbar", { name: "Transport: 83%" })).toHaveAttribute("aria-valuenow", "83");
+  await expect(page.getByRole("progressbar", { name: "Emergency fund: 70%" })).toHaveAttribute("aria-valuenow", "70");
 
   await expectAppTheme(page, "light", "oklch(1 0 0)");
   await page.getByRole("button", { name: "Switch to dark theme" }).click();
@@ -236,6 +239,7 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
   await expect(page.getByRole("dialog", { name: "Create transaction" })).toBeHidden();
 
   await clickNav(page, "Transactions");
+  await expect(page.locator(".transactions-table tbody tr").first()).toContainText("Groceries");
   await page.getByRole("row", { name: /Open transaction details: Groceries/ }).click();
   await expect(page.getByRole("dialog", { name: "Transaction details" })).toHaveClass(
     /dialog-panel-narrow/,
@@ -463,7 +467,22 @@ function dashboardResponse(accounts: Account[], transactions: Transaction[], now
       currency: account.currency,
       is_active: account.is_active,
     })),
-    recent_transactions: transactions.slice(-10),
+    financial_goals: [{
+      id: "goal-emergency",
+      account_id: "account-savings",
+      name: "Emergency fund",
+      current_amount: "70000",
+      target_amount: "100000",
+      currency: "RUB",
+      target_date: "2026-12-31",
+      status: "active",
+    }],
+    category_limits: [
+      { id: "limit-food", category_id: "food", category_name: "Food", current_amount: "45000", target_amount: "100000", currency: "RUB" },
+      { id: "limit-transport", category_id: "transport", category_name: "Transport", current_amount: "8300", target_amount: "10000", currency: "RUB" },
+      { id: "limit-subscriptions", category_id: "subscriptions", category_name: "Subscriptions", current_amount: "11000", target_amount: "10000", currency: "RUB" },
+    ],
+    recent_transactions: transactions.slice(-10).reverse(),
     recent_transactions_limit: 10,
     recent_transactions_returned: Math.min(transactions.length, 10),
     months: 6,

@@ -23,7 +23,7 @@ func (r *CategoryRepository) Create(ctx context.Context, category *models.Catego
 		VALUES ($1, $2, $3, $4, $5)
 	`, category.ID, category.Slug, category.Name, category.CreatedAt, category.UpdatedAt)
 	if err != nil {
-		return fmt.Errorf("create category: %w", err)
+		return fmt.Errorf("create category: %w", mapConflict(err))
 	}
 	return nil
 }

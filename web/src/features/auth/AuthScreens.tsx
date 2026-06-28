@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Check, Moon, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import type { CurrencyOption } from "../../shared/currencies";
@@ -11,7 +13,14 @@ import {
   Select,
 } from "../../shared/ui";
 import { Button as ShadcnButton } from "../../components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../../components/ui/popover";
+import type { Locale } from "../../shared/i18n/i18n";
 import { useI18n } from "../../shared/i18n/useI18n";
+import { runThemeRipple } from "../../shared/ui/themeTransition";
 
 export type AuthScreenError = {
   message: string;
@@ -74,6 +83,113 @@ type InitialSetupFormValues = InitialSetupSubmitValues & {
   setupConfirm: boolean;
 };
 
+function AuthHeaderControls() {
+  const { theme = "light", setTheme } = useTheme();
+  const { locale, setLocale, t } = useI18n();
+  const [languageOpen, setLanguageOpen] = useState(false);
+  const dark = theme === "dark";
+
+  return (
+    <header className="auth-toolbar">
+      <a className="brand" href="/" aria-label={t.auth.capitalFlowHome}>
+        <span className="brand-mark" aria-hidden="true">
+          CF
+        </span>
+        <span className="brand-name">CapitalFlow</span>
+      </a>
+
+      <div className="auth-preferences">
+        <ShadcnButton
+          className="auth-preference-button"
+          type="button"
+          size="icon"
+          variant="outline"
+          aria-label={
+            dark ? t.shell.switchToLightTheme : t.shell.switchToDarkTheme
+          }
+          title={dark ? t.shell.switchToLightTheme : t.shell.switchToDarkTheme}
+          aria-pressed={dark}
+          onClick={(event) => {
+            const next = dark ? "light" : "dark";
+            runThemeRipple(event.currentTarget, () => setTheme(next));
+          }}
+        >
+          {dark ? <Moon aria-hidden="true" /> : <Sun aria-hidden="true" />}
+        </ShadcnButton>
+
+        <Popover open={languageOpen} onOpenChange={setLanguageOpen}>
+          <PopoverTrigger asChild>
+            <ShadcnButton
+              className="auth-preference-button"
+              type="button"
+              size="icon"
+              variant="outline"
+              aria-label={t.shell.chooseLanguage}
+              title={t.shell.chooseLanguage}
+            >
+              <span aria-hidden="true">{locale === "ru" ? "🇷🇺" : "🇬🇧"}</span>
+            </ShadcnButton>
+          </PopoverTrigger>
+          <PopoverContent className="language-popover" align="end" role="menu">
+            <p className="language-popover-title">{t.shell.language}</p>
+            <AuthLanguageChoice
+              locale="ru"
+              active={locale === "ru"}
+              flag="🇷🇺"
+              label="Русский"
+              onSelect={(next) => {
+                setLocale(next);
+                setLanguageOpen(false);
+              }}
+            />
+            <AuthLanguageChoice
+              locale="en"
+              active={locale === "en"}
+              flag="🇬🇧"
+              label="English"
+              onSelect={(next) => {
+                setLocale(next);
+                setLanguageOpen(false);
+              }}
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+    </header>
+  );
+}
+
+function AuthLanguageChoice({
+  locale,
+  active,
+  flag,
+  label,
+  onSelect,
+}: {
+  locale: Locale;
+  active: boolean;
+  flag: string;
+  label: string;
+  onSelect: (locale: Locale) => void;
+}) {
+  return (
+    <ShadcnButton
+      className="language-choice"
+      type="button"
+      variant="ghost"
+      role="menuitemradio"
+      aria-checked={active}
+      onClick={() => onSelect(locale)}
+    >
+      <span className="language-choice-copy">
+        <span aria-hidden="true">{flag}</span>
+        <span>{label}</span>
+      </span>
+      {active ? <Check aria-hidden="true" /> : null}
+    </ShadcnButton>
+  );
+}
+
 export function LoginScreen({
   error,
   passkeyError,
@@ -110,12 +226,7 @@ export function LoginScreen({
     <main className="auth-page auth-reference-page">
       <PageTransition>
         <div className="auth-stack">
-          <a className="brand" href="/" aria-label={t.auth.capitalFlowHome}>
-            <span className="brand-mark" aria-hidden="true">
-              CF
-            </span>
-            <span className="brand-name">CapitalFlow</span>
-          </a>
+          <AuthHeaderControls />
 
           <section className="auth-card" aria-labelledby="login-title">
             <header className="auth-header">
@@ -381,12 +492,7 @@ export function InitialSetupScreen({
     <main className="setup-page auth-reference-page">
       <PageTransition>
         <div className="auth-stack auth-stack-wide">
-          <a className="brand" href="/" aria-label={t.auth.capitalFlowHome}>
-            <span className="brand-mark" aria-hidden="true">
-              CF
-            </span>
-            <span className="brand-name">CapitalFlow</span>
-          </a>
+          <AuthHeaderControls />
 
           <section className="setup-card" aria-labelledby="setup-title">
             <header className="setup-header">

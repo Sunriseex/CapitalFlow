@@ -14,6 +14,11 @@ type CategoryResponse struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type CreateCategoryRequest struct {
+	Name string `json:"name"`
+	Slug string `json:"slug"`
+}
+
 func CategoryFromModel(category *models.Category) CategoryResponse {
 	return CategoryResponse{
 		ID:        category.ID,
