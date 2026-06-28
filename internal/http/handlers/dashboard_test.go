@@ -86,7 +86,7 @@ func TestBuildDashboardSummary(t *testing.T) {
 		},
 	}
 
-	got, err := buildDashboardSummary(t.Context(), now, accounts, transactions, 3)
+	got, err := buildDashboardSummary(t.Context(), now, accounts, transactions, nil, nil, nil, 3)
 	if err != nil {
 		t.Fatalf("build summary: %v", err)
 	}
@@ -154,6 +154,53 @@ func TestBuildDashboardNetWorth(t *testing.T) {
 	assertDashboardAmount(t, got.Balances, "RUB", 100_000)
 	if len(got.AccountBalances) != 2 {
 		t.Fatalf("account balances len = %d, want 2", len(got.AccountBalances))
+	}
+}
+
+func TestBuildDashboardGoalAndLimitProgress(t *testing.T) {
+	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
+	accountID := "rub-account"
+	legacyAccountID := "missing-account"
+	foodID := "food"
+	accounts := []models.Account{{
+		ID: accountID, Name: "Savings", Type: models.AccountTypeSavings,
+		Currency: "RUB", IsActive: true,
+	}}
+	transactions := []models.Transaction{
+		{ID: "balance", AccountID: accountID, Type: models.TransactionTypeInitialBalance, Amount: dec("1700"), OccurredAt: now.AddDate(0, -1, 0)},
+		{ID: "food-current", AccountID: accountID, Type: models.TransactionTypeExpense, Amount: dec("83"), CategoryID: &foodID, OccurredAt: time.Date(2026, 5, 2, 0, 0, 0, 0, time.UTC)},
+		{ID: "food-previous", AccountID: accountID, Type: models.TransactionTypeExpense, Amount: dec("999"), CategoryID: &foodID, OccurredAt: time.Date(2026, 4, 30, 23, 59, 0, 0, time.UTC)},
+	}
+	goals := []models.FinancialGoal{
+		{ID: "active", AccountID: &accountID, Name: "Reserve", TargetAmount: dec("1000"), Currency: "RUB", Status: models.FinancialGoalActive},
+		{ID: "legacy", Name: "Legacy", TargetAmount: dec("1000"), Currency: "RUB", Status: models.FinancialGoalActive},
+		{ID: "missing", AccountID: &legacyAccountID, Name: "Missing", TargetAmount: dec("1000"), Currency: "RUB", Status: models.FinancialGoalActive},
+		{ID: "inactive", AccountID: &accountID, Name: "Inactive", TargetAmount: dec("1000"), Currency: "RUB", Status: models.FinancialGoalArchived},
+	}
+	limits := []models.CategoryLimit{
+		{ID: "rub-limit", CategoryID: foodID, Amount: dec("100"), Currency: "RUB", IsActive: true},
+		{ID: "usd-limit", CategoryID: foodID, Amount: dec("100"), Currency: "USD", IsActive: true},
+		{ID: "inactive-limit", CategoryID: foodID, Amount: dec("100"), Currency: "RUB", IsActive: false},
+	}
+
+	got, err := buildDashboardSummary(t.Context(), now, accounts, transactions, goals, limits, []models.Category{{ID: foodID, Name: "Food"}}, 10)
+	if err != nil {
+		t.Fatalf("build summary: %v", err)
+	}
+	if len(got.FinancialGoals) != 1 || got.FinancialGoals[0].ID != "active" {
+		t.Fatalf("financial goals = %#v, want only linked active goal", got.FinancialGoals)
+	}
+	if !got.FinancialGoals[0].CurrentAmount.Equal(dec("618")) {
+		t.Fatalf("goal current = %s, want 618", got.FinancialGoals[0].CurrentAmount)
+	}
+	if len(got.CategoryLimits) != 2 {
+		t.Fatalf("category limits len = %d, want 2 active limits", len(got.CategoryLimits))
+	}
+	if !got.CategoryLimits[0].CurrentAmount.Equal(dec("83")) {
+		t.Fatalf("RUB limit current = %s, want 83", got.CategoryLimits[0].CurrentAmount)
+	}
+	if !got.CategoryLimits[1].CurrentAmount.IsZero() {
+		t.Fatalf("USD limit current = %s, want 0", got.CategoryLimits[1].CurrentAmount)
 	}
 }
 

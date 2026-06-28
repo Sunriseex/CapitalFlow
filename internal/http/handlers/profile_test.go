@@ -137,6 +137,9 @@ func testProfileTokenPair(t *testing.T) (*auth.TokenService, *auth.TokenPair) {
 type testProfileStore struct {
 	accounts     repository.AccountRepository
 	transactions repository.TransactionRepository
+	categories   repository.CategoryRepository
+	goals        repository.FinancialGoalRepository
+	limits       repository.CategoryLimitRepository
 	rules        repository.InterestRuleRepository
 	users        *testProfileUserRepo
 	refresh      *testProfileRefreshRepo
@@ -166,7 +169,15 @@ func (s *testProfileStore) Transactions() repository.TransactionRepository {
 }
 
 func (s *testProfileStore) Categories() repository.CategoryRepository {
-	return nil
+	return s.categories
+}
+
+func (s *testProfileStore) FinancialGoals() repository.FinancialGoalRepository {
+	return s.goals
+}
+
+func (s *testProfileStore) CategoryLimits() repository.CategoryLimitRepository {
+	return s.limits
 }
 
 func (s *testProfileStore) InterestRules() repository.InterestRuleRepository {

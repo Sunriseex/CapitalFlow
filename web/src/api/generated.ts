@@ -147,6 +147,62 @@ export type Category = {
   "updated_at": string;
 };
 
+export type CreateCategoryRequest = {
+  "name": string;
+  "slug": string;
+};
+
+export type FinancialGoal = {
+  "id": string;
+  "account_id"?: string | null;
+  "name": string;
+  "target_amount": string;
+  "currency": string;
+  "target_date"?: string | null;
+  "status": "active" | "completed" | "archived";
+  "created_at": string;
+  "updated_at": string;
+};
+
+export type CreateFinancialGoalRequest = {
+  "account_id": string;
+  "name": string;
+  "target_amount": string;
+  "target_date"?: string;
+};
+
+export type UpdateFinancialGoalRequest = {
+  "account_id"?: string;
+  "name"?: string;
+  "target_amount"?: string;
+  "target_date"?: string;
+  "status"?: "active" | "completed" | "archived";
+};
+
+export type CategoryLimit = {
+  "id": string;
+  "category_id": string;
+  "amount": string;
+  "currency": string;
+  "is_active": boolean;
+  "created_at": string;
+  "updated_at": string;
+};
+
+export type CreateCategoryLimitRequest = {
+  "category_id": string;
+  "amount": string;
+  "currency": string;
+  "is_active"?: boolean;
+};
+
+export type UpdateCategoryLimitRequest = {
+  "category_id"?: string;
+  "amount"?: string;
+  "currency"?: string;
+  "is_active"?: boolean;
+};
+
 export type Transaction = {
   "id": string;
   "account_id": string;
@@ -293,9 +349,31 @@ export type DashboardSummary = {
   "monthly_expense": Amount[];
   "monthly_interest_income": Amount[];
   "account_balances": DashboardAccountBalance[];
+  "financial_goals": DashboardGoalProgress[];
+  "category_limits": DashboardCategoryLimitProgress[];
   "recent_transactions": Transaction[];
   "recent_transactions_limit": number;
   "recent_transactions_returned": number;
+};
+
+export type DashboardGoalProgress = {
+  "id": string;
+  "account_id": string;
+  "name": string;
+  "current_amount": string;
+  "target_amount": string;
+  "currency": string;
+  "target_date"?: string | null;
+  "status": "active" | "completed" | "archived";
+};
+
+export type DashboardCategoryLimitProgress = {
+  "id": string;
+  "category_id": string;
+  "category_name": string;
+  "current_amount": string;
+  "target_amount": string;
+  "currency": string;
 };
 
 export type DashboardNetWorth = {

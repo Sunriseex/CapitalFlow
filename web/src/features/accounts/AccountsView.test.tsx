@@ -61,6 +61,8 @@ const summary: DashboardSummary = {
       is_active: true,
     },
   ],
+  financial_goals: [],
+  category_limits: [],
   recent_transactions: [],
   recent_transactions_limit: 5,
   recent_transactions_returned: 0,

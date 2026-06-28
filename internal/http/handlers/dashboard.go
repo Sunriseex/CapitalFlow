@@ -39,8 +39,32 @@ func (h *Handler) getDashboardSummary(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, err)
 		return
 	}
+	goals, err := h.store.FinancialGoals().ListByUser(r.Context(), userID)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	limits, err := h.store.CategoryLimits().ListByUser(r.Context(), userID)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	categories, err := h.store.Categories().List(r.Context())
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
 
-	summary, err := buildDashboardSummary(r.Context(), time.Now(), accounts, transactions, dashboardRecentTransactionsLimit)
+	summary, err := buildDashboardSummary(
+		r.Context(),
+		time.Now(),
+		accounts,
+		transactions,
+		goals,
+		limits,
+		categories,
+		dashboardRecentTransactionsLimit,
+	)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -128,7 +152,16 @@ func dashboardMonthsParam(w http.ResponseWriter, r *http.Request) (int, bool) {
 	return months, true
 }
 
-func buildDashboardSummary(ctx context.Context, now time.Time, accounts []models.Account, transactions []models.Transaction, recentLimit int) (*dto.DashboardSummaryResponse, error) {
+func buildDashboardSummary(
+	ctx context.Context,
+	now time.Time,
+	accounts []models.Account,
+	transactions []models.Transaction,
+	goals []models.FinancialGoal,
+	limits []models.CategoryLimit,
+	categories []models.Category,
+	recentLimit int,
+) (*dto.DashboardSummaryResponse, error) {
 	if recentLimit < 0 {
 		recentLimit = 0
 	}
@@ -149,13 +182,13 @@ func buildDashboardSummary(ctx context.Context, now time.Time, accounts []models
 	income := make(map[string]decimal.Decimal)
 	expense := make(map[string]decimal.Decimal)
 	interestIncome := make(map[string]decimal.Decimal)
+	accountBalances := make(map[string]decimal.Decimal, len(accounts))
 
 	for i := range accounts {
 		account := &accounts[i]
 		if account.IsActive {
 			summary.ActiveAccountsCount++
 		}
-
 		balance, err := services.NewBalanceService().Calculate(ctx, services.CalculateBalanceRequest{
 			AccountID:    account.ID,
 			Transactions: transactions,
@@ -163,6 +196,7 @@ func buildDashboardSummary(ctx context.Context, now time.Time, accounts []models
 		if err != nil {
 			return nil, fmt.Errorf("calculate dashboard account balance: %w", err)
 		}
+		accountBalances[account.ID] = balance.Balance
 
 		if account.IsActive {
 			balances[account.Currency] = balances[account.Currency].Add(balance.Balance)
@@ -182,6 +216,7 @@ func buildDashboardSummary(ctx context.Context, now time.Time, accounts []models
 
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	nextMonthStart := monthStart.AddDate(0, 1, 0)
+	categoryExpense := make(map[string]decimal.Decimal)
 	for i := range transactions {
 		tx := &transactions[i]
 		if tx.OccurredAt.Before(monthStart) || !tx.OccurredAt.Before(nextMonthStart) {
@@ -198,10 +233,62 @@ func buildDashboardSummary(ctx context.Context, now time.Time, accounts []models
 			income[account.Currency] = income[account.Currency].Add(tx.Amount)
 		case models.TransactionTypeExpense:
 			expense[account.Currency] = expense[account.Currency].Add(tx.Amount)
+			if tx.CategoryID != nil {
+				key := dashboardCategoryCurrencyKey(*tx.CategoryID, account.Currency)
+				categoryExpense[key] = categoryExpense[key].Add(tx.Amount)
+			}
 		case models.TransactionTypeInterestIncome:
 			income[account.Currency] = income[account.Currency].Add(tx.Amount)
 			interestIncome[account.Currency] = interestIncome[account.Currency].Add(tx.Amount)
 		}
+	}
+
+	for i := range goals {
+		goal := &goals[i]
+		if goal.Status != models.FinancialGoalActive || goal.AccountID == nil {
+			continue
+		}
+		balance, ok := accountBalances[*goal.AccountID]
+		if !ok {
+			continue
+		}
+		if balance.IsNegative() {
+			balance = decimal.Zero
+		}
+		var targetDate *string
+		if goal.TargetDate != nil {
+			formatted := goal.TargetDate.Format(time.DateOnly)
+			targetDate = &formatted
+		}
+		summary.FinancialGoals = append(summary.FinancialGoals, dto.DashboardGoalProgressResponse{
+			ID:            goal.ID,
+			AccountID:     *goal.AccountID,
+			Name:          goal.Name,
+			CurrentAmount: money.NewJSONDecimal(balance),
+			TargetAmount:  money.NewJSONDecimal(goal.TargetAmount),
+			Currency:      goal.Currency,
+			TargetDate:    targetDate,
+			Status:        goal.Status,
+		})
+	}
+
+	categoryNames := make(map[string]string, len(categories))
+	for i := range categories {
+		categoryNames[categories[i].ID] = categories[i].Name
+	}
+	for i := range limits {
+		limit := &limits[i]
+		if !limit.IsActive {
+			continue
+		}
+		summary.CategoryLimits = append(summary.CategoryLimits, dto.DashboardCategoryLimitProgressResponse{
+			ID:            limit.ID,
+			CategoryID:    limit.CategoryID,
+			CategoryName:  categoryNames[limit.CategoryID],
+			CurrentAmount: money.NewJSONDecimal(categoryExpense[dashboardCategoryCurrencyKey(limit.CategoryID, limit.Currency)]),
+			TargetAmount:  money.NewJSONDecimal(limit.Amount),
+			Currency:      limit.Currency,
+		})
 	}
 
 	recent := slices.Clone(transactions)
@@ -226,6 +313,10 @@ func buildDashboardSummary(ctx context.Context, now time.Time, accounts []models
 	summary.RecentTransactionsReturned = len(recent)
 
 	return summary, nil
+}
+
+func dashboardCategoryCurrencyKey(categoryID, currency string) string {
+	return categoryID + "\x00" + currency
 }
 
 func buildDashboardNetWorth(ctx context.Context, now time.Time, accounts []models.Account, transactions []models.Transaction) (*dto.DashboardNetWorthResponse, error) {

@@ -23,18 +23,40 @@ type DashboardAccountBalanceResponse struct {
 	TransactionCount int                `json:"transaction_count"`
 }
 
+type DashboardGoalProgressResponse struct {
+	ID            string                     `json:"id"`
+	AccountID     string                     `json:"account_id"`
+	Name          string                     `json:"name"`
+	CurrentAmount money.JSONDecimal          `json:"current_amount"`
+	TargetAmount  money.JSONDecimal          `json:"target_amount"`
+	Currency      string                     `json:"currency"`
+	TargetDate    *string                    `json:"target_date,omitempty"`
+	Status        models.FinancialGoalStatus `json:"status"`
+}
+
+type DashboardCategoryLimitProgressResponse struct {
+	ID            string            `json:"id"`
+	CategoryID    string            `json:"category_id"`
+	CategoryName  string            `json:"category_name"`
+	CurrentAmount money.JSONDecimal `json:"current_amount"`
+	TargetAmount  money.JSONDecimal `json:"target_amount"`
+	Currency      string            `json:"currency"`
+}
+
 type DashboardSummaryResponse struct {
-	GeneratedAt                time.Time                         `json:"generated_at"`
-	AccountsCount              int                               `json:"accounts_count"`
-	ActiveAccountsCount        int                               `json:"active_accounts_count"`
-	Balances                   []DashboardAmountResponse         `json:"balances"`
-	MonthlyIncome              []DashboardAmountResponse         `json:"monthly_income"`
-	MonthlyExpense             []DashboardAmountResponse         `json:"monthly_expense"`
-	MonthlyInterestIncome      []DashboardAmountResponse         `json:"monthly_interest_income"`
-	AccountBalances            []DashboardAccountBalanceResponse `json:"account_balances"`
-	RecentTransactions         []TransactionResponse             `json:"recent_transactions"`
-	RecentTransactionsLimit    int                               `json:"recent_transactions_limit"`
-	RecentTransactionsReturned int                               `json:"recent_transactions_returned"`
+	GeneratedAt                time.Time                                `json:"generated_at"`
+	AccountsCount              int                                      `json:"accounts_count"`
+	ActiveAccountsCount        int                                      `json:"active_accounts_count"`
+	Balances                   []DashboardAmountResponse                `json:"balances"`
+	MonthlyIncome              []DashboardAmountResponse                `json:"monthly_income"`
+	MonthlyExpense             []DashboardAmountResponse                `json:"monthly_expense"`
+	MonthlyInterestIncome      []DashboardAmountResponse                `json:"monthly_interest_income"`
+	AccountBalances            []DashboardAccountBalanceResponse        `json:"account_balances"`
+	FinancialGoals             []DashboardGoalProgressResponse          `json:"financial_goals"`
+	CategoryLimits             []DashboardCategoryLimitProgressResponse `json:"category_limits"`
+	RecentTransactions         []TransactionResponse                    `json:"recent_transactions"`
+	RecentTransactionsLimit    int                                      `json:"recent_transactions_limit"`
+	RecentTransactionsReturned int                                      `json:"recent_transactions_returned"`
 }
 
 type DashboardNetWorthResponse struct {

@@ -13,6 +13,7 @@ import {
   Repeat,
   Settings,
   Sun,
+  Target,
   X,
 } from "lucide-react";
 import { useTheme } from "next-themes";
@@ -21,6 +22,7 @@ import { errorMessage, apiErrorMessages } from "../../shared/api/query";
 import { useI18n } from "../../shared/i18n/useI18n";
 import type { Locale } from "../../shared/i18n/i18n";
 import type { QuickAction, View } from "../../shared/constants";
+import { runThemeRipple } from "../../shared/ui/themeTransition";
 import { toaster } from "../../components/ui/toaster-store";
 import {
   CommandDialog,
@@ -143,6 +145,12 @@ export function Nav({
           label={t.nav.accounts}
           count={String(accountCount)}
           onClick={() => navigateTo("accounts")}
+        />
+        <NavButton
+          active={view === "goals"}
+          icon={Target}
+          label={t.nav.goals}
+          onClick={() => navigateTo("goals")}
         />
         <NavButton
           active={view === "settings"}
@@ -278,60 +286,6 @@ export function SidebarFooter({
       </Button>
     </div>
   );
-}
-
-function runThemeRipple(
-  trigger: HTMLElement,
-  applyTheme: () => void,
-) {
-  const reducedMotion =
-    "matchMedia" in window &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-  if (reducedMotion) {
-    applyTheme();
-    return;
-  }
-
-  const rect = trigger.getBoundingClientRect();
-  const x = rect.left + rect.width / 2;
-  const y = rect.top + rect.height / 2;
-  const radius = Math.ceil(
-    Math.hypot(
-      Math.max(x, window.innerWidth - x),
-      Math.max(y, window.innerHeight - y),
-    ),
-  );
-  const root = document.documentElement;
-
-  root.style.setProperty("--theme-ripple-x", `${x}px`);
-  root.style.setProperty("--theme-ripple-y", `${y}px`);
-  root.style.setProperty("--theme-ripple-radius", `${radius}px`);
-
-  const viewTransitionDocument = document as Document & {
-    startViewTransition?: (callback: () => void) => {
-      ready: Promise<void>;
-      finished: Promise<void>;
-    };
-  };
-
-  if (typeof viewTransitionDocument.startViewTransition === "function") {
-    root.classList.add("theme-view-transition");
-    const transition = viewTransitionDocument.startViewTransition(applyTheme);
-    void transition.finished.finally(() => {
-      root.classList.remove("theme-view-transition");
-    });
-    return;
-  }
-
-  root.classList.remove("theme-ripple-fallback");
-  applyTheme();
-  window.requestAnimationFrame(() => {
-    root.classList.add("theme-ripple-fallback");
-    window.setTimeout(() => {
-      root.classList.remove("theme-ripple-fallback");
-    }, 620);
-  });
 }
 
 function runLanguageRipple(trigger: HTMLElement, applyLocale: () => void) {
@@ -522,6 +476,13 @@ export function CommandMenu({
             title={t.nav.accounts}
             description={t.shell.openAccountsCommandDescription}
             onSelect={() => onNavigate("accounts")}
+          />
+          <CommandAction
+            value="goals savings targets plans"
+            icon={<Target aria-hidden="true" />}
+            title={t.nav.goals}
+            description={t.shell.openGoalsCommandDescription}
+            onSelect={() => onNavigate("goals")}
           />
           <CommandAction
             value="settings profile security passkeys currency"

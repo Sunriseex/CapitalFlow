@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CreditCard, Repeat, Target, Zap } from "lucide-react";
+import { CreditCard, Repeat, Zap } from "lucide-react";
 import { api } from "../../api/client";
 import {
   addMoney,
@@ -10,7 +10,7 @@ import {
   moneyToNumber,
   sumConverted,
 } from "../../api/money";
-import type { Account, Transaction } from "../../api/types";
+import type { Account, Category, Transaction } from "../../api/types";
 import { apiErrorMessages, errorMessage } from "../../shared/api/query";
 import type { QuickAction, View } from "../../shared/constants";
 import { Button, Dialog, Empty } from "../../shared/ui";
@@ -18,6 +18,7 @@ import { Button as ShadcnButton } from "../../components/ui/button";
 import { TransactionDetails } from "../transactions/components/TransactionDetails";
 import { CashflowChart } from "./components/CashflowChart";
 import { RecentTransactionsTable } from "./components/RecentTransactionsTable";
+import { GoalsLimitsCard } from "./components/GoalsLimitsCard";
 import { useI18n } from "../../shared/i18n/useI18n";
 import {
   cashflowBucketsToChart,
@@ -29,6 +30,7 @@ import {
 
 export function DashboardView({
   primaryCurrency,
+  categories,
   rightRailHidden,
   onOpenAccount,
   onQuickAction,
@@ -36,6 +38,7 @@ export function DashboardView({
   quickActionsDisabled = false,
 }: {
   primaryCurrency: string;
+  categories: Category[];
   rightRailHidden: boolean;
   onOpenAccount: (id: string) => void;
   onQuickAction?: (action: NonNullable<QuickAction>) => void;
@@ -561,8 +564,9 @@ export function DashboardView({
                   {t.dashboard.allTransactions}{" "}
                 </Button>
               </div>
-              <RecentTransactionsTable
-                accounts={recentAccounts}
+            <RecentTransactionsTable
+              accounts={recentAccounts}
+              categories={categories}
                 transactions={data?.recent_transactions ?? []}
                 selectedCurrency={selectedCurrency}
                 onOpenTransaction={setSelectedTransaction}
@@ -661,17 +665,16 @@ export function DashboardView({
               </div>
             </article>
 
-            <article className="card rail-card">
-              <div className="card-head">
-                <div className="card-title">
-                  <h2>{t.dashboard.goalsAndLimits}</h2>
-                </div>
-                <Target aria-hidden="true" />
-              </div>
-              <div className="review-placeholder">
-                <strong>{t.dashboard.goalsAndLimitsUnavailableTitle}</strong>
-              </div>
-            </article>
+            <GoalsLimitsCard
+              goals={data?.financial_goals ?? []}
+              limits={data?.category_limits ?? []}
+              locale={locale}
+              monthLabel={new Intl.DateTimeFormat(locale, { month: "long" }).format(new Date())}
+              title={t.dashboard.goalsAndLimits}
+              emptyLabel={t.dashboard.goalsAndLimitsEmpty}
+              openLabel={t.dashboard.openGoals}
+              onOpen={() => onNavigate?.("goals")}
+            />
 
             <article className="card rail-card">
               <div className="card-head">

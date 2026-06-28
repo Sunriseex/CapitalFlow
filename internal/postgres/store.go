@@ -32,6 +32,14 @@ func (s *Store) Categories() repository.CategoryRepository {
 	return NewCategoryRepository(s.pool)
 }
 
+func (s *Store) FinancialGoals() repository.FinancialGoalRepository {
+	return NewFinancialGoalRepository(s.pool)
+}
+
+func (s *Store) CategoryLimits() repository.CategoryLimitRepository {
+	return NewCategoryLimitRepository(s.pool)
+}
+
 func (s *Store) InterestRules() repository.InterestRuleRepository {
 	return NewInterestRuleRepository(s.pool)
 }

@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -144,6 +146,16 @@ func parseOptionalPositiveInt(input, field string) (int, error) {
 }
 
 func applyTransactionListFilter(transactions []models.Transaction, filter *repository.TransactionListFilter) []models.Transaction {
+	transactions = slices.Clone(transactions)
+	slices.SortFunc(transactions, func(a, b models.Transaction) int {
+		if byOccurredAt := b.OccurredAt.Compare(a.OccurredAt); byOccurredAt != 0 {
+			return byOccurredAt
+		}
+		if byCreatedAt := b.CreatedAt.Compare(a.CreatedAt); byCreatedAt != 0 {
+			return byCreatedAt
+		}
+		return cmp.Compare(b.ID, a.ID)
+	})
 	filtered := make([]models.Transaction, 0, len(transactions))
 	for i := range transactions {
 		transaction := transactions[i]

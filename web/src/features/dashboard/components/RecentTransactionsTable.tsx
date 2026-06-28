@@ -1,17 +1,19 @@
 import { useMemo } from "react";
 import type { KeyboardEvent } from "react";
 import { formatMoney } from "../../../api/money";
-import type { Account, Transaction } from "../../../api/types";
+import type { Account, Category, Transaction } from "../../../api/types";
 import { useI18n } from "../../../shared/i18n/useI18n";
 import { Button as ShadcnButton } from "../../../components/ui/button";
 
 export function RecentTransactionsTable({
   accounts,
+  categories,
   transactions,
   selectedCurrency,
   onOpenTransaction,
 }: {
   accounts: Account[];
+  categories: Category[];
   transactions: Transaction[];
   selectedCurrency: string;
   onOpenTransaction: (transaction: Transaction) => void;
@@ -28,6 +30,10 @@ export function RecentTransactionsTable({
   const accountCurrencies = useMemo(
     () => new Map(accounts.map((account) => [account.id, account.currency])),
     [accounts],
+  );
+  const categoryNames = useMemo(
+    () => new Map(categories.map((category) => [category.id, category.name])),
+    [categories],
   );
 
   if (!transactions.length) {
@@ -96,7 +102,9 @@ export function RecentTransactionsTable({
                     transaction.account_id}
                 </td>
                 <td data-label={t.transactions.category}>
-                  {transaction.category_id ?? "-"}
+                  {transaction.category_id
+                    ? (categoryNames.get(transaction.category_id) ?? "-")
+                    : "-"}
                 </td>
                 <td
                   data-label={t.transactions.amount}

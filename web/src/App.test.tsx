@@ -22,6 +22,13 @@ const mocks = vi.hoisted(() => ({
   createAccount: vi.fn(),
   createTransaction: vi.fn(),
   createInterestRule: vi.fn(),
+  financialGoals: vi.fn(),
+  createFinancialGoal: vi.fn(),
+  updateFinancialGoal: vi.fn(),
+  categoryLimits: vi.fn(),
+  createCategoryLimit: vi.fn(),
+  updateCategoryLimit: vi.fn(),
+  createCategory: vi.fn(),
 }));
 
 vi.mock("./api/client", () => ({
@@ -47,6 +54,13 @@ vi.mock("./api/client", () => ({
     createAccount: mocks.createAccount,
     createTransaction: mocks.createTransaction,
     createInterestRule: mocks.createInterestRule,
+    financialGoals: mocks.financialGoals,
+    createFinancialGoal: mocks.createFinancialGoal,
+    updateFinancialGoal: mocks.updateFinancialGoal,
+    categoryLimits: mocks.categoryLimits,
+    createCategoryLimit: mocks.createCategoryLimit,
+    updateCategoryLimit: mocks.updateCategoryLimit,
+    createCategory: mocks.createCategory,
   },
   clearStoredSession: vi.fn(),
   getStoredToken: () => mocks.token,
@@ -180,6 +194,13 @@ describe("App auth screens", () => {
     });
     mocks.createTransaction.mockResolvedValue({});
     mocks.createInterestRule.mockResolvedValue({});
+    mocks.financialGoals.mockResolvedValue([]);
+    mocks.createFinancialGoal.mockResolvedValue({});
+    mocks.updateFinancialGoal.mockResolvedValue({});
+    mocks.categoryLimits.mockResolvedValue([]);
+    mocks.createCategoryLimit.mockResolvedValue({});
+    mocks.updateCategoryLimit.mockResolvedValue({});
+    mocks.createCategory.mockResolvedValue({});
   });
 
   it("renders login as a standalone screen with passkey sign-in", async () => {
@@ -195,6 +216,32 @@ describe("App auth screens", () => {
       screen.getByRole("button", { name: "Sign in with passkey" }),
     ).toBeInTheDocument();
     expect(screen.getByTestId("page-transition")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Switch to dark theme" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Choose interface language" })).toBeInTheDocument();
+  });
+
+  it("changes language before sign-in", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await screen.findByRole("heading", { name: "Sign in" });
+    await user.click(screen.getByRole("button", { name: "Choose interface language" }));
+    await user.click(screen.getByRole("menuitemradio", { name: "Русский" }));
+    expect(await screen.findByRole("heading", { name: "Вход" })).toBeInTheDocument();
+    expect(localStorage.getItem("capitalflow_locale")).toBe("ru");
+  });
+
+  it("changes theme before sign-in", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await screen.findByRole("heading", { name: "Sign in" });
+    await user.click(screen.getByRole("button", { name: "Switch to dark theme" }));
+    expect(
+      document.documentElement.style.getPropertyValue("--theme-ripple-radius"),
+    ).not.toBe("");
+    await waitFor(() => {
+      expect(document.documentElement).toHaveAttribute("data-theme", "dark");
+      expect(localStorage.getItem("capitalflow_theme")).toBe("dark");
+    });
   });
 
   it("toggles password visibility on the login screen", async () => {
@@ -227,6 +274,8 @@ describe("App auth screens", () => {
     expect(
       screen.queryByRole("button", { name: "Sign in with passkey" }),
     ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Switch to dark theme" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Choose interface language" })).toBeInTheDocument();
   });
 
   it("checks setup password strength and confirmation before submit", async () => {
@@ -445,6 +494,172 @@ describe("App query states", () => {
     });
     mocks.createTransaction.mockResolvedValue({});
     mocks.createInterestRule.mockResolvedValue({});
+    mocks.financialGoals.mockResolvedValue([]);
+    mocks.createFinancialGoal.mockResolvedValue({
+      id: "goal-1",
+      account_id: "account-1",
+      name: "Emergency fund",
+      target_amount: "300000",
+      currency: "RUB",
+      target_date: null,
+      status: "active",
+      created_at: "2026-05-19T00:00:00Z",
+      updated_at: "2026-05-19T00:00:00Z",
+    });
+    mocks.updateFinancialGoal.mockResolvedValue({});
+    mocks.categoryLimits.mockResolvedValue([]);
+    mocks.createCategoryLimit.mockResolvedValue({});
+    mocks.updateCategoryLimit.mockResolvedValue({});
+    mocks.createCategory.mockResolvedValue({});
+  });
+
+  it("opens goals and creates a financial goal", async () => {
+    const user = userEvent.setup();
+    renderApp();
+
+    await user.click(await screen.findByRole("button", { name: "Goals" }));
+    expect(await screen.findByText("No financial goals yet")).toBeInTheDocument();
+    await user.click(screen.getAllByRole("button", { name: "Create goal" })[0]);
+    await user.type(screen.getByLabelText("Goal name"), "Emergency fund");
+    await user.type(screen.getByLabelText("Target amount"), "300000");
+    await user.selectOptions(screen.getByLabelText("Linked account"), "account-1");
+    await user.click(screen.getByRole("button", { name: "Save goal" }));
+
+    await waitFor(() =>
+      expect(mocks.createFinancialGoal.mock.calls[0]?.[0]).toEqual({
+        account_id: "account-1",
+        name: "Emergency fund",
+        target_amount: "300000",
+      }),
+    );
+  });
+
+  it("edits goal details and a monthly category limit", async () => {
+    const user = userEvent.setup();
+    mocks.categories.mockResolvedValue([
+      {
+        id: "category-1",
+        slug: "food",
+        name: "Food",
+        created_at: "2026-05-19T00:00:00Z",
+        updated_at: "2026-05-19T00:00:00Z",
+      },
+    ]);
+    mocks.financialGoals.mockResolvedValue([
+      {
+        id: "goal-1",
+        account_id: "account-1",
+        name: "Emergency fund",
+        target_amount: "300000",
+        currency: "RUB",
+        target_date: "2027-01-01",
+        status: "active",
+        created_at: "2026-05-19T00:00:00Z",
+        updated_at: "2026-05-19T00:00:00Z",
+      },
+    ]);
+    mocks.categoryLimits.mockResolvedValue([
+      {
+        id: "limit-1",
+        category_id: "category-1",
+        amount: "100000",
+        currency: "RUB",
+        is_active: true,
+        created_at: "2026-05-19T00:00:00Z",
+        updated_at: "2026-05-19T00:00:00Z",
+      },
+    ]);
+    mocks.dashboardSummary.mockResolvedValue({
+      account_balances: [],
+      financial_goals: [
+        {
+          id: "goal-1",
+          account_id: "account-1",
+          name: "Emergency fund",
+          current_amount: "210000",
+          target_amount: "300000",
+          currency: "RUB",
+          target_date: "2027-01-01",
+          status: "active",
+        },
+      ],
+      category_limits: [
+        {
+          id: "limit-1",
+          category_id: "category-1",
+          category_name: "Food",
+          current_amount: "45000",
+          target_amount: "100000",
+          currency: "RUB",
+        },
+      ],
+    });
+    renderApp();
+
+    await user.click(await screen.findByRole("button", { name: "Goals" }));
+    const goalItem = (await screen.findByText("Emergency fund")).closest("li");
+    expect(goalItem).not.toBeNull();
+    await user.click(within(goalItem!).getByRole("button", { name: "Edit" }));
+    const goalForm = within(
+      within(goalItem!).getByRole("form", {
+        name: "Edit: Emergency fund",
+      }),
+    );
+    const goalAmountInput = goalForm.getByLabelText("Target amount");
+    await user.clear(goalAmountInput);
+    await user.type(goalAmountInput, "350000");
+    await user.selectOptions(goalForm.getByLabelText("Status"), "completed");
+    await user.click(
+      goalForm.getByRole("button", { name: "Save changes" }),
+    );
+    await waitFor(() =>
+      expect(mocks.updateFinancialGoal).toHaveBeenCalledWith("goal-1", {
+        account_id: "account-1",
+        name: "Emergency fund",
+        target_amount: "350000",
+        target_date: "2027-01-01",
+        status: "completed",
+      }),
+    );
+
+    const limitItem = (
+      await screen.findByText("Food", { selector: "strong" })
+    ).closest("li");
+    expect(limitItem).not.toBeNull();
+    await user.click(within(limitItem!).getByRole("button", { name: "Edit" }));
+    const limitForm = within(
+      within(limitItem!).getByRole("form", {
+        name: "Edit: Food",
+      }),
+    );
+    const limitAmountInput = limitForm.getByLabelText("Monthly limit");
+    await user.clear(limitAmountInput);
+    await user.type(limitAmountInput, "120000");
+    await user.selectOptions(limitForm.getByLabelText("Status"), "inactive");
+    await user.click(
+      limitForm.getByRole("button", { name: "Save changes" }),
+    );
+    await waitFor(() =>
+      expect(mocks.updateCategoryLimit).toHaveBeenCalledWith("limit-1", {
+        category_id: "category-1",
+        amount: "120000",
+        currency: "RUB",
+        is_active: false,
+      }),
+    );
+  });
+
+  it("opens category management from the topbar", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    await user.click(await screen.findByRole("button", { name: "Categories" }));
+    expect(await screen.findByRole("dialog", { name: "Categories" })).toBeInTheDocument();
+    await user.type(await screen.findByLabelText("Name"), "Home repair");
+    expect(await screen.findByLabelText("Identifier")).toHaveValue("home-repair");
+    await user.click(screen.getByRole("button", { name: "Create category" }));
+    await waitFor(() =>
+      expect(mocks.createCategory.mock.calls[0]?.[0]).toEqual({ name: "Home repair", slug: "home-repair" }),
+    );
   });
 
   it("shows account loading state and disables account-dependent quick actions", async () => {
@@ -504,7 +719,7 @@ describe("App query states", () => {
     expect(topbarButtons[0]).toHaveAttribute("aria-label", "Collapse sidebar");
     expect(topbarButtons[0]).toHaveAttribute("aria-pressed", "false");
     expect(document.querySelector(".sidebar-collapse-button")).toBeNull();
-    expect(document.querySelectorAll(".nav-icon svg")).toHaveLength(4);
+    expect(document.querySelectorAll(".nav-icon svg")).toHaveLength(5);
     const sidebar = document.querySelector(".sidebar");
     expect(sidebar).not.toBeNull();
     expect([...(sidebar?.children ?? [])].map((element) => element.className)).toEqual(

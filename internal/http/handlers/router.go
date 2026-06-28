@@ -18,6 +18,8 @@ type Store interface {
 	Accounts() repository.AccountRepository
 	Transactions() repository.TransactionRepository
 	Categories() repository.CategoryRepository
+	FinancialGoals() repository.FinancialGoalRepository
+	CategoryLimits() repository.CategoryLimitRepository
 	InterestRules() repository.InterestRuleRepository
 	InterestAccruals() repository.InterestAccrualRepository
 	Users() repository.UserRepository
@@ -187,6 +189,8 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 			r.Patch("/auth/passkeys/{id}", h.renamePasskey)
 			r.Delete("/auth/passkeys/{id}", h.deletePasskey)
 			r.Patch("/settings/profile", h.updateProfile)
+			r.Patch("/financial-goals/{id}", h.updateFinancialGoal)
+			r.Patch("/category-limits/{id}", h.updateCategoryLimit)
 			r.Post("/accounts", h.createAccount)
 			r.Patch("/accounts/{id}", h.updateAccount)
 			r.Post("/accounts/{id}/archive", h.archiveAccount)
@@ -199,6 +203,11 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 		})
 
 		r.Get("/categories", h.listCategories)
+		r.With(appmiddleware.RequireIdempotencyKey).Post("/categories", h.createCategory)
+		r.Get("/financial-goals", h.listFinancialGoals)
+		r.With(appmiddleware.RequireIdempotencyKey).Post("/financial-goals", h.createFinancialGoal)
+		r.Get("/category-limits", h.listCategoryLimits)
+		r.With(appmiddleware.RequireIdempotencyKey).Post("/category-limits", h.createCategoryLimit)
 		r.Get("/auth/sessions", h.listSessions)
 		r.Get("/auth/passkeys", h.listPasskeys)
 		r.Get("/currency-rates", h.getCurrencyRates)
