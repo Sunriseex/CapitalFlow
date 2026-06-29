@@ -50,6 +50,24 @@ func TestHTTPAdapterDoesNotComposeApplicationServices(t *testing.T) {
 	})
 }
 
+func TestHTTPAdapterDoesNotCallPersistence(t *testing.T) {
+	forbidden := []string{
+		".Store", ".Accounts()", ".Transactions()", ".Categories()",
+		".FinancialGoals()", ".CategoryLimits()", ".InterestRules()",
+		".Users()", ".RefreshTokens()", ".Idempotency()", ".Ping(",
+	}
+	walkGoFiles(t, "../http/handlers", func(path, content string) {
+		if strings.HasSuffix(path, "_test.go") {
+			return
+		}
+		for _, pattern := range forbidden {
+			if strings.Contains(content, pattern) {
+				t.Fatalf("%s calls persistence through %q", path, pattern)
+			}
+		}
+	})
+}
+
 func TestInterestAdaptersDoNotOwnTransactionalOrchestration(t *testing.T) {
 	forbidden := []string{
 		"WithAccountInterestLock(",

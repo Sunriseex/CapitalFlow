@@ -9,7 +9,6 @@ import (
 
 	"github.com/sunriseex/capitalflow/internal/application"
 	appmiddleware "github.com/sunriseex/capitalflow/internal/http/middleware"
-	"github.com/sunriseex/capitalflow/internal/repository"
 )
 
 type Handler struct {
@@ -114,12 +113,12 @@ func NewRouter(app *application.Application, cfg *RouterConfig) http.Handler {
 
 	r.Route("/api/v1", func(r chi.Router) {
 		if app.Tokens != nil {
-			r.Use(appmiddleware.JWTAuth(app.Tokens, app.Store.RefreshTokens()))
+			r.Use(appmiddleware.JWTAuth(app.Tokens, app.Auth))
 		} else {
 			r.Use(appmiddleware.BearerTokenAuth(cfg.APIAuthToken))
 		}
 
-		r.With(appmiddleware.MutationOnly(mutationRateLimit), appmiddleware.Idempotency(h.idempotency())).Group(func(r chi.Router) {
+		r.With(appmiddleware.MutationOnly(mutationRateLimit), appmiddleware.Idempotency(app.Idempotency)).Group(func(r chi.Router) {
 			r.Post("/auth/password", h.changePassword)
 			r.Delete("/auth/sessions/{id}", h.revokeSession)
 			r.Post("/auth/passkeys/registration/options", h.passkeyRegistrationOptions)
@@ -176,13 +175,6 @@ func firstNonEmpty(value, fallback string) string {
 		return value
 	}
 	return fallback
-}
-
-func (h *Handler) idempotency() repository.IdempotencyRepository {
-	if h.app.Store == nil {
-		return nil
-	}
-	return h.app.Store.Idempotency()
 }
 
 func firstPositive(value, fallback int) int {

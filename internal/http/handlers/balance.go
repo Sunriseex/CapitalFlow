@@ -16,20 +16,15 @@ func (h *Handler) getAccountBalance(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, err := h.app.Store.Accounts().GetByIDForUser(r.Context(), accountID, userID); err != nil {
-		writeServiceError(w, err)
-		return
-	}
-
-	balance, count, err := h.app.Store.Transactions().GetBalanceByAccountForUser(r.Context(), accountID, userID)
+	balance, err := h.app.Accounts.BalanceForUser(r.Context(), accountID, userID)
 	if err != nil {
 		writeServiceError(w, err)
 		return
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"account_id":        accountID,
-		"balance":           money.NewJSONDecimal(balance),
-		"transaction_count": count,
+		"account_id":        balance.AccountID,
+		"balance":           money.NewJSONDecimal(balance.Balance),
+		"transaction_count": balance.TransactionCount,
 	})
 }

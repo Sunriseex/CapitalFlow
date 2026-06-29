@@ -20,6 +20,13 @@ type InterestRuleService struct {
 	transactions *TransactionService
 	rules        repository.InterestRuleRepository
 	accruals     repository.InterestAccrualRepository
+	accounts     repository.AccountRepository
+}
+
+func WithInterestAccountRepository(repo repository.AccountRepository) InterestRuleServiceOption {
+	return func(s *InterestRuleService) {
+		s.accounts = repo
+	}
 }
 
 type InterestRuleServiceOption func(*InterestRuleService)
@@ -48,6 +55,7 @@ func NewInterestRuleService(transactions *TransactionService, options ...Interes
 }
 
 type CreateInterestRuleRequest struct {
+	UserID                  string
 	AccountID               string
 	AnnualRateBps           int64
 	PromoRateBps            *int64
@@ -131,6 +139,11 @@ func (s *InterestRuleService) Create(ctx context.Context, req *CreateInterestRul
 	accountID := strings.TrimSpace(req.AccountID)
 	if accountID == "" {
 		return nil, validationError("account id is required")
+	}
+	if strings.TrimSpace(req.UserID) != "" && s != nil && s.accounts != nil {
+		if _, err := s.accounts.GetByIDForUser(ctx, accountID, strings.TrimSpace(req.UserID)); err != nil {
+			return nil, fmt.Errorf("get interest rule account: %w", err)
+		}
 	}
 	if req.AnnualRateBps <= 0 {
 		return nil, validationError("annual rate must be positive")

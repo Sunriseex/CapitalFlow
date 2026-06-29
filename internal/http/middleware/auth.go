@@ -3,14 +3,12 @@ package middleware
 import (
 	"context"
 	"crypto/subtle"
-	"errors"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/sunriseex/capitalflow/internal/auth"
 	"github.com/sunriseex/capitalflow/internal/config"
-	"github.com/sunriseex/capitalflow/internal/repository"
 )
 
 type contextKey string
@@ -43,10 +41,14 @@ func BearerTokenAuth(expectedToken string) func(http.Handler) http.Handler {
 	}
 }
 
-func JWTAuth(tokens *auth.TokenService, refreshTokens repository.RefreshTokenRepository) func(http.Handler) http.Handler {
+type SessionValidator interface {
+	ValidateSession(ctx context.Context, userID, sessionID string, now time.Time) (bool, error)
+}
+
+func JWTAuth(tokens *auth.TokenService, sessions SessionValidator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if tokens == nil || refreshTokens == nil {
+			if tokens == nil || sessions == nil {
 				writeJSONError(w, http.StatusServiceUnavailable, "authentication_not_configured", "Authentication is not configured", nil)
 				return
 			}
@@ -62,12 +64,12 @@ func JWTAuth(tokens *auth.TokenService, refreshTokens repository.RefreshTokenRep
 				writeJSONError(w, http.StatusUnauthorized, "unauthorized", "Unauthorized", nil)
 				return
 			}
-			session, err := refreshTokens.GetByID(r.Context(), claims.SessionID)
-			if err != nil || session.UserID != claims.UserID || !session.IsActive(time.Now()) {
-				if err != nil && !errors.Is(err, repository.ErrNotFound) {
-					writeJSONError(w, http.StatusServiceUnavailable, "authentication_not_configured", "Authentication is not configured", nil)
-					return
-				}
+			active, err := sessions.ValidateSession(r.Context(), claims.UserID, claims.SessionID, time.Now())
+			if err != nil {
+				writeJSONError(w, http.StatusServiceUnavailable, "authentication_not_configured", "Authentication is not configured", nil)
+				return
+			}
+			if !active {
 				writeJSONError(w, http.StatusUnauthorized, "unauthorized", "Unauthorized", nil)
 				return
 			}

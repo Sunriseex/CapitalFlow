@@ -2,11 +2,9 @@ package handlers
 
 import (
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/sunriseex/capitalflow/internal/http/dto"
-	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/services"
 )
 
@@ -16,7 +14,7 @@ func (h *Handler) listAccounts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accounts, err := h.app.Store.Accounts().ListByUser(r.Context(), userID)
+	accounts, err := h.app.Accounts.ListByUser(r.Context(), userID)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -68,7 +66,7 @@ func (h *Handler) getAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	account, err := h.app.Store.Accounts().GetByIDForUser(r.Context(), accountID, userID)
+	account, err := h.app.Accounts.GetByIDForUser(r.Context(), accountID, userID)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -136,36 +134,4 @@ func (h *Handler) archiveAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
-}
-
-func (h *Handler) ensureAccountExists(w http.ResponseWriter, r *http.Request, accountID string) bool {
-	userID, ok := currentUserID(w, r)
-	if !ok {
-		return false
-	}
-	if _, err := h.app.Store.Accounts().GetByIDForUser(r.Context(), accountID, userID); err != nil {
-		writeServiceError(w, err)
-		return false
-	}
-
-	return true
-}
-
-func (h *Handler) accountByID(w http.ResponseWriter, r *http.Request, accountID, field string) (*models.Account, bool) {
-	if strings.TrimSpace(accountID) == "" {
-		writeError(w, http.StatusBadRequest, "validation_error", field+" is required", nil)
-		return nil, false
-	}
-
-	userID, ok := currentUserID(w, r)
-	if !ok {
-		return nil, false
-	}
-	account, err := h.app.Store.Accounts().GetByIDForUser(r.Context(), accountID, userID)
-	if err != nil {
-		writeServiceError(w, err)
-		return nil, false
-	}
-
-	return account, true
 }

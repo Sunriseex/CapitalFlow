@@ -52,7 +52,13 @@ func MutationOnly(middleware func(http.Handler) http.Handler) func(http.Handler)
 	}
 }
 
-func Idempotency(repo repository.IdempotencyRepository) func(http.Handler) http.Handler {
+type IdempotencyStore interface {
+	Get(ctx context.Context, key, userID, method, path string) (*models.IdempotencyRecord, error)
+	CreatePending(ctx context.Context, record *models.IdempotencyRecord) (bool, error)
+	Complete(ctx context.Context, key, userID, method, path string, statusCode int, responseBody []byte) error
+}
+
+func Idempotency(repo IdempotencyStore) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		if repo == nil {
 			return next

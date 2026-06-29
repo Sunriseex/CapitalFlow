@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 
 	domainaccount "github.com/sunriseex/capitalflow/internal/domain/account"
 	"github.com/sunriseex/capitalflow/internal/models"
@@ -14,7 +15,57 @@ import (
 )
 
 type AccountService struct {
-	repo repository.AccountRepository
+	repo         repository.AccountRepository
+	transactions repository.TransactionRepository
+}
+
+func (s *AccountService) WithTransactionRepository(repo repository.TransactionRepository) *AccountService {
+	s.transactions = repo
+	return s
+}
+
+type AccountBalance struct {
+	AccountID        string
+	Balance          decimal.Decimal
+	TransactionCount int64
+}
+
+func (s *AccountService) ListByUser(ctx context.Context, userID string) ([]models.Account, error) {
+	if s == nil || s.repo == nil {
+		return nil, fmt.Errorf("account repository is required")
+	}
+	accounts, err := s.repo.ListByUser(ctx, strings.TrimSpace(userID))
+	if err != nil {
+		return nil, fmt.Errorf("list accounts: %w", err)
+	}
+	return accounts, nil
+}
+
+func (s *AccountService) GetByIDForUser(ctx context.Context, accountID, userID string) (*models.Account, error) {
+	if s == nil || s.repo == nil {
+		return nil, fmt.Errorf("account repository is required")
+	}
+	account, err := s.repo.GetByIDForUser(ctx, strings.TrimSpace(accountID), strings.TrimSpace(userID))
+	if err != nil {
+		return nil, fmt.Errorf("get account: %w", err)
+	}
+	return account, nil
+}
+
+func (s *AccountService) BalanceForUser(ctx context.Context, accountID, userID string) (*AccountBalance, error) {
+	accountID = strings.TrimSpace(accountID)
+	userID = strings.TrimSpace(userID)
+	if _, err := s.GetByIDForUser(ctx, accountID, userID); err != nil {
+		return nil, err
+	}
+	if s.transactions == nil {
+		return nil, fmt.Errorf("transaction repository is required")
+	}
+	balance, count, err := s.transactions.GetBalanceByAccountForUser(ctx, accountID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get account balance: %w", err)
+	}
+	return &AccountBalance{AccountID: accountID, Balance: balance, TransactionCount: count}, nil
 }
 
 func NewAccountService(repos ...repository.AccountRepository) *AccountService {
