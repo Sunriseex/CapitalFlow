@@ -4,6 +4,7 @@ import { formatMoney } from "../../../api/money";
 import type { Account, Category, Transaction } from "../../../api/types";
 import { useI18n } from "../../../shared/i18n/useI18n";
 import { Button as ShadcnButton } from "../../../components/ui/button";
+import { CategoryBadge } from "../../transactions/components/CategoryBadge";
 
 export function RecentTransactionsTable({
   accounts,
@@ -102,9 +103,16 @@ export function RecentTransactionsTable({
                     transaction.account_id}
                 </td>
                 <td data-label={t.transactions.category}>
-                  {transaction.category_id
-                    ? (categoryNames.get(transaction.category_id) ?? "-")
-                    : "-"}
+                  <CategoryBadge
+                    categoryKey={
+                      transaction.category_id ?? "uncategorized"
+                    }
+                    name={
+                      transaction.category_id
+                        ? (categoryNames.get(transaction.category_id) ?? "-")
+                        : "-"
+                    }
+                  />
                 </td>
                 <td
                   data-label={t.transactions.amount}

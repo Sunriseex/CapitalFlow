@@ -231,16 +231,6 @@ export function DashboardView({
   return (
     <div className="ref-dashboard">
       <section className="tab-panel" id="overview" aria-labelledby="pageTitle">
-        <section
-          className="reference-alert"
-          aria-label={t.dashboard.subscriptionAlertTitle}
-        >
-          <strong>{t.dashboard.subscriptionAlertTitle}</strong>
-          <Button type="button" onClick={() => onNavigate?.("transactions")}>
-            {t.nav.transactions}
-          </Button>
-        </section>
-
         <section className="metrics-grid" aria-label={t.dashboard.overview}>
           <article className="card balance-card metric-card">
             <div className="metric-card-head">
@@ -564,9 +554,9 @@ export function DashboardView({
                   {t.dashboard.allTransactions}{" "}
                 </Button>
               </div>
-            <RecentTransactionsTable
-              accounts={recentAccounts}
-              categories={categories}
+              <RecentTransactionsTable
+                accounts={recentAccounts}
+                categories={categories}
                 transactions={data?.recent_transactions ?? []}
                 selectedCurrency={selectedCurrency}
                 onOpenTransaction={setSelectedTransaction}

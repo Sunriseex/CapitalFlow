@@ -7,6 +7,7 @@ import { errorMessage, apiErrorMessages } from "../../shared/api/query";
 import { useI18n } from "../../shared/i18n/useI18n";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
+import { CategoryBadge } from "../transactions/components/CategoryBadge";
 
 export function CategoryManager({ categories }: { categories: Category[] }) {
   const queryClient = useQueryClient();
@@ -118,7 +119,10 @@ export function CategoryManager({ categories }: { categories: Category[] }) {
         <ul className="category-manager-list">
           {visibleCategories.map((category) => (
             <li key={category.id}>
-              <strong>{category.name}</strong>
+              <CategoryBadge
+                categoryKey={category.id}
+                name={category.name}
+              />
               <code>{category.slug}</code>
             </li>
           ))}

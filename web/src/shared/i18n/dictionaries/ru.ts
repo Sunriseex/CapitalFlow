@@ -74,12 +74,15 @@ export const ru = {
     transactionSearchDetailDescription: "Проверьте поля выбранной операции.",
     transactionSearchPlaceholder:
       "Найти по описанию, категории, счёту, сумме...",
+    categorySearchPlaceholder: "Найти операции по названию категории...",
     transactionSearchResults: "Результаты",
     transactionSearchEmpty: "Операции не найдены. Измените запрос или фильтр.",
+    categorySearchEmpty: "Операции с такой категорией не найдены.",
     filters: {
       all: "Все",
       thisMonth: "Этот месяц",
       transfers: "Переводы",
+      categories: "Категории",
     },
     systemHealth: "Состояние системы",
     checkSystemHealth: "Проверить состояние системы",
@@ -226,9 +229,6 @@ export const ru = {
     layoutNoteTitle: "Изменение относительно прошлого варианта",
     layoutNoteDescription:
       "Поиск, детали, формы и категории открываются как popover/dialog поверх текущего dashboard.",
-    subscriptionAlertTitle: "Ожидаемое списание подписки не найдено",
-    subscriptionAlertDescription:
-      "Проверка подписок требует поддержки backend. Откройте операции, чтобы проверить журнал вручную.",
     cashflow: "Денежный поток",
     loadingLedgerBuckets: "Загрузка периодов журнала",
     buckets: "периодов",
@@ -425,6 +425,7 @@ export const ru = {
 
   goals: {
     title: "Финансовые цели",
+    sections: "Разделы целей и лимитов",
     create: "Создать цель",
     creating: "Создаём...",
     save: "Сохранить цель",
@@ -435,6 +436,9 @@ export const ru = {
     emptyTitle: "Финансовых целей пока нет",
     emptyDescription: "Свяжите накопительный счёт и задайте целевую сумму.",
     noDeadline: "Без срока",
+    monthlyContribution: "Желательное пополнение",
+    deadlinePassed: "Срок прошёл, внесите сейчас",
+    month: "месяц",
     savingsGoals: "Накопительные цели",
     savingsGoalsDescription: "Прогресс следует за текущим балансом связанного счёта.",
     monthlyLimits: "Месячные лимиты категорий",

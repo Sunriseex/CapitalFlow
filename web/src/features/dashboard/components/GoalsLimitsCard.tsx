@@ -10,6 +10,7 @@ import {
   selectDashboardProgress,
   type DashboardProgressItem,
 } from "./goalsLimits";
+import { categoryColorClass } from "../../categories/categoryColor";
 
 export function GoalsLimitsCard({
   goals,
@@ -102,7 +103,11 @@ function ProgressRow({
           aria-valuenow={boundedPercent}
         >
           <span
-            className={`budget-progress-bar is-${tone}`}
+            className={
+              item.kind === "limit"
+                ? `budget-progress-bar category-progress ${categoryColorClass(item.data.category_id)}`
+                : `budget-progress-bar is-${tone}`
+            }
             style={{ width: `${boundedPercent}%` }}
           />
         </span>

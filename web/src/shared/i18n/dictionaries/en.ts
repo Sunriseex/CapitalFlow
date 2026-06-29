@@ -76,12 +76,15 @@ export const en = {
     transactionSearchDetailDescription: "Review the selected transaction fields.",
     transactionSearchPlaceholder:
       "Search by description, category, account, amount...",
+    categorySearchPlaceholder: "Find transactions by category name...",
     transactionSearchResults: "Results",
     transactionSearchEmpty: "No transactions found. Change the query or filter.",
+    categorySearchEmpty: "No transactions found in that category.",
     filters: {
       all: "All",
       thisMonth: "This month",
       transfers: "Transfers",
+      categories: "Categories",
     },
     systemHealth: "System health",
     checkSystemHealth: "Check system health",
@@ -228,9 +231,6 @@ export const en = {
     layoutNoteTitle: "Change compared with the previous version",
     layoutNoteDescription:
       "Search, details, forms, and categories open as popovers or dialogs over the current dashboard.",
-    subscriptionAlertTitle: "Expected subscription charge was not found",
-    subscriptionAlertDescription:
-      "Subscription review needs backend support. Open transactions to check the ledger manually.",
     cashflow: "Cashflow",
     loadingLedgerBuckets: "Loading ledger buckets",
     buckets: "buckets",
@@ -427,6 +427,7 @@ export const en = {
 
   goals: {
     title: "Financial goals",
+    sections: "Goals workspace sections",
     create: "Create goal",
     creating: "Creating...",
     save: "Save goal",
@@ -437,6 +438,9 @@ export const en = {
     emptyTitle: "No financial goals yet",
     emptyDescription: "Link a savings account and set a target amount.",
     noDeadline: "No deadline",
+    monthlyContribution: "Recommended monthly contribution",
+    deadlinePassed: "Deadline passed, contribute now",
+    month: "month",
     savingsGoals: "Savings goals",
     savingsGoalsDescription: "Progress follows the current balance of the linked account.",
     monthlyLimits: "Monthly category limits",

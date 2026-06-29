@@ -95,6 +95,54 @@ func TestCreateFinancialGoalRejectsForeignAccount(t *testing.T) {
 	}
 }
 
+func TestUpdateFinancialGoalRoute(t *testing.T) {
+	const (
+		goalID    = "31765cde-dce6-531e-9bc3-b048a0bfc14b"
+		accountID = "11111111-1111-1111-1111-111111111111"
+	)
+	tokens, pair := testProfileTokenPair(t)
+	accountIDValue := accountID
+	repo := &testFinancialGoalRepo{goals: []models.FinancialGoal{{
+		ID:           goalID,
+		OwnerUserID:  "user-1",
+		AccountID:    &accountIDValue,
+		Name:         "Emergency fund",
+		TargetAmount: dec("300000"),
+		Currency:     "RUB",
+		Status:       models.FinancialGoalActive,
+	}}}
+	store := newTestProfileStore()
+	store.goals = repo
+	store.accounts = &testAccountRepo{byID: map[string]*models.Account{
+		accountID: testAccount(accountID, "user-1", "RUB"),
+	}}
+	store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
+	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPatch, "/api/v1/financial-goals/"+goalID, strings.NewReader(`{
+		"account_id":"11111111-1111-1111-1111-111111111111",
+		"name":"Travel fund",
+		"target_amount":"360000",
+		"target_date":"2027-06-30",
+		"status":"completed"
+	}`))
+	req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
+	req.Header.Set("Idempotency-Key", "update-goal-route")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var response dto.FinancialGoalResponse
+	if err := json.NewDecoder(rec.Body).Decode(&response); err != nil {
+		t.Fatalf("decode update response: %v", err)
+	}
+	if response.Name != "Travel fund" || response.TargetAmount != "360000" || response.Status != models.FinancialGoalCompleted {
+		t.Fatalf("updated goal = %#v", response)
+	}
+}
+
 type testFinancialGoalRepo struct {
 	goals      []models.FinancialGoal
 	listUserID string

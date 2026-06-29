@@ -11,6 +11,7 @@ import {
   CommandList,
 } from "../../components/ui/command";
 import { Button as ShadcnButton } from "../../components/ui/button";
+import { CategoryBadge } from "./components/CategoryBadge";
 
 type CategoryFilter = "all" | "income" | "expense" | "required" | "regular";
 
@@ -104,7 +105,10 @@ export function CategoryPickerDialog({
                 >
                   <Tag aria-hidden="true" />
                   <span className="category-option-copy">
-                    <strong>{category.name}</strong>
+                    <CategoryBadge
+                      categoryKey={category.id}
+                      name={category.name}
+                    />
                     <small>{group.description}</small>
                   </span>
                   <span className="tag muted">{group.badge}</span>

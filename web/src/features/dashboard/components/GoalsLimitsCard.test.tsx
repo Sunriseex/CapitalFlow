@@ -8,6 +8,7 @@ import type {
 import { Provider } from "../../../components/ui/provider";
 import { GoalsLimitsCard } from "./GoalsLimitsCard";
 import { selectDashboardProgress } from "./goalsLimits";
+import { categoryColorClass } from "../../categories/categoryColor";
 
 const goals: DashboardGoalProgress[] = [
   {
@@ -78,6 +79,11 @@ describe("GoalsLimitsCard", () => {
     );
 
     expect(screen.getByRole("progressbar", { name: "Subscriptions: 110%" })).toHaveAttribute("aria-valuenow", "100");
+    expect(
+      screen
+        .getByRole("progressbar", { name: "Subscriptions: 110%" })
+        .firstElementChild,
+    ).toHaveClass(categoryColorClass("subscriptions"));
     expect(screen.getByRole("progressbar", { name: "Transport: 83%" })).toHaveAttribute("aria-valuenow", "83");
     expect(screen.getByRole("progressbar", { name: "Nearest goal: 100%" })).toHaveAttribute("aria-valuenow", "100");
     await user.click(screen.getByRole("button", { name: /Subscriptions/ }));
