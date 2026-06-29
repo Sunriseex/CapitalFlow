@@ -39,6 +39,26 @@ func TestHandlersDoNotBypassFinancialServices(t *testing.T) {
 	})
 }
 
+func TestInterestAdaptersDoNotOwnTransactionalOrchestration(t *testing.T) {
+	forbidden := []string{
+		"WithAccountInterestLock(",
+		"InterestCalculationRepository",
+		"PrincipalTransactionsForRuleAt(",
+		"ReplaceInterestAccrualRangeWithTransactions(",
+	}
+	for _, path := range []string{"../http/handlers/interest_rules.go", "../jobs/interest.go"} {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		for _, pattern := range forbidden {
+			if strings.Contains(string(data), pattern) {
+				t.Fatalf("%s owns interest lifecycle detail %q", path, pattern)
+			}
+		}
+	}
+}
+
 func TestTransactionHardDeleteIsLimitedToGeneratedInterestReplacement(t *testing.T) {
 	allowed := map[string]bool{
 		filepath.Clean("../postgres/interest_accruals.go"): true,

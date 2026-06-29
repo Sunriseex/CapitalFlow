@@ -46,8 +46,3 @@ func validateOptionalUUID(w http.ResponseWriter, value, field string) bool {
 
 	return true
 }
-
-func isValidUUID(value string) bool {
-	_, err := uuid.Parse(strings.TrimSpace(value))
-	return err == nil
-}

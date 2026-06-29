@@ -505,9 +505,9 @@ func runInterestJob(ctx context.Context, store *postgres.Store, jobName string, 
 	}
 
 	job := &jobs.InterestJob{
-		Rules:    rules,
-		Accruals: accruals,
-		Now:      func() time.Time { return jobDate },
+		Rules:     rules,
+		Lifecycle: services.NewInterestLifecycle(accruals),
+		Now:       func() time.Time { return jobDate },
 	}
 
 	var result *jobs.InterestJobRunResult
