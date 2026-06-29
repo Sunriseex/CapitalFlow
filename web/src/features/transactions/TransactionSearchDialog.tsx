@@ -24,8 +24,9 @@ import {
   DialogTitle,
 } from "../../components/ui/dialog";
 import { TransactionDetails } from "./components/TransactionDetails";
+import { CategoryBadge } from "./components/CategoryBadge";
 
-type QuickFilter = "all" | "month" | "transfers";
+type QuickFilter = "all" | "month" | "transfers" | "categories";
 
 export function TransactionSearchDialog({
   accounts,
@@ -130,7 +131,11 @@ export function TransactionSearchDialog({
           <Command className="transaction-search-layout" shouldFilter={false}>
             <CommandInput
               value={query}
-              placeholder={t.shell.transactionSearchPlaceholder}
+              placeholder={
+                filter === "categories"
+                  ? t.shell.categorySearchPlaceholder
+                  : t.shell.transactionSearchPlaceholder
+              }
               onValueChange={setQuery}
             />
             <div className="transaction-search-filters" role="group">
@@ -148,6 +153,11 @@ export function TransactionSearchDialog({
                 active={filter === "transfers"}
                 label={t.shell.filters.transfers}
                 onClick={() => setFilter("transfers")}
+              />
+              <FilterButton
+                active={filter === "categories"}
+                label={t.shell.filters.categories}
+                onClick={() => setFilter("categories")}
               />
             </div>
             <CommandList className="transaction-search-results">
@@ -182,7 +192,11 @@ export function TransactionSearchDialog({
               {!transactions.isLoading &&
               !transactions.error &&
               results.length === 0 ? (
-                <CommandEmpty>{t.shell.transactionSearchEmpty}</CommandEmpty>
+                <CommandEmpty>
+                  {filter === "categories"
+                    ? t.shell.categorySearchEmpty
+                    : t.shell.transactionSearchEmpty}
+                </CommandEmpty>
               ) : null}
             </CommandList>
           </Command>
@@ -241,10 +255,15 @@ function TransactionResult({
       <ReceiptText aria-hidden="true" />
       <span className="transaction-search-result-main">
         <strong>{title}</strong>
-        <small>
-          {categoryName ?? t.common.none} · {accountName ?? transaction.account_id}
-          {" · "}
-          {dateLabel(transaction.occurred_at, locale)}
+        <small className="transaction-search-result-meta">
+          <CategoryBadge
+            categoryKey={transaction.category_id ?? "uncategorized"}
+            name={categoryName ?? t.common.none}
+          />
+          <span>
+            {accountName ?? transaction.account_id} ·{" "}
+            {dateLabel(transaction.occurred_at, locale)}
+          </span>
         </small>
       </span>
       {transaction.transfer_id ? (
@@ -300,6 +319,21 @@ function filterTransactions({
         return false;
       }
 
+      const categoryName = transaction.category_id
+        ? categoryNames.get(transaction.category_id)
+        : undefined;
+
+      if (filter === "categories") {
+        if (!categoryName) {
+          return false;
+        }
+
+        return (
+          !normalizedQuery ||
+          normalizeSearch(categoryName).includes(normalizedQuery)
+        );
+      }
+
       if (!normalizedQuery) {
         return true;
       }
@@ -308,9 +342,7 @@ function filterTransactions({
         searchValue(
           transaction,
           accountNames.get(transaction.account_id),
-          transaction.category_id
-            ? categoryNames.get(transaction.category_id)
-            : undefined,
+          categoryName,
           accountCurrencies.get(transaction.account_id) ?? "",
           typeLabels,
         ),

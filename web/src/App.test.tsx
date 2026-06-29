@@ -599,6 +599,10 @@ describe("App query states", () => {
     await user.click(await screen.findByRole("button", { name: "Goals" }));
     const goalItem = (await screen.findByText("Emergency fund")).closest("li");
     expect(goalItem).not.toBeNull();
+    expect(
+      within(goalItem!).getByText("Recommended monthly contribution"),
+    ).toBeInTheDocument();
+    expect(within(goalItem!).getByText("₽12,857.14 / month")).toBeInTheDocument();
     await user.click(within(goalItem!).getByRole("button", { name: "Edit" }));
     const goalForm = within(
       within(goalItem!).getByRole("form", {
@@ -622,9 +626,10 @@ describe("App query states", () => {
       }),
     );
 
-    const limitItem = (
-      await screen.findByText("Food", { selector: "strong" })
-    ).closest("li");
+    await user.click(
+      screen.getByRole("tab", { name: /Monthly category limits/ }),
+    );
+    const limitItem = (await screen.findByText("Food")).closest("li");
     expect(limitItem).not.toBeNull();
     await user.click(within(limitItem!).getByRole("button", { name: "Edit" }));
     const limitForm = within(
@@ -925,6 +930,71 @@ describe("App query states", () => {
       await screen.findByRole("dialog", { name: "Transaction details" }),
     ).toBeInTheDocument();
     expect(screen.getAllByText("Salary").length).toBeGreaterThan(0);
+  });
+
+  it("searches transactions only by category in category mode", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("capitalflow_locale", "en");
+    mocks.categories.mockResolvedValue([
+      {
+        id: "category-food",
+        slug: "food",
+        name: "Food",
+        created_at: "2026-05-19T00:00:00Z",
+        updated_at: "2026-05-19T00:00:00Z",
+      },
+      {
+        id: "category-transport",
+        slug: "transport",
+        name: "Transport",
+        created_at: "2026-05-19T00:00:00Z",
+        updated_at: "2026-05-19T00:00:00Z",
+      },
+    ]);
+    mocks.transactions.mockResolvedValue([
+      {
+        id: "transaction-food",
+        account_id: "account-1",
+        type: "expense",
+        amount: "1200",
+        category_id: "category-food",
+        description: "Weekly shop",
+        occurred_at: "2026-05-19",
+        created_at: "2026-05-19T00:00:00Z",
+      },
+      {
+        id: "transaction-transport",
+        account_id: "account-1",
+        type: "expense",
+        amount: "500",
+        category_id: "category-transport",
+        description: "Food court ride",
+        occurred_at: "2026-05-18",
+        created_at: "2026-05-18T00:00:00Z",
+      },
+    ]);
+
+    renderApp();
+    await user.keyboard("{Control>}f{/Control}");
+    const searchDialog = await screen.findByRole("dialog", {
+      name: "Transaction search",
+    });
+    await user.click(
+      within(searchDialog).getByRole("button", { name: "Categories" }),
+    );
+    await user.type(
+      within(searchDialog).getByPlaceholderText(
+        "Find transactions by category name...",
+      ),
+      "food",
+    );
+
+    expect(
+      within(searchDialog).getByRole("option", { name: /Weekly shop/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(searchDialog).queryByRole("option", { name: /Food court ride/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("invalidates only targeted quick-action query keys after account creation", async () => {

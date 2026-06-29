@@ -15,6 +15,9 @@ import { Input } from "../../components/ui/input";
 import { apiErrorMessages, errorMessage } from "../../shared/api/query";
 import { useI18n } from "../../shared/i18n/useI18n";
 import { Empty, EmptyState, Panel, Select } from "../../shared/ui";
+import { recommendedMonthlyContribution } from "./goalContribution";
+import { categoryColorClass } from "../categories/categoryColor";
+import { CategoryBadge } from "../transactions/components/CategoryBadge";
 
 type GoalDraft = {
   id: string;
@@ -32,6 +35,8 @@ type LimitDraft = {
   currency: string;
   isActive: boolean;
 };
+
+type GoalsSection = "goals" | "limits";
 
 export function GoalsView({
   accounts,
@@ -56,6 +61,8 @@ export function GoalsView({
   const [limitCurrency, setLimitCurrency] = useState(primaryCurrency);
   const [goalDraft, setGoalDraft] = useState<GoalDraft | null>(null);
   const [limitDraft, setLimitDraft] = useState<LimitDraft | null>(null);
+  const [activeSection, setActiveSection] =
+    useState<GoalsSection>("goals");
 
   const goals = useQuery({
     queryKey: ["financial-goals"],
@@ -152,9 +159,61 @@ export function GoalsView({
       ) : null}
       {loading ? <Empty>{t.goals.loading}</Empty> : null}
 
+      <div
+        className="goals-workspace-tabs"
+        role="tablist"
+        aria-label={t.goals.sections}
+      >
+        <Button
+          id="goals-tab"
+          className={
+            activeSection === "goals"
+              ? "goals-workspace-tab is-active"
+              : "goals-workspace-tab"
+          }
+          type="button"
+          variant="ghost"
+          role="tab"
+          aria-selected={activeSection === "goals"}
+          aria-controls="goals-panel"
+          onClick={() => {
+            setActiveSection("goals");
+            setLimitDraft(null);
+          }}
+        >
+          <Target aria-hidden="true" />
+          <span>{t.goals.savingsGoals}</span>
+          <span className="goals-tab-count">{goals.data?.length ?? 0}</span>
+        </Button>
+        <Button
+          id="limits-tab"
+          className={
+            activeSection === "limits"
+              ? "goals-workspace-tab is-active"
+              : "goals-workspace-tab"
+          }
+          type="button"
+          variant="ghost"
+          role="tab"
+          aria-selected={activeSection === "limits"}
+          aria-controls="limits-panel"
+          onClick={() => {
+            setActiveSection("limits");
+            setGoalDraft(null);
+          }}
+        >
+          <Gauge aria-hidden="true" />
+          <span>{t.goals.monthlyLimits}</span>
+          <span className="goals-tab-count">{limits.data?.length ?? 0}</span>
+        </Button>
+      </div>
+
       <section
+        id="goals-panel"
         className="goals-management-section"
-        aria-labelledby="savings-goals-title"
+        role="tabpanel"
+        aria-labelledby="goals-tab"
+        hidden={activeSection !== "goals"}
       >
         <div className="goals-section-head">
           <div>
@@ -247,6 +306,15 @@ export function GoalsView({
             const progress = goalProgress.get(goal.id);
             const current = progress?.current_amount ?? "0";
             const percent = ratio(current, goal.target_amount);
+            const contribution =
+              goal.status === "active"
+                ? recommendedMonthlyContribution(
+                    current,
+                    goal.target_amount,
+                    goal.target_date,
+                    goal.currency,
+                  )
+                : null;
             const editing = goalDraft?.id === goal.id;
             return (
               <li key={goal.id}>
@@ -278,6 +346,25 @@ export function GoalsView({
                   label={`${goal.name}: ${Math.round(percent)}%`}
                   tone={percent >= 100 ? "success" : "default"}
                 />
+                {contribution ? (
+                  <div className="goal-contribution">
+                    <span>
+                      {contribution.overdue
+                        ? t.goals.deadlinePassed
+                        : t.goals.monthlyContribution}
+                    </span>
+                    <strong>
+                      {formatMoney(
+                        contribution.amount,
+                        goal.currency,
+                        locale,
+                      )}
+                      {contribution.overdue
+                        ? null
+                        : ` / ${t.goals.month}`}
+                    </strong>
+                  </div>
+                ) : null}
 
                 {editing ? (
                   <form
@@ -444,8 +531,11 @@ export function GoalsView({
       </section>
 
       <section
+        id="limits-panel"
         className="goals-management-section"
-        aria-labelledby="category-limits-title"
+        role="tabpanel"
+        aria-labelledby="limits-tab"
+        hidden={activeSection !== "limits"}
       >
         <div className="goals-section-head">
           <div>
@@ -537,7 +627,10 @@ export function GoalsView({
               <li key={limit.id}>
                 <div className="management-item-main">
                   <div className="management-item-copy">
-                    <strong>{categoryName}</strong>
+                    <CategoryBadge
+                      categoryKey={limit.category_id}
+                      name={categoryName}
+                    />
                     <div className="management-meta">
                       <span>{limit.currency}</span>
                       <span>{t.goals.repeatsMonthly}</span>
@@ -565,6 +658,7 @@ export function GoalsView({
                         ? "warning"
                         : "default"
                   }
+                  categoryKey={limit.category_id}
                 />
 
                 {editing ? (
@@ -816,10 +910,12 @@ function Progress({
   value,
   label,
   tone,
+  categoryKey,
 }: {
   value: number;
   label: string;
   tone: "default" | "success" | "warning" | "danger";
+  categoryKey?: string;
 }) {
   const bounded = Math.min(100, Math.max(0, Math.round(value)));
   return (
@@ -832,7 +928,11 @@ function Progress({
       aria-valuenow={bounded}
     >
       <span
-        className={`budget-progress-bar is-${tone}`}
+        className={
+          categoryKey
+            ? `budget-progress-bar category-progress ${categoryColorClass(categoryKey)}`
+            : `budget-progress-bar is-${tone}`
+        }
         style={{ width: `${bounded}%` }}
       />
     </span>

@@ -154,6 +154,11 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
   await expect(page.getByRole("progressbar", { name: "Subscriptions: 110%" })).toHaveAttribute("aria-valuenow", "100");
   await expect(page.getByRole("progressbar", { name: "Transport: 83%" })).toHaveAttribute("aria-valuenow", "83");
   await expect(page.getByRole("progressbar", { name: "Emergency fund: 70%" })).toHaveAttribute("aria-valuenow", "70");
+  await expectContainedGeometry(
+    page,
+    ".goals-limits-card .budget-progress",
+    ".goals-limits-card",
+  );
 
   await expectAppTheme(page, "light", "oklch(1 0 0)");
   await page.getByRole("button", { name: "Switch to dark theme" }).click();
@@ -205,6 +210,15 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
   await page.getByRole("button", { name: "Hide insights" }).click();
   await expect(page.getByRole("button", { name: "Show insights" })).toHaveAttribute("aria-expanded", "false");
   await expect(page.locator("#dashboard-right-rail")).toHaveAttribute("aria-hidden", "true");
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth,
+      ),
+    )
+    .toBe(0);
   await page.getByRole("button", { name: "Show insights" }).click();
   await expect(page.getByRole("button", { name: "Hide insights" })).toHaveAttribute("aria-expanded", "true");
 
@@ -220,6 +234,21 @@ test("setup/login, account, transactions, transfer, dashboard, logout", async ({
   const transactionSearch = page.getByRole("dialog", { name: "Transaction search" });
   await expect(transactionSearch).toBeVisible();
   await expectOverlayGeometry(page, transactionSearch, { maxWidth: 760, viewportMargin: 24, maxTop: 260 });
+  const searchResults = transactionSearch.locator(".transaction-search-result");
+  await expect(searchResults.first()).toBeVisible();
+  await expect(
+    searchResults.locator(".category-badge"),
+  ).toHaveCount(await searchResults.count());
+  await expect
+    .poll(async () => {
+      const rightEdges = await searchResults
+        .locator(".transaction-search-amount")
+        .evaluateAll((elements) =>
+          elements.map((element) => element.getBoundingClientRect().right),
+        );
+      return Math.max(...rightEdges) - Math.min(...rightEdges);
+    })
+    .toBeLessThanOrEqual(1);
   await page.keyboard.press("Escape");
   await expect(transactionSearch).toBeHidden();
   await expect(page.getByRole("button", { name: "Search transactions" })).toBeFocused();
@@ -416,6 +445,31 @@ async function expectOverlayGeometry(
   expect(box?.y ?? 999).toBeLessThan(maxTop);
   const overlayCenter = (box?.x ?? 0) + (box?.width ?? 0) / 2;
   expect(Math.abs(overlayCenter - (viewport?.width ?? 0) / 2)).toBeLessThanOrEqual(2);
+}
+
+async function expectContainedGeometry(
+  page: import("@playwright/test").Page,
+  childSelector: string,
+  parentSelector: string,
+) {
+  await expect
+    .poll(() =>
+      page.evaluate(
+        ({ childSelector, parentSelector }) => {
+          const child = document.querySelector<HTMLElement>(childSelector);
+          const parent = document.querySelector<HTMLElement>(parentSelector);
+          if (!child || !parent) return false;
+          const childBox = child.getBoundingClientRect();
+          const parentBox = parent.getBoundingClientRect();
+          return (
+            childBox.left >= parentBox.left - 1 &&
+            childBox.right <= parentBox.right + 1
+          );
+        },
+        { childSelector, parentSelector },
+      ),
+    )
+    .toBe(true);
 }
 
 async function surfaceSnapshot(page: import("@playwright/test").Page, selector: string) {

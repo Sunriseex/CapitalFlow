@@ -69,6 +69,30 @@ export function addMoney(a: string, b: string) {
   return unitsToDecimal(units, scale);
 }
 
+export function subtractMoney(a: string, b: string) {
+  return addMoney(a, negateMoney(b));
+}
+
+export function divideMoneyByInteger(
+  amount: string,
+  divisor: number,
+  currency = "RUB",
+) {
+  if (!Number.isSafeInteger(divisor) || divisor <= 0) return "0";
+
+  const value = decimalParts(amount);
+  const scale = BigInt(currencyFractionDigits(currency));
+  const numerator = value.units * 10n ** scale;
+  const denominator = BigInt(divisor) * 10n ** value.scale;
+  const sign = numerator < 0n ? -1n : 1n;
+  const absNumerator = numerator < 0n ? -numerator : numerator;
+  const quotient = absNumerator / denominator;
+  const remainder = absNumerator % denominator;
+  const rounded = remainder * 2n >= denominator ? quotient + 1n : quotient;
+
+  return unitsToDecimal(sign * rounded, scale);
+}
+
 export function compareMoney(a: string, b: string) {
   const left = decimalParts(a);
   const right = decimalParts(b);

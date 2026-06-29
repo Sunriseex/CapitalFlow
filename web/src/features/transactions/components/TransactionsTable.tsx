@@ -6,6 +6,7 @@ import { Button, Empty } from "../../../shared/ui";
 import { Button as ShadcnButton } from "../../../components/ui/button";
 import { useI18n } from "../../../shared/i18n/useI18n";
 import type { TranslationDictionary } from "../../../shared/i18n/dictionaries/ru";
+import { CategoryBadge } from "./CategoryBadge";
 
 const initialChunkSize = 48;
 const nextChunkSize = 96;
@@ -242,7 +243,12 @@ const TransactionRow = memo(function TransactionRow({
         </div>
       </td>
       {compact ? null : (
-        <td data-label={t.transactions.category}>{details.categoryName}</td>
+        <td data-label={t.transactions.category}>
+          <CategoryBadge
+            categoryKey={details.categoryID}
+            name={details.categoryName}
+          />
+        </td>
       )}
       {compact ? null : (
         <td data-label={t.transactions.account}>{details.accountName}</td>
@@ -293,7 +299,11 @@ const TransactionCard = memo(function TransactionCard({
         <span className={details.amountClass}>{details.amount}</span>
       </span>
       <span className="transaction-card-meta">
-        {details.categoryName} · {details.accountName}
+        <CategoryBadge
+          categoryKey={details.categoryID}
+          name={details.categoryName}
+        />
+        <span>{details.accountName}</span>
       </span>
       <span className="transaction-card-footer">
         <span>{details.date}</span>
@@ -363,6 +373,7 @@ function transactionPresentation({
     ? (categoryNames.get(transaction.category_id) ??
       transaction.category_id.slice(0, 8))
     : t.common.none;
+  const categoryID = transaction.category_id ?? "uncategorized";
   const sourceLabel = sourceForTransaction(transaction, t);
   const date = dateLabel(transaction.occurred_at, locale);
   const badges = badgesForTransaction(transaction, t);
@@ -372,6 +383,7 @@ function transactionPresentation({
     typeLabel,
     accountName,
     categoryName,
+    categoryID,
     date,
     badges,
     icon: typeLabel.slice(0, 1),
