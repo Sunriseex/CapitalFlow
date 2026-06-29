@@ -58,11 +58,6 @@ PASSKEY_OPTIONS_RATE_LIMIT_WINDOW=1m
 MUTATION_RATE_LIMIT_REQUESTS=60
 MUTATION_RATE_LIMIT_WINDOW=1m
 
-DATA_PATH=~/.config/capitalflow/payments.json
-DEPOSITS_DATA_PATH=~/.config/capitalflow/deposits.json
-
-TELEGRAM_BOT_TOKEN=
-TELEGRAM_USER_ID=0
 ```
 
 Generate secrets:

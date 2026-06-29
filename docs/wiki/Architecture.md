@@ -6,6 +6,7 @@ CapitalFlow is a layered Go backend with a React Web UI.
 
 * `cmd/server`: HTTP API entrypoint.
 * `internal/http`: routing, handlers, DTOs, and middleware.
+* `internal/legacyjson`: read-only adapter for one-time legacy imports.
 * `internal/services`: business logic.
 * `internal/repository`: repository contracts.
 * `internal/postgres`: PostgreSQL implementations.

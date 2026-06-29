@@ -1,4 +1,4 @@
-package migration
+package legacyjson
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	"github.com/sunriseex/capitalflow/internal/repository"
 )
 
-type JSONMigrator struct {
+type Importer struct {
 	accounts     repository.AccountRepository
 	transactions repository.TransactionRepository
 	rules        repository.InterestRuleRepository
@@ -22,22 +22,22 @@ type JSONMigrator struct {
 	ownerUserID  string
 }
 
-type Option func(*JSONMigrator)
+type Option func(*Importer)
 
 func WithDepositMigrationRepository(repo repository.DepositMigrationRepository) Option {
-	return func(m *JSONMigrator) {
+	return func(m *Importer) {
 		m.migration = repo
 	}
 }
 
 func WithOwnerUserID(userID string) Option {
-	return func(m *JSONMigrator) {
+	return func(m *Importer) {
 		m.ownerUserID = strings.TrimSpace(userID)
 	}
 }
 
-func NewJSONMigrator(accounts repository.AccountRepository, transactions repository.TransactionRepository, rules repository.InterestRuleRepository, options ...Option) *JSONMigrator {
-	migrator := &JSONMigrator{
+func NewImporter(accounts repository.AccountRepository, transactions repository.TransactionRepository, rules repository.InterestRuleRepository, options ...Option) *Importer {
+	migrator := &Importer{
 		accounts:     accounts,
 		transactions: transactions,
 		rules:        rules,
@@ -48,7 +48,7 @@ func NewJSONMigrator(accounts repository.AccountRepository, transactions reposit
 	return migrator
 }
 
-type JSONMigrationReport struct {
+type ImportReport struct {
 	TotalDeposits        int
 	CreatedAccounts      int
 	CreatedInterestRules int
@@ -61,12 +61,20 @@ type JSONMigrationReport struct {
 	Errors               []string
 }
 
-func (m *JSONMigrator) MigrateDeposits(ctx context.Context, deposits []models.Deposit) (*JSONMigrationReport, error) {
+func (m *Importer) Import(ctx context.Context, path string) (*ImportReport, error) {
+	snapshot, err := Load(path)
+	if err != nil {
+		return nil, err
+	}
+	return m.importDeposits(ctx, snapshot.Deposits)
+}
+
+func (m *Importer) importDeposits(ctx context.Context, deposits []Deposit) (*ImportReport, error) {
 	if m.accounts == nil || m.transactions == nil || m.rules == nil || m.migration == nil {
 		return nil, fmt.Errorf("migration repositories are required")
 	}
 
-	report := &JSONMigrationReport{TotalDeposits: len(deposits), OwnerUserID: m.ownerUserID}
+	report := &ImportReport{TotalDeposits: len(deposits), OwnerUserID: m.ownerUserID}
 
 	for i := range deposits {
 		select {
@@ -102,7 +110,7 @@ func parseRequiredDate(fieldName, input string) (time.Time, error) {
 	return dateOnly(date), nil
 }
 
-func (m *JSONMigrator) migrateDeposit(ctx context.Context, deposit *models.Deposit, report *JSONMigrationReport) (decimal.Decimal, error) {
+func (m *Importer) migrateDeposit(ctx context.Context, deposit *Deposit, report *ImportReport) (decimal.Decimal, error) {
 	legacyID := strings.TrimSpace(deposit.ID)
 	if legacyID == "" {
 		return decimal.Zero, fmt.Errorf("legacy deposit id is required")
@@ -179,7 +187,7 @@ func ownerUserIDPtr(userID string) *string {
 	return &userID
 }
 
-func (m *JSONMigrator) migrateExistingDeposit(ctx context.Context, deposit *models.Deposit, account *models.Account, report *JSONMigrationReport) (decimal.Decimal, error) {
+func (m *Importer) migrateExistingDeposit(ctx context.Context, deposit *Deposit, account *models.Account, report *ImportReport) (decimal.Decimal, error) {
 	report.SkippedExisting++
 	legacyID := strings.TrimSpace(deposit.ID)
 	openedAt, err := parseRequiredDate("start date", deposit.StartDate)
@@ -245,7 +253,7 @@ func legacyDepositAmountToDecimal(amount int64) decimal.Decimal {
 	return decimal.NewFromInt(amount).Div(decimal.NewFromInt(100))
 }
 
-func interestRuleForDeposit(deposit *models.Deposit, accountID string, openedAt time.Time) (*models.InterestRule, error) {
+func interestRuleForDeposit(deposit *Deposit, accountID string, openedAt time.Time) (*models.InterestRule, error) {
 	if deposit.InterestRate <= 0 {
 		return nil, fmt.Errorf("interest rate must be positive")
 	}
@@ -299,9 +307,9 @@ func interestRuleForDeposit(deposit *models.Deposit, accountID string, openedAt 
 
 func accountTypeForDeposit(depositType string) (models.AccountType, error) {
 	switch strings.TrimSpace(depositType) {
-	case models.DepositTypeSavings:
+	case DepositTypeSavings:
 		return models.AccountTypeSavings, nil
-	case models.DepositTypeTerm:
+	case DepositTypeTerm:
 		return models.AccountTypeTermDeposit, nil
 	default:
 		return "", fmt.Errorf("unsupported legacy deposit type: %q", depositType)
@@ -312,11 +320,11 @@ func capitalizationForDeposit(capitalization string) (models.CapitalizationFrequ
 	switch strings.TrimSpace(capitalization) {
 	case "":
 		return models.CapitalizationFrequencyNone, nil
-	case models.CapitalizationDaily:
+	case CapitalizationDaily:
 		return models.CapitalizationFrequencyDaily, nil
-	case models.CapitalizationMonthly:
+	case CapitalizationMonthly:
 		return models.CapitalizationFrequencyMonthly, nil
-	case models.CapitalizationEnd:
+	case CapitalizationEnd:
 		return models.CapitalizationFrequencyEndOfTerm, nil
 	case "quarterly":
 		return "", fmt.Errorf("unsupported legacy capitalization: quarterly")
@@ -360,6 +368,6 @@ func firstNonZeroTime(values ...time.Time) time.Time {
 	return time.Time{}
 }
 
-func depositLabel(deposit *models.Deposit) string {
+func depositLabel(deposit *Deposit) string {
 	return fmt.Sprintf("deposit id=%q name=%q bank=%q", deposit.ID, deposit.Name, deposit.Bank)
 }

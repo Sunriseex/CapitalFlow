@@ -1,4 +1,4 @@
-package migration
+package legacyjson
 
 import "github.com/shopspring/decimal"
 
