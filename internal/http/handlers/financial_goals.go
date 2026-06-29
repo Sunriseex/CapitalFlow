@@ -21,7 +21,7 @@ func (h *Handler) listFinancialGoals(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	goals, err := h.store.FinancialGoals().ListByUser(r.Context(), userID)
+	goals, err := h.app.Store.FinancialGoals().ListByUser(r.Context(), userID)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -44,7 +44,7 @@ func (h *Handler) createFinancialGoal(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "validation_error", "account_id must be a UUID", nil)
 		return
 	}
-	account, err := h.store.Accounts().GetByIDForUser(r.Context(), accountID, userID)
+	account, err := h.app.Store.Accounts().GetByIDForUser(r.Context(), accountID, userID)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -82,7 +82,7 @@ func (h *Handler) createFinancialGoal(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
-	if err := h.store.FinancialGoals().Create(r.Context(), goal); err != nil {
+	if err := h.app.Store.FinancialGoals().Create(r.Context(), goal); err != nil {
 		writeServiceError(w, err)
 		return
 	}
@@ -103,7 +103,7 @@ func (h *Handler) updateFinancialGoal(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
 		return
 	}
-	goal, err := h.store.FinancialGoals().GetByIDForUser(r.Context(), goalID, userID)
+	goal, err := h.app.Store.FinancialGoals().GetByIDForUser(r.Context(), goalID, userID)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -115,7 +115,7 @@ func (h *Handler) updateFinancialGoal(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "validation_error", "account_id must be a UUID", nil)
 			return
 		}
-		account, err := h.store.Accounts().GetByIDForUser(r.Context(), accountID, userID)
+		account, err := h.app.Store.Accounts().GetByIDForUser(r.Context(), accountID, userID)
 		if err != nil {
 			writeServiceError(w, err)
 			return
@@ -168,7 +168,7 @@ func (h *Handler) updateFinancialGoal(w http.ResponseWriter, r *http.Request) {
 		goal.Status = *req.Status
 	}
 	goal.UpdatedAt = time.Now().UTC()
-	if err := h.store.FinancialGoals().UpdateForUser(r.Context(), goal, userID); err != nil {
+	if err := h.app.Store.FinancialGoals().UpdateForUser(r.Context(), goal, userID); err != nil {
 		writeServiceError(w, err)
 		return
 	}

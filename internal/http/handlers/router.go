@@ -1,64 +1,30 @@
 package handlers
 
 import (
-	"context"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 
-	"github.com/sunriseex/capitalflow/internal/auth"
+	"github.com/sunriseex/capitalflow/internal/application"
 	appmiddleware "github.com/sunriseex/capitalflow/internal/http/middleware"
 	"github.com/sunriseex/capitalflow/internal/repository"
-	"github.com/sunriseex/capitalflow/internal/services"
 )
 
-type Store interface {
-	Accounts() repository.AccountRepository
-	Transactions() repository.TransactionRepository
-	Categories() repository.CategoryRepository
-	FinancialGoals() repository.FinancialGoalRepository
-	CategoryLimits() repository.CategoryLimitRepository
-	InterestRules() repository.InterestRuleRepository
-	InterestAccruals() repository.InterestAccrualRepository
-	Users() repository.UserRepository
-	RefreshTokens() repository.RefreshTokenRepository
-	AuthAuditEvents() repository.AuthAuditRepository
-	Passkeys() repository.PasskeyRepository
-	Idempotency() repository.IdempotencyRepository
-	Ping(ctx context.Context) error
-}
-
 type Handler struct {
-	store                 Store
-	appVersion            string
-	tokens                *auth.TokenService
-	cookieSecure          bool
-	cookieSameSite        http.SameSite
-	webAuthnRPDisplayName string
-	webAuthnRPID          string
-	webAuthnOrigins       []string
-	auth                  *services.AuthService
-	passkeys              *services.PasskeyService
-	accounts              *services.AccountService
-	transactions          *services.TransactionService
-	transfers             *services.TransferService
-	interestRules         *services.InterestRuleService
-	interestLifecycle     *services.InterestLifecycle
-	dashboard             *services.DashboardReporting
+	app            *application.Application
+	appVersion     string
+	cookieSecure   bool
+	cookieSameSite http.SameSite
 }
 
 type RouterConfig struct {
 	AppEnv                          string
 	AppVersion                      string
 	APIAuthToken                    string
-	TokenService                    *auth.TokenService
 	PublicOrigin                    string
 	PublicOriginHost                string
-	WebAuthnRPDisplayName           string
-	WebAuthnRPID                    string
-	WebAuthnOrigins                 []string
 	CookieSecure                    bool
 	CookieSameSite                  string
 	AllowDirectIPLogin              bool
@@ -74,62 +40,22 @@ type RouterConfig struct {
 	TrustedProxies                  []string
 }
 
-func NewRouter(store Store, cfg *RouterConfig) http.Handler {
+func NewRouter(app *application.Application, cfg *RouterConfig) http.Handler {
 	if cfg == nil {
 		cfg = &RouterConfig{}
 	}
-
-	var accountRepo repository.AccountRepository
-	var transactionRepo repository.TransactionRepository
-	var categoryRepo repository.CategoryRepository
-	var interestRuleRepo repository.InterestRuleRepository
-	var interestAccrualRepo repository.InterestAccrualRepository
-	var interestLifecycleRepo repository.InterestAccrualTransactionalRepository
-	var dashboardRepo repository.DashboardRepository
-	if store != nil {
-		accountRepo = store.Accounts()
-		transactionRepo = store.Transactions()
-		categoryRepo = store.Categories()
-		interestRuleRepo = store.InterestRules()
-		interestAccrualRepo = store.InterestAccruals()
-		interestLifecycleRepo, _ = interestAccrualRepo.(repository.InterestAccrualTransactionalRepository)
-		if dashboardStore, ok := store.(interface {
-			Dashboard() repository.DashboardRepository
-		}); ok {
-			dashboardRepo = dashboardStore.Dashboard()
-		}
+	if app == nil {
+		panic("application is required")
 	}
-
-	transactionService := services.NewTransactionService(transactionRepo).
-		WithAccountRepository(accountRepo).
-		WithCategoryRepository(categoryRepo)
-	authService := newRouterAuthService(store, cfg.TokenService)
-	passkeyService := newRouterPasskeyService(store, authService, cfg)
 	cookieSecure := cfg.CookieSecure
 	if cfg.AppEnv == "" && cfg.CookieSameSite == "" {
 		cookieSecure = true
 	}
 	h := &Handler{
-		store:                 store,
-		appVersion:            firstNonEmpty(cfg.AppVersion, "v0.5.8"),
-		tokens:                cfg.TokenService,
-		cookieSecure:          cookieSecure,
-		cookieSameSite:        cookieSameSiteMode(cfg.CookieSameSite),
-		webAuthnRPDisplayName: firstNonEmpty(cfg.WebAuthnRPDisplayName, "CapitalFlow"),
-		webAuthnRPID:          firstNonEmpty(cfg.WebAuthnRPID, "localhost"),
-		webAuthnOrigins:       defaultWebAuthnOrigins(cfg.WebAuthnOrigins),
-		auth:                  authService,
-		passkeys:              passkeyService,
-		accounts:              services.NewAccountService(accountRepo),
-		transactions:          transactionService,
-		transfers:             services.NewTransferService(transactionService),
-		interestRules: services.NewInterestRuleService(
-			transactionService,
-			services.WithInterestRuleRepository(interestRuleRepo),
-			services.WithInterestAccrualRepository(interestAccrualRepo),
-		),
-		interestLifecycle: services.NewInterestLifecycle(interestLifecycleRepo),
-		dashboard:         services.NewDashboardReporting(dashboardRepo),
+		app:            app,
+		appVersion:     firstNonEmpty(cfg.AppVersion, "v0.5.8"),
+		cookieSecure:   cookieSecure,
+		cookieSameSite: cookieSameSiteMode(cfg.CookieSameSite),
 	}
 	r := chi.NewRouter()
 	r.Use(chimiddleware.RequestID)
@@ -187,8 +113,8 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 	r.With(authRateLimit).Post("/auth/passkeys/login/verify", h.passkeyLoginVerify)
 
 	r.Route("/api/v1", func(r chi.Router) {
-		if cfg.TokenService != nil {
-			r.Use(appmiddleware.JWTAuth(cfg.TokenService, h.store.RefreshTokens()))
+		if app.Tokens != nil {
+			r.Use(appmiddleware.JWTAuth(app.Tokens, app.Store.RefreshTokens()))
 		} else {
 			r.Use(appmiddleware.BearerTokenAuth(cfg.APIAuthToken))
 		}
@@ -245,39 +171,6 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 	return r
 }
 
-func newRouterAuthService(store Store, tokens *auth.TokenService) *services.AuthService {
-	if store == nil {
-		return nil
-	}
-	return services.NewAuthService(
-		store.Users(),
-		store.RefreshTokens(),
-		tokens,
-		store.AuthAuditEvents(),
-	).WithAccountRepository(store.Accounts())
-}
-
-func newRouterPasskeyService(store Store, authService *services.AuthService, cfg *RouterConfig) *services.PasskeyService {
-	if store == nil || authService == nil || cfg.TokenService == nil {
-		return nil
-	}
-	service, err := services.NewPasskeyService(
-		store.Users(),
-		store.Passkeys(),
-		authService,
-		store.AuthAuditEvents(),
-		services.WebAuthnConfig{
-			RPDisplayName: firstNonEmpty(cfg.WebAuthnRPDisplayName, "CapitalFlow"),
-			RPID:          firstNonEmpty(cfg.WebAuthnRPID, "localhost"),
-			Origins:       defaultWebAuthnOrigins(cfg.WebAuthnOrigins),
-		},
-	)
-	if err != nil {
-		panic("passkey service is not configured: " + err.Error())
-	}
-	return service
-}
-
 func firstNonEmpty(value, fallback string) string {
 	if value != "" {
 		return value
@@ -285,18 +178,11 @@ func firstNonEmpty(value, fallback string) string {
 	return fallback
 }
 
-func defaultWebAuthnOrigins(origins []string) []string {
-	if len(origins) > 0 {
-		return origins
-	}
-	return []string{"http://localhost:5173"}
-}
-
 func (h *Handler) idempotency() repository.IdempotencyRepository {
-	if h.store == nil {
+	if h.app.Store == nil {
 		return nil
 	}
-	return h.store.Idempotency()
+	return h.app.Store.Idempotency()
 }
 
 func firstPositive(value, fallback int) int {

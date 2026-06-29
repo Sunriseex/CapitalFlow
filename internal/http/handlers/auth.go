@@ -14,7 +14,7 @@ import (
 )
 
 func (h *Handler) authStatus(w http.ResponseWriter, r *http.Request) {
-	count, err := h.store.Users().Count(r.Context())
+	count, err := h.app.Store.Users().Count(r.Context())
 	if err != nil {
 		writeServiceError(w, fmt.Errorf("count users: %w", err))
 		return
@@ -149,15 +149,7 @@ func (h *Handler) revokeSession(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) authService() *services.AuthService {
-	if h.auth != nil {
-		return h.auth
-	}
-	return services.NewAuthService(
-		h.store.Users(),
-		h.store.RefreshTokens(),
-		h.tokens,
-		h.store.AuthAuditEvents(),
-	).WithAccountRepository(h.store.Accounts())
+	return h.app.Auth
 }
 
 func authResponse(session *services.AuthSession) dto.AuthResponse {

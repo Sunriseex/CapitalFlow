@@ -19,7 +19,7 @@ func (h *Handler) listCategoryLimits(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	limits, err := h.store.CategoryLimits().ListByUser(r.Context(), userID)
+	limits, err := h.app.Store.CategoryLimits().ListByUser(r.Context(), userID)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -42,7 +42,7 @@ func (h *Handler) createCategoryLimit(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "validation_error", "category_id must be a UUID", nil)
 		return
 	}
-	if _, err := h.store.Categories().GetByID(r.Context(), categoryID); err != nil {
+	if _, err := h.app.Store.Categories().GetByID(r.Context(), categoryID); err != nil {
 		writeServiceError(w, err)
 		return
 	}
@@ -66,7 +66,7 @@ func (h *Handler) createCategoryLimit(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
-	if err := h.store.CategoryLimits().Create(r.Context(), limit); err != nil {
+	if err := h.app.Store.CategoryLimits().Create(r.Context(), limit); err != nil {
 		writeServiceError(w, err)
 		return
 	}
@@ -87,7 +87,7 @@ func (h *Handler) updateCategoryLimit(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
 		return
 	}
-	limit, err := h.store.CategoryLimits().GetByIDForUser(r.Context(), limitID, userID)
+	limit, err := h.app.Store.CategoryLimits().GetByIDForUser(r.Context(), limitID, userID)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -98,7 +98,7 @@ func (h *Handler) updateCategoryLimit(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "validation_error", "category_id must be a UUID", nil)
 			return
 		}
-		if _, err := h.store.Categories().GetByID(r.Context(), categoryID); err != nil {
+		if _, err := h.app.Store.Categories().GetByID(r.Context(), categoryID); err != nil {
 			writeServiceError(w, err)
 			return
 		}
@@ -122,7 +122,7 @@ func (h *Handler) updateCategoryLimit(w http.ResponseWriter, r *http.Request) {
 		limit.IsActive = *req.IsActive
 	}
 	limit.UpdatedAt = time.Now().UTC()
-	if err := h.store.CategoryLimits().UpdateForUser(r.Context(), limit, userID); err != nil {
+	if err := h.app.Store.CategoryLimits().UpdateForUser(r.Context(), limit, userID); err != nil {
 		writeServiceError(w, err)
 		return
 	}

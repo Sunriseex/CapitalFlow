@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sunriseex/capitalflow/internal/application"
 	"github.com/sunriseex/capitalflow/internal/auth"
 	"github.com/sunriseex/capitalflow/internal/models"
 )
@@ -43,13 +44,12 @@ func TestPasskeyLoginOptionsUsesDedicatedRateLimit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new token service: %v", err)
 	}
-	router := NewRouter(newTestProfileStore(), &RouterConfig{
-		TokenService:                    tokens,
+	router := newTestRouter(newTestProfileStore(), &RouterConfig{
 		AuthRateLimitRequests:           20,
 		AuthRateLimitWindow:             time.Minute,
 		PasskeyOptionsRateLimitRequests: 1,
 		PasskeyOptionsRateLimitWindow:   time.Minute,
-	})
+	}, tokens)
 
 	for index, want := range []int{http.StatusOK, http.StatusTooManyRequests} {
 		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/passkeys/login/options", http.NoBody)
@@ -62,7 +62,7 @@ func TestPasskeyLoginOptionsUsesDedicatedRateLimit(t *testing.T) {
 }
 
 func TestPasskeyLoginOptionsUnavailableWhenServiceIsNotConfigured(t *testing.T) {
-	router := NewRouter(newTestProfileStore(), &RouterConfig{})
+	router := newTestRouter(newTestProfileStore(), &RouterConfig{})
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/passkeys/login/options", http.NoBody)
 	rec := httptest.NewRecorder()
 
@@ -85,7 +85,7 @@ func TestPasskeyInvalidConfigPanicsAtRouterConstruction(t *testing.T) {
 		}
 	}()
 
-	NewRouter(newTestProfileStore(), &RouterConfig{
+	newTestRouterWithApplicationConfig(newTestProfileStore(), &RouterConfig{}, application.Config{
 		TokenService:    tokens,
 		WebAuthnOrigins: []string{"://bad-origin"},
 	})
@@ -97,10 +97,9 @@ func TestPasskeyServiceIsReusedBetweenRequests(t *testing.T) {
 		t.Fatalf("new token service: %v", err)
 	}
 	store := newTestProfileStore()
-	router := NewRouter(store, &RouterConfig{
-		TokenService:                    tokens,
+	router := newTestRouter(store, &RouterConfig{
 		PasskeyOptionsRateLimitRequests: 10,
-	})
+	}, tokens)
 
 	for range 2 {
 		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/passkeys/login/options", http.NoBody)
@@ -135,7 +134,7 @@ func TestPasskeyListRenameDeleteScopeToUser(t *testing.T) {
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
-	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	router := newTestRouter(store, &RouterConfig{}, tokens)
 
 	renameReq := httptest.NewRequestWithContext(t.Context(), http.MethodPatch, "/api/v1/auth/passkeys/passkey-1", strings.NewReader(`{"name":"Laptop"}`))
 	renameReq.Header.Set("Authorization", "Bearer "+pair.AccessToken)

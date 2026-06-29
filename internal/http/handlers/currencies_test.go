@@ -7,7 +7,7 @@ import (
 )
 
 func TestCurrencyRatesRouteRequiresAuth(t *testing.T) {
-	router := NewRouter(nil, &RouterConfig{APIAuthToken: "01234567890123456789012345678901"})
+	router := newTestRouter(nil, &RouterConfig{APIAuthToken: "01234567890123456789012345678901"})
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/currency-rates?base=RUB", nil)
 	rec := httptest.NewRecorder()
 
@@ -19,7 +19,7 @@ func TestCurrencyRatesRouteRequiresAuth(t *testing.T) {
 }
 
 func TestCurrencyRatesRejectsInvalidBase(t *testing.T) {
-	router := NewRouter(nil, &RouterConfig{APIAuthToken: "01234567890123456789012345678901"})
+	router := newTestRouter(nil, &RouterConfig{APIAuthToken: "01234567890123456789012345678901"})
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/currency-rates?base=RU", nil)
 	req.Header.Set("Authorization", "Bearer 01234567890123456789012345678901")
 	rec := httptest.NewRecorder()

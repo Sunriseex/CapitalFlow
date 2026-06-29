@@ -273,7 +273,7 @@ func newTestTransferRouter(t *testing.T) (http.Handler, *testTransactionRepo, st
 		CreatedAt: time.Now(),
 	}
 
-	return NewRouter(store, &RouterConfig{TokenService: tokens}), transactions, pair.AccessToken
+	return newTestRouter(store, &RouterConfig{}, tokens), transactions, pair.AccessToken
 }
 
 func newTestTransferRequest(t *testing.T, token, idempotencyKey, body string) *http.Request {

@@ -39,6 +39,17 @@ func TestHandlersDoNotBypassFinancialServices(t *testing.T) {
 	})
 }
 
+func TestHTTPAdapterDoesNotComposeApplicationServices(t *testing.T) {
+	walkGoFiles(t, "../http/handlers", func(path, content string) {
+		if strings.HasSuffix(path, "_test.go") {
+			return
+		}
+		if strings.Contains(content, "services.New") {
+			t.Fatalf("%s composes an application service", path)
+		}
+	})
+}
+
 func TestInterestAdaptersDoNotOwnTransactionalOrchestration(t *testing.T) {
 	forbidden := []string{
 		"WithAccountInterestLock(",

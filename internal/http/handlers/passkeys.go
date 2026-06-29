@@ -162,11 +162,11 @@ func (h *Handler) deletePasskey(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) passkeyService(w http.ResponseWriter) (*services.PasskeyService, bool) {
-	if h.passkeys == nil {
+	if h.app.Passkeys == nil {
 		writeError(w, http.StatusServiceUnavailable, "service_unavailable", "Passkey authentication is not configured", nil)
 		return nil, false
 	}
-	return h.passkeys, true
+	return h.app.Passkeys, true
 }
 
 func passkeyCredentialsResponse(credentials []models.PasskeyCredential) dto.PasskeyCredentialsResponse {

@@ -22,7 +22,7 @@ func (h *Handler) listInterestRules(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rules, err := h.store.InterestRules().ListByAccount(r.Context(), accountID)
+	rules, err := h.app.Store.InterestRules().ListByAccount(r.Context(), accountID)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -41,7 +41,7 @@ func (h *Handler) listUserInterestRules(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	rulesRepo, ok := h.store.InterestRules().(userInterestRuleLister)
+	rulesRepo, ok := h.app.Store.InterestRules().(userInterestRuleLister)
 	if !ok {
 		writeError(w, http.StatusNotImplemented, "not_implemented", "interest rule listing by user is not supported", nil)
 		return
@@ -87,7 +87,7 @@ func (h *Handler) createInterestRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rule, err := h.interestRules.Create(r.Context(), &services.CreateInterestRuleRequest{
+	rule, err := h.app.InterestRules.Create(r.Context(), &services.CreateInterestRuleRequest{
 		AccountID:               accountID,
 		AnnualRateBps:           req.AnnualRateBps,
 		PromoRateBps:            req.PromoRateBps,
@@ -116,12 +116,12 @@ func (h *Handler) updateInterestRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rule, err := h.store.InterestRules().GetByID(r.Context(), ruleID)
+	rule, err := h.app.Store.InterestRules().GetByID(r.Context(), ruleID)
 	if err != nil {
 		writeServiceError(w, err)
 		return
 	}
-	if _, err := h.store.Accounts().GetByIDForUser(r.Context(), rule.AccountID, userID); err != nil {
+	if _, err := h.app.Store.Accounts().GetByIDForUser(r.Context(), rule.AccountID, userID); err != nil {
 		writeServiceError(w, err)
 		return
 	}
@@ -198,7 +198,7 @@ func (h *Handler) updateInterestRule(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "validation_error", err.Error(), nil)
 		return
 	}
-	if err := h.store.InterestRules().Update(r.Context(), rule); err != nil {
+	if err := h.app.Store.InterestRules().Update(r.Context(), rule); err != nil {
 		writeServiceError(w, err)
 		return
 	}
@@ -235,7 +235,7 @@ func (h *Handler) accrueInterest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.interestLifecycle.Accrue(r.Context(), &services.AccrueAccountInterestRequest{
+	result, err := h.app.InterestLifecycle.Accrue(r.Context(), &services.AccrueAccountInterestRequest{
 		AccountID:   accountID,
 		UserID:      userID,
 		Currency:    account.Currency,
@@ -296,7 +296,7 @@ func (h *Handler) recalculateInterest(w http.ResponseWriter, r *http.Request) {
 		ruleDate = dateOnly(time.Now())
 	}
 
-	result, err := h.interestLifecycle.Recalculate(r.Context(), &services.RecalculateAccountInterestRequest{
+	result, err := h.app.InterestLifecycle.Recalculate(r.Context(), &services.RecalculateAccountInterestRequest{
 		AccountID: accountID,
 		UserID:    userID,
 		Currency:  account.Currency,

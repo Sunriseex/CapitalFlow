@@ -16,7 +16,7 @@ func (h *Handler) getDashboardSummary(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	report, err := h.dashboard.Summary(r.Context(), userID)
+	report, err := h.app.Dashboard.Summary(r.Context(), userID)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -29,7 +29,7 @@ func (h *Handler) getDashboardNetWorth(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	report, err := h.dashboard.NetWorth(r.Context(), userID)
+	report, err := h.app.Dashboard.NetWorth(r.Context(), userID)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -46,7 +46,7 @@ func (h *Handler) getDashboardCashflow(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	report, err := h.dashboard.Cashflow(r.Context(), userID, months)
+	report, err := h.app.Dashboard.Cashflow(r.Context(), userID, months)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -63,7 +63,7 @@ func (h *Handler) getDashboardInterestIncome(w http.ResponseWriter, r *http.Requ
 	if !ok {
 		return
 	}
-	report, err := h.dashboard.InterestIncome(r.Context(), userID, months)
+	report, err := h.app.Dashboard.InterestIncome(r.Context(), userID, months)
 	if err != nil {
 		writeServiceError(w, err)
 		return

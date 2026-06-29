@@ -23,7 +23,7 @@ func TestUpdateAccountRejectsCurrencyChangeWithTransactions(t *testing.T) {
 	}}
 	store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
 
-	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	router := newTestRouter(store, &RouterConfig{}, tokens)
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPatch, "/api/v1/accounts/11111111-1111-1111-1111-111111111111", strings.NewReader(`{
 		"currency":"USD"
 	}`))
@@ -55,7 +55,7 @@ func TestUpdateAccountAllowsCurrencyChangeWithoutTransactions(t *testing.T) {
 	}, allowCurrencyChange: true}
 	store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
 
-	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	router := newTestRouter(store, &RouterConfig{}, tokens)
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPatch, "/api/v1/accounts/11111111-1111-1111-1111-111111111111", strings.NewReader(`{
 		"currency":"USD"
 	}`))

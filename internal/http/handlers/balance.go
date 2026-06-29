@@ -16,12 +16,12 @@ func (h *Handler) getAccountBalance(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, err := h.store.Accounts().GetByIDForUser(r.Context(), accountID, userID); err != nil {
+	if _, err := h.app.Store.Accounts().GetByIDForUser(r.Context(), accountID, userID); err != nil {
 		writeServiceError(w, err)
 		return
 	}
 
-	balance, count, err := h.store.Transactions().GetBalanceByAccountForUser(r.Context(), accountID, userID)
+	balance, count, err := h.app.Store.Transactions().GetBalanceByAccountForUser(r.Context(), accountID, userID)
 	if err != nil {
 		writeServiceError(w, err)
 		return

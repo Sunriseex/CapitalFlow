@@ -16,7 +16,7 @@ import (
 )
 
 func TestRouterUsesAPIV1Only(t *testing.T) {
-	router := NewRouter(nil, &RouterConfig{APIAuthToken: "01234567890123456789012345678901"})
+	router := newTestRouter(nil, &RouterConfig{APIAuthToken: "01234567890123456789012345678901"})
 
 	oldReq := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/categories", http.NoBody)
 	oldReq.Header.Set("Authorization", "Bearer 01234567890123456789012345678901")
@@ -36,7 +36,7 @@ func TestRouterUsesAPIV1Only(t *testing.T) {
 }
 
 func TestMetricsEndpointExposesAuthCounters(t *testing.T) {
-	router := NewRouter(newTestProfileStore(), &RouterConfig{})
+	router := newTestRouter(newTestProfileStore(), &RouterConfig{})
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/metrics", http.NoBody)
 	rec := httptest.NewRecorder()
 
@@ -54,7 +54,7 @@ func TestMetricsEndpointExposesAuthCounters(t *testing.T) {
 }
 
 func TestHealthEndpointReportsVersion(t *testing.T) {
-	router := NewRouter(newTestProfileStore(), &RouterConfig{AppVersion: "v0.5.8"})
+	router := newTestRouter(newTestProfileStore(), &RouterConfig{AppVersion: "v0.5.8"})
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/health", http.NoBody)
 	rec := httptest.NewRecorder()
 
@@ -78,10 +78,9 @@ func TestRouterCORSAllowsCredentialsForConfiguredOrigin(t *testing.T) {
 		t.Fatalf("new token service: %v", err)
 	}
 
-	router := NewRouter(newTestProfileStore(), &RouterConfig{
-		TokenService:       tokens,
+	router := newTestRouter(newTestProfileStore(), &RouterConfig{
 		CORSAllowedOrigins: []string{"http://localhost:5173"},
-	})
+	}, tokens)
 
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodOptions, "/auth/login", http.NoBody)
 	req.Header.Set("Origin", "http://localhost:5173")
@@ -102,7 +101,7 @@ func TestRouterCORSAllowsCredentialsForConfiguredOrigin(t *testing.T) {
 }
 
 func TestRouterCORSPreflightDoesNotRequireAuth(t *testing.T) {
-	router := NewRouter(newTestProfileStore(), &RouterConfig{
+	router := newTestRouter(newTestProfileStore(), &RouterConfig{
 		CORSAllowedOrigins: []string{"https://capitalflow.home.arpa"},
 	})
 
@@ -122,7 +121,7 @@ func TestRouterCORSPreflightDoesNotRequireAuth(t *testing.T) {
 }
 
 func TestRouterSecurityHeadersOnSuccessAndError(t *testing.T) {
-	router := NewRouter(newTestProfileStore(), &RouterConfig{
+	router := newTestRouter(newTestProfileStore(), &RouterConfig{
 		AppEnv:           "production",
 		PublicOrigin:     "https://capitalflow.home.arpa",
 		PublicOriginHost: "capitalflow.home.arpa",
@@ -145,7 +144,7 @@ func TestRouterSecurityHeadersOnSuccessAndError(t *testing.T) {
 }
 
 func TestRouterAuthHostPolicyAllowsConfiguredPrivateDNS(t *testing.T) {
-	router := NewRouter(newTestProfileStore(), &RouterConfig{
+	router := newTestRouter(newTestProfileStore(), &RouterConfig{
 		AppEnv:           "production",
 		APIAuthToken:     "test-token",
 		PublicOrigin:     "https://capitalflow.home.arpa",
@@ -166,7 +165,7 @@ func TestRouterAuthHostPolicyAllowsConfiguredPrivateDNS(t *testing.T) {
 }
 
 func TestRouterAuthHostPolicyBlocksDirectIPInProduction(t *testing.T) {
-	router := NewRouter(newTestProfileStore(), &RouterConfig{
+	router := newTestRouter(newTestProfileStore(), &RouterConfig{
 		AppEnv:             "production",
 		APIAuthToken:       "test-token",
 		PublicOrigin:       "https://capitalflow.home.arpa",
@@ -187,7 +186,7 @@ func TestRouterAuthHostPolicyBlocksDirectIPInProduction(t *testing.T) {
 }
 
 func TestRouterAuthHostPolicyBlocksPasskeyDirectIPInProduction(t *testing.T) {
-	router := NewRouter(newTestProfileStore(), &RouterConfig{
+	router := newTestRouter(newTestProfileStore(), &RouterConfig{
 		AppEnv:             "production",
 		APIAuthToken:       "test-token",
 		PublicOrigin:       "https://capitalflow.home.arpa",
@@ -208,7 +207,7 @@ func TestRouterAuthHostPolicyBlocksPasskeyDirectIPInProduction(t *testing.T) {
 }
 
 func TestRouterLimitsAuthEndpoints(t *testing.T) {
-	router := NewRouter(newTestProfileStore(), &RouterConfig{
+	router := newTestRouter(newTestProfileStore(), &RouterConfig{
 		APIAuthToken:          "01234567890123456789012345678901",
 		AuthRateLimitRequests: 1,
 		AuthRateLimitWindow:   time.Minute,
@@ -234,7 +233,7 @@ func TestRouterLimitsAuthEndpoints(t *testing.T) {
 }
 
 func TestRouterRateLimitUsesTrustedProxyConfig(t *testing.T) {
-	router := NewRouter(newTestProfileStore(), &RouterConfig{
+	router := newTestRouter(newTestProfileStore(), &RouterConfig{
 		APIAuthToken:          "01234567890123456789012345678901",
 		AuthRateLimitRequests: 1,
 		AuthRateLimitWindow:   time.Minute,
@@ -256,7 +255,7 @@ func TestRouterRateLimitUsesTrustedProxyConfig(t *testing.T) {
 }
 
 func TestRouterRateLimitIgnoresSpoofedForwardedHeaders(t *testing.T) {
-	router := NewRouter(newTestProfileStore(), &RouterConfig{
+	router := newTestRouter(newTestProfileStore(), &RouterConfig{
 		APIAuthToken:          "test-token",
 		AuthRateLimitRequests: 1,
 		AuthRateLimitWindow:   time.Minute,
@@ -281,7 +280,7 @@ func TestRouterRateLimitIgnoresSpoofedForwardedHeaders(t *testing.T) {
 }
 
 func TestRouterRateLimitIgnoresInvalidForwardedHeaders(t *testing.T) {
-	router := NewRouter(newTestProfileStore(), &RouterConfig{
+	router := newTestRouter(newTestProfileStore(), &RouterConfig{
 		APIAuthToken:          "test-token",
 		AuthRateLimitRequests: 1,
 		AuthRateLimitWindow:   time.Minute,
@@ -306,7 +305,7 @@ func TestRouterRateLimitIgnoresInvalidForwardedHeaders(t *testing.T) {
 }
 
 func TestRouterLimitsMutationsButNotReads(t *testing.T) {
-	router := NewRouter(nil, &RouterConfig{
+	router := newTestRouter(nil, &RouterConfig{
 		APIAuthToken:              "01234567890123456789012345678901",
 		MutationRateLimitRequests: 1,
 		MutationRateLimitWindow:   time.Minute,
@@ -348,7 +347,7 @@ func TestIdempotencyReplaysStoredMutationResponse(t *testing.T) {
 		ExpiresAt: time.Now().Add(time.Hour),
 		CreatedAt: time.Now(),
 	}
-	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	router := newTestRouter(store, &RouterConfig{}, tokens)
 
 	for i := range 2 {
 		req := httptest.NewRequestWithContext(t.Context(), http.MethodPatch, "/api/v1/settings/profile", strings.NewReader(`{"primary_currency":"USD"}`))
@@ -376,7 +375,7 @@ func TestFinanceMutationsRequireIdempotencyKey(t *testing.T) {
 	tokens, pair := testProfileTokenPair(t)
 	store := newTestProfileStore()
 	store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
-	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	router := newTestRouter(store, &RouterConfig{}, tokens)
 
 	tests := []struct {
 		name   string
@@ -414,7 +413,7 @@ func TestFinanceMutationIdempotencyReplaysStoredResponse(t *testing.T) {
 	transactions := &testTransactionRepo{transactionCountByAccount: map[string]int64{}}
 	store.transactions = transactions
 	store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
-	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	router := newTestRouter(store, &RouterConfig{}, tokens)
 
 	body := `{
 		"account_id":"11111111-1111-1111-1111-111111111111",
