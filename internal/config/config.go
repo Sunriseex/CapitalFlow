@@ -1,10 +1,11 @@
 package config
 
 import (
+	"errors"
+	"fmt"
 	"log/slog"
 	"net/url"
 	"os"
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -13,16 +14,11 @@ import (
 	"github.com/joho/godotenv"
 
 	"github.com/sunriseex/capitalflow/internal/version"
-	"github.com/sunriseex/capitalflow/pkg/errors"
 )
 
 type Config struct {
 	AppEnv                          string
-	TelegramToken                   string
-	TelegramUserID                  int64
 	AppVersion                      string
-	DataPath                        string
-	DepositsDataPath                string
 	DatabaseURL                     string
 	APIAuthToken                    string
 	JWTSecret                       string
@@ -53,6 +49,13 @@ var AppConfig *Config
 
 const MinAuthSecretLength = 32
 
+func configurationError(message string, err error) error {
+	if err != nil {
+		return fmt.Errorf("%s: %w", message, err)
+	}
+	return errors.New(message)
+}
+
 func Init() error {
 	envPaths := []string{"./configs/.env"}
 	if envFile := strings.TrimSpace(os.Getenv("CAPITALFLOW_ENV_FILE")); envFile != "" {
@@ -71,16 +74,6 @@ func Init() error {
 		slog.Debug("env file not found, using defaults")
 	}
 
-	dataPath, err := expandPath(getEnv("DATA_PATH", "~/.config/waybar/payments.json"))
-	if err != nil {
-		return errors.NewConfigurationError("ошибка расширения пути DATA_PATH", err)
-	}
-
-	depositsDataPath, err := expandPath(getEnv("DEPOSITS_DATA_PATH", "~/.config/waybar/deposits.json"))
-	if err != nil {
-		return errors.NewConfigurationError("ошибка расширения пути DEPOSITS_DATA_PATH", err)
-	}
-
 	logLevel := slog.LevelError
 	if envLogLevel := os.Getenv("LOG_LEVEL"); envLogLevel != "" {
 		switch envLogLevel {
@@ -97,11 +90,7 @@ func Init() error {
 
 	AppConfig = &Config{
 		AppEnv:                getEnv("APP_ENV", "development"),
-		TelegramToken:         getEnv("TELEGRAM_BOT_TOKEN", ""),
-		TelegramUserID:        getEnvInt64("TELEGRAM_USER_ID", 0),
 		AppVersion:            getEnv("APP_VERSION", version.Current()),
-		DataPath:              dataPath,
-		DepositsDataPath:      depositsDataPath,
 		DatabaseURL:           getEnv("DATABASE_URL", "postgres://capitalflow:capitalflow@localhost:5432/capitalflow?sslmode=disable"),
 		LogLevel:              logLevel,
 		APIAuthToken:          getEnv("API_AUTH_TOKEN", ""),
@@ -129,10 +118,11 @@ func Init() error {
 		MutationRateLimitWindow:         getEnvDuration("MUTATION_RATE_LIMIT_WINDOW", time.Minute),
 		TrustedProxies:                  getEnvList("TRUSTED_PROXIES", nil),
 	}
-	AppConfig.AppEnv, err = normalizeAppEnv(AppConfig.AppEnv)
+	normalizedAppEnv, err := normalizeAppEnv(AppConfig.AppEnv)
 	if err != nil {
 		return err
 	}
+	AppConfig.AppEnv = normalizedAppEnv
 	AppConfig.CookieSecure = getEnvBool("COOKIE_SECURE", true)
 	AppConfig.AllowDirectIPLogin = getEnvBool("ALLOW_DIRECT_IP_LOGIN", !AppConfig.IsProduction())
 
@@ -156,17 +146,14 @@ func Init() error {
 
 	initLogger(logLevel)
 
-	slog.Debug("Конфигурация инициализирована",
-		"data_path", dataPath,
-		"deposit_path", depositsDataPath,
-		"log_level", logLevel)
+	slog.Debug("Конфигурация инициализирована", "log_level", logLevel)
 
 	return nil
 }
 
 func ValidateAuthSecret(name, value string) error {
 	if len(strings.TrimSpace(value)) < MinAuthSecretLength {
-		return errors.NewConfigurationError(name+" must be at least 32 characters", nil)
+		return configurationError(name+" must be at least 32 characters", nil)
 	}
 	return nil
 }
@@ -180,22 +167,22 @@ func (c *Config) ValidateSecurity() error {
 		return nil
 	}
 	if c.PublicOrigin == "" {
-		return errors.NewConfigurationError("PUBLIC_ORIGIN is required in production", nil)
+		return configurationError("PUBLIC_ORIGIN is required in production", nil)
 	}
 	if strings.TrimSpace(c.WebAuthnRPID) == "" {
-		return errors.NewConfigurationError("WEBAUTHN_RP_ID is required in production", nil)
+		return configurationError("WEBAUTHN_RP_ID is required in production", nil)
 	}
 	for _, origin := range c.WebAuthnOrigins {
 		parsed, err := url.Parse(origin)
 		if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
-			return errors.NewConfigurationError("WEBAUTHN_ORIGINS must contain HTTPS origins in production", nil)
+			return configurationError("WEBAUTHN_ORIGINS must contain HTTPS origins in production", nil)
 		}
 	}
 	if err := ValidateAuthSecret("JWT_SECRET", c.JWTSecret); err != nil {
 		return err
 	}
 	if isPlaceholderSecret(c.JWTSecret) {
-		return errors.NewConfigurationError("JWT_SECRET must not use a placeholder value in production", nil)
+		return configurationError("JWT_SECRET must not use a placeholder value in production", nil)
 	}
 	return nil
 }
@@ -242,7 +229,7 @@ func (c *Config) ValidateCookiePolicy() error {
 		return nil
 	}
 	if c.CookieSameSite == "None" && !c.CookieSecure {
-		return errors.NewConfigurationError("COOKIE_SAMESITE=None requires COOKIE_SECURE=true", nil)
+		return configurationError("COOKIE_SAMESITE=None requires COOKIE_SECURE=true", nil)
 	}
 	return nil
 }
@@ -262,42 +249,9 @@ func initLogger(level slog.Level) {
 	slog.SetDefault(slog.New(handler))
 }
 
-func expandPath(path string) (string, error) {
-	if path == "" {
-		return "", errors.NewConfigurationError("путь не может быть пустым", nil)
-	}
-
-	if strings.HasPrefix(path, "~/") || path == "~" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", errors.NewConfigurationError("не удалось получить домашнюю директорию", err)
-		}
-
-		if path == "~" {
-			return home, nil
-		}
-		return filepath.Join(home, path[2:]), nil
-	}
-
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return "", errors.NewConfigurationError("ошибка получения абсолютного пути", err)
-	}
-	return absPath, nil
-}
-
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
-	}
-	return defaultValue
-}
-
-func getEnvInt64(key string, defaultValue int64) int64 {
-	if value := os.Getenv(key); value != "" {
-		if intValue, err := strconv.ParseInt(value, 10, 64); err == nil {
-			return intValue
-		}
 	}
 	return defaultValue
 }
@@ -358,7 +312,7 @@ func normalizeAppEnv(value string) (string, error) {
 	case "production":
 		return "production", nil
 	default:
-		return "", errors.NewConfigurationError("APP_ENV must be development or production", nil)
+		return "", configurationError("APP_ENV must be development or production", nil)
 	}
 }
 
@@ -370,15 +324,15 @@ func parsePublicOrigin(value string) (origin, host string, err error) {
 	parsed, err := url.Parse(value)
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" || parsed.User != nil ||
 		parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return "", "", errors.NewConfigurationError("PUBLIC_ORIGIN must be a full origin without path, query, or fragment", err)
+		return "", "", configurationError("PUBLIC_ORIGIN must be a full origin without path, query, or fragment", err)
 	}
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return "", "", errors.NewConfigurationError("PUBLIC_ORIGIN scheme must be http or https", nil)
+		return "", "", configurationError("PUBLIC_ORIGIN scheme must be http or https", nil)
 	}
 	origin = canonicalOrigin(parsed.Scheme, parsed.Host)
 	originURL, err := url.Parse(origin)
 	if err != nil {
-		return "", "", errors.NewConfigurationError("PUBLIC_ORIGIN must be a valid origin", err)
+		return "", "", configurationError("PUBLIC_ORIGIN must be a valid origin", err)
 	}
 	return origin, originURL.Host, nil
 }
@@ -392,7 +346,7 @@ func normalizeCookieSameSite(value string) (string, error) {
 	case "none":
 		return "None", nil
 	default:
-		return "", errors.NewConfigurationError("COOKIE_SAMESITE must be Strict, Lax, or None", nil)
+		return "", configurationError("COOKIE_SAMESITE must be Strict, Lax, or None", nil)
 	}
 }
 

@@ -1,9 +1,11 @@
-package migration
+package legacyjson
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -15,8 +17,8 @@ import (
 	"github.com/sunriseex/capitalflow/internal/services"
 )
 
-func newTestJSONMigrator() (
-	*JSONMigrator,
+func newTestImporter() (
+	*Importer,
 	*fakeAccountRepo,
 	*fakeTransactionRepo,
 	*fakeInterestRuleRepo,
@@ -32,7 +34,7 @@ func newTestJSONMigrator() (
 		rules:        rules,
 	}
 
-	migrator := NewJSONMigrator(
+	migrator := NewImporter(
 		accounts,
 		transactions,
 		rules,
@@ -40,6 +42,22 @@ func newTestJSONMigrator() (
 	)
 
 	return migrator, accounts, transactions, rules, migrationRepo
+}
+
+func TestImporterImportReadsSnapshot(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "deposits.json")
+	if err := os.WriteFile(path, []byte(`{"deposits":[{"id":"legacy-1","name":"Reserve","bank":"Bank","type":"savings","amount":10000,"interest_rate":10,"start_date":"2026-01-01","capitalization":"daily"}]}`), 0o600); err != nil {
+		t.Fatalf("write snapshot: %v", err)
+	}
+	importer, _, _, _, _ := newTestImporter()
+
+	report, err := importer.Import(t.Context(), path)
+	if err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	if report.TotalDeposits != 1 || report.CreatedAccounts != 1 || !report.BalanceMatchesSource {
+		t.Fatalf("report = %+v", report)
+	}
 }
 
 func TestCapitalizationForDeposit(t *testing.T) {
@@ -57,17 +75,17 @@ func TestCapitalizationForDeposit(t *testing.T) {
 		},
 		{
 			name:  "daily maps to daily",
-			input: models.CapitalizationDaily,
+			input: CapitalizationDaily,
 			want:  models.CapitalizationFrequencyDaily,
 		},
 		{
 			name:  "monthly maps to monthly",
-			input: models.CapitalizationMonthly,
+			input: CapitalizationMonthly,
 			want:  models.CapitalizationFrequencyMonthly,
 		},
 		{
 			name:  "end maps to end of term",
-			input: models.CapitalizationEnd,
+			input: CapitalizationEnd,
 			want:  models.CapitalizationFrequencyEndOfTerm,
 		},
 		{
@@ -114,23 +132,23 @@ func TestCapitalizationForDeposit(t *testing.T) {
 	}
 }
 
-func TestJSONMigratorMigrateDeposits(t *testing.T) {
+func TestImporterimportDeposits(t *testing.T) {
 	ctx := t.Context()
-	migrator, accounts, transactions, rules, migrationRepo := newTestJSONMigrator()
+	migrator, accounts, transactions, rules, migrationRepo := newTestImporter()
 
 	promoRate := 17.5
-	report, err := migrator.MigrateDeposits(ctx, []models.Deposit{
+	report, err := migrator.importDeposits(ctx, []Deposit{
 		{
 			ID:             "legacy-1",
 			Name:           "Savings",
 			Bank:           "Yandex",
-			Type:           models.DepositTypeSavings,
+			Type:           DepositTypeSavings,
 			Amount:         100_000,
 			InterestRate:   12,
 			PromoRate:      &promoRate,
 			PromoEndDate:   "2026-06-01",
 			StartDate:      "2026-05-01",
-			Capitalization: models.CapitalizationDaily,
+			Capitalization: CapitalizationDaily,
 		},
 	})
 	if err != nil {
@@ -177,7 +195,7 @@ func TestJSONMigratorMigrateDeposits(t *testing.T) {
 	}
 }
 
-func TestJSONMigratorAssignsOwnerUserID(t *testing.T) {
+func TestImporterAssignsOwnerUserID(t *testing.T) {
 	ctx := t.Context()
 	accounts := newFakeAccountRepo()
 	transactions := newFakeTransactionRepo()
@@ -187,7 +205,7 @@ func TestJSONMigratorAssignsOwnerUserID(t *testing.T) {
 		transactions: transactions,
 		rules:        rules,
 	}
-	migrator := NewJSONMigrator(
+	migrator := NewImporter(
 		accounts,
 		transactions,
 		rules,
@@ -195,15 +213,15 @@ func TestJSONMigratorAssignsOwnerUserID(t *testing.T) {
 		WithOwnerUserID(" user-1 "),
 	)
 
-	report, err := migrator.MigrateDeposits(ctx, []models.Deposit{
+	report, err := migrator.importDeposits(ctx, []Deposit{
 		{
 			ID:             "legacy-1",
 			Name:           "Savings",
-			Type:           models.DepositTypeSavings,
+			Type:           DepositTypeSavings,
 			Amount:         100_000,
 			InterestRate:   12,
 			StartDate:      "2026-05-01",
-			Capitalization: models.CapitalizationDaily,
+			Capitalization: CapitalizationDaily,
 		},
 	})
 	if err != nil {
@@ -222,25 +240,25 @@ func TestJSONMigratorAssignsOwnerUserID(t *testing.T) {
 	}
 }
 
-func TestJSONMigratorIsIdempotentByLegacyID(t *testing.T) {
+func TestImporterIsIdempotentByLegacyID(t *testing.T) {
 	ctx := t.Context()
-	migrator, _, _, _, _ := newTestJSONMigrator()
-	deposits := []models.Deposit{
+	migrator, _, _, _, _ := newTestImporter()
+	deposits := []Deposit{
 		{
 			ID:             "legacy-1",
 			Name:           "Savings",
-			Type:           models.DepositTypeSavings,
+			Type:           DepositTypeSavings,
 			Amount:         100_000,
 			InterestRate:   12,
 			StartDate:      "2026-05-01",
-			Capitalization: models.CapitalizationDaily,
+			Capitalization: CapitalizationDaily,
 		},
 	}
 
-	if _, err := migrator.MigrateDeposits(ctx, deposits); err != nil {
+	if _, err := migrator.importDeposits(ctx, deposits); err != nil {
 		t.Fatalf("first migrate: %v", err)
 	}
-	report, err := migrator.MigrateDeposits(ctx, deposits)
+	report, err := migrator.importDeposits(ctx, deposits)
 	if err != nil {
 		t.Fatalf("second migrate: %v", err)
 	}
@@ -255,9 +273,9 @@ func TestJSONMigratorIsIdempotentByLegacyID(t *testing.T) {
 	}
 }
 
-func TestJSONMigratorRepairsPartialLegacyMigration(t *testing.T) {
+func TestImporterRepairsPartialLegacyMigration(t *testing.T) {
 	ctx := t.Context()
-	migrator, accounts, _, _, _ := newTestJSONMigrator()
+	migrator, accounts, _, _, _ := newTestImporter()
 
 	legacyID := "legacy-1"
 	legacyIDPtr := legacyID
@@ -273,15 +291,15 @@ func TestJSONMigratorRepairsPartialLegacyMigration(t *testing.T) {
 		t.Fatalf("seed account: %v", err)
 	}
 
-	report, err := migrator.MigrateDeposits(ctx, []models.Deposit{
+	report, err := migrator.importDeposits(ctx, []Deposit{
 		{
 			ID:             legacyID,
 			Name:           "Savings",
-			Type:           models.DepositTypeSavings,
+			Type:           DepositTypeSavings,
 			Amount:         100_000,
 			InterestRate:   12,
 			StartDate:      "2026-05-01",
-			Capitalization: models.CapitalizationDaily,
+			Capitalization: CapitalizationDaily,
 		},
 	})
 	if err != nil {
@@ -298,9 +316,9 @@ func TestJSONMigratorRepairsPartialLegacyMigration(t *testing.T) {
 	}
 }
 
-func TestJSONMigratorUsesTrimmedLegacyIDForExistingInitialBalance(t *testing.T) {
+func TestImporterUsesTrimmedLegacyIDForExistingInitialBalance(t *testing.T) {
 	ctx := t.Context()
-	migrator, accounts, transactions, rules, _ := newTestJSONMigrator()
+	migrator, accounts, transactions, rules, _ := newTestImporter()
 
 	legacyID := "legacy-1"
 	legacyIDPtr := legacyID
@@ -338,15 +356,15 @@ func TestJSONMigratorUsesTrimmedLegacyIDForExistingInitialBalance(t *testing.T) 
 		t.Fatalf("seed transaction: %v", err)
 	}
 
-	report, err := migrator.MigrateDeposits(ctx, []models.Deposit{
+	report, err := migrator.importDeposits(ctx, []Deposit{
 		{
 			ID:             "  legacy-1  ",
 			Name:           "Savings",
-			Type:           models.DepositTypeSavings,
+			Type:           DepositTypeSavings,
 			Amount:         100_000,
 			InterestRate:   12,
 			StartDate:      "2026-05-01",
-			Capitalization: models.CapitalizationDaily,
+			Capitalization: CapitalizationDaily,
 		},
 	})
 	if err != nil {
@@ -360,9 +378,9 @@ func TestJSONMigratorUsesTrimmedLegacyIDForExistingInitialBalance(t *testing.T) 
 	}
 }
 
-func TestJSONMigratorExistingAccountIgnoresPostMigrationActivityForSourceBalance(t *testing.T) {
+func TestImporterExistingAccountIgnoresPostMigrationActivityForSourceBalance(t *testing.T) {
 	ctx := t.Context()
-	migrator, accounts, transactions, rules, _ := newTestJSONMigrator()
+	migrator, accounts, transactions, rules, _ := newTestImporter()
 
 	legacyID := "legacy-1"
 	legacyIDPtr := legacyID
@@ -421,15 +439,15 @@ func TestJSONMigratorExistingAccountIgnoresPostMigrationActivityForSourceBalance
 		t.Fatalf("seed transactions: %v", err)
 	}
 
-	report, err := migrator.MigrateDeposits(ctx, []models.Deposit{
+	report, err := migrator.importDeposits(ctx, []Deposit{
 		{
 			ID:             legacyID,
 			Name:           "Savings",
-			Type:           models.DepositTypeSavings,
+			Type:           DepositTypeSavings,
 			Amount:         100_000,
 			InterestRate:   12,
 			StartDate:      "2026-05-01",
-			Capitalization: models.CapitalizationDaily,
+			Capitalization: CapitalizationDaily,
 		},
 	})
 	if err != nil {
@@ -446,15 +464,15 @@ func TestJSONMigratorExistingAccountIgnoresPostMigrationActivityForSourceBalance
 	}
 }
 
-func TestJSONMigratorRejectsUnsupportedLegacyCapitalization(t *testing.T) {
+func TestImporterRejectsUnsupportedLegacyCapitalization(t *testing.T) {
 	ctx := t.Context()
-	migrator, _, _, _, _ := newTestJSONMigrator()
+	migrator, _, _, _, _ := newTestImporter()
 
-	report, err := migrator.MigrateDeposits(ctx, []models.Deposit{
+	report, err := migrator.importDeposits(ctx, []Deposit{
 		{
 			ID:             "legacy-quarterly",
 			Name:           "Quarterly Deposit",
-			Type:           models.DepositTypeSavings,
+			Type:           DepositTypeSavings,
 			Amount:         100_000,
 			InterestRate:   12,
 			StartDate:      "2026-05-01",
@@ -480,23 +498,23 @@ func TestJSONMigratorRejectsUnsupportedLegacyCapitalization(t *testing.T) {
 	}
 }
 
-func TestJSONMigratorRequiresDepositMigrationRepository(t *testing.T) {
+func TestImporterRequiresDepositMigrationRepository(t *testing.T) {
 	ctx := t.Context()
-	migrator := NewJSONMigrator(
+	migrator := NewImporter(
 		newFakeAccountRepo(),
 		newFakeTransactionRepo(),
 		newFakeInterestRuleRepo(),
 	)
 
-	_, err := migrator.MigrateDeposits(ctx, []models.Deposit{
+	_, err := migrator.importDeposits(ctx, []Deposit{
 		{
 			ID:             "legacy-1",
 			Name:           "Savings",
-			Type:           models.DepositTypeSavings,
+			Type:           DepositTypeSavings,
 			Amount:         100_000,
 			InterestRate:   12,
 			StartDate:      "2026-05-01",
-			Capitalization: models.CapitalizationDaily,
+			Capitalization: CapitalizationDaily,
 		},
 	})
 	if err == nil {
@@ -767,12 +785,12 @@ func TestAccountTypeForDeposit(t *testing.T) {
 	}{
 		{
 			name:  "savings maps to savings account",
-			input: models.DepositTypeSavings,
+			input: DepositTypeSavings,
 			want:  models.AccountTypeSavings,
 		},
 		{
 			name:  "term maps to term deposit account",
-			input: models.DepositTypeTerm,
+			input: DepositTypeTerm,
 			want:  models.AccountTypeTermDeposit,
 		},
 		{
@@ -818,11 +836,11 @@ func TestAccountTypeForDeposit(t *testing.T) {
 	}
 }
 
-func TestJSONMigratorRejectsUnsupportedLegacyDepositType(t *testing.T) {
+func TestImporterRejectsUnsupportedLegacyDepositType(t *testing.T) {
 	ctx := t.Context()
-	migrator, _, _, _, _ := newTestJSONMigrator()
+	migrator, _, _, _, _ := newTestImporter()
 
-	report, err := migrator.MigrateDeposits(ctx, []models.Deposit{
+	report, err := migrator.importDeposits(ctx, []Deposit{
 		{
 			ID:             "legacy-invalid-type",
 			Name:           "Invalid Type Deposit",
@@ -830,7 +848,7 @@ func TestJSONMigratorRejectsUnsupportedLegacyDepositType(t *testing.T) {
 			Amount:         100_000,
 			InterestRate:   12,
 			StartDate:      "2026-05-01",
-			Capitalization: models.CapitalizationDaily,
+			Capitalization: CapitalizationDaily,
 		},
 	})
 	if err != nil {
@@ -870,19 +888,19 @@ func TestParseRequiredDate(t *testing.T) {
 	}
 }
 
-func TestJSONMigratorRejectsMalformedLegacyStartDate(t *testing.T) {
+func TestImporterRejectsMalformedLegacyStartDate(t *testing.T) {
 	ctx := t.Context()
-	migrator, _, _, _, _ := newTestJSONMigrator()
+	migrator, _, _, _, _ := newTestImporter()
 
-	report, err := migrator.MigrateDeposits(ctx, []models.Deposit{
+	report, err := migrator.importDeposits(ctx, []Deposit{
 		{
 			ID:             "legacy-bad-start-date",
 			Name:           "Bad Start Date Deposit",
-			Type:           models.DepositTypeSavings,
+			Type:           DepositTypeSavings,
 			Amount:         100_000,
 			InterestRate:   12,
 			StartDate:      "06-05-2026",
-			Capitalization: models.CapitalizationDaily,
+			Capitalization: CapitalizationDaily,
 		},
 	})
 	if err != nil {

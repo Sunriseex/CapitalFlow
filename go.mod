@@ -4,7 +4,7 @@ go 1.26.2
 
 require (
 	github.com/joho/godotenv v1.5.1
-	golang.org/x/sync v0.20.0
+	golang.org/x/sync v0.20.0 // indirect
 )
 
 require (
@@ -17,7 +17,6 @@ require (
 	github.com/nbutton23/zxcvbn-go v0.0.0-20210217022336-fa2cb2858354
 	github.com/shopspring/decimal v1.4.0
 	golang.org/x/crypto v0.50.0
-	golang.org/x/sys v0.43.0
 )
 
 require (
@@ -29,5 +28,6 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
+	golang.org/x/sys v0.43.0 // indirect
 	golang.org/x/text v0.36.0 // indirect
 )

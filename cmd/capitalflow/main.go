@@ -13,12 +13,11 @@ import (
 
 	"github.com/sunriseex/capitalflow/internal/config"
 	"github.com/sunriseex/capitalflow/internal/jobs"
-	"github.com/sunriseex/capitalflow/internal/migration"
+	"github.com/sunriseex/capitalflow/internal/legacyjson"
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/postgres"
 	"github.com/sunriseex/capitalflow/internal/repository"
 	"github.com/sunriseex/capitalflow/internal/services"
-	"github.com/sunriseex/capitalflow/internal/storage"
 	"github.com/sunriseex/capitalflow/pkg/money"
 )
 
@@ -377,7 +376,7 @@ func runBalance(ctx context.Context, args []string) error {
 
 func runMigrateJSON(ctx context.Context, args []string) error {
 	flags := flag.NewFlagSet("migrate-json", flag.ContinueOnError)
-	depositsPath := flags.String("deposits", config.AppConfig.DepositsDataPath, "legacy deposits JSON path")
+	depositsPath := flags.String("deposits", legacyjson.DefaultDepositSnapshotPath, "legacy deposits JSON path")
 	ownerUserID := flags.String("owner-user-id", "", "owner user id for migrated accounts")
 	databaseURL := flags.String("database-url", config.AppConfig.DatabaseURL, "PostgreSQL connection URL")
 	timeout := flags.Duration("timeout", 30*time.Second, "migration timeout")
@@ -387,11 +386,6 @@ func runMigrateJSON(ctx context.Context, args []string) error {
 
 	ctx, cancel := context.WithTimeout(ctx, *timeout)
 	defer cancel()
-
-	deposits, err := storage.LoadDeposits(*depositsPath)
-	if err != nil {
-		return fmt.Errorf("load deposits json: %w", err)
-	}
 
 	store, closeStore, err := openStore(ctx, *databaseURL)
 	if err != nil {
@@ -404,21 +398,21 @@ func runMigrateJSON(ctx context.Context, args []string) error {
 		return err
 	}
 
-	migrator := migration.NewJSONMigrator(
+	importer := legacyjson.NewImporter(
 		store.Accounts(),
 		store.Transactions(),
 		store.InterestRules(),
-		migration.WithDepositMigrationRepository(store),
-		migration.WithOwnerUserID(resolvedOwnerUserID),
+		legacyjson.WithDepositMigrationRepository(store),
+		legacyjson.WithOwnerUserID(resolvedOwnerUserID),
 	)
-	report, err := migrator.MigrateDeposits(ctx, deposits.Deposits)
+	report, err := importer.Import(ctx, *depositsPath)
 	if err != nil {
 		return err
 	}
 
 	printMigrationReport(report)
 	if len(report.Errors) > 0 || !report.BalanceMatchesSource {
-		return fmt.Errorf("migration completed with errors or balance mismatch")
+		return fmt.Errorf("legacy import completed with errors or balance mismatch")
 	}
 	return nil
 }
@@ -755,8 +749,8 @@ func runRecalculate(ctx context.Context, args []string) error {
 	return nil
 }
 
-func printMigrationReport(report *migration.JSONMigrationReport) {
-	fmt.Println("JSON migration report")
+func printMigrationReport(report *legacyjson.ImportReport) {
+	fmt.Println("Legacy deposit import report")
 	fmt.Printf("  deposits: %d\n", report.TotalDeposits)
 	fmt.Printf("  accounts created: %d\n", report.CreatedAccounts)
 	if report.OwnerUserID == "" {

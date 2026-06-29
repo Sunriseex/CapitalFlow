@@ -59,6 +59,23 @@ func TestInterestAdaptersDoNotOwnTransactionalOrchestration(t *testing.T) {
 	}
 }
 
+func TestLegacyJSONIsOnlyReachableFromImportCLI(t *testing.T) {
+	const legacyImport = "internal/" + "legacyjson"
+	for _, root := range []string{"..", "../../cmd"} {
+		walkGoFiles(t, root, func(path, content string) {
+			if strings.Contains(path, filepath.Clean("../legacyjson")) {
+				return
+			}
+			if !strings.Contains(content, legacyImport) {
+				return
+			}
+			if filepath.Clean(path) != filepath.Clean("../../cmd/capitalflow/main.go") {
+				t.Fatalf("%s imports the legacy JSON adapter", path)
+			}
+		})
+	}
+}
+
 func TestTransactionHardDeleteIsLimitedToGeneratedInterestReplacement(t *testing.T) {
 	allowed := map[string]bool{
 		filepath.Clean("../postgres/interest_accruals.go"): true,

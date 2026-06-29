@@ -85,7 +85,7 @@ Post-v1.0:
 │   │   ├── handlers/        # HTTP handlers and routing
 │   │   └── middleware/      # HTTP middleware
 │   ├── jobs/                # Background job logic
-│   ├── migration/           # Legacy JSON migration logic
+│   ├── legacyjson/          # Read-only legacy import adapter
 │   ├── models/              # Domain models
 │   ├── postgres/            # PostgreSQL repositories/store
 │   ├── repository/          # Repository interfaces/contracts
@@ -216,11 +216,6 @@ AUTH_RATE_LIMIT_WINDOW=1m
 MUTATION_RATE_LIMIT_REQUESTS=60
 MUTATION_RATE_LIMIT_WINDOW=1m
 
-DATA_PATH=~/.config/capitalflow/payments.json
-DEPOSITS_DATA_PATH=~/.config/capitalflow/deposits.json
-
-TELEGRAM_BOT_TOKEN=
-TELEGRAM_USER_ID=0
 ```
 
 `JWT_SECRET` is required by the HTTP server and must be at least 32 characters. `API_AUTH_TOKEN` is used by the bearer-token fallback mode and must also be at least 32 characters when that mode is enabled.
@@ -271,6 +266,20 @@ go run github.com/pressly/goose/v3/cmd/goose@v3.27.1 \
   postgres "postgres://capitalflow:capitalflow@localhost:5432/capitalflow?sslmode=disable" \
   status
 ```
+
+### One-time legacy deposit import
+
+Legacy JSON is accepted only as read-only migration input. It is never used as
+a runtime ledger and the old deposit/payment CLI tools are not supported.
+
+```bash
+go run ./cmd/capitalflow migrate-json \
+  --deposits ~/.config/waybar/deposits.json \
+  --database-url "$DATABASE_URL"
+```
+
+The import is idempotent by legacy deposit ID. After a successful import,
+PostgreSQL is the only source of truth.
 
 ## Running the API
 
