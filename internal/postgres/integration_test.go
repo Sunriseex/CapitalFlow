@@ -623,6 +623,43 @@ func TestAccountCreateClaimsSingleExistingUser(t *testing.T) {
 	}
 }
 
+func TestDashboardRepositoryAggregatesBoundedProjection(t *testing.T) {
+	store := newTestStore(t)
+	ctx := t.Context()
+	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
+	userID := seedUser(ctx, t, store, "dashboard@example.com")
+	account := transferTestAccount(t, store, userID, "dashboard")
+
+	transactions := []models.Transaction{
+		{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeInitialBalance, Amount: dec("1000"), OccurredAt: now.AddDate(0, -1, 0), CreatedAt: now},
+		{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeIncome, Amount: dec("500"), OccurredAt: now, CreatedAt: now},
+		{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeExpense, Amount: dec("200"), OccurredAt: now, CreatedAt: now},
+		{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeInterestIncome, Amount: dec("10"), OccurredAt: now, CreatedAt: now},
+	}
+	if err := store.Transactions().CreateMany(ctx, transactions); err != nil {
+		t.Fatalf("create dashboard transactions: %v", err)
+	}
+
+	balances, err := store.Dashboard().AccountBalances(ctx, userID)
+	if err != nil {
+		t.Fatalf("account balances: %v", err)
+	}
+	if len(balances) != 1 || !balances[0].Balance.Equal(dec("1310")) || balances[0].TransactionCount != 4 {
+		t.Fatalf("account balances = %#v", balances)
+	}
+
+	flow, err := store.Dashboard().MonthlyFlow(ctx, userID, now.AddDate(0, 0, -1), now.AddDate(0, 0, 1))
+	if err != nil {
+		t.Fatalf("monthly flow: %v", err)
+	}
+	if len(flow) != 1 || !flow[0].Income.Equal(dec("510")) || !flow[0].Expense.Equal(dec("200")) {
+		t.Fatalf("monthly flow = %#v", flow)
+	}
+	if flow[0].TransactionCount != 3 || flow[0].InterestCount != 1 {
+		t.Fatalf("monthly flow counts = %d/%d, want 3/1", flow[0].TransactionCount, flow[0].InterestCount)
+	}
+}
+
 func TestAccountRepositoryUpdateForUserEnforcesCurrencyInvariant(t *testing.T) {
 	store := newTestStore(t)
 	ctx := t.Context()
