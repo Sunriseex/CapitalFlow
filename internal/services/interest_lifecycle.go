@@ -14,7 +14,13 @@ import (
 // InterestLifecycle owns rule selection, calculation, and persistence for one
 // account-level interest operation.
 type InterestLifecycle struct {
-	repo repository.InterestAccrualTransactionalRepository
+	repo     repository.InterestAccrualTransactionalRepository
+	accounts repository.AccountRepository
+}
+
+func (l *InterestLifecycle) WithAccountRepository(repo repository.AccountRepository) *InterestLifecycle {
+	l.accounts = repo
+	return l
 }
 
 func NewInterestLifecycle(repo repository.InterestAccrualTransactionalRepository) *InterestLifecycle {
@@ -48,6 +54,13 @@ func (l *InterestLifecycle) Accrue(ctx context.Context, req *AccrueAccountIntere
 	}
 	if err := validateInterestLifecycleAccount(req.AccountID, req.UserID); err != nil {
 		return nil, err
+	}
+	if strings.TrimSpace(req.Currency) == "" && l.accounts != nil {
+		account, err := l.accounts.GetByIDForUser(ctx, req.AccountID, req.UserID)
+		if err != nil {
+			return nil, fmt.Errorf("get interest account: %w", err)
+		}
+		req.Currency = account.Currency
 	}
 
 	accrualDate := dateOnly(req.AccrualDate)
@@ -113,6 +126,13 @@ func (l *InterestLifecycle) Recalculate(ctx context.Context, req *RecalculateAcc
 	}
 	if err := validateInterestLifecycleAccount(req.AccountID, req.UserID); err != nil {
 		return nil, err
+	}
+	if strings.TrimSpace(req.Currency) == "" && l.accounts != nil {
+		account, err := l.accounts.GetByIDForUser(ctx, req.AccountID, req.UserID)
+		if err != nil {
+			return nil, fmt.Errorf("get interest account: %w", err)
+		}
+		req.Currency = account.Currency
 	}
 
 	ruleDate := dateOnly(req.RuleDate)

@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 
@@ -14,14 +13,14 @@ import (
 )
 
 func (h *Handler) authStatus(w http.ResponseWriter, r *http.Request) {
-	count, err := h.app.Store.Users().Count(r.Context())
+	setupRequired, err := h.app.Auth.SetupRequired(r.Context())
 	if err != nil {
-		writeServiceError(w, fmt.Errorf("count users: %w", err))
+		writeServiceError(w, err)
 		return
 	}
 
 	writeJSON(w, http.StatusOK, dto.AuthStatusResponse{
-		SetupRequired: count == 0,
+		SetupRequired: setupRequired,
 		Version:       h.appVersion,
 	})
 }

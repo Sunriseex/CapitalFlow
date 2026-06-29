@@ -1,14 +1,12 @@
 package handlers
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/sunriseex/capitalflow/internal/http/dto"
-	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/services"
 	"github.com/sunriseex/capitalflow/pkg/money"
 )
@@ -18,11 +16,11 @@ func (h *Handler) listInterestRules(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if !h.ensureAccountExists(w, r, accountID) {
+	userID, ok := currentUserID(w, r)
+	if !ok {
 		return
 	}
-
-	rules, err := h.app.Store.InterestRules().ListByAccount(r.Context(), accountID)
+	rules, err := h.app.InterestRules.ListByAccountForUser(r.Context(), accountID, userID)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -31,23 +29,13 @@ func (h *Handler) listInterestRules(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, dto.InterestRulesFromModels(rules))
 }
 
-type userInterestRuleLister interface {
-	ListByUser(ctx context.Context, userID string) ([]models.InterestRule, error)
-}
-
 func (h *Handler) listUserInterestRules(w http.ResponseWriter, r *http.Request) {
 	userID, ok := currentUserID(w, r)
 	if !ok {
 		return
 	}
 
-	rulesRepo, ok := h.app.Store.InterestRules().(userInterestRuleLister)
-	if !ok {
-		writeError(w, http.StatusNotImplemented, "not_implemented", "interest rule listing by user is not supported", nil)
-		return
-	}
-
-	rules, err := rulesRepo.ListByUser(r.Context(), userID)
+	rules, err := h.app.InterestRules.ListByUser(r.Context(), userID)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -57,6 +45,10 @@ func (h *Handler) listUserInterestRules(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *Handler) createInterestRule(w http.ResponseWriter, r *http.Request) {
+	userID, ok := currentUserID(w, r)
+	if !ok {
+		return
+	}
 	var req dto.CreateInterestRuleRequest
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
@@ -83,11 +75,8 @@ func (h *Handler) createInterestRule(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if !h.ensureAccountExists(w, r, accountID) {
-		return
-	}
-
 	rule, err := h.app.InterestRules.Create(r.Context(), &services.CreateInterestRuleRequest{
+		UserID:                  userID,
 		AccountID:               accountID,
 		AnnualRateBps:           req.AnnualRateBps,
 		PromoRateBps:            req.PromoRateBps,
@@ -116,61 +105,31 @@ func (h *Handler) updateInterestRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rule, err := h.app.Store.InterestRules().GetByID(r.Context(), ruleID)
-	if err != nil {
-		writeServiceError(w, err)
-		return
-	}
-	if _, err := h.app.Store.Accounts().GetByIDForUser(r.Context(), rule.AccountID, userID); err != nil {
-		writeServiceError(w, err)
-		return
-	}
-
 	var req dto.UpdateInterestRuleRequest
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
 		return
 	}
 
-	if req.AnnualRateBps != nil {
-		rule.AnnualRateBps = *req.AnnualRateBps
-	}
+	var promoRate *int64
 	if req.PromoRateBps.Set {
-		if !req.PromoRateBps.Valid {
-			rule.PromoRateBps = nil
-			rule.PromoEndDate = nil
-		} else {
-			promoRate := req.PromoRateBps.Value
-			rule.PromoRateBps = &promoRate
+		if req.PromoRateBps.Valid {
+			value := req.PromoRateBps.Value
+			promoRate = &value
 		}
 	}
-
+	var promoEndDate *time.Time
 	if req.PromoEndDate.Set {
-		if !req.PromoEndDate.Valid || strings.TrimSpace(req.PromoEndDate.Value) == "" {
-			rule.PromoEndDate = nil
-			rule.PromoRateBps = nil
-		} else {
+		if req.PromoEndDate.Valid && strings.TrimSpace(req.PromoEndDate.Value) != "" {
 			date, err := parseOptionalDate(req.PromoEndDate.Value)
 			if err != nil {
 				writeError(w, http.StatusBadRequest, "validation_error", err.Error(), nil)
 				return
 			}
-			rule.PromoEndDate = &date
+			promoEndDate = &date
 		}
 	}
-
-	if req.AccrualFrequency != nil {
-		rule.AccrualFrequency = *req.AccrualFrequency
-	}
-	if req.CapitalizationFrequency != nil {
-		rule.CapitalizationFrequency = *req.CapitalizationFrequency
-	}
-	if req.DayCountConvention != nil {
-		rule.DayCountConvention = *req.DayCountConvention
-	}
-	if req.IsActive != nil {
-		rule.IsActive = *req.IsActive
-	}
+	var startDate *time.Time
 	if req.StartDate != nil {
 		date, err := parseOptionalDate(*req.StartDate)
 		if err != nil {
@@ -178,27 +137,29 @@ func (h *Handler) updateInterestRule(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if !date.IsZero() {
-			rule.StartDate = date
+			startDate = &date
 		}
 	}
+	var endDate *time.Time
 	if req.EndDate.Set {
-		if !req.EndDate.Valid || strings.TrimSpace(req.EndDate.Value) == "" {
-			rule.EndDate = nil
-		} else {
+		if req.EndDate.Valid && strings.TrimSpace(req.EndDate.Value) != "" {
 			date, err := parseOptionalDate(req.EndDate.Value)
 			if err != nil {
 				writeError(w, http.StatusBadRequest, "validation_error", err.Error(), nil)
 				return
 			}
-			rule.EndDate = &date
+			endDate = &date
 		}
 	}
-
-	if err := validateInterestRule(rule); err != nil {
-		writeError(w, http.StatusBadRequest, "validation_error", err.Error(), nil)
-		return
-	}
-	if err := h.app.Store.InterestRules().Update(r.Context(), rule); err != nil {
+	rule, err := h.app.InterestRules.UpdateForUser(r.Context(), &services.UpdateInterestRuleRequest{
+		ID: ruleID, UserID: userID, AnnualRateBps: req.AnnualRateBps,
+		PromoRateSet: req.PromoRateBps.Set, PromoRateBps: promoRate,
+		PromoEndDateSet: req.PromoEndDate.Set, PromoEndDate: promoEndDate,
+		AccrualFrequency: req.AccrualFrequency, CapitalizationFrequency: req.CapitalizationFrequency,
+		DayCountConvention: req.DayCountConvention, IsActive: req.IsActive,
+		StartDate: startDate, EndDateSet: req.EndDate.Set, EndDate: endDate,
+	})
+	if err != nil {
 		writeServiceError(w, err)
 		return
 	}
@@ -212,10 +173,6 @@ func (h *Handler) accrueInterest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	accountID, ok := routeUUIDParam(w, r, "id")
-	if !ok {
-		return
-	}
-	account, ok := h.accountByID(w, r, accountID, "account_id")
 	if !ok {
 		return
 	}
@@ -238,7 +195,6 @@ func (h *Handler) accrueInterest(w http.ResponseWriter, r *http.Request) {
 	result, err := h.app.InterestLifecycle.Accrue(r.Context(), &services.AccrueAccountInterestRequest{
 		AccountID:   accountID,
 		UserID:      userID,
-		Currency:    account.Currency,
 		RuleID:      req.RuleID,
 		AccrualDate: accrualDate,
 	})
@@ -286,11 +242,6 @@ func (h *Handler) recalculateInterest(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	account, ok := h.accountByID(w, r, accountID, "account_id")
-	if !ok {
-		return
-	}
-
 	ruleDate := toDate
 	if ruleDate.IsZero() {
 		ruleDate = dateOnly(time.Now())
@@ -299,7 +250,6 @@ func (h *Handler) recalculateInterest(w http.ResponseWriter, r *http.Request) {
 	result, err := h.app.InterestLifecycle.Recalculate(r.Context(), &services.RecalculateAccountInterestRequest{
 		AccountID: accountID,
 		UserID:    userID,
-		Currency:  account.Currency,
 		RuleID:    req.RuleID,
 		RuleDate:  ruleDate,
 		FromDate:  fromDate,
@@ -322,54 +272,6 @@ func (h *Handler) recalculateInterest(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func validateInterestRule(rule *models.InterestRule) error {
-	if rule.AnnualRateBps <= 0 {
-		return errValidation("annual rate must be positive")
-	}
-	if rule.PromoRateBps != nil && *rule.PromoRateBps <= 0 {
-		return errValidation("promo rate must be positive")
-	}
-	if (rule.PromoRateBps == nil) != (rule.PromoEndDate == nil) {
-		return errValidation("promo rate and promo end date must be set together")
-	}
-
-	if rule.AccrualFrequency == "" {
-		rule.AccrualFrequency = models.AccrualFrequencyDaily
-	}
-	if !validAccrualFrequency(rule.AccrualFrequency) {
-		return errValidation("invalid accrual frequency: " + string(rule.AccrualFrequency))
-	}
-
-	if rule.CapitalizationFrequency == "" {
-		rule.CapitalizationFrequency = models.CapitalizationFrequencyNone
-	}
-	if !validCapitalizationFrequency(rule.CapitalizationFrequency) {
-		return errValidation("invalid capitalization frequency: " + string(rule.CapitalizationFrequency))
-	}
-
-	if rule.DayCountConvention == "" {
-		rule.DayCountConvention = models.DayCountConventionActual365
-	}
-	if !validDayCountConvention(rule.DayCountConvention) {
-		return errValidation("invalid day count convention: " + string(rule.DayCountConvention))
-	}
-
-	startDate := dateOnly(rule.StartDate)
-	if startDate.IsZero() {
-		return errValidation("start date is required")
-	}
-
-	if rule.EndDate != nil && dateOnly(*rule.EndDate).Before(startDate) {
-		return errValidation("end date must be on or after start date")
-	}
-
-	if rule.PromoEndDate != nil && dateOnly(*rule.PromoEndDate).Before(startDate) {
-		return errValidation("promo end date must be on or after start date")
-	}
-
-	return nil
-}
-
 func parseOptionalDatePtr(input *string) (*time.Time, error) {
 	if input == nil {
 		//nolint:nilnil // nil date pointer means optional date was not provided.
@@ -384,40 +286,6 @@ func parseOptionalDatePtr(input *string) (*time.Time, error) {
 		return nil, nil
 	}
 	return &date, nil
-}
-
-func validAccrualFrequency(frequency models.AccrualFrequency) bool {
-	switch frequency {
-	case models.AccrualFrequencyDaily,
-		models.AccrualFrequencyMonthly,
-		models.AccrualFrequencyEndOfTerm:
-		return true
-	default:
-		return false
-	}
-}
-
-func validCapitalizationFrequency(frequency models.CapitalizationFrequency) bool {
-	switch frequency {
-	case models.CapitalizationFrequencyDaily,
-		models.CapitalizationFrequencyMonthly,
-		models.CapitalizationFrequencyEndOfTerm,
-		models.CapitalizationFrequencyNone:
-		return true
-	default:
-		return false
-	}
-}
-
-func validDayCountConvention(convention models.DayCountConvention) bool {
-	switch convention {
-	case models.DayCountConventionActual365,
-		models.DayCountConventionActual366,
-		models.DayCountConventionActualActual:
-		return true
-	default:
-		return false
-	}
 }
 
 func dateOnly(date time.Time) time.Time {

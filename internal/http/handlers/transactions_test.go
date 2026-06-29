@@ -14,77 +14,10 @@ import (
 	"github.com/sunriseex/capitalflow/internal/repository"
 )
 
-func TestApplyTransactionListFilter(t *testing.T) {
-	categoryID := "11111111-1111-1111-1111-111111111111"
-	transactions := []models.Transaction{
-		{
-			ID:          "old-income",
-			Type:        models.TransactionTypeIncome,
-			Amount:      dec("100"),
-			CategoryID:  &categoryID,
-			Description: "Salary May",
-			OccurredAt:  time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC),
-		},
-		{
-			ID:          "expense",
-			Type:        models.TransactionTypeExpense,
-			Amount:      dec("30"),
-			Description: "Food",
-			OccurredAt:  time.Date(2026, 5, 2, 12, 0, 0, 0, time.UTC),
-		},
-		{
-			ID:          "new-income",
-			Type:        models.TransactionTypeIncome,
-			Amount:      dec("200"),
-			CategoryID:  &categoryID,
-			Description: "Salary June",
-			OccurredAt:  time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC),
-		},
-	}
-
-	got := applyTransactionListFilter(transactions, &repository.TransactionListFilter{
-		CategoryID: categoryID,
-		Type:       models.TransactionTypeIncome,
-		FromDate:   time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
-		ToDate:     time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC),
-		Search:     "salary",
-		Limit:      1,
-		Page:       2,
-	})
-
-	if len(got) != 1 {
-		t.Fatalf("filtered len = %d, want 1", len(got))
-	}
-	if got[0].ID != "old-income" {
-		t.Fatalf("filtered transaction = %s, want old-income", got[0].ID)
-	}
-}
-
-func TestApplyTransactionListFilterUsesStableNewestFirstOrder(t *testing.T) {
-	stamp := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
-	transactions := []models.Transaction{
-		{ID: "00000000-0000-0000-0000-000000000001", OccurredAt: stamp, CreatedAt: stamp},
-		{ID: "00000000-0000-0000-0000-000000000003", OccurredAt: stamp, CreatedAt: stamp},
-		{ID: "00000000-0000-0000-0000-000000000002", OccurredAt: stamp, CreatedAt: stamp},
-	}
-
-	for page, want := range []string{
-		"00000000-0000-0000-0000-000000000003",
-		"00000000-0000-0000-0000-000000000002",
-		"00000000-0000-0000-0000-000000000001",
-	} {
-		got := applyTransactionListFilter(transactions, &repository.TransactionListFilter{Limit: 1, Page: page + 1})
-		if len(got) != 1 || got[0].ID != want {
-			t.Fatalf("page %d = %#v, want %s", page+1, got, want)
-		}
-	}
-}
-
 func TestParseTransactionListFilterRejectsInvalidQuery(t *testing.T) {
 	tests := []string{
 		"/api/v1/transactions?account_id=bad",
 		"/api/v1/transactions?category_id=bad",
-		"/api/v1/transactions?type=bad",
 		"/api/v1/transactions?from_date=2026-13-01",
 		"/api/v1/transactions?from_date=2026-06-01&to_date=2026-05-01",
 		"/api/v1/transactions?limit=0",

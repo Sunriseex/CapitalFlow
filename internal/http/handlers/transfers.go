@@ -17,7 +17,7 @@ func (h *Handler) listTransfers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	transfers, err := h.app.Store.Transactions().ListTransfersByUser(r.Context(), userID)
+	transfers, err := h.app.Transfers.ListByUser(r.Context(), userID)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -74,21 +74,10 @@ func (h *Handler) createTransfer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fromAccount, ok := h.accountByID(w, r, fromAccountID, "from_account_id")
-	if !ok {
-		return
-	}
-	toAccount, ok := h.accountByID(w, r, toAccountID, "to_account_id")
-	if !ok {
-		return
-	}
-
 	result, err := h.app.Transfers.Create(r.Context(), &services.CreateTransferRequest{
 		UserID:         userID,
 		FromAccountID:  fromAccountID,
 		ToAccountID:    toAccountID,
-		FromCurrency:   fromAccount.Currency,
-		ToCurrency:     toAccount.Currency,
 		Amount:         req.Amount.Decimal,
 		FeeAmount:      req.FeeAmount.Decimal,
 		FeeCurrency:    req.FeeCurrency,

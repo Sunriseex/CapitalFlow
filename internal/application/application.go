@@ -36,7 +36,6 @@ type Config struct {
 // Application owns service composition. Transport adapters receive this
 // ready-to-use module and never construct services themselves.
 type Application struct {
-	Store             Store
 	Tokens            *auth.TokenService
 	Auth              *services.AuthService
 	Passkeys          *services.PasskeyService
@@ -48,6 +47,11 @@ type Application struct {
 	Dashboard         *services.DashboardReporting
 	Profile           *services.ProfileService
 	Currency          *services.CurrencyService
+	Categories        *services.CategoryService
+	FinancialGoals    *services.FinancialGoalService
+	CategoryLimits    *services.CategoryLimitService
+	Idempotency       repository.IdempotencyRepository
+	readiness         interface{ Ping(context.Context) error }
 }
 
 func New(store Store, cfg Config) (*Application, error) {
@@ -79,20 +83,29 @@ func New(store Store, cfg Config) (*Application, error) {
 		WithAccountRepository(accountRepo).
 		WithCategoryRepository(categoryRepo)
 	app := &Application{
-		Store:             store,
-		Tokens:            cfg.TokenService,
-		Accounts:          services.NewAccountService(accountRepo),
-		Transactions:      transactions,
-		Transfers:         services.NewTransferService(transactions),
-		InterestRules:     services.NewInterestRuleService(transactions, services.WithInterestRuleRepository(interestRuleRepo), services.WithInterestAccrualRepository(interestAccrualRepo)),
-		InterestLifecycle: services.NewInterestLifecycle(interestLifecycleRepo),
+		Tokens:       cfg.TokenService,
+		Accounts:     services.NewAccountService(accountRepo).WithTransactionRepository(transactionRepo),
+		Transactions: transactions,
+		Transfers:    services.NewTransferService(transactions).WithAccountRepository(accountRepo),
+		InterestRules: services.NewInterestRuleService(
+			transactions,
+			services.WithInterestRuleRepository(interestRuleRepo),
+			services.WithInterestAccrualRepository(interestAccrualRepo),
+			services.WithInterestAccountRepository(accountRepo),
+		),
+		InterestLifecycle: services.NewInterestLifecycle(interestLifecycleRepo).WithAccountRepository(accountRepo),
 		Dashboard:         services.NewDashboardReporting(dashboardRepo),
 		Profile:           services.NewProfileService(userRepo),
 		Currency:          services.NewCurrencyService(nil),
+		Categories:        services.NewCategoryService(categoryRepo),
+		FinancialGoals:    services.NewFinancialGoalService(storeFinancialGoals(store), accountRepo),
+		CategoryLimits:    services.NewCategoryLimitService(storeCategoryLimits(store), categoryRepo),
+		readiness:         store,
 	}
 	if store == nil {
 		return app, nil
 	}
+	app.Idempotency = store.Idempotency()
 
 	app.Auth = services.NewAuthService(store.Users(), store.RefreshTokens(), cfg.TokenService, store.AuthAuditEvents()).
 		WithAccountRepository(accountRepo)
@@ -116,6 +129,30 @@ func New(store Store, cfg Config) (*Application, error) {
 	}
 	app.Passkeys = passkeys
 	return app, nil
+}
+
+func (a *Application) Ready(ctx context.Context) error {
+	if a == nil || a.readiness == nil {
+		return fmt.Errorf("readiness check is not configured")
+	}
+	if err := a.readiness.Ping(ctx); err != nil {
+		return fmt.Errorf("application readiness: %w", err)
+	}
+	return nil
+}
+
+func storeFinancialGoals(store Store) repository.FinancialGoalRepository {
+	if store == nil {
+		return nil
+	}
+	return store.FinancialGoals()
+}
+
+func storeCategoryLimits(store Store) repository.CategoryLimitRepository {
+	if store == nil {
+		return nil
+	}
+	return store.CategoryLimits()
 }
 
 func firstNonEmpty(value, fallback string) string {

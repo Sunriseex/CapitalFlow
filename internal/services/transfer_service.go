@@ -11,12 +11,26 @@ import (
 
 	domaintransfer "github.com/sunriseex/capitalflow/internal/domain/transfer"
 	"github.com/sunriseex/capitalflow/internal/models"
+	"github.com/sunriseex/capitalflow/internal/repository"
 	"github.com/sunriseex/capitalflow/pkg/money"
 )
 
 type TransferService struct {
 	transactions *TransactionService
 	currency     *CurrencyService
+	accounts     repository.AccountRepository
+}
+
+func (s *TransferService) WithAccountRepository(repo repository.AccountRepository) *TransferService {
+	s.accounts = repo
+	return s
+}
+
+func (s *TransferService) ListByUser(ctx context.Context, userID string) ([]models.Transfer, error) {
+	if s == nil || s.transactions == nil {
+		return nil, fmt.Errorf("transfer service requires transaction service")
+	}
+	return s.transactions.ListTransfersByUser(ctx, userID)
 }
 
 func NewTransferService(transactions *TransactionService) *TransferService {
@@ -56,6 +70,19 @@ func (s *TransferService) Create(ctx context.Context, req *CreateTransferRequest
 	idempotencyKey := strings.TrimSpace(req.IdempotencyKey)
 	fromCurrency := strings.ToUpper(strings.TrimSpace(req.FromCurrency))
 	toCurrency := strings.ToUpper(strings.TrimSpace(req.ToCurrency))
+	if s.accounts != nil {
+		userID := strings.TrimSpace(req.UserID)
+		fromAccount, err := s.accounts.GetByIDForUser(ctx, fromAccountID, userID)
+		if err != nil {
+			return nil, fmt.Errorf("get source account: %w", err)
+		}
+		toAccount, err := s.accounts.GetByIDForUser(ctx, toAccountID, userID)
+		if err != nil {
+			return nil, fmt.Errorf("get destination account: %w", err)
+		}
+		fromCurrency = fromAccount.Currency
+		toCurrency = toAccount.Currency
+	}
 	feeCurrency := strings.ToUpper(strings.TrimSpace(req.FeeCurrency))
 	if feeCurrency == "" && req.FeeAmount.IsPositive() {
 		feeCurrency = fromCurrency

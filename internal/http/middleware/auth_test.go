@@ -142,6 +142,14 @@ type testRefreshRepo struct {
 	byID map[string]*models.RefreshToken
 }
 
+func (r *testRefreshRepo) ValidateSession(ctx context.Context, userID, sessionID string, now time.Time) (bool, error) {
+	session, err := r.GetByID(ctx, sessionID)
+	if err != nil {
+		return false, err
+	}
+	return session.UserID == userID && session.IsActive(now), nil
+}
+
 func (r *testRefreshRepo) Create(context.Context, *models.RefreshToken) error {
 	return nil
 }

@@ -457,6 +457,31 @@ func (s *AuthService) ListSessions(ctx context.Context, userID, currentRefreshTo
 	return sessions, nil
 }
 
+func (s *AuthService) SetupRequired(ctx context.Context) (bool, error) {
+	if s == nil || s.users == nil {
+		return false, fmt.Errorf("user repository is required")
+	}
+	count, err := s.users.Count(ctx)
+	if err != nil {
+		return false, fmt.Errorf("count users: %w", err)
+	}
+	return count == 0, nil
+}
+
+func (s *AuthService) ValidateSession(ctx context.Context, userID, sessionID string, now time.Time) (bool, error) {
+	if s == nil || s.refresh == nil {
+		return false, fmt.Errorf("refresh token repository is required")
+	}
+	session, err := s.refresh.GetByID(ctx, strings.TrimSpace(sessionID))
+	if errors.Is(err, repository.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("get session: %w", err)
+	}
+	return session.UserID == strings.TrimSpace(userID) && session.IsActive(now), nil
+}
+
 func (s *AuthService) RevokeSession(ctx context.Context, userID, sessionID string) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("revoke session: %w", err)
