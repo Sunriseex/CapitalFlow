@@ -40,6 +40,10 @@ func (s *Store) CategoryLimits() repository.CategoryLimitRepository {
 	return NewCategoryLimitRepository(s.pool)
 }
 
+func (s *Store) Dashboard() repository.DashboardRepository {
+	return NewDashboardRepository(s.pool)
+}
+
 func (s *Store) InterestRules() repository.InterestRuleRepository {
 	return NewInterestRuleRepository(s.pool)
 }
