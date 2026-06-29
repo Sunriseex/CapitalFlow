@@ -19,10 +19,10 @@ const (
 )
 
 type InterestJob struct {
-	Rules    repository.InterestRuleJobRepository
-	Accruals repository.InterestAccrualTransactionalRepository
-	Logger   *slog.Logger
-	Now      func() time.Time
+	Rules     repository.InterestRuleJobRepository
+	Lifecycle *services.InterestLifecycle
+	Logger    *slog.Logger
+	Now       func() time.Time
 }
 
 type InterestJobRunResult struct {
@@ -50,8 +50,8 @@ func (j *InterestJob) run(ctx context.Context, jobName string, frequency models.
 	if j.Rules == nil {
 		return nil, fmt.Errorf("%s: interest rule repository is required", jobName)
 	}
-	if j.Accruals == nil {
-		return nil, fmt.Errorf("%s: interest accrual repository is required", jobName)
+	if j.Lifecycle == nil {
+		return nil, fmt.Errorf("%s: interest lifecycle is required", jobName)
 	}
 
 	accrualDate = dateOnly(accrualDate)
@@ -118,69 +118,26 @@ func (j *InterestJob) run(ctx context.Context, jobName string, frequency models.
 }
 
 func (j *InterestJob) accrueTarget(ctx context.Context, target *repository.InterestRuleJobTarget, accrualDate time.Time) (bool, error) {
-	if j.Rules == nil {
-		return false, fmt.Errorf("accrueTarget: Rules repository not set")
-	}
-	var posted bool
-	err := j.Accruals.WithAccountInterestLock(ctx, target.Rule.AccountID, target.OwnerUserID, func(ctx context.Context, snapshot repository.InterestCalculationRepository) error {
-		transactions, err := snapshot.ListTransactionsByAccountForUser(ctx, target.Rule.AccountID, target.OwnerUserID)
-		if err != nil {
-			return fmt.Errorf("list account transactions: %w", err)
-		}
-		accruals, err := snapshot.ListInterestAccrualsByAccount(ctx, target.Rule.AccountID)
-		if err != nil {
-			return fmt.Errorf("list account accruals: %w", err)
-		}
-
-		for i := range accruals {
-			a := &accruals[i]
-			if a.RuleID == target.Rule.ID && dateOnly(a.AccrualDate).Equal(accrualDate) {
-				return nil
-			}
-		}
-
-		principal := services.PrincipalTransactionsForRuleAt(transactions, accruals, &target.Rule, accrualDate)
-		balance, err := services.NewBalanceService().Calculate(ctx, services.CalculateBalanceRequest{
-			AccountID:    target.Rule.AccountID,
-			Transactions: principal, // убрана повторная фильтрация
-		})
-		if err != nil {
-			return fmt.Errorf("calculate account balance: %w", err)
-		}
-
-		response, err := services.NewInterestRuleService(nil).Accrue(ctx, &services.AccrueRuleInterestRequest{
-			Rule:             target.Rule,
-			Currency:         target.AccountCurrency,
-			Balance:          balance.Balance,
-			AccrualDate:      accrualDate,
-			Transactions:     principal,
-			ExistingAccruals: accruals,
-		})
-		if err != nil {
-			if services.IsValidationError(err) {
-				j.logger().Warn(
-					"interest accrual skipped due to validation error",
-					"rule_id", target.Rule.ID,
-					"account_id", target.Rule.AccountID,
-					"error", err,
-				)
-				return nil
-			}
-			return fmt.Errorf("accrue for rule %s account %s: %w", target.Rule.ID, target.Rule.AccountID, err)
-		}
-		if response.Skipped {
-			return nil
-		}
-		if err := snapshot.CreateInterestAccrualWithTransaction(ctx, response.Transaction, response.Accrual); err != nil {
-			return fmt.Errorf("create interest accrual: %w", err)
-		}
-		posted = true
-		return nil
+	response, err := j.Lifecycle.Accrue(ctx, &services.AccrueAccountInterestRequest{
+		AccountID:   target.Rule.AccountID,
+		UserID:      target.OwnerUserID,
+		Currency:    target.AccountCurrency,
+		RuleID:      target.Rule.ID,
+		AccrualDate: accrualDate,
 	})
 	if err != nil {
+		if services.IsValidationError(err) {
+			j.logger().Warn(
+				"interest accrual skipped due to validation error",
+				"rule_id", target.Rule.ID,
+				"account_id", target.Rule.AccountID,
+				"error", err,
+			)
+			return false, nil
+		}
 		return false, fmt.Errorf("accrue rule %s account %s: %w", target.Rule.ID, target.Rule.AccountID, err)
 	}
-	return posted, nil
+	return !response.Skipped, nil
 }
 
 func selectLatestRulesForAccounts(targets []repository.InterestRuleJobTarget, accrualDate time.Time) []repository.InterestRuleJobTarget {

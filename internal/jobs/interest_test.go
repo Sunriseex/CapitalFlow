@@ -8,6 +8,7 @@ import (
 
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/repository"
+	"github.com/sunriseex/capitalflow/internal/services"
 )
 
 func TestDailyInterestAccrualJobPostsDueRule(t *testing.T) {
@@ -16,6 +17,7 @@ func TestDailyInterestAccrualJobPostsDueRule(t *testing.T) {
 	accrualDate := time.Date(2026, 5, 21, 10, 0, 0, 0, time.FixedZone("test", 3*60*60))
 	rule := testInterestRule(models.AccrualFrequencyDaily, nil)
 	snapshot := &fakeInterestSnapshot{
+		rules: []models.InterestRule{rule},
 		transactions: []models.Transaction{
 			{
 				ID:         "tx-initial",
@@ -31,8 +33,8 @@ func TestDailyInterestAccrualJobPostsDueRule(t *testing.T) {
 		Rules: &fakeInterestRuleJobRepo{
 			targets: []repository.InterestRuleJobTarget{{Rule: rule, OwnerUserID: "user-1"}},
 		},
-		Accruals: &fakeInterestAccrualTxRepo{snapshot: snapshot},
-		Now:      func() time.Time { return accrualDate },
+		Lifecycle: services.NewInterestLifecycle(&fakeInterestAccrualTxRepo{snapshot: snapshot}),
+		Now:       func() time.Time { return accrualDate },
 	}
 
 	result, err := job.RunDailyInterestAccrual(context.Background())
@@ -60,8 +62,8 @@ func TestMonthlyInterestAccrualJobSkipsBeforePayableDate(t *testing.T) {
 		Rules: &fakeInterestRuleJobRepo{
 			targets: []repository.InterestRuleJobTarget{{Rule: rule, OwnerUserID: "user-1"}},
 		},
-		Accruals: &fakeInterestAccrualTxRepo{snapshot: snapshot},
-		Now:      func() time.Time { return accrualDate },
+		Lifecycle: services.NewInterestLifecycle(&fakeInterestAccrualTxRepo{snapshot: snapshot}),
+		Now:       func() time.Time { return accrualDate },
 	}
 
 	result, err := job.RunMonthlyInterestAccrual(context.Background())
@@ -82,6 +84,7 @@ func TestDepositMaturityCheckJobPostsEndOfTermRule(t *testing.T) {
 	maturityDate := time.Date(2026, 5, 21, 0, 0, 0, 0, time.UTC)
 	rule := testInterestRule(models.AccrualFrequencyEndOfTerm, &maturityDate)
 	snapshot := &fakeInterestSnapshot{
+		rules: []models.InterestRule{rule},
 		transactions: []models.Transaction{
 			{
 				ID:         "tx-initial",
@@ -97,8 +100,8 @@ func TestDepositMaturityCheckJobPostsEndOfTermRule(t *testing.T) {
 		Rules: &fakeInterestRuleJobRepo{
 			targets: []repository.InterestRuleJobTarget{{Rule: rule, OwnerUserID: "user-1"}},
 		},
-		Accruals: &fakeInterestAccrualTxRepo{snapshot: snapshot},
-		Now:      func() time.Time { return maturityDate },
+		Lifecycle: services.NewInterestLifecycle(&fakeInterestAccrualTxRepo{snapshot: snapshot}),
+		Now:       func() time.Time { return maturityDate },
 	}
 
 	result, err := job.RunDepositMaturityCheck(context.Background())
@@ -119,8 +122,8 @@ func TestInterestJobContinuesAfterTargetFailure(t *testing.T) {
 		Rules: &fakeInterestRuleJobRepo{
 			targets: []repository.InterestRuleJobTarget{{Rule: rule, OwnerUserID: "user-1"}},
 		},
-		Accruals: &fakeInterestAccrualTxRepo{lockErr: errors.New("lock failed")},
-		Now:      func() time.Time { return accrualDate },
+		Lifecycle: services.NewInterestLifecycle(&fakeInterestAccrualTxRepo{lockErr: errors.New("lock failed")}),
+		Now:       func() time.Time { return accrualDate },
 	}
 
 	result, err := job.RunDailyInterestAccrual(context.Background())
@@ -144,6 +147,7 @@ func TestDailyInterestAccrualJobUsesOnlyLatestOverlappingRule(t *testing.T) {
 	latestRule.StartDate = accrualDate.AddDate(0, 0, -1)
 
 	snapshot := &fakeInterestSnapshot{
+		rules: []models.InterestRule{latestRule},
 		transactions: []models.Transaction{
 			{
 				ID:         "tx-initial",
@@ -162,8 +166,8 @@ func TestDailyInterestAccrualJobUsesOnlyLatestOverlappingRule(t *testing.T) {
 				{Rule: latestRule, OwnerUserID: "user-1"},
 			},
 		},
-		Accruals: &fakeInterestAccrualTxRepo{snapshot: snapshot},
-		Now:      func() time.Time { return accrualDate },
+		Lifecycle: services.NewInterestLifecycle(&fakeInterestAccrualTxRepo{snapshot: snapshot}),
+		Now:       func() time.Time { return accrualDate },
 	}
 
 	result, err := job.RunDailyInterestAccrual(context.Background())
@@ -225,18 +229,30 @@ func (r *fakeInterestAccrualTxRepo) WithAccountInterestLock(ctx context.Context,
 
 type fakeInterestSnapshot struct {
 	locked              bool
+	rules               []models.InterestRule
 	transactions        []models.Transaction
 	accruals            []models.InterestAccrual
 	createdTransactions []models.Transaction
 	createdAccruals     []models.InterestAccrual
 }
 
-func (s *fakeInterestSnapshot) GetInterestRuleByID(context.Context, string) (*models.InterestRule, error) {
+func (s *fakeInterestSnapshot) GetInterestRuleByID(_ context.Context, id string) (*models.InterestRule, error) {
+	for i := range s.rules {
+		if s.rules[i].ID == id {
+			return &s.rules[i], nil
+		}
+	}
 	return nil, repository.ErrNotFound
 }
 
-func (s *fakeInterestSnapshot) ListInterestRulesByAccount(context.Context, string) ([]models.InterestRule, error) {
-	return nil, nil
+func (s *fakeInterestSnapshot) ListInterestRulesByAccount(_ context.Context, accountID string) ([]models.InterestRule, error) {
+	var rules []models.InterestRule
+	for i := range s.rules {
+		if s.rules[i].AccountID == accountID {
+			rules = append(rules, s.rules[i])
+		}
+	}
+	return rules, nil
 }
 
 func (s *fakeInterestSnapshot) ListTransactionsByAccountForUser(context.Context, string, string) ([]models.Transaction, error) {

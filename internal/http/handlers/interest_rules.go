@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -10,7 +9,6 @@ import (
 
 	"github.com/sunriseex/capitalflow/internal/http/dto"
 	"github.com/sunriseex/capitalflow/internal/models"
-	"github.com/sunriseex/capitalflow/internal/repository"
 	"github.com/sunriseex/capitalflow/internal/services"
 	"github.com/sunriseex/capitalflow/pkg/money"
 )
@@ -233,14 +231,18 @@ func (h *Handler) accrueInterest(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "validation_error", err.Error(), nil)
 		return
 	}
+	if !validateOptionalUUID(w, req.RuleID, "rule_id") {
+		return
+	}
 
-	result, err := h.accrueInterestForAccount(r, accountID, userID, account.Currency, req.RuleID, accrualDate)
+	result, err := h.interestLifecycle.Accrue(r.Context(), &services.AccrueAccountInterestRequest{
+		AccountID:   accountID,
+		UserID:      userID,
+		Currency:    account.Currency,
+		RuleID:      req.RuleID,
+		AccrualDate: accrualDate,
+	})
 	if err != nil {
-		if _, ok := err.(validationError); ok {
-			writeError(w, http.StatusBadRequest, "validation_error", err.Error(), nil)
-			return
-		}
-
 		writeServiceError(w, err)
 		return
 	}
@@ -294,12 +296,16 @@ func (h *Handler) recalculateInterest(w http.ResponseWriter, r *http.Request) {
 		ruleDate = dateOnly(time.Now())
 	}
 
-	result, err := h.recalculateInterestForAccount(r, accountID, userID, account.Currency, req.RuleID, ruleDate, fromDate, toDate)
+	result, err := h.interestLifecycle.Recalculate(r.Context(), &services.RecalculateAccountInterestRequest{
+		AccountID: accountID,
+		UserID:    userID,
+		Currency:  account.Currency,
+		RuleID:    req.RuleID,
+		RuleDate:  ruleDate,
+		FromDate:  fromDate,
+		ToDate:    toDate,
+	})
 	if err != nil {
-		if _, ok := err.(validationError); ok {
-			writeError(w, http.StatusBadRequest, "validation_error", err.Error(), nil)
-			return
-		}
 		writeServiceError(w, err)
 		return
 	}
@@ -314,312 +320,6 @@ func (h *Handler) recalculateInterest(w http.ResponseWriter, r *http.Request) {
 		SkippedDays:     result.SkippedDays,
 		TotalAmount:     money.NewJSONDecimal(result.TotalAmount),
 	})
-}
-
-func (h *Handler) accrueInterestForAccount(r *http.Request, accountID, userID, currency, ruleID string, accrualDate time.Time) (*services.AccrueRuleInterestResponse, error) {
-	if txRepo, ok := h.store.InterestAccruals().(repository.InterestAccrualTransactionalRepository); ok {
-		var result *services.AccrueRuleInterestResponse
-		err := txRepo.WithAccountInterestLock(r.Context(), accountID, userID, func(ctx context.Context, snapshot repository.InterestCalculationRepository) error {
-			calculated, err := accrueInterestFromSnapshot(ctx, snapshot, accountID, userID, currency, ruleID, accrualDate)
-			if err != nil {
-				return err
-			}
-			if !calculated.Skipped {
-				if err := snapshot.CreateInterestAccrualWithTransaction(ctx, calculated.Transaction, calculated.Accrual); err != nil {
-					return fmt.Errorf("create interest accrual in locked snapshot: %w", err)
-				}
-			}
-			result = calculated
-			return nil
-		})
-		if err != nil {
-			if errors.Is(err, repository.ErrConflict) {
-				return &services.AccrueRuleInterestResponse{Skipped: true}, nil
-			}
-			return nil, fmt.Errorf("run account interest accrual transaction: %w", err)
-		}
-		return result, nil
-	}
-
-	rule, err := h.ruleForAccrual(r, accountID, ruleID, accrualDate)
-	if err != nil {
-		return nil, err
-	}
-	transactions, err := h.store.Transactions().ListByAccountForUser(r.Context(), accountID, userID)
-	if err != nil {
-		return nil, fmt.Errorf("list account transactions for interest accrual: %w", err)
-	}
-	accruals, err := h.store.InterestAccruals().ListByAccount(r.Context(), accountID)
-	if err != nil {
-		return nil, fmt.Errorf("list account accruals for interest accrual: %w", err)
-	}
-	result, err := accrueInterestFromData(r.Context(), rule, accountID, currency, accrualDate, transactions, accruals)
-	if err != nil {
-		return nil, err
-	}
-	if result.Skipped {
-		return result, nil
-	}
-	if err := h.store.InterestAccruals().CreateWithTransaction(r.Context(), result.Transaction, result.Accrual); err != nil {
-		if errors.Is(err, repository.ErrConflict) {
-			return &services.AccrueRuleInterestResponse{Skipped: true}, nil
-		}
-		return nil, fmt.Errorf("create interest accrual: %w", err)
-	}
-	return result, nil
-}
-
-func (h *Handler) recalculateInterestForAccount(r *http.Request, accountID, userID, currency, ruleID string, ruleDate, fromDate, toDate time.Time) (*services.RecalculateRuleInterestResponse, error) {
-	if txRepo, ok := h.store.InterestAccruals().(repository.InterestAccrualTransactionalRepository); ok {
-		var result *services.RecalculateRuleInterestResponse
-		err := txRepo.WithAccountInterestLock(r.Context(), accountID, userID, func(ctx context.Context, snapshot repository.InterestCalculationRepository) error {
-			calculated, err := recalculateInterestFromSnapshot(ctx, snapshot, accountID, userID, currency, ruleID, ruleDate, fromDate, toDate)
-			if err != nil {
-				return err
-			}
-			deleted, err := snapshot.ReplaceInterestAccrualRangeWithTransactions(ctx, calculated.AccountID, calculated.RuleID, calculated.FromDate, calculated.ToDate, calculated.Transactions, calculated.Accruals)
-			if err != nil {
-				return fmt.Errorf("replace interest accrual range in locked snapshot: %w", err)
-			}
-			calculated.DeletedAccruals = deleted
-			result = calculated
-			return nil
-		})
-		if err != nil {
-			return nil, fmt.Errorf("run account interest recalculation transaction: %w", err)
-		}
-		return result, nil
-	}
-
-	rule, err := h.ruleForRecalculation(r, accountID, ruleID, ruleDate)
-	if err != nil {
-		return nil, err
-	}
-	transactions, err := h.store.Transactions().ListByAccountForUser(r.Context(), accountID, userID)
-	if err != nil {
-		return nil, fmt.Errorf("list account transactions for interest recalculation: %w", err)
-	}
-	accruals, err := h.store.InterestAccruals().ListByAccount(r.Context(), accountID)
-	if err != nil {
-		return nil, fmt.Errorf("list account accruals for interest recalculation: %w", err)
-	}
-	result, err := h.interestRules.Recalculate(r.Context(), &services.RecalculateRuleInterestRequest{
-		Rule:             *rule,
-		Currency:         currency,
-		Transactions:     transactions,
-		ExistingAccruals: accruals,
-		FromDate:         fromDate,
-		ToDate:           toDate,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("recalculate interest: %w", err)
-	}
-	return result, nil
-}
-
-func accrueInterestFromSnapshot(ctx context.Context, snapshot repository.InterestCalculationRepository, accountID, userID, currency, ruleID string, accrualDate time.Time) (*services.AccrueRuleInterestResponse, error) {
-	rule, err := ruleForAccrualSnapshot(ctx, snapshot, accountID, ruleID, accrualDate)
-	if err != nil {
-		return nil, err
-	}
-	transactions, err := snapshot.ListTransactionsByAccountForUser(ctx, accountID, userID)
-	if err != nil {
-		return nil, fmt.Errorf("list snapshot transactions for interest accrual: %w", err)
-	}
-	accruals, err := snapshot.ListInterestAccrualsByAccount(ctx, accountID)
-	if err != nil {
-		return nil, fmt.Errorf("list snapshot accruals for interest accrual: %w", err)
-	}
-	return accrueInterestFromData(ctx, rule, accountID, currency, accrualDate, transactions, accruals)
-}
-
-func accrueInterestFromData(ctx context.Context, rule *models.InterestRule, accountID, currency string, accrualDate time.Time, transactions []models.Transaction, accruals []models.InterestAccrual) (*services.AccrueRuleInterestResponse, error) {
-	transactions = transactionsUpToDate(transactions, accrualDate)
-	transactions = services.PrincipalTransactionsForRuleAt(transactions, accruals, rule, accrualDate)
-
-	balance, err := services.NewBalanceService().Calculate(ctx, services.CalculateBalanceRequest{
-		AccountID:    accountID,
-		Transactions: transactions,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("calculate balance for interest accrual: %w", err)
-	}
-
-	result, err := services.NewInterestRuleService(nil).Accrue(ctx, &services.AccrueRuleInterestRequest{
-		Rule:             *rule,
-		Currency:         currency,
-		Balance:          balance.Balance,
-		AccrualDate:      accrualDate,
-		Transactions:     transactions,
-		ExistingAccruals: accruals,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("accrue interest: %w", err)
-	}
-	return result, nil
-}
-
-func recalculateInterestFromSnapshot(ctx context.Context, snapshot repository.InterestCalculationRepository, accountID, userID, currency, ruleID string, ruleDate, fromDate, toDate time.Time) (*services.RecalculateRuleInterestResponse, error) {
-	rule, err := ruleForRecalculationSnapshot(ctx, snapshot, accountID, ruleID, ruleDate)
-	if err != nil {
-		return nil, err
-	}
-	transactions, err := snapshot.ListTransactionsByAccountForUser(ctx, accountID, userID)
-	if err != nil {
-		return nil, fmt.Errorf("list snapshot transactions for interest recalculation: %w", err)
-	}
-	accruals, err := snapshot.ListInterestAccrualsByAccount(ctx, accountID)
-	if err != nil {
-		return nil, fmt.Errorf("list snapshot accruals for interest recalculation: %w", err)
-	}
-	result, err := services.NewInterestRuleService(nil).Recalculate(ctx, &services.RecalculateRuleInterestRequest{
-		Rule:             *rule,
-		Currency:         currency,
-		Transactions:     transactions,
-		ExistingAccruals: accruals,
-		FromDate:         fromDate,
-		ToDate:           toDate,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("recalculate interest: %w", err)
-	}
-	return result, nil
-}
-
-func (h *Handler) ruleForAccrual(r *http.Request, accountID, ruleID string, accrualDate time.Time) (*models.InterestRule, error) {
-	ruleID = strings.TrimSpace(ruleID)
-	if ruleID != "" {
-		if !isValidUUID(ruleID) {
-			return nil, errValidation("invalid rule_id")
-		}
-
-		rule, err := h.store.InterestRules().GetByID(r.Context(), ruleID)
-		if err != nil {
-			return nil, fmt.Errorf("get interest rule: %w", err)
-		}
-
-		if err := ensureRuleBelongsToAccount(rule, accountID); err != nil {
-			return nil, err
-		}
-
-		if !interestRuleActiveOn(rule, accrualDate) {
-			return nil, errValidation("interest rule is not active on " + dateOnly(accrualDate).Format(time.DateOnly))
-		}
-
-		return rule, nil
-	}
-
-	rules, err := h.store.InterestRules().ListByAccount(r.Context(), accountID)
-	if err != nil {
-		return nil, fmt.Errorf("list account interest rules: %w", err)
-	}
-
-	rule := latestApplicableInterestRule(rules, accrualDate)
-	if rule == nil {
-		return nil, repository.ErrNotFound
-	}
-
-	return rule, nil
-}
-
-func ruleForAccrualSnapshot(ctx context.Context, snapshot repository.InterestCalculationRepository, accountID, ruleID string, accrualDate time.Time) (*models.InterestRule, error) {
-	ruleID = strings.TrimSpace(ruleID)
-	if ruleID != "" {
-		if !isValidUUID(ruleID) {
-			return nil, errValidation("invalid rule_id")
-		}
-
-		rule, err := snapshot.GetInterestRuleByID(ctx, ruleID)
-		if err != nil {
-			return nil, fmt.Errorf("get interest rule: %w", err)
-		}
-
-		if err := ensureRuleBelongsToAccount(rule, accountID); err != nil {
-			return nil, err
-		}
-
-		if !interestRuleActiveOn(rule, accrualDate) {
-			return nil, errValidation("interest rule is not active on " + dateOnly(accrualDate).Format(time.DateOnly))
-		}
-
-		return rule, nil
-	}
-
-	rules, err := snapshot.ListInterestRulesByAccount(ctx, accountID)
-	if err != nil {
-		return nil, fmt.Errorf("list account interest rules: %w", err)
-	}
-
-	rule := latestApplicableInterestRule(rules, accrualDate)
-	if rule == nil {
-		return nil, repository.ErrNotFound
-	}
-
-	return rule, nil
-}
-
-func (h *Handler) ruleForRecalculation(r *http.Request, accountID, ruleID string, fallbackDate time.Time) (*models.InterestRule, error) {
-	ruleID = strings.TrimSpace(ruleID)
-	if ruleID != "" {
-		if !isValidUUID(ruleID) {
-			return nil, errValidation("invalid rule_id")
-		}
-
-		rule, err := h.store.InterestRules().GetByID(r.Context(), ruleID)
-		if err != nil {
-			return nil, fmt.Errorf("get interest rule: %w", err)
-		}
-
-		if err := ensureRuleBelongsToAccount(rule, accountID); err != nil {
-			return nil, err
-		}
-
-		return rule, nil
-	}
-
-	rules, err := h.store.InterestRules().ListByAccount(r.Context(), accountID)
-	if err != nil {
-		return nil, fmt.Errorf("list account interest rules: %w", err)
-	}
-
-	rule := latestApplicableInterestRule(rules, fallbackDate)
-	if rule == nil {
-		return nil, repository.ErrNotFound
-	}
-
-	return rule, nil
-}
-
-func ruleForRecalculationSnapshot(ctx context.Context, snapshot repository.InterestCalculationRepository, accountID, ruleID string, fallbackDate time.Time) (*models.InterestRule, error) {
-	ruleID = strings.TrimSpace(ruleID)
-	if ruleID != "" {
-		if !isValidUUID(ruleID) {
-			return nil, errValidation("invalid rule_id")
-		}
-
-		rule, err := snapshot.GetInterestRuleByID(ctx, ruleID)
-		if err != nil {
-			return nil, fmt.Errorf("get interest rule: %w", err)
-		}
-
-		if err := ensureRuleBelongsToAccount(rule, accountID); err != nil {
-			return nil, err
-		}
-
-		return rule, nil
-	}
-
-	rules, err := snapshot.ListInterestRulesByAccount(ctx, accountID)
-	if err != nil {
-		return nil, fmt.Errorf("list account interest rules: %w", err)
-	}
-
-	rule := latestApplicableInterestRule(rules, fallbackDate)
-	if rule == nil {
-		return nil, repository.ErrNotFound
-	}
-
-	return rule, nil
 }
 
 func validateInterestRule(rule *models.InterestRule) error {
@@ -725,61 +425,4 @@ func dateOnly(date time.Time) time.Time {
 		return time.Time{}
 	}
 	return time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
-}
-
-func ensureRuleBelongsToAccount(rule *models.InterestRule, accountID string) error {
-	if rule.AccountID != accountID {
-		return repository.ErrNotFound
-	}
-	return nil
-}
-
-func latestApplicableInterestRule(rules []models.InterestRule, accrualDate time.Time) *models.InterestRule {
-	var selected *models.InterestRule
-
-	for i := range rules {
-		rule := &rules[i]
-		if !rule.IsActive || !interestRuleActiveOn(rule, accrualDate) {
-			continue
-		}
-
-		if selected == nil || dateOnly(rule.StartDate).After(dateOnly(selected.StartDate)) {
-			selected = rule
-		}
-	}
-
-	return selected
-}
-
-func interestRuleActiveOn(rule *models.InterestRule, accrualDate time.Time) bool {
-	date := dateOnly(accrualDate)
-	if date.IsZero() {
-		date = dateOnly(time.Now())
-	}
-
-	if date.Before(dateOnly(rule.StartDate)) {
-		return false
-	}
-
-	if rule.EndDate != nil && date.After(dateOnly(*rule.EndDate)) {
-		return false
-	}
-
-	return true
-}
-
-func transactionsUpToDate(transactions []models.Transaction, accrualDate time.Time) []models.Transaction {
-	date := dateOnly(accrualDate)
-	if date.IsZero() {
-		date = dateOnly(time.Now())
-	}
-
-	filtered := make([]models.Transaction, 0, len(transactions))
-	for i := range transactions {
-		if !dateOnly(transactions[i].OccurredAt).After(date) {
-			filtered = append(filtered, transactions[i])
-		}
-	}
-
-	return filtered
 }

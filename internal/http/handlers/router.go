@@ -45,6 +45,7 @@ type Handler struct {
 	transactions          *services.TransactionService
 	transfers             *services.TransferService
 	interestRules         *services.InterestRuleService
+	interestLifecycle     *services.InterestLifecycle
 }
 
 type RouterConfig struct {
@@ -82,12 +83,14 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 	var categoryRepo repository.CategoryRepository
 	var interestRuleRepo repository.InterestRuleRepository
 	var interestAccrualRepo repository.InterestAccrualRepository
+	var interestLifecycleRepo repository.InterestAccrualTransactionalRepository
 	if store != nil {
 		accountRepo = store.Accounts()
 		transactionRepo = store.Transactions()
 		categoryRepo = store.Categories()
 		interestRuleRepo = store.InterestRules()
 		interestAccrualRepo = store.InterestAccruals()
+		interestLifecycleRepo, _ = interestAccrualRepo.(repository.InterestAccrualTransactionalRepository)
 	}
 
 	transactionService := services.NewTransactionService(transactionRepo).
@@ -118,6 +121,7 @@ func NewRouter(store Store, cfg *RouterConfig) http.Handler {
 			services.WithInterestRuleRepository(interestRuleRepo),
 			services.WithInterestAccrualRepository(interestAccrualRepo),
 		),
+		interestLifecycle: services.NewInterestLifecycle(interestLifecycleRepo),
 	}
 	r := chi.NewRouter()
 	r.Use(chimiddleware.RequestID)
