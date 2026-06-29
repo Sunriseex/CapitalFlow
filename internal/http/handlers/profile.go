@@ -15,7 +15,7 @@ func (h *Handler) getProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := services.NewProfileService(h.store.Users()).Get(r.Context(), claims.UserID)
+	user, err := h.app.Profile.Get(r.Context(), claims.UserID)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -36,7 +36,7 @@ func (h *Handler) updateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := services.NewProfileService(h.store.Users()).Update(r.Context(), services.UpdateProfileRequest{
+	user, err := h.app.Profile.Update(r.Context(), services.UpdateProfileRequest{
 		UserID:          claims.UserID,
 		PrimaryCurrency: req.PrimaryCurrency,
 	})

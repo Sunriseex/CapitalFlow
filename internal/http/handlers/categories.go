@@ -15,7 +15,7 @@ import (
 var categorySlugPattern = regexp.MustCompile(`^[a-z0-9]+(?:[-_][a-z0-9]+)*$`)
 
 func (h *Handler) listCategories(w http.ResponseWriter, r *http.Request) {
-	categories, err := h.store.Categories().List(r.Context())
+	categories, err := h.app.Store.Categories().List(r.Context())
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -50,7 +50,7 @@ func (h *Handler) createCategory(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
-	if err := h.store.Categories().Create(r.Context(), category); err != nil {
+	if err := h.app.Store.Categories().Create(r.Context(), category); err != nil {
 		writeServiceError(w, err)
 		return
 	}

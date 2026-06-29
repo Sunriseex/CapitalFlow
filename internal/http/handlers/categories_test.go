@@ -12,7 +12,7 @@ import (
 )
 
 func TestCategoriesRouteRequiresAuth(t *testing.T) {
-	router := NewRouter(nil, &RouterConfig{APIAuthToken: "01234567890123456789012345678901"})
+	router := newTestRouter(nil, &RouterConfig{APIAuthToken: "01234567890123456789012345678901"})
 
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/categories", nil)
 	rec := httptest.NewRecorder()
@@ -30,7 +30,7 @@ func TestCreateCategory(t *testing.T) {
 	repo := &testCategoryRepo{}
 	store.categories = repo
 	store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
-	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	router := newTestRouter(store, &RouterConfig{}, tokens)
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/categories", strings.NewReader(`{"name":"Home repair","slug":"home-repair"}`))
 	req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
 	req.Header.Set("Idempotency-Key", "create-category-1")
@@ -61,7 +61,7 @@ func (r *testCategoryRepo) GetBySlug(context.Context, string) (*models.Category,
 func (r *testCategoryRepo) List(context.Context) ([]models.Category, error) { return nil, nil }
 
 func TestCategoriesPreflightSkipsAuth(t *testing.T) {
-	router := NewRouter(nil, &RouterConfig{
+	router := newTestRouter(nil, &RouterConfig{
 		APIAuthToken:       "01234567890123456789012345678901",
 		CORSAllowedOrigins: []string{"http://localhost:5173"},
 	})

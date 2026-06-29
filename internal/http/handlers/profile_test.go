@@ -19,7 +19,7 @@ func TestProfileRoutesRequireJWT(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new token service: %v", err)
 	}
-	router := NewRouter(newTestProfileStore(), &RouterConfig{TokenService: tokens})
+	router := newTestRouter(newTestProfileStore(), &RouterConfig{}, tokens)
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/settings/profile", http.NoBody)
 	rec := httptest.NewRecorder()
 
@@ -41,7 +41,7 @@ func TestProfileRoutesRejectRevokedSessionJWT(t *testing.T) {
 		RevokedAt: new(time.Time),
 		CreatedAt: time.Now(),
 	}
-	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	router := newTestRouter(store, &RouterConfig{}, tokens)
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/settings/profile", http.NoBody)
 	req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
 	rec := httptest.NewRecorder()
@@ -68,7 +68,7 @@ func TestProfileRoutesGetAndPatchPrimaryCurrency(t *testing.T) {
 		ExpiresAt: time.Now().Add(time.Hour),
 		CreatedAt: time.Now(),
 	}
-	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	router := newTestRouter(store, &RouterConfig{}, tokens)
 
 	patchReq := httptest.NewRequestWithContext(t.Context(), http.MethodPatch, "/api/v1/settings/profile", strings.NewReader(`{"primary_currency":"usd"}`))
 	patchReq.Header.Set("Authorization", "Bearer "+pair.AccessToken)
@@ -106,7 +106,7 @@ func TestProfileRoutesRejectInvalidPrimaryCurrency(t *testing.T) {
 		ExpiresAt: time.Now().Add(time.Hour),
 		CreatedAt: time.Now(),
 	}
-	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	router := newTestRouter(store, &RouterConfig{}, tokens)
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPatch, "/api/v1/settings/profile", strings.NewReader(`{"primary_currency":"RU"}`))
 	req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
 	rec := httptest.NewRecorder()

@@ -23,7 +23,7 @@ func TestCreateAndListFinancialGoals(t *testing.T) {
 		accountID: testAccount(accountID, "user-1", "RUB"),
 	}}
 	store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
-	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	router := newTestRouter(store, &RouterConfig{}, tokens)
 
 	create := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/financial-goals", strings.NewReader(`{
 		"account_id":"11111111-1111-1111-1111-111111111111","name":"Emergency fund","target_amount":"300000","target_date":"2027-01-01"
@@ -64,7 +64,7 @@ func TestCreateFinancialGoalRejectsInvalidAmount(t *testing.T) {
 		accountID: testAccount(accountID, "user-1", "RUB"),
 	}}
 	store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
-	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	router := newTestRouter(store, &RouterConfig{}, tokens)
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/financial-goals", strings.NewReader(`{"account_id":"11111111-1111-1111-1111-111111111111","name":"Goal","target_amount":"0","target_date":""}`))
 	req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
 	req.Header.Set("Idempotency-Key", "invalid-goal")
@@ -84,7 +84,7 @@ func TestCreateFinancialGoalRejectsForeignAccount(t *testing.T) {
 		accountID: testAccount(accountID, "other-user", "RUB"),
 	}}
 	store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
-	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	router := newTestRouter(store, &RouterConfig{}, tokens)
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/financial-goals", strings.NewReader(`{"account_id":"11111111-1111-1111-1111-111111111111","name":"Goal","target_amount":"100"}`))
 	req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
 	req.Header.Set("Idempotency-Key", "foreign-account-goal")
@@ -117,7 +117,7 @@ func TestUpdateFinancialGoalRoute(t *testing.T) {
 		accountID: testAccount(accountID, "user-1", "RUB"),
 	}}
 	store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
-	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	router := newTestRouter(store, &RouterConfig{}, tokens)
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPatch, "/api/v1/financial-goals/"+goalID, strings.NewReader(`{
 		"account_id":"11111111-1111-1111-1111-111111111111",
 		"name":"Travel fund",

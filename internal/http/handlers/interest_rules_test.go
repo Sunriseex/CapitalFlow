@@ -28,7 +28,7 @@ func TestListUserInterestRulesUsesCurrentUserScope(t *testing.T) {
 	store.rules = rules
 	store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
 
-	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	router := newTestRouter(store, &RouterConfig{}, tokens)
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/interest-rules", http.NoBody)
 	req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
 	rec := httptest.NewRecorder()

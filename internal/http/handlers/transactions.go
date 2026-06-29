@@ -26,7 +26,7 @@ func (h *Handler) listTransactions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	transactionsRepo := h.store.Transactions()
+	transactionsRepo := h.app.Store.Transactions()
 	transactions, err := listTransactionsForUser(r.Context(), transactionsRepo, userID, &filter)
 	if err != nil {
 		writeServiceError(w, err)
@@ -237,7 +237,7 @@ func (h *Handler) createTransaction(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	transaction, err := h.transactions.CreateForUser(r.Context(), userID, &services.CreateTransactionRequest{
+	transaction, err := h.app.Transactions.CreateForUser(r.Context(), userID, &services.CreateTransactionRequest{
 		AccountID:        accountID,
 		RelatedAccountID: relatedAccountID,
 		Type:             req.Type,
@@ -265,7 +265,7 @@ func (h *Handler) getTransaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	transaction, err := h.store.Transactions().GetByIDForUser(r.Context(), transactionID, userID)
+	transaction, err := h.app.Store.Transactions().GetByIDForUser(r.Context(), transactionID, userID)
 	if err != nil {
 		writeServiceError(w, err)
 		return

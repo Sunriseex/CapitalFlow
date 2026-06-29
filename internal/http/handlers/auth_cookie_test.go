@@ -150,12 +150,11 @@ func TestAuthSetupUsesConfiguredRefreshCookiePolicy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new token service: %v", err)
 	}
-	router := NewRouter(newTestProfileStore(), &RouterConfig{
+	router := newTestRouter(newTestProfileStore(), &RouterConfig{
 		AppEnv:         "development",
-		TokenService:   tokens,
 		CookieSecure:   false,
 		CookieSameSite: "Lax",
-	})
+	}, tokens)
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/setup", strings.NewReader(`{
 		"email":"user@example.com",
 		"password":"correct horse battery staple",
@@ -495,7 +494,7 @@ func newTestAuthRouter(t *testing.T) http.Handler {
 	if err != nil {
 		t.Fatalf("new token service: %v", err)
 	}
-	return NewRouter(newTestProfileStore(), &RouterConfig{TokenService: tokens})
+	return newTestRouter(newTestProfileStore(), &RouterConfig{}, tokens)
 }
 
 func decodeAuthResponse(t *testing.T, rec *httptest.ResponseRecorder) dto.AuthResponse {

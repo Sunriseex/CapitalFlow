@@ -16,7 +16,7 @@ func (h *Handler) listAccounts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accounts, err := h.store.Accounts().ListByUser(r.Context(), userID)
+	accounts, err := h.app.Store.Accounts().ListByUser(r.Context(), userID)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -42,7 +42,7 @@ func (h *Handler) createAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	account, err := h.accounts.Create(r.Context(), &services.CreateAccountRequest{
+	account, err := h.app.Accounts.Create(r.Context(), &services.CreateAccountRequest{
 		OwnerUserID: userID,
 		Name:        req.Name,
 		Bank:        req.Bank,
@@ -68,7 +68,7 @@ func (h *Handler) getAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	account, err := h.store.Accounts().GetByIDForUser(r.Context(), accountID, userID)
+	account, err := h.app.Store.Accounts().GetByIDForUser(r.Context(), accountID, userID)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -103,7 +103,7 @@ func (h *Handler) updateAccount(w http.ResponseWriter, r *http.Request) {
 		openedAt = &parsed
 	}
 
-	account, err := h.accounts.UpdateForUser(r.Context(), &services.UpdateAccountRequest{
+	account, err := h.app.Accounts.UpdateForUser(r.Context(), &services.UpdateAccountRequest{
 		ID:       accountID,
 		UserID:   userID,
 		Name:     req.Name,
@@ -131,7 +131,7 @@ func (h *Handler) archiveAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.accounts.ArchiveForUser(r.Context(), accountID, userID); err != nil {
+	if err := h.app.Accounts.ArchiveForUser(r.Context(), accountID, userID); err != nil {
 		writeServiceError(w, err)
 		return
 	}
@@ -143,7 +143,7 @@ func (h *Handler) ensureAccountExists(w http.ResponseWriter, r *http.Request, ac
 	if !ok {
 		return false
 	}
-	if _, err := h.store.Accounts().GetByIDForUser(r.Context(), accountID, userID); err != nil {
+	if _, err := h.app.Store.Accounts().GetByIDForUser(r.Context(), accountID, userID); err != nil {
 		writeServiceError(w, err)
 		return false
 	}
@@ -161,7 +161,7 @@ func (h *Handler) accountByID(w http.ResponseWriter, r *http.Request, accountID,
 	if !ok {
 		return nil, false
 	}
-	account, err := h.store.Accounts().GetByIDForUser(r.Context(), accountID, userID)
+	account, err := h.app.Store.Accounts().GetByIDForUser(r.Context(), accountID, userID)
 	if err != nil {
 		writeServiceError(w, err)
 		return nil, false

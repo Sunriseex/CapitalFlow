@@ -19,7 +19,7 @@ func TestCreateListAndUpdateCategoryLimit(t *testing.T) {
 	store.limits = limits
 	store.categories = categoryLimitCategoryRepo{category: &models.Category{ID: categoryID, Name: "Food"}}
 	store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
-	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	router := newTestRouter(store, &RouterConfig{}, tokens)
 
 	create := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/category-limits", strings.NewReader(`{"category_id":"11111111-1111-1111-1111-111111111111","amount":"100000","currency":"rub"}`))
 	create.Header.Set("Authorization", "Bearer "+pair.AccessToken)

@@ -20,7 +20,7 @@ func (h *Handler) getCurrencyRates(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rates, err := services.NewCurrencyService(nil).Latest(r.Context(), base)
+	rates, err := h.app.Currency.Latest(r.Context(), base)
 	if err != nil {
 		writeServiceError(w, err)
 		return

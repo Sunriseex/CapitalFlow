@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/sunriseex/capitalflow/internal/application"
 	"github.com/sunriseex/capitalflow/internal/auth"
 	"github.com/sunriseex/capitalflow/internal/config"
 	"github.com/sunriseex/capitalflow/internal/http/handlers"
@@ -64,19 +65,24 @@ func run() error {
 	slog.Info("webauthn configured",
 		"rp_id", config.AppConfig.WebAuthnRPID,
 		"origins", config.AppConfig.WebAuthnOrigins)
+	app, err := application.New(store, application.Config{
+		TokenService:          tokenService,
+		WebAuthnRPDisplayName: config.AppConfig.WebAuthnRPDisplayName,
+		WebAuthnRPID:          config.AppConfig.WebAuthnRPID,
+		WebAuthnOrigins:       config.AppConfig.WebAuthnOrigins,
+	})
+	if err != nil {
+		return fmt.Errorf("compose application: %w", err)
+	}
 
 	server := &http.Server{
 		Addr: *addr,
-		Handler: handlers.NewRouter(store, &handlers.RouterConfig{
+		Handler: handlers.NewRouter(app, &handlers.RouterConfig{
 			AppEnv:                          config.AppConfig.AppEnv,
 			AppVersion:                      config.AppConfig.AppVersion,
 			APIAuthToken:                    config.AppConfig.APIAuthToken,
-			TokenService:                    tokenService,
 			PublicOrigin:                    config.AppConfig.PublicOrigin,
 			PublicOriginHost:                config.AppConfig.PublicOriginHost,
-			WebAuthnRPDisplayName:           config.AppConfig.WebAuthnRPDisplayName,
-			WebAuthnRPID:                    config.AppConfig.WebAuthnRPID,
-			WebAuthnOrigins:                 config.AppConfig.WebAuthnOrigins,
 			CookieSecure:                    config.AppConfig.CookieSecure,
 			CookieSameSite:                  config.AppConfig.CookieSameSite,
 			AllowDirectIPLogin:              config.AppConfig.AllowDirectIPLogin,

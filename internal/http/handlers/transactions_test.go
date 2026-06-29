@@ -129,7 +129,7 @@ func TestListTransactionsUsesRepositoryFiltering(t *testing.T) {
 	store.transactions = transactions
 	store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
 
-	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	router := newTestRouter(store, &RouterConfig{}, tokens)
 	req := httptest.NewRequestWithContext(
 		t.Context(),
 		http.MethodGet,
@@ -175,7 +175,7 @@ func TestCreateTransactionRejectsTransferTypes(t *testing.T) {
 			store := newTestProfileStore()
 			store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
 
-			router := NewRouter(store, &RouterConfig{TokenService: tokens})
+			router := newTestRouter(store, &RouterConfig{}, tokens)
 			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/transactions", strings.NewReader(`{
 				"account_id":"11111111-1111-1111-1111-111111111111",
 				"type":"`+string(transactionType)+`",
@@ -201,7 +201,7 @@ func TestCreateTransactionUsesUserScopedCreate(t *testing.T) {
 	store.transactions = transactions
 	store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
 
-	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	router := newTestRouter(store, &RouterConfig{}, tokens)
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/transactions", strings.NewReader(`{
 		"account_id":"11111111-1111-1111-1111-111111111111",
 		"type":"income",
@@ -230,7 +230,7 @@ func TestCreateTransactionForOtherUsersAccountReturnsNotFound(t *testing.T) {
 	store.transactions = &testTransactionRepo{createForUserErr: repository.ErrNotFound}
 	store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
 
-	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	router := newTestRouter(store, &RouterConfig{}, tokens)
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/transactions", strings.NewReader(`{
 		"account_id":"22222222-2222-2222-2222-222222222222",
 		"type":"income",
@@ -252,7 +252,7 @@ func TestDeleteTransactionRouteIsRemoved(t *testing.T) {
 	store := newTestProfileStore()
 	store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
 
-	router := NewRouter(store, &RouterConfig{TokenService: tokens})
+	router := newTestRouter(store, &RouterConfig{}, tokens)
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodDelete, "/api/v1/transactions/33333333-3333-3333-3333-333333333333", nil)
 	req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
 	rec := httptest.NewRecorder()

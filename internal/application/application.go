@@ -1,0 +1,133 @@
+package application
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/sunriseex/capitalflow/internal/auth"
+	"github.com/sunriseex/capitalflow/internal/repository"
+	"github.com/sunriseex/capitalflow/internal/services"
+)
+
+// Store is the persistence boundary used to compose the application.
+type Store interface {
+	Accounts() repository.AccountRepository
+	Transactions() repository.TransactionRepository
+	Categories() repository.CategoryRepository
+	FinancialGoals() repository.FinancialGoalRepository
+	CategoryLimits() repository.CategoryLimitRepository
+	InterestRules() repository.InterestRuleRepository
+	InterestAccruals() repository.InterestAccrualRepository
+	Users() repository.UserRepository
+	RefreshTokens() repository.RefreshTokenRepository
+	AuthAuditEvents() repository.AuthAuditRepository
+	Passkeys() repository.PasskeyRepository
+	Idempotency() repository.IdempotencyRepository
+	Ping(ctx context.Context) error
+}
+
+type Config struct {
+	TokenService          *auth.TokenService
+	WebAuthnRPDisplayName string
+	WebAuthnRPID          string
+	WebAuthnOrigins       []string
+}
+
+// Application owns service composition. Transport adapters receive this
+// ready-to-use module and never construct services themselves.
+type Application struct {
+	Store             Store
+	Tokens            *auth.TokenService
+	Auth              *services.AuthService
+	Passkeys          *services.PasskeyService
+	Accounts          *services.AccountService
+	Transactions      *services.TransactionService
+	Transfers         *services.TransferService
+	InterestRules     *services.InterestRuleService
+	InterestLifecycle *services.InterestLifecycle
+	Dashboard         *services.DashboardReporting
+	Profile           *services.ProfileService
+	Currency          *services.CurrencyService
+}
+
+func New(store Store, cfg Config) (*Application, error) {
+	var accountRepo repository.AccountRepository
+	var transactionRepo repository.TransactionRepository
+	var categoryRepo repository.CategoryRepository
+	var interestRuleRepo repository.InterestRuleRepository
+	var interestAccrualRepo repository.InterestAccrualRepository
+	var interestLifecycleRepo repository.InterestAccrualTransactionalRepository
+	var dashboardRepo repository.DashboardRepository
+	var userRepo repository.UserRepository
+
+	if store != nil {
+		accountRepo = store.Accounts()
+		transactionRepo = store.Transactions()
+		categoryRepo = store.Categories()
+		interestRuleRepo = store.InterestRules()
+		interestAccrualRepo = store.InterestAccruals()
+		interestLifecycleRepo, _ = interestAccrualRepo.(repository.InterestAccrualTransactionalRepository)
+		userRepo = store.Users()
+		if dashboardStore, ok := store.(interface {
+			Dashboard() repository.DashboardRepository
+		}); ok {
+			dashboardRepo = dashboardStore.Dashboard()
+		}
+	}
+
+	transactions := services.NewTransactionService(transactionRepo).
+		WithAccountRepository(accountRepo).
+		WithCategoryRepository(categoryRepo)
+	app := &Application{
+		Store:             store,
+		Tokens:            cfg.TokenService,
+		Accounts:          services.NewAccountService(accountRepo),
+		Transactions:      transactions,
+		Transfers:         services.NewTransferService(transactions),
+		InterestRules:     services.NewInterestRuleService(transactions, services.WithInterestRuleRepository(interestRuleRepo), services.WithInterestAccrualRepository(interestAccrualRepo)),
+		InterestLifecycle: services.NewInterestLifecycle(interestLifecycleRepo),
+		Dashboard:         services.NewDashboardReporting(dashboardRepo),
+		Profile:           services.NewProfileService(userRepo),
+		Currency:          services.NewCurrencyService(nil),
+	}
+	if store == nil {
+		return app, nil
+	}
+
+	app.Auth = services.NewAuthService(store.Users(), store.RefreshTokens(), cfg.TokenService, store.AuthAuditEvents()).
+		WithAccountRepository(accountRepo)
+	if cfg.TokenService == nil {
+		return app, nil
+	}
+
+	passkeys, err := services.NewPasskeyService(
+		store.Users(),
+		store.Passkeys(),
+		app.Auth,
+		store.AuthAuditEvents(),
+		services.WebAuthnConfig{
+			RPDisplayName: firstNonEmpty(cfg.WebAuthnRPDisplayName, "CapitalFlow"),
+			RPID:          firstNonEmpty(cfg.WebAuthnRPID, "localhost"),
+			Origins:       defaultWebAuthnOrigins(cfg.WebAuthnOrigins),
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("configure passkey service: %w", err)
+	}
+	app.Passkeys = passkeys
+	return app, nil
+}
+
+func firstNonEmpty(value, fallback string) string {
+	if value != "" {
+		return value
+	}
+	return fallback
+}
+
+func defaultWebAuthnOrigins(origins []string) []string {
+	if len(origins) > 0 {
+		return origins
+	}
+	return []string{"http://localhost:5173"}
+}
