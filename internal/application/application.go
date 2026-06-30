@@ -43,6 +43,7 @@ type Application struct {
 	Transactions      *services.TransactionService
 	Transfers         *services.TransferService
 	InterestRules     *services.InterestRuleService
+	InterestEngine    *services.InterestEngine
 	InterestLifecycle *services.InterestLifecycle
 	Dashboard         *services.DashboardReporting
 	Profile           *services.ProfileService
@@ -83,18 +84,15 @@ func New(store Store, cfg Config) (*Application, error) {
 	transactions := services.NewTransactionService(transactionRepo).
 		WithAccountRepository(accountRepo).
 		WithCategoryRepository(categoryRepo)
+	interestEngine := services.NewInterestEngine()
 	app := &Application{
-		Tokens:       cfg.TokenService,
-		Accounts:     services.NewAccountService(accountRepo).WithTransactionRepository(transactionRepo),
-		Transactions: transactions,
-		Transfers:    services.NewTransferService(transactions).WithAccountRepository(accountRepo),
-		InterestRules: services.NewInterestRuleService(
-			transactions,
-			services.WithInterestRuleRepository(interestRuleRepo),
-			services.WithInterestAccrualRepository(interestAccrualRepo),
-			services.WithInterestAccountRepository(accountRepo),
-		),
-		InterestLifecycle: services.NewInterestLifecycle(interestLifecycleRepo).WithAccountRepository(accountRepo),
+		Tokens:            cfg.TokenService,
+		Accounts:          services.NewAccountService(accountRepo).WithTransactionRepository(transactionRepo),
+		Transactions:      transactions,
+		Transfers:         services.NewTransferService(transactions).WithAccountRepository(accountRepo),
+		InterestRules:     services.NewInterestRuleService(interestRuleRepo, accountRepo),
+		InterestEngine:    interestEngine,
+		InterestLifecycle: services.NewInterestLifecycle(interestLifecycleRepo, interestEngine).WithAccountRepository(accountRepo),
 		Dashboard:         services.NewDashboardReporting(dashboardRepo),
 		Profile:           services.NewProfileService(userRepo),
 		Currency:          services.NewCurrencyService(nil),

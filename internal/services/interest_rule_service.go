@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -17,42 +16,18 @@ import (
 )
 
 type InterestRuleService struct {
-	transactions *TransactionService
-	rules        repository.InterestRuleRepository
-	accruals     repository.InterestAccrualRepository
-	accounts     repository.AccountRepository
+	rules    repository.InterestRuleRepository
+	accounts repository.AccountRepository
 }
 
-func WithInterestAccountRepository(repo repository.AccountRepository) InterestRuleServiceOption {
-	return func(s *InterestRuleService) {
-		s.accounts = repo
-	}
+func NewInterestRuleService(rules repository.InterestRuleRepository, accounts repository.AccountRepository) *InterestRuleService {
+	return &InterestRuleService{rules: rules, accounts: accounts}
 }
 
-type InterestRuleServiceOption func(*InterestRuleService)
+// InterestEngine calculates accruals without reading or writing persistence.
+type InterestEngine struct{}
 
-func WithInterestRuleRepository(repo repository.InterestRuleRepository) InterestRuleServiceOption {
-	return func(s *InterestRuleService) {
-		s.rules = repo
-	}
-}
-
-func WithInterestAccrualRepository(repo repository.InterestAccrualRepository) InterestRuleServiceOption {
-	return func(s *InterestRuleService) {
-		s.accruals = repo
-	}
-}
-
-func NewInterestRuleService(transactions *TransactionService, options ...InterestRuleServiceOption) *InterestRuleService {
-	if transactions == nil {
-		transactions = NewTransactionService()
-	}
-	service := &InterestRuleService{transactions: transactions}
-	for _, option := range options {
-		option(service)
-	}
-	return service
-}
+func NewInterestEngine() *InterestEngine { return &InterestEngine{} }
 
 type CreateInterestRuleRequest struct {
 	UserID                  string
@@ -229,7 +204,7 @@ func (s *InterestRuleService) Create(ctx context.Context, req *CreateInterestRul
 	return rule, nil
 }
 
-func (s *InterestRuleService) Accrue(ctx context.Context, req *AccrueRuleInterestRequest) (*AccrueRuleInterestResponse, error) {
+func (e *InterestEngine) Accrue(ctx context.Context, req *AccrueRuleInterestRequest) (*AccrueRuleInterestResponse, error) {
 	select {
 	case <-ctx.Done():
 		return nil, fmt.Errorf("accrue interest: %w", ctx.Err())
@@ -297,26 +272,13 @@ func (s *InterestRuleService) Accrue(ctx context.Context, req *AccrueRuleInteres
 		CreatedAt:     time.Now(),
 	}
 
-	if s.accruals != nil {
-		if err := s.accruals.CreateWithTransaction(ctx, tx, accrual); err != nil {
-			if errors.Is(err, repository.ErrConflict) {
-				return &AccrueRuleInterestResponse{Skipped: true}, nil
-			}
-			return nil, fmt.Errorf("save interest accrual with transaction: %w", err)
-		}
-	} else if s.transactions.repo != nil {
-		if err := s.transactions.repo.Create(ctx, tx); err != nil {
-			return nil, fmt.Errorf("save interest transaction: %w", err)
-		}
-	}
-
 	return &AccrueRuleInterestResponse{
 		Transaction: tx,
 		Accrual:     accrual,
 	}, nil
 }
 
-func (s *InterestRuleService) Recalculate(ctx context.Context, req *RecalculateRuleInterestRequest) (*RecalculateRuleInterestResponse, error) {
+func (e *InterestEngine) Recalculate(ctx context.Context, req *RecalculateRuleInterestRequest) (*RecalculateRuleInterestResponse, error) {
 	select {
 	case <-ctx.Done():
 		return nil, fmt.Errorf("recalculate interest: %w", ctx.Err())
@@ -445,18 +407,10 @@ func (s *InterestRuleService) Recalculate(ctx context.Context, req *RecalculateR
 		pendingBalance = decimal.Zero
 	}
 
-	if s.accruals != nil {
-		deleted, err := s.accruals.ReplaceRangeWithTransactions(ctx, req.Rule.AccountID, req.Rule.ID, fromDate, toDate, response.Transactions, response.Accruals)
-		if err != nil {
-			return nil, fmt.Errorf("replace recalculated interest accruals: %w", err)
-		}
-		response.DeletedAccruals = deleted
-	}
-
 	return response, nil
 }
 
-func (s *InterestRuleService) Forecast(ctx context.Context, req *ForecastRuleInterestRequest) (*ForecastRuleInterestResponse, error) {
+func (e *InterestEngine) Forecast(ctx context.Context, req *ForecastRuleInterestRequest) (*ForecastRuleInterestResponse, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("forecast interest: %w", err)
 	}
@@ -481,7 +435,7 @@ func (s *InterestRuleService) Forecast(ctx context.Context, req *ForecastRuleInt
 
 	forecastRule := req.Rule
 	forecastRule.AccrualFrequency = models.AccrualFrequencyDaily
-	result, err := NewInterestRuleService(nil).Recalculate(ctx, &RecalculateRuleInterestRequest{
+	result, err := e.Recalculate(ctx, &RecalculateRuleInterestRequest{
 		Rule:             forecastRule,
 		Currency:         req.Currency,
 		Transactions:     req.Transactions,

@@ -33,7 +33,7 @@ func TestDailyInterestAccrualJobPostsDueRule(t *testing.T) {
 		Rules: &fakeInterestRuleJobRepo{
 			targets: []repository.InterestRuleJobTarget{{Rule: rule, OwnerUserID: "user-1"}},
 		},
-		Lifecycle: services.NewInterestLifecycle(&fakeInterestAccrualTxRepo{snapshot: snapshot}),
+		Lifecycle: services.NewInterestLifecycle(&fakeInterestAccrualTxRepo{snapshot: snapshot}, services.NewInterestEngine()),
 		Now:       func() time.Time { return accrualDate },
 	}
 
@@ -62,7 +62,7 @@ func TestMonthlyInterestAccrualJobSkipsBeforePayableDate(t *testing.T) {
 		Rules: &fakeInterestRuleJobRepo{
 			targets: []repository.InterestRuleJobTarget{{Rule: rule, OwnerUserID: "user-1"}},
 		},
-		Lifecycle: services.NewInterestLifecycle(&fakeInterestAccrualTxRepo{snapshot: snapshot}),
+		Lifecycle: services.NewInterestLifecycle(&fakeInterestAccrualTxRepo{snapshot: snapshot}, services.NewInterestEngine()),
 		Now:       func() time.Time { return accrualDate },
 	}
 
@@ -100,7 +100,7 @@ func TestDepositMaturityCheckJobPostsEndOfTermRule(t *testing.T) {
 		Rules: &fakeInterestRuleJobRepo{
 			targets: []repository.InterestRuleJobTarget{{Rule: rule, OwnerUserID: "user-1"}},
 		},
-		Lifecycle: services.NewInterestLifecycle(&fakeInterestAccrualTxRepo{snapshot: snapshot}),
+		Lifecycle: services.NewInterestLifecycle(&fakeInterestAccrualTxRepo{snapshot: snapshot}, services.NewInterestEngine()),
 		Now:       func() time.Time { return maturityDate },
 	}
 
@@ -122,7 +122,7 @@ func TestInterestJobContinuesAfterTargetFailure(t *testing.T) {
 		Rules: &fakeInterestRuleJobRepo{
 			targets: []repository.InterestRuleJobTarget{{Rule: rule, OwnerUserID: "user-1"}},
 		},
-		Lifecycle: services.NewInterestLifecycle(&fakeInterestAccrualTxRepo{lockErr: errors.New("lock failed")}),
+		Lifecycle: services.NewInterestLifecycle(&fakeInterestAccrualTxRepo{lockErr: errors.New("lock failed")}, services.NewInterestEngine()),
 		Now:       func() time.Time { return accrualDate },
 	}
 
@@ -166,7 +166,7 @@ func TestDailyInterestAccrualJobUsesOnlyLatestOverlappingRule(t *testing.T) {
 				{Rule: latestRule, OwnerUserID: "user-1"},
 			},
 		},
-		Lifecycle: services.NewInterestLifecycle(&fakeInterestAccrualTxRepo{snapshot: snapshot}),
+		Lifecycle: services.NewInterestLifecycle(&fakeInterestAccrualTxRepo{snapshot: snapshot}, services.NewInterestEngine()),
 		Now:       func() time.Time { return accrualDate },
 	}
 

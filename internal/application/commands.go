@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -252,6 +253,11 @@ type AccrueInterestResult struct {
 	Skipped bool
 }
 
+type interestAccrualWriter interface {
+	CreateWithTransaction(ctx context.Context, transaction *models.Transaction, accrual *models.InterestAccrual) error
+	ReplaceRangeWithTransactions(ctx context.Context, accountID, ruleID string, fromDate, toDate time.Time, transactions []models.Transaction, accruals []models.InterestAccrual) (int64, error)
+}
+
 func (m *CommandModule) AccrueInterest(ctx context.Context, cmd *InterestCommand) (*AccrueInterestResult, error) {
 	if cmd == nil {
 		return nil, fmt.Errorf("accrue interest command is required")
@@ -269,12 +275,21 @@ func (m *CommandModule) AccrueInterest(ctx context.Context, cmd *InterestCommand
 	if rule.CapitalizationFrequency == models.CapitalizationFrequencyNone || rule.CapitalizationFrequency == "" {
 		transactions = services.PrincipalTransactionsForRuleAt(transactions, accruals, rule, time.Time{})
 	}
-	result, err := m.app.InterestRules.Accrue(ctx, &services.AccrueRuleInterestRequest{
+	result, err := m.app.InterestEngine.Accrue(ctx, &services.AccrueRuleInterestRequest{
 		Rule: *rule, Currency: account.Currency, Balance: balance.Balance, AccrualDate: cmd.Date,
 		Transactions: transactions, ExistingAccruals: accruals,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("accrue interest: %w", err)
+	}
+	if !result.Skipped {
+		conflict, err := persistCalculatedAccrual(ctx, m.store.InterestAccruals(), result.Transaction, result.Accrual)
+		if err != nil {
+			return nil, fmt.Errorf("save interest accrual: %w", err)
+		}
+		if conflict {
+			return &AccrueInterestResult{RuleID: rule.ID, Skipped: true}, nil
+		}
 	}
 	return &AccrueInterestResult{RuleID: rule.ID, Accrual: result.Accrual, Skipped: result.Skipped}, nil
 }
@@ -287,7 +302,7 @@ func (m *CommandModule) ForecastInterest(ctx context.Context, cmd *InterestComma
 	if err != nil {
 		return nil, err
 	}
-	result, err := m.app.InterestRules.Forecast(ctx, &services.ForecastRuleInterestRequest{
+	result, err := m.app.InterestEngine.Forecast(ctx, &services.ForecastRuleInterestRequest{
 		Rule: *rule, Currency: account.Currency, Transactions: transactions, ExistingAccruals: accruals,
 		FromDate: cmd.Date, Days: cmd.Days,
 	})
@@ -305,14 +320,45 @@ func (m *CommandModule) RecalculateInterest(ctx context.Context, cmd *InterestCo
 	if err != nil {
 		return nil, err
 	}
-	result, err := m.app.InterestRules.Recalculate(ctx, &services.RecalculateRuleInterestRequest{
+	result, err := m.app.InterestEngine.Recalculate(ctx, &services.RecalculateRuleInterestRequest{
 		Rule: *rule, Currency: account.Currency, Transactions: transactions, ExistingAccruals: accruals,
 		FromDate: cmd.FromDate, ToDate: cmd.ToDate,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("recalculate interest: %w", err)
 	}
+	deleted, err := replaceCalculatedAccruals(ctx, m.store.InterestAccruals(), result)
+	if err != nil {
+		return nil, fmt.Errorf("replace recalculated interest accruals: %w", err)
+	}
+	result.DeletedAccruals = deleted
 	return result, nil
+}
+
+func persistCalculatedAccrual(ctx context.Context, writer interestAccrualWriter, transaction *models.Transaction, accrual *models.InterestAccrual) (bool, error) {
+	if writer == nil {
+		return false, fmt.Errorf("interest accrual writer is required")
+	}
+	if err := writer.CreateWithTransaction(ctx, transaction, accrual); err != nil {
+		if errors.Is(err, repository.ErrConflict) {
+			return true, nil
+		}
+		return false, fmt.Errorf("create interest accrual with transaction: %w", err)
+	}
+	return false, nil
+}
+
+func replaceCalculatedAccruals(ctx context.Context, writer interestAccrualWriter, result *services.RecalculateRuleInterestResponse) (int64, error) {
+	if writer == nil {
+		return 0, fmt.Errorf("interest accrual writer is required")
+	}
+	deleted, err := writer.ReplaceRangeWithTransactions(
+		ctx, result.AccountID, result.RuleID, result.FromDate, result.ToDate, result.Transactions, result.Accruals,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("replace interest accrual range: %w", err)
+	}
+	return deleted, nil
 }
 
 func (m *CommandModule) interestSnapshot(ctx context.Context, accountID, ruleID string, date time.Time) (*models.Account, *models.InterestRule, []models.Transaction, []models.InterestAccrual, error) {

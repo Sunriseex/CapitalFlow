@@ -5,8 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shopspring/decimal"
-
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/repository"
 )
@@ -37,7 +35,7 @@ func TestInterestRuleServiceCreate(t *testing.T) {
 	startDate := time.Date(2026, 5, 1, 12, 0, 0, 0, time.Local)
 
 	rules := &recordingInterestRuleRepo{}
-	rule, err := NewInterestRuleService(nil, WithInterestRuleRepository(rules)).Create(t.Context(), &CreateInterestRuleRequest{
+	rule, err := NewInterestRuleService(rules, nil).Create(t.Context(), &CreateInterestRuleRequest{
 		AccountID:               "account-1",
 		AnnualRateBps:           1_200,
 		AccrualFrequency:        models.AccrualFrequencyDaily,
@@ -66,7 +64,7 @@ func TestInterestRuleServiceCreate(t *testing.T) {
 }
 
 func TestInterestRuleServiceCreateDefaults(t *testing.T) {
-	rule, err := NewInterestRuleService(nil, WithInterestRuleRepository(&recordingInterestRuleRepo{})).Create(t.Context(), &CreateInterestRuleRequest{
+	rule, err := NewInterestRuleService(&recordingInterestRuleRepo{}, nil).Create(t.Context(), &CreateInterestRuleRequest{
 		AccountID:     "account-1",
 		AnnualRateBps: 1_200,
 	})
@@ -90,7 +88,7 @@ func TestInterestRuleServiceCreateNormalizesDatePointers(t *testing.T) {
 	promoEndDate := time.Date(2026, 5, 31, 23, 59, 59, 0, time.Local)
 	endDate := time.Date(2026, 12, 31, 23, 59, 59, 0, time.Local)
 
-	rule, err := NewInterestRuleService(nil, WithInterestRuleRepository(&recordingInterestRuleRepo{})).Create(t.Context(), &CreateInterestRuleRequest{
+	rule, err := NewInterestRuleService(&recordingInterestRuleRepo{}, nil).Create(t.Context(), &CreateInterestRuleRequest{
 		AccountID:     "account-1",
 		AnnualRateBps: 1_200,
 		PromoRateBps:  &promoRate,
@@ -110,7 +108,7 @@ func TestInterestRuleServiceCreateNormalizesDatePointers(t *testing.T) {
 }
 
 func TestInterestRuleServiceCreateRejectsMissingRepository(t *testing.T) {
-	_, err := NewInterestRuleService(nil).Create(t.Context(), &CreateInterestRuleRequest{
+	_, err := NewInterestRuleService(nil, nil).Create(t.Context(), &CreateInterestRuleRequest{
 		AccountID:     "account-1",
 		AnnualRateBps: 1_200,
 	})
@@ -150,7 +148,7 @@ func TestInterestRuleServiceCreateRejectsIncompletePromo(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewInterestRuleService(nil).Create(t.Context(), &tt.req)
+			_, err := NewInterestRuleService(nil, nil).Create(t.Context(), &tt.req)
 			if err == nil {
 				t.Fatal("expected error")
 			}
@@ -158,7 +156,7 @@ func TestInterestRuleServiceCreateRejectsIncompletePromo(t *testing.T) {
 	}
 }
 
-func TestInterestRuleServiceAccrue(t *testing.T) {
+func TestInterestEngineAccrue(t *testing.T) {
 	rule := models.InterestRule{
 		ID:                 "rule-1",
 		AccountID:          "account-1",
@@ -169,7 +167,7 @@ func TestInterestRuleServiceAccrue(t *testing.T) {
 		StartDate:          time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
 
-	got, err := NewInterestRuleService(nil).Accrue(t.Context(), &AccrueRuleInterestRequest{
+	got, err := NewInterestEngine().Accrue(t.Context(), &AccrueRuleInterestRequest{
 		Rule:        rule,
 		Balance:     dec("100000"),
 		AccrualDate: time.Date(2026, 5, 4, 15, 0, 0, 0, time.Local),
@@ -200,52 +198,7 @@ func TestInterestRuleServiceAccrue(t *testing.T) {
 	}
 }
 
-func TestInterestRuleServiceAccruePersistsTransactionAndAccrualAtomically(t *testing.T) {
-	accruals := &recordingInterestAccrualRepo{}
-	transactions := &recordingTransactionRepo{}
-	service := NewInterestRuleService(
-		NewTransactionService(transactions),
-		WithInterestAccrualRepository(accruals),
-	)
-	rule := models.InterestRule{
-		ID:                 "rule-1",
-		AccountID:          "account-1",
-		AnnualRateBps:      1_200,
-		AccrualFrequency:   models.AccrualFrequencyDaily,
-		DayCountConvention: models.DayCountConventionActual365,
-		IsActive:           true,
-		StartDate:          time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
-	}
-
-	got, err := service.Accrue(t.Context(), &AccrueRuleInterestRequest{
-		Rule:        rule,
-		Balance:     dec("100000"),
-		AccrualDate: time.Date(2026, 5, 4, 0, 0, 0, 0, time.UTC),
-	})
-	if err != nil {
-		t.Fatalf("accrue interest: %v", err)
-	}
-	if got.Transaction == nil || got.Accrual == nil {
-		t.Fatal("transaction and accrual must be returned")
-	}
-	if transactions.createCalls != 0 {
-		t.Fatalf("transaction repo create calls = %d, want 0", transactions.createCalls)
-	}
-	if accruals.createCalls != 0 {
-		t.Fatalf("accrual repo create calls = %d, want 0", accruals.createCalls)
-	}
-	if accruals.createWithTransactionCalls != 1 {
-		t.Fatalf("atomic create calls = %d, want 1", accruals.createWithTransactionCalls)
-	}
-	if accruals.transaction == nil || accruals.accrual == nil {
-		t.Fatal("atomic create must receive transaction and accrual")
-	}
-	if accruals.transaction.ID != got.Transaction.ID {
-		t.Fatalf("atomic transaction id = %s, want %s", accruals.transaction.ID, got.Transaction.ID)
-	}
-}
-
-func TestInterestRuleServiceAccrueUsesPromoRate(t *testing.T) {
+func TestInterestEngineAccrueUsesPromoRate(t *testing.T) {
 	promoRate := int64(2_400)
 	promoEndDate := time.Date(2026, 5, 31, 0, 0, 0, 0, time.UTC)
 	rule := models.InterestRule{
@@ -260,7 +213,7 @@ func TestInterestRuleServiceAccrueUsesPromoRate(t *testing.T) {
 		StartDate:          time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
 
-	got, err := NewInterestRuleService(nil).Accrue(t.Context(), &AccrueRuleInterestRequest{
+	got, err := NewInterestEngine().Accrue(t.Context(), &AccrueRuleInterestRequest{
 		Rule:        rule,
 		Balance:     dec("100000"),
 		AccrualDate: time.Date(2026, 5, 4, 0, 0, 0, 0, time.UTC),
@@ -273,7 +226,7 @@ func TestInterestRuleServiceAccrueUsesPromoRate(t *testing.T) {
 	}
 }
 
-func TestInterestRuleServiceAccrueSkipsDuplicate(t *testing.T) {
+func TestInterestEngineAccrueSkipsDuplicate(t *testing.T) {
 	rule := models.InterestRule{
 		ID:                 "rule-1",
 		AccountID:          "account-1",
@@ -285,7 +238,7 @@ func TestInterestRuleServiceAccrueSkipsDuplicate(t *testing.T) {
 	}
 	accrualDate := time.Date(2026, 5, 4, 0, 0, 0, 0, time.UTC)
 
-	got, err := NewInterestRuleService(nil).Accrue(t.Context(), &AccrueRuleInterestRequest{
+	got, err := NewInterestEngine().Accrue(t.Context(), &AccrueRuleInterestRequest{
 		Rule:        rule,
 		Balance:     dec("100000"),
 		AccrualDate: accrualDate,
@@ -311,7 +264,7 @@ func TestInterestRuleServiceAccrueSkipsDuplicate(t *testing.T) {
 	}
 }
 
-func TestInterestRuleServiceAccrueDailyRuleUsesOnlyAccrualDate(t *testing.T) {
+func TestInterestEngineAccrueDailyRuleUsesOnlyAccrualDate(t *testing.T) {
 	rule := models.InterestRule{
 		ID:                      "rule-1",
 		AccountID:               "account-1",
@@ -323,7 +276,7 @@ func TestInterestRuleServiceAccrueDailyRuleUsesOnlyAccrualDate(t *testing.T) {
 		StartDate:               time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
 
-	got, err := NewInterestRuleService(nil).Accrue(t.Context(), &AccrueRuleInterestRequest{
+	got, err := NewInterestEngine().Accrue(t.Context(), &AccrueRuleInterestRequest{
 		Rule: rule,
 		Transactions: []models.Transaction{
 			{
@@ -344,7 +297,7 @@ func TestInterestRuleServiceAccrueDailyRuleUsesOnlyAccrualDate(t *testing.T) {
 	}
 }
 
-func TestInterestRuleServiceAccrueBalanceOnlyMonthlyRuleUsesWholePeriod(t *testing.T) {
+func TestInterestEngineAccrueBalanceOnlyMonthlyRuleUsesWholePeriod(t *testing.T) {
 	rule := models.InterestRule{
 		ID:                      "rule-1",
 		AccountID:               "account-1",
@@ -356,7 +309,7 @@ func TestInterestRuleServiceAccrueBalanceOnlyMonthlyRuleUsesWholePeriod(t *testi
 		StartDate:               time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
 	}
 
-	got, err := NewInterestRuleService(nil).Accrue(t.Context(), &AccrueRuleInterestRequest{
+	got, err := NewInterestEngine().Accrue(t.Context(), &AccrueRuleInterestRequest{
 		Rule:        rule,
 		Balance:     dec("100000"),
 		AccrualDate: time.Date(2026, 5, 31, 0, 0, 0, 0, time.UTC),
@@ -369,7 +322,7 @@ func TestInterestRuleServiceAccrueBalanceOnlyMonthlyRuleUsesWholePeriod(t *testi
 	}
 }
 
-func TestInterestRuleServiceAccrueDoesNotCapitalizeBeforePayableDayInterest(t *testing.T) {
+func TestInterestEngineAccrueDoesNotCapitalizeBeforePayableDayInterest(t *testing.T) {
 	rule := models.InterestRule{
 		ID:                      "rule-1",
 		AccountID:               "account-1",
@@ -405,7 +358,7 @@ func TestInterestRuleServiceAccrueDoesNotCapitalizeBeforePayableDayInterest(t *t
 		},
 	}
 
-	got, err := NewInterestRuleService(nil).Accrue(t.Context(), &AccrueRuleInterestRequest{
+	got, err := NewInterestEngine().Accrue(t.Context(), &AccrueRuleInterestRequest{
 		Rule:             rule,
 		Transactions:     transactions,
 		ExistingAccruals: accruals,
@@ -419,7 +372,7 @@ func TestInterestRuleServiceAccrueDoesNotCapitalizeBeforePayableDayInterest(t *t
 	}
 }
 
-func TestInterestRuleServiceAccrueValidatesRuleDate(t *testing.T) {
+func TestInterestEngineAccrueValidatesRuleDate(t *testing.T) {
 	rule := models.InterestRule{
 		ID:                 "rule-1",
 		AccountID:          "account-1",
@@ -430,7 +383,7 @@ func TestInterestRuleServiceAccrueValidatesRuleDate(t *testing.T) {
 		StartDate:          time.Date(2026, 5, 5, 0, 0, 0, 0, time.UTC),
 	}
 
-	_, err := NewInterestRuleService(nil).Accrue(t.Context(), &AccrueRuleInterestRequest{
+	_, err := NewInterestEngine().Accrue(t.Context(), &AccrueRuleInterestRequest{
 		Rule:        rule,
 		Balance:     dec("100000"),
 		AccrualDate: time.Date(2026, 5, 4, 0, 0, 0, 0, time.UTC),
@@ -440,7 +393,7 @@ func TestInterestRuleServiceAccrueValidatesRuleDate(t *testing.T) {
 	}
 }
 
-func TestInterestRuleServiceAccrueAllowsMonthlyCapitalization(t *testing.T) {
+func TestInterestEngineAccrueAllowsMonthlyCapitalization(t *testing.T) {
 	rule := models.InterestRule{
 		ID:                      "rule-1",
 		AccountID:               "account-1",
@@ -452,7 +405,7 @@ func TestInterestRuleServiceAccrueAllowsMonthlyCapitalization(t *testing.T) {
 		StartDate:               time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
 
-	got, err := NewInterestRuleService(nil).Accrue(t.Context(), &AccrueRuleInterestRequest{
+	got, err := NewInterestEngine().Accrue(t.Context(), &AccrueRuleInterestRequest{
 		Rule:        rule,
 		Balance:     dec("100000"),
 		AccrualDate: time.Date(2026, 5, 31, 0, 0, 0, 0, time.UTC),
@@ -465,12 +418,8 @@ func TestInterestRuleServiceAccrueAllowsMonthlyCapitalization(t *testing.T) {
 	}
 }
 
-func TestInterestRuleServiceRecalculateDefaultsRange(t *testing.T) {
-	accruals := &recordingInterestAccrualRepo{}
-	service := NewInterestRuleService(
-		NewTransactionService(),
-		WithInterestAccrualRepository(accruals),
-	)
+func TestInterestEngineRecalculateDefaultsRange(t *testing.T) {
+	service := NewInterestEngine()
 	rule := validAccrualTestRule()
 
 	got, err := service.Recalculate(t.Context(), &RecalculateRuleInterestRequest{
@@ -500,8 +449,8 @@ func TestInterestRuleServiceRecalculateDefaultsRange(t *testing.T) {
 	}
 }
 
-func TestInterestRuleServiceRecalculateRejectsInvalidRange(t *testing.T) {
-	_, err := NewInterestRuleService(nil).Recalculate(t.Context(), &RecalculateRuleInterestRequest{
+func TestInterestEngineRecalculateRejectsInvalidRange(t *testing.T) {
+	_, err := NewInterestEngine().Recalculate(t.Context(), &RecalculateRuleInterestRequest{
 		Rule:     validAccrualTestRule(),
 		FromDate: time.Date(2026, 5, 3, 0, 0, 0, 0, time.UTC),
 		ToDate:   time.Date(2026, 5, 2, 0, 0, 0, 0, time.UTC),
@@ -514,12 +463,8 @@ func TestInterestRuleServiceRecalculateRejectsInvalidRange(t *testing.T) {
 	}
 }
 
-func TestInterestRuleServiceRecalculateReplacesExistingAccruals(t *testing.T) {
-	accruals := &recordingInterestAccrualRepo{replaceDeleted: 1}
-	service := NewInterestRuleService(
-		NewTransactionService(),
-		WithInterestAccrualRepository(accruals),
-	)
+func TestInterestEngineRecalculateReplacesExistingAccruals(t *testing.T) {
+	service := NewInterestEngine()
 	rule := validAccrualTestRule()
 
 	got, err := service.Recalculate(t.Context(), &RecalculateRuleInterestRequest{
@@ -554,8 +499,8 @@ func TestInterestRuleServiceRecalculateReplacesExistingAccruals(t *testing.T) {
 	if err != nil {
 		t.Fatalf("recalculate interest: %v", err)
 	}
-	if got.DeletedAccruals != 1 {
-		t.Fatalf("deleted accruals = %d, want 1", got.DeletedAccruals)
+	if got.DeletedAccruals != 0 {
+		t.Fatalf("deleted accruals = %d, want persistence-neutral result", got.DeletedAccruals)
 	}
 	if got.CreatedAccruals != 1 {
 		t.Fatalf("created accruals = %d, want 1", got.CreatedAccruals)
@@ -563,13 +508,13 @@ func TestInterestRuleServiceRecalculateReplacesExistingAccruals(t *testing.T) {
 	if !got.TotalAmount.Equal(dec("32.88")) {
 		t.Fatalf("total amount = %d, want 3288", got.TotalAmount)
 	}
-	if accruals.replaceCalls != 1 {
-		t.Fatalf("replace calls = %d, want 1", accruals.replaceCalls)
+	if len(got.Transactions) != 1 || len(got.Accruals) != 1 {
+		t.Fatalf("replacement set = %d transactions, %d accruals", len(got.Transactions), len(got.Accruals))
 	}
 }
 
-func TestInterestRuleServiceRecalculateSkipsNonPositiveBalanceDays(t *testing.T) {
-	got, err := NewInterestRuleService(nil).Recalculate(t.Context(), &RecalculateRuleInterestRequest{
+func TestInterestEngineRecalculateSkipsNonPositiveBalanceDays(t *testing.T) {
+	got, err := NewInterestEngine().Recalculate(t.Context(), &RecalculateRuleInterestRequest{
 		Rule: validAccrualTestRule(),
 		Transactions: []models.Transaction{
 			{
@@ -594,15 +539,6 @@ func TestInterestRuleServiceRecalculateSkipsNonPositiveBalanceDays(t *testing.T)
 	}
 }
 
-type recordingInterestAccrualRepo struct {
-	createCalls                int
-	createWithTransactionCalls int
-	replaceCalls               int
-	replaceDeleted             int64
-	transaction                *models.Transaction
-	accrual                    *models.InterestAccrual
-}
-
 type recordingInterestRuleRepo struct {
 	rule *models.InterestRule
 }
@@ -623,90 +559,6 @@ func (r *recordingInterestRuleRepo) ListByAccount(context.Context, string) ([]mo
 
 func (r *recordingInterestRuleRepo) Update(context.Context, *models.InterestRule) error {
 	return nil
-}
-
-func (r *recordingInterestAccrualRepo) Create(context.Context, *models.InterestAccrual) error {
-	r.createCalls++
-	return nil
-}
-
-func (r *recordingInterestAccrualRepo) CreateWithTransaction(_ context.Context, transaction *models.Transaction, accrual *models.InterestAccrual) error {
-	r.createWithTransactionCalls++
-	r.transaction = transaction
-	r.accrual = accrual
-	return nil
-}
-
-func (r *recordingInterestAccrualRepo) ReplaceRangeWithTransactions(_ context.Context, _, _ string, _, _ time.Time, transactions []models.Transaction, accruals []models.InterestAccrual) (int64, error) {
-	r.replaceCalls++
-	if len(transactions) > 0 {
-		r.transaction = &transactions[0]
-	}
-	if len(accruals) > 0 {
-		r.accrual = &accruals[0]
-	}
-	return r.replaceDeleted, nil
-}
-
-func (r *recordingInterestAccrualRepo) GetByAccountDateRule(context.Context, string, string, string) (*models.InterestAccrual, error) {
-	return nil, errNotImplemented
-}
-
-func (r *recordingInterestAccrualRepo) ListByAccount(context.Context, string) ([]models.InterestAccrual, error) {
-	return nil, nil
-}
-
-type recordingTransactionRepo struct {
-	createCalls int
-}
-
-func (r *recordingTransactionRepo) Create(context.Context, *models.Transaction) error {
-	r.createCalls++
-	return nil
-}
-
-func (r *recordingTransactionRepo) CreateForUser(context.Context, string, *models.Transaction) error {
-	return errNotImplemented
-}
-
-func (r *recordingTransactionRepo) CreateMany(context.Context, []models.Transaction) error {
-	return nil
-}
-
-func (r *recordingTransactionRepo) CreateTransfer(context.Context, *models.Transfer, []models.Transaction) error {
-	return nil
-}
-
-func (r *recordingTransactionRepo) ListTransfersByUser(context.Context, string) ([]models.Transfer, error) {
-	return nil, nil
-}
-
-func (r *recordingTransactionRepo) GetByID(context.Context, string) (*models.Transaction, error) {
-	return nil, errNotImplemented
-}
-
-func (r *recordingTransactionRepo) GetByIDForUser(context.Context, string, string) (*models.Transaction, error) {
-	return nil, errNotImplemented
-}
-
-func (r *recordingTransactionRepo) List(context.Context) ([]models.Transaction, error) {
-	return nil, nil
-}
-
-func (r *recordingTransactionRepo) ListByUser(context.Context, string) ([]models.Transaction, error) {
-	return nil, nil
-}
-
-func (r *recordingTransactionRepo) ListByAccount(context.Context, string) ([]models.Transaction, error) {
-	return nil, nil
-}
-
-func (r *recordingTransactionRepo) ListByAccountForUser(context.Context, string, string) ([]models.Transaction, error) {
-	return nil, nil
-}
-
-func (r *recordingTransactionRepo) GetBalanceByAccountForUser(context.Context, string, string) (balance decimal.Decimal, transactionCount int64, err error) {
-	return decimal.Zero, 0, nil
 }
 
 func TestInterestRuleServiceCreateReturnsValidationError(t *testing.T) {
@@ -803,7 +655,7 @@ func TestInterestRuleServiceCreateReturnsValidationError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service := NewInterestRuleService(nil)
+			service := NewInterestRuleService(nil, nil)
 
 			_, err := service.Create(context.Background(), tt.req)
 			if err == nil {
@@ -817,7 +669,7 @@ func TestInterestRuleServiceCreateReturnsValidationError(t *testing.T) {
 	}
 }
 
-func TestInterestRuleServiceAccrueReturnsValidationError(t *testing.T) {
+func TestInterestEngineAccrueReturnsValidationError(t *testing.T) {
 	tests := []struct {
 		name string
 		req  *AccrueRuleInterestRequest
@@ -863,7 +715,7 @@ func TestInterestRuleServiceAccrueReturnsValidationError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service := NewInterestRuleService(NewTransactionService())
+			service := NewInterestEngine()
 
 			_, err := service.Accrue(context.Background(), tt.req)
 			if err == nil {
@@ -877,11 +729,11 @@ func TestInterestRuleServiceAccrueReturnsValidationError(t *testing.T) {
 	}
 }
 
-func TestInterestRuleServiceRecalculateAllowsInactiveRuleCleanup(t *testing.T) {
+func TestInterestEngineRecalculateAllowsInactiveRuleCleanup(t *testing.T) {
 	rule := validAccrualTestRule()
 	rule.IsActive = false
 
-	got, err := NewInterestRuleService(nil).Recalculate(t.Context(), &RecalculateRuleInterestRequest{
+	got, err := NewInterestEngine().Recalculate(t.Context(), &RecalculateRuleInterestRequest{
 		Rule: rule,
 		Transactions: []models.Transaction{
 			{
@@ -912,11 +764,11 @@ func TestInterestRuleServiceRecalculateAllowsInactiveRuleCleanup(t *testing.T) {
 	}
 }
 
-func TestInterestRuleServiceRecalculateDoesNotUsePriorAccrualsWhenCapitalizationNone(t *testing.T) {
+func TestInterestEngineRecalculateDoesNotUsePriorAccrualsWhenCapitalizationNone(t *testing.T) {
 	rule := validAccrualTestRule()
 	rule.CapitalizationFrequency = models.CapitalizationFrequencyNone
 
-	got, err := NewInterestRuleService(nil).Recalculate(t.Context(), &RecalculateRuleInterestRequest{
+	got, err := NewInterestEngine().Recalculate(t.Context(), &RecalculateRuleInterestRequest{
 		Rule: rule,
 		Transactions: []models.Transaction{
 			{
@@ -962,7 +814,7 @@ func TestInterestRuleServiceRecalculateDoesNotUsePriorAccrualsWhenCapitalization
 	}
 }
 
-func TestInterestRuleServiceAccrueExcludesUncapitalizedPriorAccruals(t *testing.T) {
+func TestInterestEngineAccrueExcludesUncapitalizedPriorAccruals(t *testing.T) {
 	rule := models.InterestRule{
 		ID:                      "rule-1",
 		AccountID:               "account-1",
@@ -976,7 +828,7 @@ func TestInterestRuleServiceAccrueExcludesUncapitalizedPriorAccruals(t *testing.
 
 	priorInterestDate := time.Date(2026, 5, 2, 0, 0, 0, 0, time.UTC)
 
-	got, err := NewInterestRuleService(nil).Accrue(t.Context(), &AccrueRuleInterestRequest{
+	got, err := NewInterestEngine().Accrue(t.Context(), &AccrueRuleInterestRequest{
 		Rule:        rule,
 		AccrualDate: time.Date(2026, 5, 3, 0, 0, 0, 0, time.UTC),
 		Transactions: []models.Transaction{
@@ -1014,7 +866,7 @@ func TestInterestRuleServiceAccrueExcludesUncapitalizedPriorAccruals(t *testing.
 	}
 }
 
-func TestInterestRuleServiceForecastProjectedBalanceIgnoresTransactionsAfterHorizon(t *testing.T) {
+func TestInterestEngineForecastProjectedBalanceIgnoresTransactionsAfterHorizon(t *testing.T) {
 	rule := models.InterestRule{
 		ID:                      "rule-1",
 		AccountID:               "account-1",
@@ -1026,7 +878,7 @@ func TestInterestRuleServiceForecastProjectedBalanceIgnoresTransactionsAfterHori
 		StartDate:               time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
 	}
 
-	got, err := NewInterestRuleService(nil).Forecast(t.Context(), &ForecastRuleInterestRequest{
+	got, err := NewInterestEngine().Forecast(t.Context(), &ForecastRuleInterestRequest{
 		Rule:     rule,
 		FromDate: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
 		Days:     30,
@@ -1056,11 +908,11 @@ func TestInterestRuleServiceForecastProjectedBalanceIgnoresTransactionsAfterHori
 	}
 }
 
-func TestInterestRuleServiceRecalculateCompoundsWhenCapitalizationDaily(t *testing.T) {
+func TestInterestEngineRecalculateCompoundsWhenCapitalizationDaily(t *testing.T) {
 	rule := validAccrualTestRule()
 	rule.CapitalizationFrequency = models.CapitalizationFrequencyDaily
 
-	got, err := NewInterestRuleService(nil).Recalculate(t.Context(), &RecalculateRuleInterestRequest{
+	got, err := NewInterestEngine().Recalculate(t.Context(), &RecalculateRuleInterestRequest{
 		Rule: rule,
 		Transactions: []models.Transaction{
 			{
@@ -1090,11 +942,11 @@ func TestInterestRuleServiceRecalculateCompoundsWhenCapitalizationDaily(t *testi
 	}
 }
 
-func TestInterestRuleServiceRecalculateDoesNotCompoundWhenCapitalizationNone(t *testing.T) {
+func TestInterestEngineRecalculateDoesNotCompoundWhenCapitalizationNone(t *testing.T) {
 	rule := validAccrualTestRule()
 	rule.CapitalizationFrequency = models.CapitalizationFrequencyNone
 
-	got, err := NewInterestRuleService(nil).Recalculate(t.Context(), &RecalculateRuleInterestRequest{
+	got, err := NewInterestEngine().Recalculate(t.Context(), &RecalculateRuleInterestRequest{
 		Rule: rule,
 		Transactions: []models.Transaction{
 			{
@@ -1123,12 +975,12 @@ func TestInterestRuleServiceRecalculateDoesNotCompoundWhenCapitalizationNone(t *
 	}
 }
 
-func TestInterestRuleServiceRecalculateMonthlyAccrual(t *testing.T) {
+func TestInterestEngineRecalculateMonthlyAccrual(t *testing.T) {
 	rule := validAccrualTestRule()
 	rule.AccrualFrequency = models.AccrualFrequencyMonthly
 	rule.CapitalizationFrequency = models.CapitalizationFrequencyNone
 
-	got, err := NewInterestRuleService(nil).Recalculate(t.Context(), &RecalculateRuleInterestRequest{
+	got, err := NewInterestEngine().Recalculate(t.Context(), &RecalculateRuleInterestRequest{
 		Rule: rule,
 		Transactions: []models.Transaction{
 			{
@@ -1156,12 +1008,12 @@ func TestInterestRuleServiceRecalculateMonthlyAccrual(t *testing.T) {
 	}
 }
 
-func TestInterestRuleServiceRecalculateMonthlyAccrualExpandsPartialPayableRange(t *testing.T) {
+func TestInterestEngineRecalculateMonthlyAccrualExpandsPartialPayableRange(t *testing.T) {
 	rule := validAccrualTestRule()
 	rule.AccrualFrequency = models.AccrualFrequencyMonthly
 	rule.CapitalizationFrequency = models.CapitalizationFrequencyNone
 
-	got, err := NewInterestRuleService(nil).Recalculate(t.Context(), &RecalculateRuleInterestRequest{
+	got, err := NewInterestEngine().Recalculate(t.Context(), &RecalculateRuleInterestRequest{
 		Rule: rule,
 		Transactions: []models.Transaction{
 			{
@@ -1194,12 +1046,12 @@ func TestInterestRuleServiceRecalculateMonthlyAccrualExpandsPartialPayableRange(
 	}
 }
 
-func TestInterestRuleServiceRecalculateFlushesPendingOnPayableDateWithZeroBalance(t *testing.T) {
+func TestInterestEngineRecalculateFlushesPendingOnPayableDateWithZeroBalance(t *testing.T) {
 	rule := validAccrualTestRule()
 	rule.AccrualFrequency = models.AccrualFrequencyMonthly
 	rule.CapitalizationFrequency = models.CapitalizationFrequencyNone
 
-	got, err := NewInterestRuleService(nil).Recalculate(t.Context(), &RecalculateRuleInterestRequest{
+	got, err := NewInterestEngine().Recalculate(t.Context(), &RecalculateRuleInterestRequest{
 		Rule: rule,
 		Transactions: []models.Transaction{
 			{
@@ -1231,12 +1083,12 @@ func TestInterestRuleServiceRecalculateFlushesPendingOnPayableDateWithZeroBalanc
 	}
 }
 
-func TestInterestRuleServiceRecalculateCapitalizesFullMonthlyPendingPeriod(t *testing.T) {
+func TestInterestEngineRecalculateCapitalizesFullMonthlyPendingPeriod(t *testing.T) {
 	rule := validAccrualTestRule()
 	rule.AccrualFrequency = models.AccrualFrequencyDaily
 	rule.CapitalizationFrequency = models.CapitalizationFrequencyMonthly
 
-	got, err := NewInterestRuleService(nil).Recalculate(t.Context(), &RecalculateRuleInterestRequest{
+	got, err := NewInterestEngine().Recalculate(t.Context(), &RecalculateRuleInterestRequest{
 		Rule: rule,
 		Transactions: []models.Transaction{
 			{
@@ -1264,7 +1116,7 @@ func TestInterestRuleServiceRecalculateCapitalizesFullMonthlyPendingPeriod(t *te
 	}
 }
 
-func TestInterestRuleServiceRecalculateRestoresPreRangeAccrualsBeforeCapitalization(t *testing.T) {
+func TestInterestEngineRecalculateRestoresPreRangeAccrualsBeforeCapitalization(t *testing.T) {
 	rule := validAccrualTestRule()
 	rule.AccrualFrequency = models.AccrualFrequencyDaily
 	rule.CapitalizationFrequency = models.CapitalizationFrequencyMonthly
@@ -1283,7 +1135,7 @@ func TestInterestRuleServiceRecalculateRestoresPreRangeAccrualsBeforeCapitalizat
 		OccurredAt: time.Date(2026, 5, 14, 0, 0, 0, 0, time.UTC),
 	}
 
-	got, err := NewInterestRuleService(nil).Recalculate(t.Context(), &RecalculateRuleInterestRequest{
+	got, err := NewInterestEngine().Recalculate(t.Context(), &RecalculateRuleInterestRequest{
 		Rule: rule,
 		Transactions: []models.Transaction{
 			{
@@ -1325,13 +1177,13 @@ func TestInterestRuleServiceRecalculateRestoresPreRangeAccrualsBeforeCapitalizat
 	}
 }
 
-func TestInterestRuleServiceRecalculateEndOfTermAccrual(t *testing.T) {
+func TestInterestEngineRecalculateEndOfTermAccrual(t *testing.T) {
 	rule := validAccrualTestRule()
 	rule.AccrualFrequency = models.AccrualFrequencyEndOfTerm
 	rule.CapitalizationFrequency = models.CapitalizationFrequencyEndOfTerm
 	rule.EndDate = new(time.Date(2026, 5, 3, 0, 0, 0, 0, time.UTC))
 
-	got, err := NewInterestRuleService(nil).Recalculate(t.Context(), &RecalculateRuleInterestRequest{
+	got, err := NewInterestEngine().Recalculate(t.Context(), &RecalculateRuleInterestRequest{
 		Rule: rule,
 		Transactions: []models.Transaction{
 			{
@@ -1356,13 +1208,13 @@ func TestInterestRuleServiceRecalculateEndOfTermAccrual(t *testing.T) {
 	}
 }
 
-func TestInterestRuleServiceRecalculateSplitsPromoRate(t *testing.T) {
+func TestInterestEngineRecalculateSplitsPromoRate(t *testing.T) {
 	rule := validAccrualTestRule()
 	promoRate := int64(2400)
 	rule.PromoRateBps = &promoRate
 	rule.PromoEndDate = new(time.Date(2026, 5, 31, 0, 0, 0, 0, time.UTC))
 
-	got, err := NewInterestRuleService(nil).Recalculate(t.Context(), &RecalculateRuleInterestRequest{
+	got, err := NewInterestEngine().Recalculate(t.Context(), &RecalculateRuleInterestRequest{
 		Rule: rule,
 		Transactions: []models.Transaction{
 			{
@@ -1384,11 +1236,11 @@ func TestInterestRuleServiceRecalculateSplitsPromoRate(t *testing.T) {
 	}
 }
 
-func TestInterestRuleServiceRecalculateTenPercentSavings(t *testing.T) {
+func TestInterestEngineRecalculateTenPercentSavings(t *testing.T) {
 	rule := validAccrualTestRule()
 	rule.AnnualRateBps = 1_000
 
-	got, err := NewInterestRuleService(nil).Recalculate(t.Context(), &RecalculateRuleInterestRequest{
+	got, err := NewInterestEngine().Recalculate(t.Context(), &RecalculateRuleInterestRequest{
 		Rule: rule,
 		Transactions: []models.Transaction{
 			{
@@ -1410,7 +1262,7 @@ func TestInterestRuleServiceRecalculateTenPercentSavings(t *testing.T) {
 	}
 }
 
-func TestInterestRuleServiceForecastSupportsCommonRanges(t *testing.T) {
+func TestInterestEngineForecastSupportsCommonRanges(t *testing.T) {
 	rule := validAccrualTestRule()
 	rule.CapitalizationFrequency = models.CapitalizationFrequencyDaily
 	transactions := []models.Transaction{
@@ -1425,7 +1277,7 @@ func TestInterestRuleServiceForecastSupportsCommonRanges(t *testing.T) {
 
 	for _, days := range []int{30, 90, 365} {
 		t.Run(time.Duration(days*24).String(), func(t *testing.T) {
-			got, err := NewInterestRuleService(nil).Forecast(t.Context(), &ForecastRuleInterestRequest{
+			got, err := NewInterestEngine().Forecast(t.Context(), &ForecastRuleInterestRequest{
 				Rule:         rule,
 				Transactions: transactions,
 				FromDate:     time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
@@ -1447,11 +1299,11 @@ func TestInterestRuleServiceForecastSupportsCommonRanges(t *testing.T) {
 	}
 }
 
-func TestInterestRuleServiceForecastIgnoresUncapitalizedAndFutureTransactions(t *testing.T) {
+func TestInterestEngineForecastIgnoresUncapitalizedAndFutureTransactions(t *testing.T) {
 	rule := validAccrualTestRule()
 	rule.CapitalizationFrequency = models.CapitalizationFrequencyNone
 
-	got, err := NewInterestRuleService(nil).Forecast(t.Context(), &ForecastRuleInterestRequest{
+	got, err := NewInterestEngine().Forecast(t.Context(), &ForecastRuleInterestRequest{
 		Rule: rule,
 		Transactions: []models.Transaction{
 			{
