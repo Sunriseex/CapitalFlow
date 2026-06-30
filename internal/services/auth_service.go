@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"strings"
 	"time"
 
@@ -37,14 +36,13 @@ var loginLockoutDelays = []time.Duration{
 }
 
 type AuthService struct {
-	users        repository.UserRepository
-	refresh      repository.RefreshTokenRepository
-	audit        repository.AuthAuditRepository
-	accounts     repository.AccountRepository
-	tokens       *auth.TokenService
-	passwordFunc func(string, security.PasswordParams) (string, error)
-	verifyFunc   func(string, string) (bool, error)
-	now          func() time.Time
+	users          repository.UserRepository
+	refresh        repository.RefreshTokenRepository
+	accounts       repository.AccountRepository
+	authentication *AuthenticationPolicy
+	passwordFunc   func(string, security.PasswordParams) (string, error)
+	verifyFunc     func(string, string) (bool, error)
+	now            func() time.Time
 }
 
 func NewAuthService(users repository.UserRepository, refresh repository.RefreshTokenRepository, tokens *auth.TokenService, audit ...repository.AuthAuditRepository) *AuthService {
@@ -53,15 +51,26 @@ func NewAuthService(users repository.UserRepository, refresh repository.RefreshT
 		auditRepo = audit[0]
 	}
 
-	return &AuthService{
+	service := &AuthService{
 		users:        users,
 		refresh:      refresh,
-		audit:        auditRepo,
-		tokens:       tokens,
 		passwordFunc: security.HashPassword,
 		verifyFunc:   security.VerifyPassword,
 		now:          time.Now,
 	}
+	service.authentication = NewAuthenticationPolicy(users, refresh, tokens, auditRepo)
+	service.authentication.now = func() time.Time { return service.now() }
+	service.authentication.verifyFunc = func(password, hash string) (bool, error) {
+		return service.verifyFunc(password, hash)
+	}
+	return service
+}
+
+func (s *AuthService) AuthenticationPolicy() *AuthenticationPolicy {
+	if s == nil {
+		return nil
+	}
+	return s.authentication
 }
 
 func (s *AuthService) WithAccountRepository(repo repository.AccountRepository) *AuthService {
@@ -81,14 +90,6 @@ type ChangePasswordRequest struct {
 	NewPassword     string
 }
 
-type AuthSession struct {
-	User             *models.User
-	AccessToken      string
-	AccessExpiresAt  time.Time
-	RefreshToken     string
-	RefreshExpiresAt time.Time
-}
-
 type SessionInfo struct {
 	ID        string
 	ExpiresAt time.Time
@@ -98,17 +99,11 @@ type SessionInfo struct {
 	Current   bool
 }
 
-// PasswordConfirmationResult describes password confirmation state for sensitive authenticated actions.
-type PasswordConfirmationResult struct {
-	OK     bool
-	Locked bool
-}
-
 func (s *AuthService) Setup(ctx context.Context, req AuthRequest) (*AuthSession, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("setup auth: %w", err)
 	}
-	if s.users == nil || s.refresh == nil || s.tokens == nil {
+	if s.users == nil || s.refresh == nil || !s.authentication.configured() {
 		return nil, fmt.Errorf("auth service is not configured")
 	}
 
@@ -117,32 +112,32 @@ func (s *AuthService) Setup(ctx context.Context, req AuthRequest) (*AuthSession,
 		return nil, fmt.Errorf("count users: %w", err)
 	}
 	if count > 0 {
-		s.auditEvent(ctx, "setup_failed", req.Email, nil, false, "setup_complete")
+		s.authentication.Audit(ctx, "setup_failed", req.Email, nil, false, "setup_complete")
 		return nil, validationError("setup is already complete")
 	}
 
 	user, err := s.buildUser(req)
 	if err != nil {
-		s.auditEvent(ctx, "setup_failed", req.Email, nil, false, "validation_error")
+		s.authentication.Audit(ctx, "setup_failed", req.Email, nil, false, "validation_error")
 		return nil, err
 	}
 	if setupRepo, ok := s.users.(repository.AuthSetupRepository); ok {
-		session, refreshToken, err := s.buildSession(user)
+		session, refreshToken, err := s.authentication.buildSession(user)
 		if err != nil {
-			s.auditEvent(ctx, "setup_failed", req.Email, &user.ID, false, "issue_session_failed")
+			s.authentication.Audit(ctx, "setup_failed", req.Email, &user.ID, false, "issue_session_failed")
 			return nil, err
 		}
 
 		var auditEvent *models.AuthAuditEvent
-		if s.audit != nil {
-			auditEvent = s.newAuditEvent("setup_success", user.Email, &user.ID, true, "")
+		if s.authentication.hasAuditRepository() {
+			auditEvent = s.authentication.NewAuditEvent("setup_success", user.Email, &user.ID, true, "")
 		}
 		if err := setupRepo.Setup(ctx, user, refreshToken, auditEvent); err != nil {
 			if errors.Is(err, repository.ErrConflict) {
-				s.auditEvent(ctx, "setup_failed", req.Email, nil, false, "setup_complete")
+				s.authentication.Audit(ctx, "setup_failed", req.Email, nil, false, "setup_complete")
 				return nil, validationError("setup is already complete")
 			}
-			s.auditEvent(ctx, "setup_failed", req.Email, &user.ID, false, "setup_transaction_failed")
+			s.authentication.Audit(ctx, "setup_failed", req.Email, &user.ID, false, "setup_transaction_failed")
 			return nil, fmt.Errorf("setup auth transaction: %w", err)
 		}
 		recordAuthEventMetric("setup_success", true, "")
@@ -151,26 +146,26 @@ func (s *AuthService) Setup(ctx context.Context, req AuthRequest) (*AuthSession,
 
 	if err := s.users.Create(ctx, user); err != nil {
 		if errors.Is(err, repository.ErrConflict) {
-			s.auditEvent(ctx, "setup_failed", req.Email, nil, false, "setup_complete")
+			s.authentication.Audit(ctx, "setup_failed", req.Email, nil, false, "setup_complete")
 			return nil, validationError("setup is already complete")
 		}
-		s.auditEvent(ctx, "setup_failed", req.Email, nil, false, "save_failed")
+		s.authentication.Audit(ctx, "setup_failed", req.Email, nil, false, "save_failed")
 		return nil, fmt.Errorf("save user: %w", err)
 	}
 
 	if s.accounts != nil {
 		if err := s.accounts.ClaimUnowned(ctx, user.ID); err != nil {
-			s.auditEvent(ctx, "setup_failed", req.Email, &user.ID, false, "claim_unowned_accounts_failed")
+			s.authentication.Audit(ctx, "setup_failed", req.Email, &user.ID, false, "claim_unowned_accounts_failed")
 			return nil, fmt.Errorf("claim unowned accounts: %w", err)
 		}
 	}
 
-	session, err := s.issueSession(ctx, user)
+	session, err := s.authentication.issueSession(ctx, user)
 	if err != nil {
-		s.auditEvent(ctx, "setup_failed", req.Email, &user.ID, false, "issue_session_failed")
+		s.authentication.Audit(ctx, "setup_failed", req.Email, &user.ID, false, "issue_session_failed")
 		return nil, err
 	}
-	s.auditEvent(ctx, "setup_success", user.Email, &user.ID, true, "")
+	s.authentication.Audit(ctx, "setup_success", user.Email, &user.ID, true, "")
 	return session, nil
 }
 
@@ -178,118 +173,62 @@ func (s *AuthService) Login(ctx context.Context, req AuthRequest) (*AuthSession,
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("login: %w", err)
 	}
-	if s.users == nil || s.refresh == nil || s.tokens == nil {
+	if s.users == nil || s.refresh == nil || !s.authentication.configured() {
 		return nil, fmt.Errorf("auth service is not configured")
 	}
 
 	email, err := normalizeEmail(req.Email)
 	if err != nil {
-		s.auditEvent(ctx, "login_failed", req.Email, nil, false, "validation_error")
+		s.authentication.Audit(ctx, "login_failed", req.Email, nil, false, "validation_error")
 		return nil, err
 	}
 	if strings.TrimSpace(req.Password) == "" {
-		s.auditEvent(ctx, "login_failed", email, nil, false, "invalid_credentials")
+		s.authentication.Audit(ctx, "login_failed", email, nil, false, "invalid_credentials")
 		return nil, validationError("invalid email or password")
 	}
 
 	user, err := s.users.GetByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
-			s.auditEvent(ctx, "login_failed", email, nil, false, "invalid_credentials")
+			s.authentication.Audit(ctx, "login_failed", email, nil, false, "invalid_credentials")
 			return nil, validationError("invalid email or password")
 		}
 		return nil, fmt.Errorf("get user: %w", err)
 	}
 
-	now := s.now()
-	if s.UserLocked(user) {
-		s.auditEvent(ctx, "login_failed", email, &user.ID, false, "account_locked")
-		return nil, validationError("invalid email or password")
-	}
-
-	ok, err := s.verifyFunc(req.Password, user.PasswordHash)
+	confirmation, err := s.authentication.ConfirmPassword(ctx, user, req.Password)
 	if err != nil {
-		return nil, fmt.Errorf("verify password: %w", err)
-	}
-	if !ok {
-		_, lockedUntil, err := s.users.RecordLoginFailure(ctx, user.ID, loginLockoutThreshold, loginLockoutDelays, now)
-		if err != nil {
-			return nil, fmt.Errorf("record login failure: %w", err)
-		}
-		reason := "invalid_credentials"
-		if lockedUntil != nil {
-			reason = "account_locked"
-		}
-		s.auditEvent(ctx, "login_failed", email, &user.ID, false, reason)
-		return nil, validationError("invalid email or password")
-	}
-
-	if user.FailedLoginAttempts > 0 || user.LockedUntil != nil {
-		if err := s.users.ClearLoginFailures(ctx, user.ID, now); err != nil {
-			return nil, fmt.Errorf("clear login failures: %w", err)
-		}
-		user.FailedLoginAttempts = 0
-		user.LockedUntil = nil
-		user.UpdatedAt = now
-	}
-
-	session, err := s.issueSession(ctx, user)
-	if err != nil {
-		s.auditEvent(ctx, "login_failed", email, &user.ID, false, "issue_session_failed")
 		return nil, err
 	}
-	s.auditEvent(ctx, "login_success", email, &user.ID, true, "")
-	return session, nil
-}
+	if !confirmation.OK {
+		reason := "invalid_credentials"
+		if confirmation.Locked {
+			reason = "account_locked"
+		}
+		s.authentication.Audit(ctx, "login_failed", email, &user.ID, false, reason)
+		return nil, validationError("invalid email or password")
+	}
 
-// VerifyPasswordConfirmation verifies a user's password for sensitive authenticated actions and applies lockout rules.
-func (s *AuthService) VerifyPasswordConfirmation(ctx context.Context, user *models.User, password string) (PasswordConfirmationResult, error) {
-	if err := ctx.Err(); err != nil {
-		return PasswordConfirmationResult{}, fmt.Errorf("verify password confirmation: %w", err)
-	}
-	if s.users == nil {
-		return PasswordConfirmationResult{}, fmt.Errorf("auth service is not configured")
-	}
-	if user == nil {
-		return PasswordConfirmationResult{}, validationError("invalid password confirmation")
-	}
-	now := s.now()
-	if s.UserLocked(user) {
-		return PasswordConfirmationResult{Locked: true}, nil
-	}
-	ok, err := s.verifyFunc(password, user.PasswordHash)
+	session, err := s.authentication.issueSession(ctx, user)
 	if err != nil {
-		return PasswordConfirmationResult{}, fmt.Errorf("verify password: %w", err)
+		s.authentication.Audit(ctx, "login_failed", email, &user.ID, false, "issue_session_failed")
+		return nil, err
 	}
-	if !ok {
-		_, lockedUntil, err := s.users.RecordLoginFailure(ctx, user.ID, loginLockoutThreshold, loginLockoutDelays, now)
-		if err != nil {
-			return PasswordConfirmationResult{}, fmt.Errorf("record login failure: %w", err)
-		}
-		return PasswordConfirmationResult{Locked: lockedUntil != nil}, nil
-	}
-	if user.FailedLoginAttempts > 0 || user.LockedUntil != nil {
-		if err := s.users.ClearLoginFailures(ctx, user.ID, now); err != nil {
-			return PasswordConfirmationResult{}, fmt.Errorf("clear login failures: %w", err)
-		}
-		user.FailedLoginAttempts = 0
-		user.LockedUntil = nil
-		user.UpdatedAt = now
-	}
-	return PasswordConfirmationResult{OK: true}, nil
+	s.authentication.Audit(ctx, "login_success", email, &user.ID, true, "")
+	return session, nil
 }
 
 func (s *AuthService) Refresh(ctx context.Context, rawRefreshToken string) (*AuthSession, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("refresh session: %w", err)
 	}
-	if s.users == nil || s.refresh == nil || s.tokens == nil {
+	if s.users == nil || s.refresh == nil || !s.authentication.configured() {
 		return nil, fmt.Errorf("auth service is not configured")
 	}
 
 	rawRefreshToken = strings.TrimSpace(rawRefreshToken)
 	if rawRefreshToken == "" {
-		s.auditEvent(ctx, "refresh_failed", "", nil, false, "missing_refresh_token")
+		s.authentication.Audit(ctx, "refresh_failed", "", nil, false, "missing_refresh_token")
 		return nil, validationError("refresh token is required")
 	}
 
@@ -297,7 +236,7 @@ func (s *AuthService) Refresh(ctx context.Context, rawRefreshToken string) (*Aut
 	token, err := s.refresh.GetByHash(ctx, auth.HashRefreshToken(rawRefreshToken))
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
-			s.auditEvent(ctx, "refresh_failed", "", nil, false, "invalid_refresh_token")
+			s.authentication.Audit(ctx, "refresh_failed", "", nil, false, "invalid_refresh_token")
 			return nil, validationError("invalid refresh token")
 		}
 		return nil, fmt.Errorf("get refresh token: %w", err)
@@ -308,17 +247,17 @@ func (s *AuthService) Refresh(ctx context.Context, rawRefreshToken string) (*Aut
 				return nil, fmt.Errorf("revoke refresh token family: %w", err)
 			}
 
-			s.auditEvent(ctx, "refresh_reuse_detected", "", &token.UserID, false, "revoked_refresh_token_reused")
+			s.authentication.Audit(ctx, "refresh_reuse_detected", "", &token.UserID, false, "revoked_refresh_token_reused")
 			return nil, validationError("invalid refresh token")
 		}
 
-		s.auditEvent(ctx, "refresh_failed", "", &token.UserID, false, "inactive_refresh_token")
+		s.authentication.Audit(ctx, "refresh_failed", "", &token.UserID, false, "inactive_refresh_token")
 		return nil, validationError("invalid refresh token")
 	}
 
 	if err := s.refresh.Revoke(ctx, token.ID, now, refreshRevokedReasonRotated); err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
-			s.auditEvent(ctx, "refresh_failed", "", &token.UserID, false, "refresh_token_already_rotated")
+			s.authentication.Audit(ctx, "refresh_failed", "", &token.UserID, false, "refresh_token_already_rotated")
 			return nil, validationError("invalid refresh token")
 		}
 		return nil, fmt.Errorf("revoke refresh token: %w", err)
@@ -329,12 +268,12 @@ func (s *AuthService) Refresh(ctx context.Context, rawRefreshToken string) (*Aut
 		return nil, fmt.Errorf("get user: %w", err)
 	}
 
-	session, err := s.issueSession(ctx, user)
+	session, err := s.authentication.issueSession(ctx, user)
 	if err != nil {
-		s.auditEvent(ctx, "refresh_failed", user.Email, &user.ID, false, "issue_session_failed")
+		s.authentication.Audit(ctx, "refresh_failed", user.Email, &user.ID, false, "issue_session_failed")
 		return nil, err
 	}
-	s.auditEvent(ctx, "refresh_success", user.Email, &user.ID, true, "")
+	s.authentication.Audit(ctx, "refresh_success", user.Email, &user.ID, true, "")
 	return session, nil
 }
 
@@ -348,14 +287,14 @@ func (s *AuthService) Logout(ctx context.Context, rawRefreshToken string) error 
 
 	rawRefreshToken = strings.TrimSpace(rawRefreshToken)
 	if rawRefreshToken == "" {
-		s.auditEvent(ctx, "logout", "", nil, true, "missing_refresh_token")
+		s.authentication.Audit(ctx, "logout", "", nil, true, "missing_refresh_token")
 		return nil
 	}
 
 	token, err := s.refresh.GetByHash(ctx, auth.HashRefreshToken(rawRefreshToken))
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
-			s.auditEvent(ctx, "logout", "", nil, true, "unknown_refresh_token")
+			s.authentication.Audit(ctx, "logout", "", nil, true, "unknown_refresh_token")
 			return nil
 		}
 		return fmt.Errorf("get refresh token: %w", err)
@@ -363,7 +302,7 @@ func (s *AuthService) Logout(ctx context.Context, rawRefreshToken string) error 
 	if err := s.refresh.Revoke(ctx, token.ID, s.now(), refreshRevokedReasonLogout); err != nil {
 		return fmt.Errorf("revoke refresh token: %w", err)
 	}
-	s.auditEvent(ctx, "logout", "", &token.UserID, true, "")
+	s.authentication.Audit(ctx, "logout", "", &token.UserID, true, "")
 	return nil
 }
 
@@ -380,11 +319,11 @@ func (s *AuthService) ChangePassword(ctx context.Context, req ChangePasswordRequ
 		return validationError("user is required")
 	}
 	if strings.TrimSpace(req.CurrentPassword) == "" {
-		s.auditEvent(ctx, "change_password_failed", "", &userID, false, "invalid_current_password")
+		s.authentication.Audit(ctx, "change_password_failed", "", &userID, false, "invalid_current_password")
 		return validationError("current password is required")
 	}
 	if strings.TrimSpace(req.NewPassword) == "" {
-		s.auditEvent(ctx, "change_password_failed", "", &userID, false, "validation_error")
+		s.authentication.Audit(ctx, "change_password_failed", "", &userID, false, "validation_error")
 		return validationError("new password is required")
 	}
 
@@ -397,15 +336,15 @@ func (s *AuthService) ChangePassword(ctx context.Context, req ChangePasswordRequ
 		return fmt.Errorf("verify password: %w", err)
 	}
 	if !ok {
-		s.auditEvent(ctx, "change_password_failed", user.Email, &user.ID, false, "invalid_current_password")
+		s.authentication.Audit(ctx, "change_password_failed", user.Email, &user.ID, false, "invalid_current_password")
 		return validationError("invalid current password")
 	}
 	if req.CurrentPassword == req.NewPassword {
-		s.auditEvent(ctx, "change_password_failed", user.Email, &user.ID, false, "password_reuse")
+		s.authentication.Audit(ctx, "change_password_failed", user.Email, &user.ID, false, "password_reuse")
 		return validationError("new password must be different")
 	}
 	if err := validatePasswordPolicy(req.NewPassword, user.Email); err != nil {
-		s.auditEvent(ctx, "change_password_failed", user.Email, &user.ID, false, "validation_error")
+		s.authentication.Audit(ctx, "change_password_failed", user.Email, &user.ID, false, "validation_error")
 		return err
 	}
 
@@ -415,10 +354,10 @@ func (s *AuthService) ChangePassword(ctx context.Context, req ChangePasswordRequ
 	}
 	now := s.now()
 	if err := s.users.ChangePasswordAndRevokeSessions(ctx, user.ID, hash, now, refreshRevokedReasonPasswordChange); err != nil {
-		s.auditEvent(ctx, "change_password_failed", user.Email, &user.ID, false, "save_failed")
+		s.authentication.Audit(ctx, "change_password_failed", user.Email, &user.ID, false, "save_failed")
 		return fmt.Errorf("change password and revoke sessions: %w", err)
 	}
-	s.auditEvent(ctx, "change_password_success", user.Email, &user.ID, true, "")
+	s.authentication.Audit(ctx, "change_password_success", user.Email, &user.ID, true, "")
 	return nil
 }
 
@@ -437,7 +376,7 @@ func (s *AuthService) ListSessions(ctx context.Context, userID, currentRefreshTo
 
 	tokens, err := s.refresh.ListByUser(ctx, userID)
 	if err != nil {
-		s.auditEvent(ctx, "sessions_list_failed", "", &userID, false, "list_failed")
+		s.authentication.Audit(ctx, "sessions_list_failed", "", &userID, false, "list_failed")
 		return nil, fmt.Errorf("list refresh tokens: %w", err)
 	}
 
@@ -453,7 +392,7 @@ func (s *AuthService) ListSessions(ctx context.Context, userID, currentRefreshTo
 			Current:   token.ID == currentRefreshTokenID,
 		})
 	}
-	s.auditEvent(ctx, "sessions_listed", "", &userID, true, "")
+	s.authentication.Audit(ctx, "sessions_listed", "", &userID, true, "")
 	return sessions, nil
 }
 
@@ -496,7 +435,7 @@ func (s *AuthService) RevokeSession(ctx context.Context, userID, sessionID strin
 		return validationError("user is required")
 	}
 	if sessionID == "" {
-		s.auditEvent(ctx, "session_revoke_failed", "", &userID, false, "validation_error")
+		s.authentication.Audit(ctx, "session_revoke_failed", "", &userID, false, "validation_error")
 		return validationError("session is required")
 	}
 
@@ -505,10 +444,10 @@ func (s *AuthService) RevokeSession(ctx context.Context, userID, sessionID strin
 		if errors.Is(err, repository.ErrNotFound) {
 			reason = "session_not_found"
 		}
-		s.auditEvent(ctx, "session_revoke_failed", "", &userID, false, reason)
+		s.authentication.Audit(ctx, "session_revoke_failed", "", &userID, false, reason)
 		return fmt.Errorf("revoke session: %w", err)
 	}
-	s.auditEvent(ctx, "session_revoked", "", &userID, true, "")
+	s.authentication.Audit(ctx, "session_revoked", "", &userID, true, "")
 	return nil
 }
 
@@ -541,73 +480,6 @@ func (s *AuthService) buildUser(req AuthRequest) (*models.User, error) {
 	}, nil
 }
 
-func (s *AuthService) issueSession(ctx context.Context, user *models.User) (*AuthSession, error) {
-	session, refreshToken, err := s.buildSession(user)
-	if err != nil {
-		return nil, err
-	}
-	if err := s.refresh.Create(ctx, refreshToken); err != nil {
-		return nil, fmt.Errorf("save refresh token: %w", err)
-	}
-	return session, nil
-}
-
-// IssueSessionForUser creates a normal access/refresh session for an existing user.
-func (s *AuthService) IssueSessionForUser(ctx context.Context, userID string) (*AuthSession, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, fmt.Errorf("issue session for user: %w", err)
-	}
-	if s.users == nil || s.refresh == nil || s.tokens == nil {
-		return nil, fmt.Errorf("auth service is not configured")
-	}
-	user, err := s.users.GetByID(ctx, strings.TrimSpace(userID))
-	if err != nil {
-		return nil, fmt.Errorf("get user: %w", err)
-	}
-	if s.UserLocked(user) {
-		return nil, validationError("invalid email or password")
-	}
-	if user.FailedLoginAttempts > 0 || user.LockedUntil != nil {
-		now := s.now()
-		if err := s.users.ClearLoginFailures(ctx, user.ID, now); err != nil {
-			return nil, fmt.Errorf("clear login failures: %w", err)
-		}
-		user.FailedLoginAttempts = 0
-		user.LockedUntil = nil
-		user.UpdatedAt = now
-	}
-	return s.issueSession(ctx, user)
-}
-
-// UserLocked reports whether the user is currently inside an active auth lockout window.
-func (s *AuthService) UserLocked(user *models.User) bool {
-	return user != nil && user.LockedUntil != nil && s.now().Before(*user.LockedUntil)
-}
-
-func (s *AuthService) buildSession(user *models.User) (*AuthSession, *models.RefreshToken, error) {
-	now := s.now()
-	pair, err := s.tokens.IssuePair(user.ID, user.Email, now)
-	if err != nil {
-		return nil, nil, fmt.Errorf("issue tokens: %w", err)
-	}
-
-	refreshToken := &models.RefreshToken{
-		ID:        pair.RefreshTokenID,
-		UserID:    user.ID,
-		TokenHash: pair.RefreshTokenHash,
-		ExpiresAt: pair.RefreshExpiresAt,
-		CreatedAt: now,
-	}
-
-	return &AuthSession{
-		User:             user,
-		AccessToken:      pair.AccessToken,
-		AccessExpiresAt:  pair.AccessExpiresAt,
-		RefreshToken:     pair.RefreshToken,
-		RefreshExpiresAt: pair.RefreshExpiresAt,
-	}, refreshToken, nil
-}
-
 func normalizeEmail(email string) (string, error) {
 	normalized, err := domainauth.NormalizeEmail(email)
 	if err != nil {
@@ -636,31 +508,6 @@ func validatePasswordPolicy(password, email string) error {
 		return validationError(err.Error())
 	}
 	return nil
-}
-
-func (s *AuthService) auditEvent(ctx context.Context, eventType, email string, userID *string, success bool, reason string) {
-	recordAuthEventMetric(eventType, success, reason)
-
-	if s.audit == nil {
-		return
-	}
-
-	event := s.newAuditEvent(eventType, email, userID, success, reason)
-	if err := s.audit.Create(ctx, event); err != nil {
-		slog.Warn("auth audit event was not persisted", "event_type", eventType, "error", err)
-	}
-}
-
-func (s *AuthService) newAuditEvent(eventType, email string, userID *string, success bool, reason string) *models.AuthAuditEvent {
-	return &models.AuthAuditEvent{
-		ID:        uuid.NewString(),
-		UserID:    userID,
-		EventType: eventType,
-		Email:     strings.ToLower(strings.TrimSpace(email)),
-		Success:   success,
-		Reason:    reason,
-		CreatedAt: s.now(),
-	}
 }
 
 func isRefreshTokenReuseCandidate(token *models.RefreshToken) bool {

@@ -109,7 +109,7 @@ func TestPasskeyRegistrationOptionsRejectsActiveLockout(t *testing.T) {
 }
 
 func TestNewPasskeyServiceRejectsNonOriginURLs(t *testing.T) {
-	authService, users, _, audit := newTestAuthService(t)
+	authService, users, _, _ := newTestAuthService(t)
 	passkeys := &fakePasskeyRepo{
 		credentialsByID: map[string]*models.PasskeyCredential{},
 		challenges:      map[string]*models.WebAuthnChallenge{},
@@ -123,7 +123,7 @@ func TestNewPasskeyServiceRejectsNonOriginURLs(t *testing.T) {
 
 	for _, origin := range origins {
 		t.Run(origin, func(t *testing.T) {
-			_, err := NewPasskeyService(users, passkeys, authService, audit, WebAuthnConfig{
+			_, err := NewPasskeyService(users, passkeys, authService.AuthenticationPolicy(), WebAuthnConfig{
 				RPDisplayName: "CapitalFlow",
 				RPID:          "capitalflow.example.com",
 				Origins:       []string{origin},
@@ -436,12 +436,12 @@ func TestPasskeyE2ESmokeInMemoryCreatesRefreshSession(t *testing.T) {
 
 func newTestPasskeyService(t *testing.T) (*PasskeyService, *fakeUserRepo, *fakeRefreshRepo, *fakePasskeyRepo) {
 	t.Helper()
-	authService, users, refresh, audit := newTestAuthService(t)
+	authService, users, refresh, _ := newTestAuthService(t)
 	passkeys := &fakePasskeyRepo{
 		credentialsByID: map[string]*models.PasskeyCredential{},
 		challenges:      map[string]*models.WebAuthnChallenge{},
 	}
-	service, err := NewPasskeyService(users, passkeys, authService, audit, WebAuthnConfig{
+	service, err := NewPasskeyService(users, passkeys, authService.AuthenticationPolicy(), WebAuthnConfig{
 		RPDisplayName: "CapitalFlow",
 		RPID:          "localhost",
 		Origins:       []string{"http://localhost:5173"},
