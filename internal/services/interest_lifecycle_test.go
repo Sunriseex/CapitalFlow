@@ -24,7 +24,7 @@ func TestInterestLifecycleAccruePersistsInsideLock(t *testing.T) {
 			OccurredAt: date.AddDate(0, 0, -1),
 		}},
 	}
-	lifecycle := NewInterestLifecycle(&lifecycleRepo{snapshot: snapshot})
+	lifecycle := NewInterestLifecycle(&lifecycleRepo{snapshot: snapshot}, NewInterestEngine())
 
 	result, err := lifecycle.Accrue(t.Context(), &AccrueAccountInterestRequest{
 		AccountID:   rule.AccountID,
@@ -55,7 +55,7 @@ func TestInterestLifecycleAccrueTreatsConflictAsSkipped(t *testing.T) {
 		createErr: repository.ErrConflict,
 	}}
 
-	result, err := NewInterestLifecycle(repo).Accrue(t.Context(), &AccrueAccountInterestRequest{
+	result, err := NewInterestLifecycle(repo, NewInterestEngine()).Accrue(t.Context(), &AccrueAccountInterestRequest{
 		AccountID: rule.AccountID, UserID: "user-1", Currency: "RUB", RuleID: rule.ID, AccrualDate: date,
 	})
 	if err != nil {
@@ -82,7 +82,7 @@ func TestInterestLifecycleAccrueSelectsLatestActiveRule(t *testing.T) {
 		}},
 	}
 
-	result, err := NewInterestLifecycle(&lifecycleRepo{snapshot: snapshot}).Accrue(t.Context(), &AccrueAccountInterestRequest{
+	result, err := NewInterestLifecycle(&lifecycleRepo{snapshot: snapshot}, NewInterestEngine()).Accrue(t.Context(), &AccrueAccountInterestRequest{
 		AccountID: currentRule.AccountID, UserID: "user-1", Currency: "RUB", AccrualDate: date,
 	})
 	if err != nil {
@@ -107,7 +107,7 @@ func TestInterestLifecycleRecalculateReplacesInsideLock(t *testing.T) {
 		deleted: 2,
 	}
 
-	result, err := NewInterestLifecycle(&lifecycleRepo{snapshot: snapshot}).Recalculate(t.Context(), &RecalculateAccountInterestRequest{
+	result, err := NewInterestLifecycle(&lifecycleRepo{snapshot: snapshot}, NewInterestEngine()).Recalculate(t.Context(), &RecalculateAccountInterestRequest{
 		AccountID: rule.AccountID, UserID: "user-1", Currency: "RUB", RuleID: rule.ID,
 		RuleDate: date, FromDate: date, ToDate: date,
 	})

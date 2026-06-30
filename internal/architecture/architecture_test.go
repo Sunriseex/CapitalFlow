@@ -88,6 +88,29 @@ func TestInterestAdaptersDoNotOwnTransactionalOrchestration(t *testing.T) {
 	}
 }
 
+func TestInterestCalculationUsesDedicatedEngine(t *testing.T) {
+	data, err := os.ReadFile("../services/interest_rule_service.go")
+	if err != nil {
+		t.Fatalf("read interest module: %v", err)
+	}
+	content := string(data)
+	for _, method := range []string{"Accrue", "Recalculate", "Forecast"} {
+		if strings.Contains(content, "func (s *InterestRuleService) "+method) {
+			t.Fatalf("interest rule management owns %s calculation", method)
+		}
+		if !strings.Contains(content, "func (e *InterestEngine) "+method) {
+			t.Fatalf("interest engine does not own %s calculation", method)
+		}
+	}
+	for _, root := range []string{"../services", "../application", "../jobs"} {
+		walkGoFiles(t, root, func(path, content string) {
+			if strings.Contains(content, "NewInterestRuleService(nil).") {
+				t.Fatalf("%s uses configuration-dependent interest rule management", path)
+			}
+		})
+	}
+}
+
 func TestLegacyJSONIsOnlyReachableFromCommandModule(t *testing.T) {
 	const legacyImport = "internal/" + "legacyjson"
 	for _, root := range []string{"..", "../../cmd"} {

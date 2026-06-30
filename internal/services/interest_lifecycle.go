@@ -16,6 +16,7 @@ import (
 type InterestLifecycle struct {
 	repo     repository.InterestAccrualTransactionalRepository
 	accounts repository.AccountRepository
+	engine   *InterestEngine
 }
 
 func (l *InterestLifecycle) WithAccountRepository(repo repository.AccountRepository) *InterestLifecycle {
@@ -23,8 +24,8 @@ func (l *InterestLifecycle) WithAccountRepository(repo repository.AccountReposit
 	return l
 }
 
-func NewInterestLifecycle(repo repository.InterestAccrualTransactionalRepository) *InterestLifecycle {
-	return &InterestLifecycle{repo: repo}
+func NewInterestLifecycle(repo repository.InterestAccrualTransactionalRepository, engine *InterestEngine) *InterestLifecycle {
+	return &InterestLifecycle{repo: repo, engine: engine}
 }
 
 type AccrueAccountInterestRequest struct {
@@ -48,6 +49,9 @@ type RecalculateAccountInterestRequest struct {
 func (l *InterestLifecycle) Accrue(ctx context.Context, req *AccrueAccountInterestRequest) (*AccrueRuleInterestResponse, error) {
 	if l == nil || l.repo == nil {
 		return nil, fmt.Errorf("accrue account interest: transactional interest repository is required")
+	}
+	if l.engine == nil {
+		return nil, fmt.Errorf("accrue account interest: interest engine is required")
 	}
 	if req == nil {
 		return nil, validationError("accrue account interest request is required")
@@ -89,7 +93,7 @@ func (l *InterestLifecycle) Accrue(ctx context.Context, req *AccrueAccountIntere
 			return fmt.Errorf("calculate account balance: %w", err)
 		}
 
-		calculated, err := NewInterestRuleService(nil).Accrue(ctx, &AccrueRuleInterestRequest{
+		calculated, err := l.engine.Accrue(ctx, &AccrueRuleInterestRequest{
 			Rule:             *rule,
 			Currency:         req.Currency,
 			Balance:          balance.Balance,
@@ -120,6 +124,9 @@ func (l *InterestLifecycle) Accrue(ctx context.Context, req *AccrueAccountIntere
 func (l *InterestLifecycle) Recalculate(ctx context.Context, req *RecalculateAccountInterestRequest) (*RecalculateRuleInterestResponse, error) {
 	if l == nil || l.repo == nil {
 		return nil, fmt.Errorf("recalculate account interest: transactional interest repository is required")
+	}
+	if l.engine == nil {
+		return nil, fmt.Errorf("recalculate account interest: interest engine is required")
 	}
 	if req == nil {
 		return nil, validationError("recalculate account interest request is required")
@@ -154,7 +161,7 @@ func (l *InterestLifecycle) Recalculate(ctx context.Context, req *RecalculateAcc
 			return err
 		}
 
-		calculated, err := NewInterestRuleService(nil).Recalculate(ctx, &RecalculateRuleInterestRequest{
+		calculated, err := l.engine.Recalculate(ctx, &RecalculateRuleInterestRequest{
 			Rule:             *rule,
 			Currency:         req.Currency,
 			Transactions:     transactions,

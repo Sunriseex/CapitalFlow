@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -9,6 +10,32 @@ import (
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/repository"
 )
+
+func TestPersistCalculatedAccrualOwnsConflictHandling(t *testing.T) {
+	wantErr := errors.New("write failed")
+	tests := []struct {
+		name         string
+		writeErr     error
+		wantConflict bool
+		wantErr      error
+	}{
+		{name: "success"},
+		{name: "duplicate is skipped", writeErr: repository.ErrConflict, wantConflict: true},
+		{name: "write failure", writeErr: wantErr, wantErr: wantErr},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			writer := &commandAccrualWriter{createErr: tt.writeErr}
+			conflict, err := persistCalculatedAccrual(t.Context(), writer, &models.Transaction{ID: "tx-1"}, &models.InterestAccrual{ID: "accrual-1"})
+			if conflict != tt.wantConflict || !errors.Is(err, tt.wantErr) {
+				t.Fatalf("conflict = %t, error = %v", conflict, err)
+			}
+			if writer.created == nil || writer.created.ID != "accrual-1" {
+				t.Fatalf("created accrual = %#v", writer.created)
+			}
+		})
+	}
+}
 
 func TestResolveOwnerUserID(t *testing.T) {
 	tests := []struct {
@@ -48,6 +75,20 @@ func userMap(ids ...string) map[string]*models.User {
 }
 
 type commandUserRepo struct{ byID map[string]*models.User }
+
+type commandAccrualWriter struct {
+	createErr error
+	created   *models.InterestAccrual
+}
+
+func (w *commandAccrualWriter) CreateWithTransaction(_ context.Context, _ *models.Transaction, accrual *models.InterestAccrual) error {
+	w.created = accrual
+	return w.createErr
+}
+
+func (*commandAccrualWriter) ReplaceRangeWithTransactions(context.Context, string, string, time.Time, time.Time, []models.Transaction, []models.InterestAccrual) (int64, error) {
+	return 0, nil
+}
 
 func (r *commandUserRepo) Create(_ context.Context, user *models.User) error {
 	r.byID[user.ID] = user
