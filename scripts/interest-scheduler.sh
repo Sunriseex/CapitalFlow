@@ -9,6 +9,7 @@ fi
 job_time="${CAPITALFLOW_INTEREST_JOBS_TIME:-03:15}"
 job_timeout="${CAPITALFLOW_INTEREST_JOB_TIMEOUT:-30m}"
 capitalflow_bin="${CAPITALFLOW_BIN:-/usr/local/bin/capitalflow}"
+schedule_bin="${CAPITALFLOW_INTEREST_SCHEDULE_BIN:-/usr/local/bin/capitalflow-interest-schedule}"
 heartbeat_file="/tmp/capitalflow-interest-scheduler.heartbeat"
 
 if ! date -d "2000-01-01 ${job_time}" +%s >/dev/null 2>&1; then
@@ -20,17 +21,7 @@ echo "interest jobs scheduler enabled at ${job_time} ${TZ:-UTC}"
 
 while true; do
   date -Iseconds > "${heartbeat_file}"
-  now="$(date +%s)"
-  today="$(date +%F)"
-  target="$(date -d "${today} ${job_time}" +%s)"
-  if [ "${target}" -le "${now}" ]; then
-    target="$(date -d "${today} ${job_time} + 1 day" +%s)"
-  fi
-
-  sleep_seconds="$((target - now))"
-  if [ "${sleep_seconds}" -lt 0 ]; then
-    sleep_seconds=0
-  fi
+  sleep_seconds="$("${schedule_bin}" "${job_time}")"
   echo "next interest jobs run in ${sleep_seconds}s"
   sleep "${sleep_seconds}"
 

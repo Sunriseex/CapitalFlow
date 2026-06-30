@@ -31,7 +31,8 @@ COPY --from=build /out/capitalflow /usr/local/bin/capitalflow
 COPY --from=build /out/goose /usr/local/bin/goose
 COPY migrations ./migrations
 COPY scripts/interest-scheduler.sh /usr/local/bin/capitalflow-interest-scheduler
-RUN chmod +x /usr/local/bin/capitalflow-interest-scheduler
+COPY scripts/interest-schedule.sh /usr/local/bin/capitalflow-interest-schedule
+RUN chmod +x /usr/local/bin/capitalflow-interest-scheduler /usr/local/bin/capitalflow-interest-schedule
 
 EXPOSE 8080
 
