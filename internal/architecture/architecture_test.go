@@ -111,6 +111,22 @@ func TestInterestCalculationUsesDedicatedEngine(t *testing.T) {
 	}
 }
 
+func TestTransactionQueriesDoNotFallBackToUnboundedReads(t *testing.T) {
+	data, err := os.ReadFile("../services/transaction_query.go")
+	if err != nil {
+		t.Fatalf("read transaction query module: %v", err)
+	}
+	content := string(data)
+	for _, forbidden := range []string{"applyTransactionListFilter", "ListByAccountForUser(ctx", ".(filteredTransactionLister)"} {
+		if strings.Contains(content, forbidden) {
+			t.Fatalf("transaction query module contains fallback %q", forbidden)
+		}
+	}
+	if !strings.Contains(content, "repository.TransactionQueryRepository") {
+		t.Fatal("transaction query module does not use its bounded persistence seam")
+	}
+}
+
 func TestLegacyJSONIsOnlyReachableFromCommandModule(t *testing.T) {
 	const legacyImport = "internal/" + "legacyjson"
 	for _, root := range []string{"..", "../../cmd"} {

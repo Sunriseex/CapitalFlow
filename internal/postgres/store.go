@@ -28,6 +28,10 @@ func (s *Store) Transactions() repository.TransactionRepository {
 	return NewTransactionRepository(s.pool)
 }
 
+func (s *Store) TransactionQueries() repository.TransactionQueryRepository {
+	return NewTransactionRepository(s.pool)
+}
+
 func (s *Store) Categories() repository.CategoryRepository {
 	return NewCategoryRepository(s.pool)
 }

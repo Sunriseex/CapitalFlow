@@ -21,7 +21,7 @@ func (h *Handler) listTransactions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	transactions, err := h.app.Transactions.ListByUser(r.Context(), userID, &filter)
+	transactions, err := h.app.TransactionQueries.ListByUser(r.Context(), userID, &filter)
 	if err != nil {
 		writeServiceError(w, err)
 		return
