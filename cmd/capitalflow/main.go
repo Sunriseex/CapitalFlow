@@ -11,13 +11,11 @@ import (
 
 	"github.com/shopspring/decimal"
 
+	"github.com/sunriseex/capitalflow/internal/application"
 	"github.com/sunriseex/capitalflow/internal/config"
 	"github.com/sunriseex/capitalflow/internal/jobs"
-	"github.com/sunriseex/capitalflow/internal/legacyjson"
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/postgres"
-	"github.com/sunriseex/capitalflow/internal/repository"
-	"github.com/sunriseex/capitalflow/internal/services"
 	"github.com/sunriseex/capitalflow/pkg/money"
 )
 
@@ -100,6 +98,19 @@ func openStore(ctx context.Context, databaseURL string) (*postgres.Store, func()
 	return postgres.NewStore(pool), pool.Close, nil
 }
 
+func openCommands(ctx context.Context, databaseURL string) (*application.CommandModule, func(), error) {
+	store, closeStore, err := openStore(ctx, databaseURL)
+	if err != nil {
+		return nil, nil, err
+	}
+	app, err := application.New(store, application.Config{})
+	if err != nil {
+		closeStore()
+		return nil, nil, err
+	}
+	return app.Commands, closeStore, nil
+}
+
 func databaseFlags(name string, args []string) (*flag.FlagSet, *string, *time.Duration, error) {
 	flags := flag.NewFlagSet(name, flag.ContinueOnError)
 	databaseURL := flags.String("database-url", config.AppConfig.DatabaseURL, "PostgreSQL connection URL")
@@ -119,13 +130,13 @@ func runDoctor(ctx context.Context, args []string) error {
 	ctx, cancel := context.WithTimeout(ctx, *timeout)
 	defer cancel()
 
-	store, closeStore, err := openStore(ctx, *databaseURL)
+	commands, closeStore, err := openCommands(ctx, *databaseURL)
 	if err != nil {
 		return err
 	}
 	defer closeStore()
 
-	if err := store.Ping(ctx); err != nil {
+	if err := commands.Ready(ctx); err != nil {
 		return err
 	}
 	fmt.Println("postgres: ok")
@@ -156,13 +167,13 @@ func runAccountsList(ctx context.Context, args []string) error {
 	ctx, cancel := context.WithTimeout(ctx, *timeout)
 	defer cancel()
 
-	store, closeStore, err := openStore(ctx, *databaseURL)
+	commands, closeStore, err := openCommands(ctx, *databaseURL)
 	if err != nil {
 		return err
 	}
 	defer closeStore()
 
-	accounts, err := store.Accounts().List(ctx)
+	accounts, err := commands.ListAccounts(ctx)
 	if err != nil {
 		return err
 	}
@@ -195,20 +206,14 @@ func runAccountsCreate(ctx context.Context, args []string) error {
 	ctx, cancel := context.WithTimeout(ctx, *timeout)
 	defer cancel()
 
-	store, closeStore, err := openStore(ctx, *databaseURL)
+	commands, closeStore, err := openCommands(ctx, *databaseURL)
 	if err != nil {
 		return err
 	}
 	defer closeStore()
 
-	resolvedOwnerUserID, err := resolveOwnerUserID(ctx, store.Users(), *ownerUserID)
-	if err != nil {
-		return err
-	}
-
-	service := services.NewAccountService(store.Accounts())
-	account, err := service.Create(ctx, &services.CreateAccountRequest{
-		OwnerUserID: resolvedOwnerUserID,
+	account, err := commands.CreateAccount(ctx, &application.CreateAccountCommand{
+		OwnerUserID: *ownerUserID,
 		Name:        *name,
 		Bank:        *bank,
 		Type:        models.AccountType(strings.TrimSpace(*accountType)),
@@ -250,18 +255,13 @@ func runTransactionsList(ctx context.Context, args []string) error {
 	ctx, cancel := context.WithTimeout(ctx, *timeout)
 	defer cancel()
 
-	store, closeStore, err := openStore(ctx, *databaseURL)
+	commands, closeStore, err := openCommands(ctx, *databaseURL)
 	if err != nil {
 		return err
 	}
 	defer closeStore()
 
-	var transactions []models.Transaction
-	if strings.TrimSpace(*accountID) == "" {
-		transactions, err = store.Transactions().List(ctx)
-	} else {
-		transactions, err = store.Transactions().ListByAccount(ctx, strings.TrimSpace(*accountID))
-	}
+	transactions, err := commands.ListTransactions(ctx, *accountID)
 	if err != nil {
 		return err
 	}
@@ -303,32 +303,16 @@ func runTransactionsCreate(ctx context.Context, args []string) error {
 	ctx, cancel := context.WithTimeout(ctx, *timeout)
 	defer cancel()
 
-	store, closeStore, err := openStore(ctx, *databaseURL)
+	commands, closeStore, err := openCommands(ctx, *databaseURL)
 	if err != nil {
 		return err
 	}
 	defer closeStore()
 
-	account, err := store.Accounts().GetByID(ctx, strings.TrimSpace(*accountID))
-	if err != nil {
-		return err
-	}
-	service := services.NewTransactionService(store.Transactions())
-	createReq := &services.CreateTransactionRequest{
-		AccountID:       *accountID,
-		Type:            parsedType,
-		Amount:          Amount,
-		Currency:        account.Currency,
-		Description:     *description,
-		OccurredAt:      occurredAt,
-		AccountOpenedAt: account.OpenedAt,
-	}
-	var transaction *models.Transaction
-	if account.OwnerUserID != nil && strings.TrimSpace(*account.OwnerUserID) != "" {
-		transaction, err = service.CreateForUser(ctx, *account.OwnerUserID, createReq)
-	} else {
-		transaction, err = service.Create(ctx, createReq)
-	}
+	transaction, err := commands.CreateTransaction(ctx, &application.CreateTransactionCommand{
+		AccountID: *accountID, Type: parsedType, Amount: Amount,
+		Description: *description, OccurredAt: occurredAt,
+	})
 	if err != nil {
 		return err
 	}
@@ -352,20 +336,13 @@ func runBalance(ctx context.Context, args []string) error {
 	ctx, cancel := context.WithTimeout(ctx, *timeout)
 	defer cancel()
 
-	store, closeStore, err := openStore(ctx, *databaseURL)
+	commands, closeStore, err := openCommands(ctx, *databaseURL)
 	if err != nil {
 		return err
 	}
 	defer closeStore()
 
-	transactions, err := store.Transactions().ListByAccount(ctx, strings.TrimSpace(*accountID))
-	if err != nil {
-		return err
-	}
-	balance, err := services.NewBalanceService().Calculate(ctx, services.CalculateBalanceRequest{
-		AccountID:    strings.TrimSpace(*accountID),
-		Transactions: transactions,
-	})
+	balance, err := commands.Balance(ctx, *accountID)
 	if err != nil {
 		return err
 	}
@@ -376,7 +353,7 @@ func runBalance(ctx context.Context, args []string) error {
 
 func runMigrateJSON(ctx context.Context, args []string) error {
 	flags := flag.NewFlagSet("migrate-json", flag.ContinueOnError)
-	depositsPath := flags.String("deposits", legacyjson.DefaultDepositSnapshotPath, "legacy deposits JSON path")
+	depositsPath := flags.String("deposits", application.DefaultLegacyDepositSnapshotPath, "legacy deposits JSON path")
 	ownerUserID := flags.String("owner-user-id", "", "owner user id for migrated accounts")
 	databaseURL := flags.String("database-url", config.AppConfig.DatabaseURL, "PostgreSQL connection URL")
 	timeout := flags.Duration("timeout", 30*time.Second, "migration timeout")
@@ -387,25 +364,13 @@ func runMigrateJSON(ctx context.Context, args []string) error {
 	ctx, cancel := context.WithTimeout(ctx, *timeout)
 	defer cancel()
 
-	store, closeStore, err := openStore(ctx, *databaseURL)
+	commands, closeStore, err := openCommands(ctx, *databaseURL)
 	if err != nil {
 		return err
 	}
 	defer closeStore()
 
-	resolvedOwnerUserID, err := resolveOwnerUserID(ctx, store.Users(), *ownerUserID)
-	if err != nil {
-		return err
-	}
-
-	importer := legacyjson.NewImporter(
-		store.Accounts(),
-		store.Transactions(),
-		store.InterestRules(),
-		legacyjson.WithDepositMigrationRepository(store),
-		legacyjson.WithOwnerUserID(resolvedOwnerUserID),
-	)
-	report, err := importer.Import(ctx, *depositsPath)
+	report, err := commands.ImportLegacyDeposits(ctx, *depositsPath, *ownerUserID)
 	if err != nil {
 		return err
 	}
@@ -455,66 +420,32 @@ func runJobsRun(ctx context.Context, args []string) error {
 	ctx, cancel := context.WithTimeout(ctx, *timeout)
 	defer cancel()
 
-	store, closeStore, err := openStore(ctx, *databaseURL)
+	commands, closeStore, err := openCommands(ctx, *databaseURL)
 	if err != nil {
 		return err
 	}
 	defer closeStore()
 
-	var result *jobs.InterestJobRunResult
-	acquired, err := store.WithAdvisoryLock(ctx, "capitalflow:"+jobName, func(ctx context.Context) error {
-		var runErr error
-		result, runErr = runInterestJob(ctx, store, jobName, jobDate)
-		return runErr
-	})
+	result, err := commands.RunInterestJob(ctx, jobName, jobDate)
 	if err != nil {
 		return err
 	}
-	if !acquired {
+	if !result.Acquired {
 		fmt.Printf("%s\talready running\n", jobName)
 		return nil
 	}
-	if result != nil {
+	if result.Run != nil {
 		fmt.Printf(
 			"%s\tdate=%s\tscanned=%d\tposted=%d\tskipped=%d\tfailed=%d\n",
-			result.JobName,
-			result.AccrualDate.Format(time.DateOnly),
-			result.Scanned,
-			result.Posted,
-			result.Skipped,
-			result.Failed,
+			result.Run.JobName,
+			result.Run.AccrualDate.Format(time.DateOnly),
+			result.Run.Scanned,
+			result.Run.Posted,
+			result.Run.Skipped,
+			result.Run.Failed,
 		)
 	}
 	return nil
-}
-
-func runInterestJob(ctx context.Context, store *postgres.Store, jobName string, jobDate time.Time) (*jobs.InterestJobRunResult, error) {
-	rules, ok := store.InterestRules().(repository.InterestRuleJobRepository)
-	if !ok {
-		return nil, fmt.Errorf("interest rule repository does not support jobs")
-	}
-	accruals, ok := store.InterestAccruals().(repository.InterestAccrualTransactionalRepository)
-	if !ok {
-		return nil, fmt.Errorf("interest accrual repository does not support transactional jobs")
-	}
-
-	job := &jobs.InterestJob{
-		Rules:     rules,
-		Lifecycle: services.NewInterestLifecycle(accruals),
-		Now:       func() time.Time { return jobDate },
-	}
-
-	var result *jobs.InterestJobRunResult
-	var err error
-	switch jobName {
-	case jobs.DailyInterestAccrualJobName:
-		result, err = job.RunDailyInterestAccrual(ctx)
-	case jobs.MonthlyInterestAccrualJobName:
-		result, err = job.RunMonthlyInterestAccrual(ctx)
-	case jobs.DepositMaturityCheckJobName:
-		result, err = job.RunDepositMaturityCheck(ctx)
-	}
-	return result, err
 }
 
 func runAccrue(ctx context.Context, args []string) error {
@@ -542,60 +473,23 @@ func runAccrue(ctx context.Context, args []string) error {
 	ctx, cancel := context.WithTimeout(ctx, *timeout)
 	defer cancel()
 
-	store, closeStore, err := openStore(ctx, *databaseURL)
+	commands, closeStore, err := openCommands(ctx, *databaseURL)
 	if err != nil {
 		return err
 	}
 	defer closeStore()
 
-	accountModel, err := store.Accounts().GetByID(ctx, account)
-	if err != nil {
-		return err
-	}
-	rule, err := selectInterestRule(ctx, store.InterestRules(), account, *ruleID, accrualDate)
-	if err != nil {
-		return err
-	}
-	transactions, err := store.Transactions().ListByAccount(ctx, account)
-	if err != nil {
-		return err
-	}
-	accruals, err := store.InterestAccruals().ListByAccount(ctx, account)
-	if err != nil {
-		return err
-	}
-	balance, err := services.NewBalanceService().Calculate(ctx, services.CalculateBalanceRequest{
-		AccountID:    account,
-		Transactions: transactionsUpToDate(transactions, accrualDate),
-	})
-	if err != nil {
-		return err
-	}
-	if rule.CapitalizationFrequency == models.CapitalizationFrequencyNone ||
-		rule.CapitalizationFrequency == "" {
-		transactions = excludeRuleAccrualTransactions(transactions, accruals, rule)
-	}
-
-	service := services.NewInterestRuleService(
-		services.NewTransactionService(store.Transactions()),
-		services.WithInterestAccrualRepository(store.InterestAccruals()),
-	)
-	result, err := service.Accrue(ctx, &services.AccrueRuleInterestRequest{
-		Rule:             *rule,
-		Currency:         accountModel.Currency,
-		Balance:          balance.Balance,
-		AccrualDate:      accrualDate,
-		Transactions:     transactions,
-		ExistingAccruals: accruals,
+	result, err := commands.AccrueInterest(ctx, &application.InterestCommand{
+		AccountID: account, RuleID: *ruleID, Date: accrualDate,
 	})
 	if err != nil {
 		return err
 	}
 	if result.Skipped {
-		fmt.Printf("%s\t%s\tskipped\n", account, rule.ID)
+		fmt.Printf("%s\t%s\tskipped\n", account, result.RuleID)
 		return nil
 	}
-	fmt.Printf("%s\t%s\t%s\t%s\n", account, rule.ID, result.Accrual.AccrualDate.Format(time.DateOnly), money.FormatRUB(result.Accrual.Amount))
+	fmt.Printf("%s\t%s\t%s\t%s\n", account, result.RuleID, result.Accrual.AccrualDate.Format(time.DateOnly), money.FormatRUB(result.Accrual.Amount))
 	return nil
 }
 
@@ -625,35 +519,14 @@ func runForecast(ctx context.Context, args []string) error {
 	ctx, cancel := context.WithTimeout(ctx, *timeout)
 	defer cancel()
 
-	store, closeStore, err := openStore(ctx, *databaseURL)
+	commands, closeStore, err := openCommands(ctx, *databaseURL)
 	if err != nil {
 		return err
 	}
 	defer closeStore()
 
-	accountModel, err := store.Accounts().GetByID(ctx, account)
-	if err != nil {
-		return err
-	}
-	rule, err := selectInterestRule(ctx, store.InterestRules(), account, *ruleID, fromDate)
-	if err != nil {
-		return err
-	}
-	transactions, err := store.Transactions().ListByAccount(ctx, account)
-	if err != nil {
-		return err
-	}
-	accruals, err := store.InterestAccruals().ListByAccount(ctx, account)
-	if err != nil {
-		return err
-	}
-	result, err := services.NewInterestRuleService(nil).Forecast(ctx, &services.ForecastRuleInterestRequest{
-		Rule:             *rule,
-		Currency:         accountModel.Currency,
-		Transactions:     transactions,
-		ExistingAccruals: accruals,
-		FromDate:         fromDate,
-		Days:             *days,
+	result, err := commands.ForecastInterest(ctx, &application.InterestCommand{
+		AccountID: account, RuleID: *ruleID, Date: fromDate, Days: *days,
 	})
 	if err != nil {
 		return err
@@ -701,39 +574,15 @@ func runRecalculate(ctx context.Context, args []string) error {
 	ctx, cancel := context.WithTimeout(ctx, *timeout)
 	defer cancel()
 
-	store, closeStore, err := openStore(ctx, *databaseURL)
+	commands, closeStore, err := openCommands(ctx, *databaseURL)
 	if err != nil {
 		return err
 	}
 	defer closeStore()
 
-	accountModel, err := store.Accounts().GetByID(ctx, account)
-	if err != nil {
-		return err
-	}
-	rule, err := selectInterestRule(ctx, store.InterestRules(), account, *ruleID, ruleDate)
-	if err != nil {
-		return err
-	}
-	transactions, err := store.Transactions().ListByAccount(ctx, account)
-	if err != nil {
-		return err
-	}
-	accruals, err := store.InterestAccruals().ListByAccount(ctx, account)
-	if err != nil {
-		return err
-	}
-	service := services.NewInterestRuleService(
-		services.NewTransactionService(store.Transactions()),
-		services.WithInterestAccrualRepository(store.InterestAccruals()),
-	)
-	result, err := service.Recalculate(ctx, &services.RecalculateRuleInterestRequest{
-		Rule:             *rule,
-		Currency:         accountModel.Currency,
-		Transactions:     transactions,
-		ExistingAccruals: accruals,
-		FromDate:         fromDate,
-		ToDate:           toDate,
+	result, err := commands.RecalculateInterest(ctx, &application.InterestCommand{
+		AccountID: account, RuleID: *ruleID, Date: ruleDate,
+		FromDate: fromDate, ToDate: toDate,
 	})
 	if err != nil {
 		return err
@@ -749,7 +598,7 @@ func runRecalculate(ctx context.Context, args []string) error {
 	return nil
 }
 
-func printMigrationReport(report *legacyjson.ImportReport) {
+func printMigrationReport(report *application.LegacyImportReport) {
 	fmt.Println("Legacy deposit import report")
 	fmt.Printf("  deposits: %d\n", report.TotalDeposits)
 	fmt.Printf("  accounts created: %d\n", report.CreatedAccounts)
@@ -791,108 +640,7 @@ func dateOnly(date time.Time) time.Time {
 	return time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
 }
 
-func selectInterestRule(ctx context.Context, repo repository.InterestRuleRepository, accountID, ruleID string, date time.Time) (*models.InterestRule, error) {
-	ruleID = strings.TrimSpace(ruleID)
-	if ruleID != "" {
-		rule, err := repo.GetByID(ctx, ruleID)
-		if err != nil {
-			return nil, err
-		}
-		if rule.AccountID != accountID {
-			return nil, repository.ErrNotFound
-		}
-		return rule, nil
-	}
-
-	rules, err := repo.ListByAccount(ctx, accountID)
-	if err != nil {
-		return nil, err
-	}
-	var selected *models.InterestRule
-	for i := range rules {
-		rule := &rules[i]
-		if !rule.IsActive || !interestRuleActiveOn(rule, date) {
-			continue
-		}
-		if selected == nil || dateOnly(rule.StartDate).After(dateOnly(selected.StartDate)) {
-			selected = rule
-		}
-	}
-	if selected == nil {
-		return nil, repository.ErrNotFound
-	}
-	return selected, nil
-}
-
-func interestRuleActiveOn(rule *models.InterestRule, date time.Time) bool {
-	date = dateOnly(date)
-	if date.IsZero() {
-		date = dateOnly(time.Now())
-	}
-	if date.Before(dateOnly(rule.StartDate)) {
-		return false
-	}
-	return rule.EndDate == nil || !date.After(dateOnly(*rule.EndDate))
-}
-
-func transactionsUpToDate(transactions []models.Transaction, date time.Time) []models.Transaction {
-	date = dateOnly(date)
-	filtered := make([]models.Transaction, 0, len(transactions))
-	for i := range transactions {
-		if !dateOnly(transactions[i].OccurredAt).After(date) {
-			filtered = append(filtered, transactions[i])
-		}
-	}
-	return filtered
-}
-
-func excludeRuleAccrualTransactions(transactions []models.Transaction, accruals []models.InterestAccrual, rule *models.InterestRule) []models.Transaction {
-	excluded := make(map[string]struct{})
-	for i := range accruals {
-		accrual := &accruals[i]
-		if accrual.AccountID == rule.AccountID && accrual.RuleID == rule.ID {
-			excluded[accrual.TransactionID] = struct{}{}
-		}
-	}
-	filtered := make([]models.Transaction, 0, len(transactions))
-	for i := range transactions {
-		if _, ok := excluded[transactions[i].ID]; !ok {
-			filtered = append(filtered, transactions[i])
-		}
-	}
-	return filtered
-}
-
 func parseAmount(input string) (decimal.Decimal, error) { return money.ParseDecimalString(input) }
-
-func resolveOwnerUserID(ctx context.Context, users repository.UserRepository, ownerUserID string) (string, error) {
-	ownerUserID = strings.TrimSpace(ownerUserID)
-
-	count, err := users.Count(ctx)
-	if err != nil {
-		return "", fmt.Errorf("count users: %w", err)
-	}
-
-	if count == 0 {
-		if ownerUserID != "" {
-			return "", fmt.Errorf("owner-user-id was provided, but setup has not created a user yet")
-		}
-		return "", nil
-	}
-
-	if ownerUserID != "" {
-		if _, err := users.GetByID(ctx, ownerUserID); err != nil {
-			return "", fmt.Errorf("get owner user: %w", err)
-		}
-		return ownerUserID, nil
-	}
-
-	if count == 1 {
-		return "", nil
-	}
-
-	return "", fmt.Errorf("owner-user-id is required when multiple users exist")
-}
 
 func showHelp() {
 	fmt.Println(`capitalflow

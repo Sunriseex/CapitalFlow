@@ -88,7 +88,7 @@ func TestInterestAdaptersDoNotOwnTransactionalOrchestration(t *testing.T) {
 	}
 }
 
-func TestLegacyJSONIsOnlyReachableFromImportCLI(t *testing.T) {
+func TestLegacyJSONIsOnlyReachableFromCommandModule(t *testing.T) {
 	const legacyImport = "internal/" + "legacyjson"
 	for _, root := range []string{"..", "../../cmd"} {
 		walkGoFiles(t, root, func(path, content string) {
@@ -98,11 +98,27 @@ func TestLegacyJSONIsOnlyReachableFromImportCLI(t *testing.T) {
 			if !strings.Contains(content, legacyImport) {
 				return
 			}
-			if filepath.Clean(path) != filepath.Clean("../../cmd/capitalflow/main.go") {
+			if filepath.Clean(path) != filepath.Clean("../application/commands.go") {
 				t.Fatalf("%s imports the legacy JSON adapter", path)
 			}
 		})
 	}
+}
+
+func TestCLIAdapterDoesNotComposeApplicationServices(t *testing.T) {
+	walkGoFiles(t, "../../cmd/capitalflow", func(path, content string) {
+		if strings.HasSuffix(path, "_test.go") {
+			return
+		}
+		if strings.Contains(content, "services.New") {
+			t.Fatalf("%s composes an application service", path)
+		}
+		for _, pattern := range []string{".Accounts()", ".Transactions()", ".InterestRules()", ".InterestAccruals()"} {
+			if strings.Contains(content, pattern) {
+				t.Fatalf("%s calls persistence through %q", path, pattern)
+			}
+		}
+	})
 }
 
 func TestTransactionHardDeleteIsLimitedToGeneratedInterestReplacement(t *testing.T) {

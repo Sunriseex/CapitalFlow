@@ -50,6 +50,7 @@ type Application struct {
 	Categories        *services.CategoryService
 	FinancialGoals    *services.FinancialGoalService
 	CategoryLimits    *services.CategoryLimitService
+	Commands          *CommandModule
 	Idempotency       repository.IdempotencyRepository
 	readiness         interface{ Ping(context.Context) error }
 }
@@ -102,6 +103,7 @@ func New(store Store, cfg Config) (*Application, error) {
 		CategoryLimits:    services.NewCategoryLimitService(storeCategoryLimits(store), categoryRepo),
 		readiness:         store,
 	}
+	app.Commands = newCommandModule(store, app)
 	if store == nil {
 		return app, nil
 	}
