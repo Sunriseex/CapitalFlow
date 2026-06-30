@@ -39,6 +39,7 @@ type Config struct {
 type Application struct {
 	Tokens             *auth.TokenService
 	Auth               *services.AuthService
+	Authentication     *services.AuthenticationPolicy
 	Passkeys           *services.PasskeyService
 	Accounts           *services.AccountService
 	Transactions       *services.TransactionService
@@ -114,6 +115,7 @@ func New(store Store, cfg Config) (*Application, error) {
 
 	app.Auth = services.NewAuthService(store.Users(), store.RefreshTokens(), cfg.TokenService, store.AuthAuditEvents()).
 		WithAccountRepository(accountRepo)
+	app.Authentication = app.Auth.AuthenticationPolicy()
 	if cfg.TokenService == nil {
 		return app, nil
 	}
@@ -121,8 +123,7 @@ func New(store Store, cfg Config) (*Application, error) {
 	passkeys, err := services.NewPasskeyService(
 		store.Users(),
 		store.Passkeys(),
-		app.Auth,
-		store.AuthAuditEvents(),
+		app.Authentication,
 		services.WebAuthnConfig{
 			RPDisplayName: firstNonEmpty(cfg.WebAuthnRPDisplayName, "CapitalFlow"),
 			RPID:          firstNonEmpty(cfg.WebAuthnRPID, "localhost"),

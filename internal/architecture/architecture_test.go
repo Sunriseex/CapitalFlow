@@ -127,6 +127,41 @@ func TestTransactionQueriesDoNotFallBackToUnboundedReads(t *testing.T) {
 	}
 }
 
+func TestAuthenticationPolicyOwnsSharedSecurityLifecycle(t *testing.T) {
+	authData, err := os.ReadFile("../services/auth_service.go")
+	if err != nil {
+		t.Fatalf("read auth module: %v", err)
+	}
+	passkeyData, err := os.ReadFile("../services/passkey_service.go")
+	if err != nil {
+		t.Fatalf("read passkey module: %v", err)
+	}
+	policyData, err := os.ReadFile("../services/authentication_policy.go")
+	if err != nil {
+		t.Fatalf("read authentication policy: %v", err)
+	}
+	for path, content := range map[string]string{
+		"auth service":    string(authData),
+		"passkey service": string(passkeyData),
+	} {
+		for _, forbidden := range []string{"RecordLoginFailure(", "ClearLoginFailures(", "IssuePair(", "func (s *AuthService) auditEvent", "func (s *PasskeyService) auditEvent"} {
+			if strings.Contains(content, forbidden) {
+				t.Fatalf("%s owns shared authentication policy %q", path, forbidden)
+			}
+		}
+	}
+	passkeyContent := string(passkeyData)
+	if strings.Contains(passkeyContent, "*AuthService") || strings.Contains(passkeyContent, "repository.AuthAuditRepository") {
+		t.Fatal("passkey mechanism depends on auth workflow or audit persistence")
+	}
+	policyContent := string(policyData)
+	for _, required := range []string{"ConfirmPassword(", "IssueSessionForUser(", "UserLocked(", "Audit("} {
+		if !strings.Contains(policyContent, required) {
+			t.Fatalf("authentication policy does not own %q", required)
+		}
+	}
+}
+
 func TestLegacyJSONIsOnlyReachableFromCommandModule(t *testing.T) {
 	const legacyImport = "internal/" + "legacyjson"
 	for _, root := range []string{"..", "../../cmd"} {

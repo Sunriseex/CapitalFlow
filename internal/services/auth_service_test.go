@@ -287,7 +287,7 @@ func TestAuthServiceLoginClearsFailuresOnSuccess(t *testing.T) {
 	}
 }
 
-func TestAuthServiceIssueSessionForUserRejectsActiveLockout(t *testing.T) {
+func TestAuthenticationPolicyIssueSessionForUserRejectsActiveLockout(t *testing.T) {
 	service, users, refresh, _ := newTestAuthService(t)
 	lockedUntil := service.now().Add(time.Minute)
 	users.byID["user-1"] = &models.User{
@@ -297,7 +297,7 @@ func TestAuthServiceIssueSessionForUserRejectsActiveLockout(t *testing.T) {
 		LockedUntil:         &lockedUntil,
 	}
 
-	_, err := service.IssueSessionForUser(t.Context(), "user-1")
+	_, err := service.AuthenticationPolicy().IssueSessionForUser(t.Context(), "user-1")
 	if !IsValidationError(err) {
 		t.Fatalf("expected validation error, got %v", err)
 	}
@@ -306,7 +306,7 @@ func TestAuthServiceIssueSessionForUserRejectsActiveLockout(t *testing.T) {
 	}
 }
 
-func TestAuthServiceVerifyPasswordConfirmationAppliesLockout(t *testing.T) {
+func TestAuthenticationPolicyConfirmPasswordAppliesLockout(t *testing.T) {
 	service, users, _, _ := newTestAuthService(t)
 	users.byID["user-1"] = &models.User{
 		ID:                  "user-1",
@@ -315,7 +315,7 @@ func TestAuthServiceVerifyPasswordConfirmationAppliesLockout(t *testing.T) {
 		FailedLoginAttempts: loginLockoutThreshold - 1,
 	}
 
-	result, err := service.VerifyPasswordConfirmation(t.Context(), users.byID["user-1"], "wrong password")
+	result, err := service.AuthenticationPolicy().ConfirmPassword(t.Context(), users.byID["user-1"], "wrong password")
 	if err != nil {
 		t.Fatalf("verify password confirmation: %v", err)
 	}
@@ -810,7 +810,7 @@ func TestAuthServiceAuditEventRecordsMetric(t *testing.T) {
 	key := authEventMetricKey("login_failed", false, "invalid_credentials")
 	before := authMetricValue(t, key)
 
-	service.auditEvent(t.Context(), "login_failed", "user@example.com", nil, false, "invalid_credentials")
+	service.AuthenticationPolicy().Audit(t.Context(), "login_failed", "user@example.com", nil, false, "invalid_credentials")
 
 	after := authMetricValue(t, key)
 	if after != before+1 {

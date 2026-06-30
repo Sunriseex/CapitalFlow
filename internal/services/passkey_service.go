@@ -55,8 +55,7 @@ type PasskeyDeleteRequest struct {
 type PasskeyService struct {
 	users          repository.UserRepository
 	passkeys       repository.PasskeyRepository
-	auth           *AuthService
-	audit          repository.AuthAuditRepository
+	authentication *AuthenticationPolicy
 	webAuthn       passkeyRelyingParty
 	parseCreation  func([]byte) (*protocol.ParsedCredentialCreationData, error)
 	parseAssertion func([]byte) (*protocol.ParsedCredentialAssertionData, error)
@@ -75,9 +74,9 @@ type passkeyRelyingParty interface {
 }
 
 // NewPasskeyService creates a PasskeyService.
-func NewPasskeyService(users repository.UserRepository, passkeys repository.PasskeyRepository, authService *AuthService, audit repository.AuthAuditRepository, cfg WebAuthnConfig) (*PasskeyService, error) {
-	if authService == nil {
-		return nil, validationError("auth service is required")
+func NewPasskeyService(users repository.UserRepository, passkeys repository.PasskeyRepository, authentication *AuthenticationPolicy, cfg WebAuthnConfig) (*PasskeyService, error) {
+	if authentication == nil {
+		return nil, validationError("authentication policy is required")
 	}
 	rpDisplayName := strings.TrimSpace(cfg.RPDisplayName)
 	if rpDisplayName == "" {
@@ -116,8 +115,7 @@ func NewPasskeyService(users repository.UserRepository, passkeys repository.Pass
 	return &PasskeyService{
 		users:          users,
 		passkeys:       passkeys,
-		auth:           authService,
-		audit:          audit,
+		authentication: authentication,
 		webAuthn:       webAuthn,
 		parseCreation:  protocol.ParseCredentialCreationResponseBytes,
 		parseAssertion: protocol.ParseCredentialRequestResponseBytes,
@@ -150,7 +148,7 @@ func (s *PasskeyService) RegistrationOptions(ctx context.Context, req PasskeyReg
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
 	}
-	confirmation, err := s.auth.VerifyPasswordConfirmation(ctx, user, req.Password)
+	confirmation, err := s.authentication.ConfirmPassword(ctx, user, req.Password)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +157,7 @@ func (s *PasskeyService) RegistrationOptions(ctx context.Context, req PasskeyReg
 		if confirmation.Locked {
 			reason = "account_locked"
 		}
-		s.auditEvent(ctx, "passkey_registration_failed", user.Email, &user.ID, false, reason)
+		s.authentication.Audit(ctx, "passkey_registration_failed", user.Email, &user.ID, false, reason)
 		return nil, validationError("passkey registration requires recent password confirmation")
 	}
 	s.cleanupChallenges(ctx)
@@ -174,14 +172,14 @@ func (s *PasskeyService) RegistrationOptions(ctx context.Context, req PasskeyReg
 		webauthn.WithExclusions(webauthn.Credentials(webUser.WebAuthnCredentials()).CredentialDescriptors()),
 	)
 	if err != nil {
-		s.auditEvent(ctx, "passkey_registration_failed", user.Email, &user.ID, false, "options_failed")
+		s.authentication.Audit(ctx, "passkey_registration_failed", user.Email, &user.ID, false, "options_failed")
 		return nil, fmt.Errorf("begin passkey registration: %w", err)
 	}
 	if err := s.storeChallenge(ctx, user.ID, passkeyCeremonyRegistration, session); err != nil {
-		s.auditEvent(ctx, "passkey_registration_failed", user.Email, &user.ID, false, "challenge_store_failed")
+		s.authentication.Audit(ctx, "passkey_registration_failed", user.Email, &user.ID, false, "challenge_store_failed")
 		return nil, err
 	}
-	s.auditEvent(ctx, "passkey_registration_options", user.Email, &user.ID, true, "")
+	s.authentication.Audit(ctx, "passkey_registration_options", user.Email, &user.ID, true, "")
 	return options, nil
 }
 
@@ -197,12 +195,12 @@ func (s *PasskeyService) VerifyRegistration(ctx context.Context, userID string, 
 	}
 	parsed, err := s.parseCreation(body)
 	if err != nil {
-		s.auditEvent(ctx, "passkey_registration_failed", user.Email, &user.ID, false, "invalid_response")
+		s.authentication.Audit(ctx, "passkey_registration_failed", user.Email, &user.ID, false, "invalid_response")
 		return nil, validationError("passkey registration failed")
 	}
 	challenge, err := s.consumeChallenge(ctx, passkeyCeremonyRegistration, parsed.Response.CollectedClientData.Challenge, &user.ID)
 	if err != nil {
-		s.auditEvent(ctx, "passkey_registration_failed", user.Email, &user.ID, false, "invalid_challenge")
+		s.authentication.Audit(ctx, "passkey_registration_failed", user.Email, &user.ID, false, "invalid_challenge")
 		return nil, validationError("passkey registration failed")
 	}
 	session, err := decodeSessionData(challenge.SessionData)
@@ -216,7 +214,7 @@ func (s *PasskeyService) VerifyRegistration(ctx context.Context, userID string, 
 	webUser := passkeyUser{user: user, credentials: credentials}
 	credential, err := s.webAuthn.CreateCredential(webUser, session, parsed)
 	if err != nil {
-		s.auditEvent(ctx, "passkey_registration_failed", user.Email, &user.ID, false, "verification_failed")
+		s.authentication.Audit(ctx, "passkey_registration_failed", user.Email, &user.ID, false, "verification_failed")
 		return nil, validationError("passkey registration failed")
 	}
 	now := s.now()
@@ -226,13 +224,13 @@ func (s *PasskeyService) VerifyRegistration(ctx context.Context, userID string, 
 		if errors.Is(err, repository.ErrConflict) {
 			reason = "credential_collision"
 		}
-		s.auditEvent(ctx, "passkey_registration_failed", user.Email, &user.ID, false, reason)
+		s.authentication.Audit(ctx, "passkey_registration_failed", user.Email, &user.ID, false, reason)
 		if errors.Is(err, repository.ErrConflict) {
 			return nil, validationError("passkey registration failed")
 		}
 		return nil, fmt.Errorf("save passkey: %w", err)
 	}
-	s.auditEvent(ctx, "passkey_registration_success", user.Email, &user.ID, true, "")
+	s.authentication.Audit(ctx, "passkey_registration_success", user.Email, &user.ID, true, "")
 	return record, nil
 }
 
@@ -241,14 +239,14 @@ func (s *PasskeyService) LoginOptions(ctx context.Context) (any, error) {
 	s.cleanupChallenges(ctx)
 	options, session, err := s.webAuthn.BeginDiscoverableLogin(webauthn.WithUserVerification(protocol.VerificationPreferred))
 	if err != nil {
-		s.auditEvent(ctx, "passkey_login_failed", "", nil, false, "options_failed")
+		s.authentication.Audit(ctx, "passkey_login_failed", "", nil, false, "options_failed")
 		return nil, fmt.Errorf("begin passkey login: %w", err)
 	}
 	if err := s.storeChallenge(ctx, "", passkeyCeremonyLogin, session); err != nil {
-		s.auditEvent(ctx, "passkey_login_failed", "", nil, false, "challenge_store_failed")
+		s.authentication.Audit(ctx, "passkey_login_failed", "", nil, false, "challenge_store_failed")
 		return nil, err
 	}
-	s.auditEvent(ctx, "passkey_login_options", "", nil, true, "")
+	s.authentication.Audit(ctx, "passkey_login_options", "", nil, true, "")
 	return options, nil
 }
 
@@ -256,12 +254,12 @@ func (s *PasskeyService) LoginOptions(ctx context.Context) (any, error) {
 func (s *PasskeyService) VerifyLogin(ctx context.Context, body []byte) (*AuthSession, error) {
 	parsed, err := s.parseAssertion(body)
 	if err != nil {
-		s.auditEvent(ctx, "passkey_login_failed", "", nil, false, "invalid_response")
+		s.authentication.Audit(ctx, "passkey_login_failed", "", nil, false, "invalid_response")
 		return nil, validationError("passkey login failed")
 	}
 	challenge, err := s.consumeChallenge(ctx, passkeyCeremonyLogin, parsed.Response.CollectedClientData.Challenge, nil)
 	if err != nil {
-		s.auditEvent(ctx, "passkey_login_failed", "", nil, false, "invalid_challenge")
+		s.authentication.Audit(ctx, "passkey_login_failed", "", nil, false, "invalid_challenge")
 		return nil, validationError("passkey login failed")
 	}
 	sessionData, err := decodeSessionData(challenge.SessionData)
@@ -270,25 +268,25 @@ func (s *PasskeyService) VerifyLogin(ctx context.Context, body []byte) (*AuthSes
 	}
 	webUser, credential, err := s.webAuthn.ValidatePasskeyLogin(s.discoverableUserHandler(ctx), sessionData, parsed)
 	if err != nil {
-		s.auditEvent(ctx, "passkey_login_failed", "", nil, false, "verification_failed")
+		s.authentication.Audit(ctx, "passkey_login_failed", "", nil, false, "verification_failed")
 		return nil, validationError("passkey login failed")
 	}
 	user := webUser.(passkeyUser).user
-	if s.auth.UserLocked(user) {
-		s.auditEvent(ctx, "passkey_login_failed", user.Email, &user.ID, false, "account_locked")
+	if s.authentication.UserLocked(user) {
+		s.authentication.Audit(ctx, "passkey_login_failed", user.Email, &user.ID, false, "account_locked")
 		return nil, validationError("passkey login failed")
 	}
 	now := s.now()
 	if err := s.passkeys.UpdateCredentialAfterLogin(ctx, credential.ID, credential.Authenticator.SignCount, credential.Authenticator.CloneWarning, credential.Flags.BackupState, now); err != nil {
-		s.auditEvent(ctx, "passkey_login_failed", user.Email, &user.ID, false, "credential_update_failed")
+		s.authentication.Audit(ctx, "passkey_login_failed", user.Email, &user.ID, false, "credential_update_failed")
 		return nil, fmt.Errorf("update passkey login: %w", err)
 	}
-	authSession, err := s.auth.IssueSessionForUser(ctx, user.ID)
+	authSession, err := s.authentication.IssueSessionForUser(ctx, user.ID)
 	if err != nil {
-		s.auditEvent(ctx, "passkey_login_failed", user.Email, &user.ID, false, "issue_session_failed")
+		s.authentication.Audit(ctx, "passkey_login_failed", user.Email, &user.ID, false, "issue_session_failed")
 		return nil, err
 	}
-	s.auditEvent(ctx, "passkey_login_success", user.Email, &user.ID, true, "")
+	s.authentication.Audit(ctx, "passkey_login_success", user.Email, &user.ID, true, "")
 	return authSession, nil
 }
 
@@ -303,7 +301,7 @@ func (s *PasskeyService) cleanupChallenges(ctx context.Context) {
 	s.cleanupMu.Unlock()
 
 	if err := s.passkeys.DeleteExpiredChallenges(ctx, now); err != nil {
-		s.auditEvent(ctx, "passkey_challenge_cleanup_failed", "", nil, false, "cleanup_failed")
+		s.authentication.Audit(ctx, "passkey_challenge_cleanup_failed", "", nil, false, "cleanup_failed")
 	}
 }
 
@@ -335,14 +333,14 @@ func (s *PasskeyService) Rename(ctx context.Context, req PasskeyRenameRequest) (
 	}
 	now := s.now()
 	if err := s.passkeys.RenameCredential(ctx, strings.TrimSpace(req.ID), strings.TrimSpace(req.UserID), name, now); err != nil {
-		s.auditEvent(ctx, "passkey_rename_failed", "", &req.UserID, false, "rename_failed")
+		s.authentication.Audit(ctx, "passkey_rename_failed", "", &req.UserID, false, "rename_failed")
 		return nil, fmt.Errorf("rename passkey: %w", err)
 	}
 	credential, err := s.passkeys.GetCredentialByIDForUser(ctx, strings.TrimSpace(req.ID), strings.TrimSpace(req.UserID))
 	if err != nil {
 		return nil, fmt.Errorf("get renamed passkey: %w", err)
 	}
-	s.auditEvent(ctx, "passkey_renamed", "", &req.UserID, true, "")
+	s.authentication.Audit(ctx, "passkey_renamed", "", &req.UserID, true, "")
 	return credential, nil
 }
 
@@ -350,10 +348,10 @@ func (s *PasskeyService) Rename(ctx context.Context, req PasskeyRenameRequest) (
 func (s *PasskeyService) Delete(ctx context.Context, req PasskeyDeleteRequest) error {
 	userID := strings.TrimSpace(req.UserID)
 	if err := s.passkeys.RevokeCredential(ctx, strings.TrimSpace(req.ID), userID, s.now()); err != nil {
-		s.auditEvent(ctx, "passkey_delete_failed", "", &userID, false, "delete_failed")
+		s.authentication.Audit(ctx, "passkey_delete_failed", "", &userID, false, "delete_failed")
 		return fmt.Errorf("delete passkey: %w", err)
 	}
-	s.auditEvent(ctx, "passkey_deleted", "", &userID, true, "")
+	s.authentication.Audit(ctx, "passkey_deleted", "", &userID, true, "")
 	return nil
 }
 
@@ -394,24 +392,6 @@ func (s *PasskeyService) consumeChallenge(ctx context.Context, ceremony, challen
 		return nil, fmt.Errorf("consume webauthn challenge: %w", err)
 	}
 	return record, nil
-}
-
-func (s *PasskeyService) auditEvent(ctx context.Context, eventType, email string, userID *string, success bool, reason string) {
-	if s.audit == nil {
-		return
-	}
-	event := &models.AuthAuditEvent{
-		ID:        uuid.NewString(),
-		UserID:    userID,
-		EventType: eventType,
-		Email:     email,
-		Success:   success,
-		Reason:    reason,
-		CreatedAt: s.now(),
-	}
-	if err := s.audit.Create(ctx, event); err == nil {
-		recordAuthEventMetric(eventType, success, reason)
-	}
 }
 
 func decodeSessionData(data []byte) (webauthn.SessionData, error) {
