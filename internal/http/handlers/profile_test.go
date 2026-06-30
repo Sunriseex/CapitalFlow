@@ -168,6 +168,11 @@ func (s *testProfileStore) Transactions() repository.TransactionRepository {
 	return s.transactions
 }
 
+func (s *testProfileStore) TransactionQueries() repository.TransactionQueryRepository {
+	query, _ := s.transactions.(repository.TransactionQueryRepository)
+	return query
+}
+
 func (s *testProfileStore) Categories() repository.CategoryRepository {
 	return s.categories
 }

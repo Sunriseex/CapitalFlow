@@ -20,6 +20,10 @@ type TransactionListFilter struct {
 	Page       int
 }
 
+type TransactionQueryRepository interface {
+	ListByUserFiltered(ctx context.Context, userID string, filter *TransactionListFilter) ([]models.Transaction, error)
+}
+
 type AccountRepository interface {
 	Create(ctx context.Context, account *models.Account) error
 	GetByID(ctx context.Context, id string) (*models.Account, error)

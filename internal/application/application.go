@@ -13,6 +13,7 @@ import (
 type Store interface {
 	Accounts() repository.AccountRepository
 	Transactions() repository.TransactionRepository
+	TransactionQueries() repository.TransactionQueryRepository
 	Categories() repository.CategoryRepository
 	FinancialGoals() repository.FinancialGoalRepository
 	CategoryLimits() repository.CategoryLimitRepository
@@ -36,29 +37,31 @@ type Config struct {
 // Application owns service composition. Transport adapters receive this
 // ready-to-use module and never construct services themselves.
 type Application struct {
-	Tokens            *auth.TokenService
-	Auth              *services.AuthService
-	Passkeys          *services.PasskeyService
-	Accounts          *services.AccountService
-	Transactions      *services.TransactionService
-	Transfers         *services.TransferService
-	InterestRules     *services.InterestRuleService
-	InterestEngine    *services.InterestEngine
-	InterestLifecycle *services.InterestLifecycle
-	Dashboard         *services.DashboardReporting
-	Profile           *services.ProfileService
-	Currency          *services.CurrencyService
-	Categories        *services.CategoryService
-	FinancialGoals    *services.FinancialGoalService
-	CategoryLimits    *services.CategoryLimitService
-	Commands          *CommandModule
-	Idempotency       repository.IdempotencyRepository
-	readiness         interface{ Ping(context.Context) error }
+	Tokens             *auth.TokenService
+	Auth               *services.AuthService
+	Passkeys           *services.PasskeyService
+	Accounts           *services.AccountService
+	Transactions       *services.TransactionService
+	TransactionQueries *services.TransactionQuery
+	Transfers          *services.TransferService
+	InterestRules      *services.InterestRuleService
+	InterestEngine     *services.InterestEngine
+	InterestLifecycle  *services.InterestLifecycle
+	Dashboard          *services.DashboardReporting
+	Profile            *services.ProfileService
+	Currency           *services.CurrencyService
+	Categories         *services.CategoryService
+	FinancialGoals     *services.FinancialGoalService
+	CategoryLimits     *services.CategoryLimitService
+	Commands           *CommandModule
+	Idempotency        repository.IdempotencyRepository
+	readiness          interface{ Ping(context.Context) error }
 }
 
 func New(store Store, cfg Config) (*Application, error) {
 	var accountRepo repository.AccountRepository
 	var transactionRepo repository.TransactionRepository
+	var transactionQueryRepo repository.TransactionQueryRepository
 	var categoryRepo repository.CategoryRepository
 	var interestRuleRepo repository.InterestRuleRepository
 	var interestAccrualRepo repository.InterestAccrualRepository
@@ -69,6 +72,7 @@ func New(store Store, cfg Config) (*Application, error) {
 	if store != nil {
 		accountRepo = store.Accounts()
 		transactionRepo = store.Transactions()
+		transactionQueryRepo = store.TransactionQueries()
 		categoryRepo = store.Categories()
 		interestRuleRepo = store.InterestRules()
 		interestAccrualRepo = store.InterestAccruals()
@@ -86,20 +90,21 @@ func New(store Store, cfg Config) (*Application, error) {
 		WithCategoryRepository(categoryRepo)
 	interestEngine := services.NewInterestEngine()
 	app := &Application{
-		Tokens:            cfg.TokenService,
-		Accounts:          services.NewAccountService(accountRepo).WithTransactionRepository(transactionRepo),
-		Transactions:      transactions,
-		Transfers:         services.NewTransferService(transactions).WithAccountRepository(accountRepo),
-		InterestRules:     services.NewInterestRuleService(interestRuleRepo, accountRepo),
-		InterestEngine:    interestEngine,
-		InterestLifecycle: services.NewInterestLifecycle(interestLifecycleRepo, interestEngine).WithAccountRepository(accountRepo),
-		Dashboard:         services.NewDashboardReporting(dashboardRepo),
-		Profile:           services.NewProfileService(userRepo),
-		Currency:          services.NewCurrencyService(nil),
-		Categories:        services.NewCategoryService(categoryRepo),
-		FinancialGoals:    services.NewFinancialGoalService(storeFinancialGoals(store), accountRepo),
-		CategoryLimits:    services.NewCategoryLimitService(storeCategoryLimits(store), categoryRepo),
-		readiness:         store,
+		Tokens:             cfg.TokenService,
+		Accounts:           services.NewAccountService(accountRepo).WithTransactionRepository(transactionRepo),
+		Transactions:       transactions,
+		TransactionQueries: services.NewTransactionQuery(transactionQueryRepo),
+		Transfers:          services.NewTransferService(transactions).WithAccountRepository(accountRepo),
+		InterestRules:      services.NewInterestRuleService(interestRuleRepo, accountRepo),
+		InterestEngine:     interestEngine,
+		InterestLifecycle:  services.NewInterestLifecycle(interestLifecycleRepo, interestEngine).WithAccountRepository(accountRepo),
+		Dashboard:          services.NewDashboardReporting(dashboardRepo),
+		Profile:            services.NewProfileService(userRepo),
+		Currency:           services.NewCurrencyService(nil),
+		Categories:         services.NewCategoryService(categoryRepo),
+		FinancialGoals:     services.NewFinancialGoalService(storeFinancialGoals(store), accountRepo),
+		CategoryLimits:     services.NewCategoryLimitService(storeCategoryLimits(store), categoryRepo),
+		readiness:          store,
 	}
 	app.Commands = newCommandModule(store, app)
 	if store == nil {
