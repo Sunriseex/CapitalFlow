@@ -86,8 +86,12 @@ func (r *moduleCategoryRepo) GetByID(_ context.Context, id string) (*models.Cate
 	return &clone, nil
 }
 
-func (r *moduleCategoryRepo) GetBySlug(context.Context, string) (*models.Category, error) {
-	return nil, repository.ErrNotFound
+func (r *moduleCategoryRepo) GetBySlug(_ context.Context, slug string) (*models.Category, error) {
+	if r.category == nil || r.category.Slug != slug {
+		return nil, repository.ErrNotFound
+	}
+	clone := *r.category
+	return &clone, nil
 }
 
 func (r *moduleCategoryRepo) List(context.Context) ([]models.Category, error) {

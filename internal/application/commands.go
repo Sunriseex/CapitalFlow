@@ -275,8 +275,13 @@ func (m *CommandModule) AccrueInterest(ctx context.Context, cmd *InterestCommand
 	if rule.CapitalizationFrequency == models.CapitalizationFrequencyNone || rule.CapitalizationFrequency == "" {
 		transactions = services.PrincipalTransactionsForRuleAt(transactions, accruals, rule, time.Time{})
 	}
+	category, err := m.store.Categories().GetBySlug(ctx, "deposit_interest")
+	if err != nil {
+		return nil, fmt.Errorf("get deposit interest category: %w", err)
+	}
 	result, err := m.app.InterestEngine.Accrue(ctx, &services.AccrueRuleInterestRequest{
-		Rule: *rule, Currency: account.Currency, Balance: balance.Balance, AccrualDate: cmd.Date,
+		Rule: *rule, AccountName: account.Name, CategoryID: category.ID,
+		Currency: account.Currency, Balance: balance.Balance, AccrualDate: cmd.Date,
 		Transactions: transactions, ExistingAccruals: accruals,
 	})
 	if err != nil {
@@ -320,8 +325,13 @@ func (m *CommandModule) RecalculateInterest(ctx context.Context, cmd *InterestCo
 	if err != nil {
 		return nil, err
 	}
+	category, err := m.store.Categories().GetBySlug(ctx, "deposit_interest")
+	if err != nil {
+		return nil, fmt.Errorf("get deposit interest category: %w", err)
+	}
 	result, err := m.app.InterestEngine.Recalculate(ctx, &services.RecalculateRuleInterestRequest{
-		Rule: *rule, Currency: account.Currency, Transactions: transactions, ExistingAccruals: accruals,
+		Rule: *rule, AccountName: account.Name, CategoryID: category.ID,
+		Currency: account.Currency, Transactions: transactions, ExistingAccruals: accruals,
 		FromDate: cmd.FromDate, ToDate: cmd.ToDate,
 	})
 	if err != nil {

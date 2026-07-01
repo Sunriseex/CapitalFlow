@@ -554,6 +554,8 @@ export const ru = {
     promoRate: "Промо-ставка %",
     promoEnd: "Окончание промо",
     capitalization: "Капитализация",
+    accrualFrequency: "Начисление процентов",
+    monthlyInterestEstimate: "Примерно {amount} в месяц",
     annualRateInvalid: "Годовая ставка должна быть неотрицательным числом",
     promoRateInvalid: "Промо-ставка должна быть неотрицательным числом",
     annualRateRequiredForPromo:

@@ -1244,6 +1244,16 @@ th {
   font-weight: 650;
 }
 
+.interest-estimate {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: color-mix(in oklch, var(--primary) 10%, transparent);
+  color: var(--text);
+  font-weight: 650;
+}
+
 .account-dialog-footer {
   grid-column: 1 / -1;
   display: flex;

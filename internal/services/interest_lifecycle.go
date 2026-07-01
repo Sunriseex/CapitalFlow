@@ -14,12 +14,26 @@ import (
 // InterestLifecycle owns rule selection, calculation, and persistence for one
 // account-level interest operation.
 type InterestLifecycle struct {
-	repo     repository.InterestAccrualTransactionalRepository
-	accounts repository.AccountRepository
-	engine   *InterestEngine
+	repo       repository.InterestAccrualTransactionalRepository
+	accounts   interestAccountReader
+	categories interestCategoryReader
+	engine     *InterestEngine
 }
 
-func (l *InterestLifecycle) WithAccountRepository(repo repository.AccountRepository) *InterestLifecycle {
+type interestAccountReader interface {
+	GetByIDForUser(ctx context.Context, id, userID string) (*models.Account, error)
+}
+
+type interestCategoryReader interface {
+	GetBySlug(ctx context.Context, slug string) (*models.Category, error)
+}
+
+func (l *InterestLifecycle) WithCategoryRepository(repo interestCategoryReader) *InterestLifecycle {
+	l.categories = repo
+	return l
+}
+
+func (l *InterestLifecycle) WithAccountRepository(repo interestAccountReader) *InterestLifecycle {
 	l.accounts = repo
 	return l
 }
@@ -59,11 +73,11 @@ func (l *InterestLifecycle) Accrue(ctx context.Context, req *AccrueAccountIntere
 	if err := validateInterestLifecycleAccount(req.AccountID, req.UserID); err != nil {
 		return nil, err
 	}
-	if strings.TrimSpace(req.Currency) == "" && l.accounts != nil {
-		account, err := l.accounts.GetByIDForUser(ctx, req.AccountID, req.UserID)
-		if err != nil {
-			return nil, fmt.Errorf("get interest account: %w", err)
-		}
+	account, category, err := l.interestTransactionMetadata(ctx, req.AccountID, req.UserID)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(req.Currency) == "" {
 		req.Currency = account.Currency
 	}
 
@@ -73,7 +87,7 @@ func (l *InterestLifecycle) Accrue(ctx context.Context, req *AccrueAccountIntere
 	}
 
 	var result *AccrueRuleInterestResponse
-	err := l.repo.WithAccountInterestLock(ctx, req.AccountID, req.UserID, func(ctx context.Context, snapshot repository.InterestCalculationRepository) error {
+	err = l.repo.WithAccountInterestLock(ctx, req.AccountID, req.UserID, func(ctx context.Context, snapshot repository.InterestCalculationRepository) error {
 		rule, err := selectInterestRule(ctx, snapshot, req.AccountID, req.RuleID, accrualDate, true)
 		if err != nil {
 			return err
@@ -95,6 +109,8 @@ func (l *InterestLifecycle) Accrue(ctx context.Context, req *AccrueAccountIntere
 
 		calculated, err := l.engine.Accrue(ctx, &AccrueRuleInterestRequest{
 			Rule:             *rule,
+			AccountName:      account.Name,
+			CategoryID:       category.ID,
 			Currency:         req.Currency,
 			Balance:          balance.Balance,
 			AccrualDate:      accrualDate,
@@ -134,11 +150,11 @@ func (l *InterestLifecycle) Recalculate(ctx context.Context, req *RecalculateAcc
 	if err := validateInterestLifecycleAccount(req.AccountID, req.UserID); err != nil {
 		return nil, err
 	}
-	if strings.TrimSpace(req.Currency) == "" && l.accounts != nil {
-		account, err := l.accounts.GetByIDForUser(ctx, req.AccountID, req.UserID)
-		if err != nil {
-			return nil, fmt.Errorf("get interest account: %w", err)
-		}
+	account, category, err := l.interestTransactionMetadata(ctx, req.AccountID, req.UserID)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(req.Currency) == "" {
 		req.Currency = account.Currency
 	}
 
@@ -151,7 +167,7 @@ func (l *InterestLifecycle) Recalculate(ctx context.Context, req *RecalculateAcc
 	}
 
 	var result *RecalculateRuleInterestResponse
-	err := l.repo.WithAccountInterestLock(ctx, req.AccountID, req.UserID, func(ctx context.Context, snapshot repository.InterestCalculationRepository) error {
+	err = l.repo.WithAccountInterestLock(ctx, req.AccountID, req.UserID, func(ctx context.Context, snapshot repository.InterestCalculationRepository) error {
 		rule, err := selectInterestRule(ctx, snapshot, req.AccountID, req.RuleID, ruleDate, false)
 		if err != nil {
 			return err
@@ -163,6 +179,8 @@ func (l *InterestLifecycle) Recalculate(ctx context.Context, req *RecalculateAcc
 
 		calculated, err := l.engine.Recalculate(ctx, &RecalculateRuleInterestRequest{
 			Rule:             *rule,
+			AccountName:      account.Name,
+			CategoryID:       category.ID,
 			Currency:         req.Currency,
 			Transactions:     transactions,
 			ExistingAccruals: accruals,
@@ -194,6 +212,24 @@ func (l *InterestLifecycle) Recalculate(ctx context.Context, req *RecalculateAcc
 		return nil, fmt.Errorf("recalculate account interest: %w", err)
 	}
 	return result, nil
+}
+
+func (l *InterestLifecycle) interestTransactionMetadata(ctx context.Context, accountID, userID string) (*models.Account, *models.Category, error) {
+	if l.accounts == nil {
+		return nil, nil, fmt.Errorf("interest account repository is required")
+	}
+	if l.categories == nil {
+		return nil, nil, fmt.Errorf("interest category repository is required")
+	}
+	account, err := l.accounts.GetByIDForUser(ctx, accountID, userID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get interest account: %w", err)
+	}
+	category, err := l.categories.GetBySlug(ctx, "deposit_interest")
+	if err != nil {
+		return nil, nil, fmt.Errorf("get deposit interest category: %w", err)
+	}
+	return account, category, nil
 }
 
 func validateInterestLifecycleAccount(accountID, userID string) error {

@@ -556,6 +556,8 @@ export const en = {
     promoRate: "Promo rate %",
     promoEnd: "Promo end",
     capitalization: "Capitalization",
+    accrualFrequency: "Accrual frequency",
+    monthlyInterestEstimate: "Approximately {amount} per month",
     annualRateInvalid: "Annual rate must be a non-negative number",
     promoRateInvalid: "Promo rate must be a non-negative number",
     annualRateRequiredForPromo:
