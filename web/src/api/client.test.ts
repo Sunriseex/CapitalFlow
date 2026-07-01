@@ -242,3 +242,25 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+
+describe("serviceStatus", () => {
+  it("reads API health JSON instead of the web container health body", async () => {
+    localStorage.clear();
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ status: "ok", version: "v0.5.12" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    await expect(api.serviceStatus()).resolves.toEqual({
+      status: "ok",
+      version: "v0.5.12",
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api-health",
+      expect.objectContaining({ credentials: "include" }),
+    );
+  });
+});
+

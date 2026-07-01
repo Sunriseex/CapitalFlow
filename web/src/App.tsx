@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Bell,
@@ -28,6 +28,7 @@ import { apiErrorMessages, errorMessage } from "./shared/api/query";
 import { Dialog, Empty, PageTransition } from "./shared/ui";
 import { toaster } from "./components/ui/toaster-store";
 import { useI18n } from "./shared/i18n/useI18n";
+import { localizeCategories } from "./features/categories/categoryName";
 
 const AuthController = lazy(() =>
   import("./features/auth/AuthController").then((module) => ({
@@ -92,7 +93,7 @@ const TransferForm = lazy(() =>
 
 export function App() {
   const queryClient = useQueryClient();
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
 
   const errorMessages = apiErrorMessages(t);
 
@@ -123,6 +124,10 @@ export function App() {
     queryFn: api.categories,
     enabled: hasSession,
   });
+  const localizedCategories = useMemo(
+    () => localizeCategories(categories.data ?? [], locale),
+    [categories.data, locale],
+  );
 
   const profile = useQuery({
     queryKey: ["profile", sessionNonce],
@@ -313,7 +318,9 @@ export function App() {
               ? "Unavailable"
               : serviceStatus.isFetching
                 ? "Checking"
-                : "Healthy"
+                : serviceStatus.data?.status === "ok"
+                  ? "Healthy"
+                  : "Unavailable"
           }
           onCheck={() => {
             void serviceStatus.refetch().then((result) => {
@@ -464,7 +471,7 @@ export function App() {
               <DashboardView
                 key={primaryCurrency}
                 primaryCurrency={primaryCurrency}
-                categories={categories.data ?? []}
+                categories={localizedCategories}
                 rightRailHidden={rightRailHidden}
                 quickActionsDisabled={transactionActionsDisabled}
                 onQuickAction={openQuickAction}
@@ -495,7 +502,7 @@ export function App() {
             {view === "transactions" ? (
               <TransactionsView
                 accounts={accounts.data ?? []}
-                categories={categories.data ?? []}
+                categories={localizedCategories}
                 accountsLoading={accounts.isLoading}
                 accountsError={accounts.error}
                 categoriesLoading={categories.isLoading}
@@ -508,7 +515,7 @@ export function App() {
             {view === "goals" ? (
               <GoalsView
                 accounts={accounts.data ?? []}
-                categories={categories.data ?? []}
+                categories={localizedCategories}
                 primaryCurrency={primaryCurrency}
               />
             ) : null}
@@ -555,7 +562,7 @@ export function App() {
             {quickAction === "transaction" ? (
               <TransactionForm
                 accounts={accounts.data ?? []}
-                categories={categories.data ?? []}
+                categories={localizedCategories}
                 onDone={() =>
                   completeQuickAction("transaction", t.dashboard.addTransaction)
                 }
@@ -593,7 +600,7 @@ export function App() {
         <Suspense fallback={null}>
           <TransactionSearchDialog
             accounts={accounts.data ?? []}
-            categories={categories.data ?? []}
+            categories={localizedCategories}
             onClose={() => setTransactionSearchOpen(false)}
           />
         </Suspense>
@@ -613,7 +620,7 @@ export function App() {
                 {errorMessage(categories.error, errorMessages)}
               </div>
             ) : (
-              <CategoryManager categories={categories.data ?? []} />
+              <CategoryManager categories={localizedCategories} />
             )}
           </Suspense>
         </Dialog>

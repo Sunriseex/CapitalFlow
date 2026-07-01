@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { api } from "../../api/client";
 import { parseMoneyToMinorResult } from "../../api/money";
@@ -17,7 +17,7 @@ import {
   Field,
   FormShell,
   Input,
-  Select,
+  ThemedSelect,
   ValidatedField,
 } from "../../shared/ui";
 import { Button as ShadcnButton } from "../../components/ui/button";
@@ -92,11 +92,10 @@ export function TransactionForm({
   const form = { ...formDefaults, ...watchedForm };
   const accountOptions = useMemo(
     () =>
-      accounts.map((account) => (
-        <option key={account.id} value={account.id}>
-          {account.name}
-        </option>
-      )),
+      accounts.map((account) => ({
+        label: account.name,
+        value: account.id,
+      })),
     [accounts],
   );
   const selectedCategory = useMemo(
@@ -105,11 +104,10 @@ export function TransactionForm({
   );
   const typeOptions = useMemo(
     () =>
-      transactionTypes.map((type) => (
-        <option key={type} value={type}>
-          {t.transactions.types[type]}
-        </option>
-      )),
+      transactionTypes.map((type) => ({
+        label: t.transactions.types[type],
+        value: type,
+      })),
     [t],
   );
   const mutation = useMutation({
@@ -168,24 +166,44 @@ export function TransactionForm({
       showTitle={showTitle}
     >
       <Field label={t.transactions.account}>
-        <Select
-          {...register("account_id", {
-            onChange: () => clearErrors("amount"),
-          })}
-        >
-          {accountOptions}
-        </Select>
+        <Controller
+          control={control}
+          name="account_id"
+          render={({ field }) => (
+            <ThemedSelect
+              ariaLabel={t.transactions.account}
+              name={field.name}
+              value={field.value}
+              options={accountOptions}
+              onBlur={field.onBlur}
+              onValueChange={(value) => {
+                field.onChange(value);
+                clearErrors("amount");
+              }}
+            />
+          )}
+        />
       </Field>
 
       {!fixedType ? (
         <Field label={t.transactions.type}>
-          <Select
-            {...register("type", {
-              onChange: () => clearErrors("amount"),
-            })}
-          >
-            {typeOptions}
-          </Select>
+          <Controller
+            control={control}
+            name="type"
+            render={({ field }) => (
+              <ThemedSelect
+                ariaLabel={t.transactions.type}
+                name={field.name}
+                value={field.value}
+                options={typeOptions}
+                onBlur={field.onBlur}
+                onValueChange={(value) => {
+                  field.onChange(value);
+                  clearErrors("amount");
+                }}
+              />
+            )}
+          />
         </Field>
       ) : null}
 

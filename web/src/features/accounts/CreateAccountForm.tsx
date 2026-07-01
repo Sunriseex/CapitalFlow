@@ -1,7 +1,7 @@
 import { useId, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { CreditCard, Landmark, PiggyBank, Timer, Wallet } from "lucide-react";
 import { api } from "../../api/client";
@@ -19,7 +19,7 @@ import {
   Field,
   FormShell,
   Input,
-  Select,
+  ThemedSelect,
   ValidatedField,
 } from "../../shared/ui";
 import { useI18n } from "../../shared/i18n/useI18n";
@@ -228,20 +228,18 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
   const currencies = useMemo(() => currencyOptions(locale), [locale]);
   const currencySelectOptions = useMemo(
     () =>
-      currencies.map((currency) => (
-        <option key={currency.code} value={currency.code}>
-          {currency.label}
-        </option>
-      )),
+      currencies.map((currency) => ({
+        label: currency.label,
+        value: currency.code,
+      })),
     [currencies],
   );
   const capitalizationOptions = useMemo(
     () =>
-      capitalizationValues.map((value) => (
-        <option key={value} value={value}>
-          {t.accounts.capitalizationOptions[value]}
-        </option>
-      )),
+      capitalizationValues.map((value) => ({
+        label: t.accounts.capitalizationOptions[value],
+        value,
+      })),
     [t],
   );
   const interestEnabled = isInterestBearing(form.type);
@@ -354,13 +352,23 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
               </Field>
 
               <Field label={t.accounts.currency}>
-                <Select
-                  {...register("currency", {
-                    onChange: () => clearErrors("initial"),
-                  })}
-                >
-                  {currencySelectOptions}
-                </Select>
+                <Controller
+                  control={control}
+                  name="currency"
+                  render={({ field }) => (
+                    <ThemedSelect
+                      ariaLabel={t.accounts.currency}
+                      name={field.name}
+                      value={field.value}
+                      options={currencySelectOptions}
+                      onBlur={field.onBlur}
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        clearErrors("initial");
+                      }}
+                    />
+                  )}
+                />
               </Field>
 
               <Field
@@ -523,9 +531,20 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
                 </ValidatedField>
 
                 <Field label={t.accounts.capitalization}>
-                  <Select {...register("capitalization")}>
-                    {capitalizationOptions}
-                  </Select>
+                  <Controller
+                    control={control}
+                    name="capitalization"
+                    render={({ field }) => (
+                      <ThemedSelect
+                        ariaLabel={t.accounts.capitalization}
+                        name={field.name}
+                        value={field.value}
+                        options={capitalizationOptions}
+                        onBlur={field.onBlur}
+                        onValueChange={field.onChange}
+                      />
+                    )}
+                  />
                 </Field>
               </div>
             </section>

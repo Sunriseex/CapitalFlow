@@ -870,6 +870,21 @@ describe("App query states", () => {
     ).toBeInTheDocument();
   });
 
+  it("does not label a non-ok API response as healthy", async () => {
+    mocks.serviceStatus.mockResolvedValue({
+      status: "degraded",
+      version: "v0.5.12",
+    });
+
+    renderApp();
+
+    const health = await screen.findByRole("region", {
+      name: "Version and health",
+    });
+    expect(await within(health).findAllByText("Unavailable")).not.toHaveLength(0);
+    expect(within(health).queryByText("Healthy")).not.toBeInTheDocument();
+  });
+
   it("uses command menu for navigation and quick actions", async () => {
     const user = userEvent.setup();
     renderApp();

@@ -75,6 +75,17 @@ describe("TransactionForm", () => {
     mocks.createTransaction.mockResolvedValue({});
   });
 
+  it("uses themed popup selects in the transaction form", () => {
+    renderTransactionForm();
+
+    const accountSelect = screen.getByRole("combobox", { name: "Account" });
+    const typeSelect = screen.getByRole("combobox", { name: "Type" });
+    expect(accountSelect).toHaveAttribute("data-slot", "select-trigger");
+    expect(typeSelect).toHaveAttribute("data-slot", "select-trigger");
+    expect(accountSelect).not.toBeInstanceOf(HTMLSelectElement);
+    expect(typeSelect).not.toBeInstanceOf(HTMLSelectElement);
+  });
+
   it("does not call the API when amount is invalid", async () => {
     const user = userEvent.setup();
 
@@ -151,7 +162,8 @@ describe("TransactionForm", () => {
     const user = userEvent.setup();
     renderTransactionForm();
 
-    await user.selectOptions(screen.getByLabelText("Type"), "expense");
+    await user.click(screen.getByRole("combobox", { name: "Type" }));
+    await user.click(screen.getByRole("option", { name: "Expense" }));
     await user.click(screen.getByRole("button", { name: /Open category picker/ }));
     await user.click(screen.getByRole("option", { name: /Subscriptions/ }));
 
