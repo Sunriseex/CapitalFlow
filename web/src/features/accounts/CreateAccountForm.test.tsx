@@ -63,6 +63,20 @@ describe("CreateAccountForm", () => {
     expect(onDone).toHaveBeenCalled();
   });
 
+  it("uses themed popup selects in the account form", () => {
+    render(
+      <I18nProvider>
+        <QueryClientProvider client={new QueryClient()}>
+          <CreateAccountForm onDone={vi.fn()} />
+        </QueryClientProvider>
+      </I18nProvider>,
+    );
+
+    const currency = screen.getByRole("combobox", { name: "Currency" });
+    expect(currency).toHaveAttribute("data-slot", "select-trigger");
+    expect(currency).not.toBeInstanceOf(HTMLSelectElement);
+  });
+
   it("shows type cards and preserves hidden interest draft values", async () => {
     const user = userEvent.setup();
 

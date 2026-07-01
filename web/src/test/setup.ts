@@ -9,6 +9,9 @@ class TestResizeObserver {
 globalThis.ResizeObserver ??= TestResizeObserver;
 
 Element.prototype.scrollIntoView ??= function scrollIntoView() {};
+Element.prototype.hasPointerCapture ??= () => false;
+Element.prototype.setPointerCapture ??= () => undefined;
+Element.prototype.releasePointerCapture ??= () => undefined;
 
 Object.defineProperty(window, "matchMedia", {
   writable: true,

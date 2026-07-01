@@ -16,6 +16,14 @@ import {
   DialogTitle,
 } from "../../components/ui/dialog";
 import { Input as ShadcnInput } from "../../components/ui/input";
+import {
+  Select as ShadcnSelect,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/ui/select";
 import { cn } from "../../lib/utils";
 import { markPerformance } from "../performance";
 import { PageTransition } from "./PageTransition";
@@ -153,6 +161,47 @@ export function Select({
   ...props
 }: SelectHTMLAttributes<HTMLSelectElement>) {
   return <select className={cn("input", className)} {...props} />;
+}
+
+export function ThemedSelect({
+  ariaLabel,
+  name,
+  onBlur,
+  onValueChange,
+  options,
+  value,
+}: {
+  ariaLabel: string;
+  name: string;
+  onBlur?: () => void;
+  onValueChange: (value: string) => void;
+  options: ReadonlyArray<{ label: string; value: string }>;
+  value: string;
+}) {
+  return (
+    <ShadcnSelect
+      name={name}
+      value={value}
+      onValueChange={onValueChange}
+    >
+      <SelectTrigger
+        className="input themed-select-trigger"
+        aria-label={ariaLabel}
+        onBlur={onBlur}
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent position="popper">
+        <SelectGroup>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectGroup>
+      </SelectContent>
+    </ShadcnSelect>
+  );
 }
 
 export function Empty({ children }: { children: ReactNode }) {

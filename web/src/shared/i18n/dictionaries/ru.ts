@@ -34,6 +34,21 @@ export const ru = {
     amountGreaterThanZero: "Сумма должна быть больше нуля",
   },
 
+  defaultCategories: {
+    salary: "Зарплата",
+    deposit_interest: "Проценты по вкладам",
+    food: "Еда",
+    transport: "Транспорт",
+    subscriptions: "Подписки",
+    housing: "Жильё",
+    health: "Здоровье",
+    education: "Обучение",
+    investments: "Инвестиции",
+    emergency_fund: "Финансовая подушка",
+    entertainment: "Развлечения",
+    other: "Прочее",
+  },
+
   nav: {
     workspace: "Рабочая область",
     overview: "Обзор",

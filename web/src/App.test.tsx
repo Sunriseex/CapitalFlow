@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiClientError } from "./api/client";
 import { App } from "./App";
 import { Provider } from "./components/ui/provider";
@@ -449,6 +449,10 @@ describe("App auth screens", () => {
 });
 
 describe("App query states", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   beforeEach(() => {
     window.history.pushState({}, "", "/dashboard");
     localStorage.setItem("capitalflow_theme", "light");
@@ -535,6 +539,8 @@ describe("App query states", () => {
   });
 
   it("edits goal details and a monthly category limit", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-06-30T12:00:00Z"));
     const user = userEvent.setup();
     mocks.categories.mockResolvedValue([
       {
@@ -868,6 +874,21 @@ describe("App query states", () => {
         "Backend import is not available yet. Manual transactions and transfers are ready.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("does not label a non-ok API response as healthy", async () => {
+    mocks.serviceStatus.mockResolvedValue({
+      status: "degraded",
+      version: "v0.5.12",
+    });
+
+    renderApp();
+
+    const health = await screen.findByRole("region", {
+      name: "Version and health",
+    });
+    expect(await within(health).findAllByText("Unavailable")).not.toHaveLength(0);
+    expect(within(health).queryByText("Healthy")).not.toBeInTheDocument();
   });
 
   it("uses command menu for navigation and quick actions", async () => {

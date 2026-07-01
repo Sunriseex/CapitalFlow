@@ -36,6 +36,21 @@ export const en = {
     amountGreaterThanZero: "Amount must be greater than zero",
   },
 
+  defaultCategories: {
+    salary: "Salary",
+    deposit_interest: "Deposit interest",
+    food: "Food",
+    transport: "Transport",
+    subscriptions: "Subscriptions",
+    housing: "Housing",
+    health: "Health",
+    education: "Education",
+    investments: "Investments",
+    emergency_fund: "Emergency fund",
+    entertainment: "Entertainment",
+    other: "Other",
+  },
+
   nav: {
     workspace: "Workspace",
     overview: "Overview",

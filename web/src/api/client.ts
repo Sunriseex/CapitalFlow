@@ -98,6 +98,12 @@ function getAuthBase() {
   return apiBase;
 }
 
+function getServiceHealthURL() {
+  return getStoredApiBase() === defaultApiBase
+    ? "/api-health"
+    : `${getAuthBase()}/health`;
+}
+
 export class ApiClientError extends Error {
   status: number;
   code?: string;
@@ -235,7 +241,7 @@ async function refreshSession() {
 }
 
 export const api = {
-  serviceStatus: () => authFetch<ServiceStatus>("/health"),
+  serviceStatus: () => authFetch<ServiceStatus>(getServiceHealthURL()),
 
   authStatus: () => authFetch<AuthStatusResponse>("/auth/status"),
 
