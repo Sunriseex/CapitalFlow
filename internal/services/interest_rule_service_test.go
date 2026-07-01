@@ -1299,6 +1299,58 @@ func TestInterestEngineForecastSupportsCommonRanges(t *testing.T) {
 	}
 }
 
+func TestInterestEngineForecastHonorsMonthlyAccrual(t *testing.T) {
+	rule := validAccrualTestRule()
+	rule.AccrualFrequency = models.AccrualFrequencyMonthly
+	rule.CapitalizationFrequency = models.CapitalizationFrequencyMonthly
+
+	got, err := NewInterestEngine().Forecast(t.Context(), &ForecastRuleInterestRequest{
+		Rule:     rule,
+		FromDate: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+		Days:     31,
+		Transactions: []models.Transaction{{
+			ID: "initial", AccountID: rule.AccountID,
+			Type: models.TransactionTypeInitialBalance, Amount: dec("100000"),
+			OccurredAt: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+		}},
+	})
+	if err != nil {
+		t.Fatalf("forecast interest: %v", err)
+	}
+	if len(got.Accruals) != 1 {
+		t.Fatalf("accruals = %d, want one monthly posting", len(got.Accruals))
+	}
+	if got.Accruals[0].AccrualDate.Format(time.DateOnly) != "2026-05-31" {
+		t.Fatalf("accrual date = %s, want month end", got.Accruals[0].AccrualDate.Format(time.DateOnly))
+	}
+}
+
+func TestInterestEngineRecalculateCompoundsMonthlyAccrual(t *testing.T) {
+	rule := validAccrualTestRule()
+	rule.AccrualFrequency = models.AccrualFrequencyMonthly
+	rule.CapitalizationFrequency = models.CapitalizationFrequencyMonthly
+
+	got, err := NewInterestEngine().Recalculate(t.Context(), &RecalculateRuleInterestRequest{
+		Rule: rule,
+		Transactions: []models.Transaction{{
+			ID: "initial", AccountID: rule.AccountID,
+			Type: models.TransactionTypeInitialBalance, Amount: dec("100000"),
+			OccurredAt: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+		}},
+		FromDate: time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+		ToDate:   time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("recalculate interest: %v", err)
+	}
+	if len(got.Transactions) != 2 {
+		t.Fatalf("transactions = %d, want two monthly postings", len(got.Transactions))
+	}
+	if !got.Transactions[1].Amount.GreaterThan(dec("986.4")) {
+		t.Fatalf("June amount = %s, want more than 986.4 without capitalization", got.Transactions[1].Amount)
+	}
+}
+
 func TestInterestEngineForecastIgnoresUncapitalizedAndFutureTransactions(t *testing.T) {
 	rule := validAccrualTestRule()
 	rule.CapitalizationFrequency = models.CapitalizationFrequencyNone

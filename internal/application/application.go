@@ -98,14 +98,16 @@ func New(store Store, cfg Config) (*Application, error) {
 		Transfers:          services.NewTransferService(transactions).WithAccountRepository(accountRepo),
 		InterestRules:      services.NewInterestRuleService(interestRuleRepo, accountRepo),
 		InterestEngine:     interestEngine,
-		InterestLifecycle:  services.NewInterestLifecycle(interestLifecycleRepo, interestEngine).WithAccountRepository(accountRepo),
-		Dashboard:          services.NewDashboardReporting(dashboardRepo),
-		Profile:            services.NewProfileService(userRepo),
-		Currency:           services.NewCurrencyService(nil),
-		Categories:         services.NewCategoryService(categoryRepo),
-		FinancialGoals:     services.NewFinancialGoalService(storeFinancialGoals(store), accountRepo),
-		CategoryLimits:     services.NewCategoryLimitService(storeCategoryLimits(store), categoryRepo),
-		readiness:          store,
+		InterestLifecycle: services.NewInterestLifecycle(interestLifecycleRepo, interestEngine).
+			WithAccountRepository(accountRepo).
+			WithCategoryRepository(categoryRepo),
+		Dashboard:      services.NewDashboardReporting(dashboardRepo),
+		Profile:        services.NewProfileService(userRepo),
+		Currency:       services.NewCurrencyService(nil),
+		Categories:     services.NewCategoryService(categoryRepo),
+		FinancialGoals: services.NewFinancialGoalService(storeFinancialGoals(store), accountRepo),
+		CategoryLimits: services.NewCategoryLimitService(storeCategoryLimits(store), categoryRepo),
+		readiness:      store,
 	}
 	app.Commands = newCommandModule(store, app)
 	if store == nil {

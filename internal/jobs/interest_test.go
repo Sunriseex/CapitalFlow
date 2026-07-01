@@ -33,7 +33,7 @@ func TestDailyInterestAccrualJobPostsDueRule(t *testing.T) {
 		Rules: &fakeInterestRuleJobRepo{
 			targets: []repository.InterestRuleJobTarget{{Rule: rule, OwnerUserID: "user-1"}},
 		},
-		Lifecycle: services.NewInterestLifecycle(&fakeInterestAccrualTxRepo{snapshot: snapshot}, services.NewInterestEngine()),
+		Lifecycle: testInterestLifecycle(&fakeInterestAccrualTxRepo{snapshot: snapshot}),
 		Now:       func() time.Time { return accrualDate },
 	}
 
@@ -62,7 +62,7 @@ func TestMonthlyInterestAccrualJobSkipsBeforePayableDate(t *testing.T) {
 		Rules: &fakeInterestRuleJobRepo{
 			targets: []repository.InterestRuleJobTarget{{Rule: rule, OwnerUserID: "user-1"}},
 		},
-		Lifecycle: services.NewInterestLifecycle(&fakeInterestAccrualTxRepo{snapshot: snapshot}, services.NewInterestEngine()),
+		Lifecycle: testInterestLifecycle(&fakeInterestAccrualTxRepo{snapshot: snapshot}),
 		Now:       func() time.Time { return accrualDate },
 	}
 
@@ -100,7 +100,7 @@ func TestDepositMaturityCheckJobPostsEndOfTermRule(t *testing.T) {
 		Rules: &fakeInterestRuleJobRepo{
 			targets: []repository.InterestRuleJobTarget{{Rule: rule, OwnerUserID: "user-1"}},
 		},
-		Lifecycle: services.NewInterestLifecycle(&fakeInterestAccrualTxRepo{snapshot: snapshot}, services.NewInterestEngine()),
+		Lifecycle: testInterestLifecycle(&fakeInterestAccrualTxRepo{snapshot: snapshot}),
 		Now:       func() time.Time { return maturityDate },
 	}
 
@@ -122,7 +122,7 @@ func TestInterestJobContinuesAfterTargetFailure(t *testing.T) {
 		Rules: &fakeInterestRuleJobRepo{
 			targets: []repository.InterestRuleJobTarget{{Rule: rule, OwnerUserID: "user-1"}},
 		},
-		Lifecycle: services.NewInterestLifecycle(&fakeInterestAccrualTxRepo{lockErr: errors.New("lock failed")}, services.NewInterestEngine()),
+		Lifecycle: testInterestLifecycle(&fakeInterestAccrualTxRepo{lockErr: errors.New("lock failed")}),
 		Now:       func() time.Time { return accrualDate },
 	}
 
@@ -166,7 +166,7 @@ func TestDailyInterestAccrualJobUsesOnlyLatestOverlappingRule(t *testing.T) {
 				{Rule: latestRule, OwnerUserID: "user-1"},
 			},
 		},
-		Lifecycle: services.NewInterestLifecycle(&fakeInterestAccrualTxRepo{snapshot: snapshot}, services.NewInterestEngine()),
+		Lifecycle: testInterestLifecycle(&fakeInterestAccrualTxRepo{snapshot: snapshot}),
 		Now:       func() time.Time { return accrualDate },
 	}
 
@@ -197,6 +197,24 @@ func testInterestRule(frequency models.AccrualFrequency, endDate *time.Time) mod
 		StartDate:               time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 		EndDate:                 endDate,
 	}
+}
+
+func testInterestLifecycle(repo repository.InterestAccrualTransactionalRepository) *services.InterestLifecycle {
+	return services.NewInterestLifecycle(repo, services.NewInterestEngine()).
+		WithAccountRepository(jobInterestAccountReader{}).
+		WithCategoryRepository(jobInterestCategoryReader{})
+}
+
+type jobInterestAccountReader struct{}
+
+func (jobInterestAccountReader) GetByIDForUser(_ context.Context, id, _ string) (*models.Account, error) {
+	return &models.Account{ID: id, Name: "Накопительный счёт", Currency: "RUB"}, nil
+}
+
+type jobInterestCategoryReader struct{}
+
+func (jobInterestCategoryReader) GetBySlug(_ context.Context, slug string) (*models.Category, error) {
+	return &models.Category{ID: "category-interest", Slug: slug, Name: "Проценты по вкладам"}, nil
 }
 
 type fakeInterestRuleJobRepo struct {

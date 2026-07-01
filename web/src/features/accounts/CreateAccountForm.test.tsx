@@ -154,6 +154,51 @@ describe("CreateAccountForm", () => {
     expect(onDone).toHaveBeenCalled();
   });
 
+  it("sends the selected monthly accrual frequency", async () => {
+    const user = userEvent.setup();
+    mocks.createAccount.mockResolvedValueOnce({ id: "account-1" });
+
+    render(
+      <I18nProvider>
+        <QueryClientProvider client={new QueryClient()}>
+          <CreateAccountForm onDone={vi.fn()} />
+        </QueryClientProvider>
+      </I18nProvider>,
+    );
+
+    await user.click(screen.getByRole("radio", { name: /Savings/ }));
+    await user.type(screen.getByLabelText("Name"), "Savings");
+    await user.type(screen.getByLabelText("Annual rate %"), "12");
+    await user.click(screen.getByLabelText("Accrual frequency"));
+    await user.click(screen.getByRole("option", { name: "Monthly" }));
+    await user.click(screen.getByRole("button", { name: "Create" }));
+
+    await waitFor(() =>
+      expect(mocks.createInterestRule).toHaveBeenCalledWith(
+        "account-1",
+        expect.objectContaining({ accrual_frequency: "monthly" }),
+      ),
+    );
+  });
+
+  it("shows an approximate monthly interest amount", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <I18nProvider>
+        <QueryClientProvider client={new QueryClient()}>
+          <CreateAccountForm onDone={vi.fn()} />
+        </QueryClientProvider>
+      </I18nProvider>,
+    );
+
+    await user.click(screen.getByRole("radio", { name: /Savings/ }));
+    await user.type(screen.getByLabelText("Current balance"), "120000");
+    await user.type(screen.getByLabelText("Annual rate %"), "12");
+
+    expect(screen.getByText(/Approximately.*1,200.*per month/)).toBeInTheDocument();
+  });
+
   it("hides bank and interest fields for cash accounts", async () => {
     const user = userEvent.setup();
 

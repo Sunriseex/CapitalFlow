@@ -5,7 +5,11 @@ import { Controller, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { CreditCard, Landmark, PiggyBank, Timer, Wallet } from "lucide-react";
 import { api } from "../../api/client";
-import { isPositiveMoney, parseMoneyToMinorResult } from "../../api/money";
+import {
+  formatMoney,
+  isPositiveMoney,
+  parseMoneyToMinorResult,
+} from "../../api/money";
 import type { AccountType } from "../../api/types";
 import {
   apiErrorMessages,
@@ -48,9 +52,11 @@ const capitalizationValues = [
   "monthly",
   "end_of_term",
 ] as const;
+const accrualFrequencyValues = ["daily", "monthly", "end_of_term"] as const;
 
 type SupportedAccountType = (typeof supportedAccountTypes)[number];
 type CapitalizationValue = (typeof capitalizationValues)[number];
+type AccrualFrequencyValue = (typeof accrualFrequencyValues)[number];
 
 type CreateAccountFormValues = {
   name: string;
@@ -62,6 +68,7 @@ type CreateAccountFormValues = {
   rate: string;
   promoRate: string;
   promoEndDate: string;
+  accrualFrequency: AccrualFrequencyValue;
   capitalization: CapitalizationValue;
 };
 
@@ -75,6 +82,7 @@ const createAccountFormDefaults: CreateAccountFormValues = {
   rate: "",
   promoRate: "",
   promoEndDate: "",
+  accrualFrequency: "daily",
   capitalization: "none",
 };
 
@@ -90,6 +98,7 @@ function createAccountFormSchema(t: ReturnType<typeof useI18n>["t"]) {
       rate: z.string(),
       promoRate: z.string(),
       promoEndDate: z.string(),
+      accrualFrequency: z.enum(accrualFrequencyValues),
       capitalization: z.enum(capitalizationValues),
     })
     .superRefine((values, context) => {
@@ -210,7 +219,7 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
           annual_rate_bps: Math.round(rate * 100),
           promo_rate_bps: promoRate > 0 ? Math.round(promoRate * 100) : null,
           promo_end_date: promoRate > 0 ? values.promoEndDate : null,
-          accrual_frequency: "daily",
+          accrual_frequency: values.accrualFrequency,
           capitalization_frequency: values.capitalization,
           day_count_convention: "actual_365",
           start_date: values.opened_at,
@@ -242,6 +251,14 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
       })),
     [t],
   );
+  const accrualFrequencyOptions = useMemo(
+    () =>
+      accrualFrequencyValues.map((value) => ({
+        label: t.accounts.accrualFrequencyOptions[value],
+        value,
+      })),
+    [t],
+  );
   const interestEnabled = isInterestBearing(form.type);
   const showBankField = form.type !== "cash";
   const isCard = form.type === "card";
@@ -254,8 +271,14 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
       form.rate ||
         form.promoRate ||
         form.promoEndDate ||
+        form.accrualFrequency !== "daily" ||
         form.capitalization !== "none",
     );
+  const monthlyInterestEstimate = estimateMonthlyInterest(
+    form.initial,
+    form.promoRate || form.rate,
+    form.currency,
+  );
   const getFieldErrorId = (field: keyof CreateAccountFormValues) =>
     `${errorId}-${field}-error`;
   const submitForm = handleSubmit((values) => {
@@ -546,6 +569,32 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
                     )}
                   />
                 </Field>
+
+                <Field label={t.accounts.accrualFrequency}>
+                  <Controller
+                    control={control}
+                    name="accrualFrequency"
+                    render={({ field }) => (
+                      <ThemedSelect
+                        ariaLabel={t.accounts.accrualFrequency}
+                        name={field.name}
+                        value={field.value}
+                        options={accrualFrequencyOptions}
+                        onBlur={field.onBlur}
+                        onValueChange={field.onChange}
+                      />
+                    )}
+                  />
+                </Field>
+
+                {monthlyInterestEstimate ? (
+                  <p className="interest-estimate">
+                    {t.accounts.monthlyInterestEstimate.replace(
+                      "{amount}",
+                      formatMoney(monthlyInterestEstimate, form.currency, locale),
+                    )}
+                  </p>
+                ) : null}
               </div>
             </section>
           ) : null}
@@ -570,6 +619,19 @@ function parsePercent(value: string) {
 function parseValidatedMoney(value: string, currency: string) {
   const result = parseMoneyToMinorResult(value, { currency });
   return result.ok ? result.value : "0";
+}
+
+function estimateMonthlyInterest(
+  principalInput: string,
+  annualRateInput: string,
+  currency: string,
+) {
+  const principal = Number(parseValidatedMoney(principalInput, currency));
+  const annualRate = parsePercent(annualRateInput);
+  if (!Number.isFinite(principal) || principal <= 0 || !Number.isFinite(annualRate) || annualRate <= 0) {
+    return "";
+  }
+  return String((principal * annualRate) / 100 / 12);
 }
 
 function accountTypeLabel(

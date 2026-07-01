@@ -44,6 +44,8 @@ type CreateInterestRuleRequest struct {
 
 type AccrueRuleInterestRequest struct {
 	Rule             models.InterestRule
+	AccountName      string
+	CategoryID       string
 	Currency         string
 	Balance          decimal.Decimal
 	AccrualDate      time.Time
@@ -59,6 +61,8 @@ type AccrueRuleInterestResponse struct {
 
 type RecalculateRuleInterestRequest struct {
 	Rule             models.InterestRule
+	AccountName      string
+	CategoryID       string
 	Currency         string
 	Transactions     []models.Transaction
 	ExistingAccruals []models.InterestAccrual
@@ -252,7 +256,8 @@ func (e *InterestEngine) Accrue(ctx context.Context, req *AccrueRuleInterestRequ
 		Type:            models.TransactionTypeInterestIncome,
 		Amount:          amount,
 		Currency:        currency,
-		Description:     interestAccrualDescription(req.Rule.ID, accrualDate),
+		CategoryID:      optionalInterestCategory(req.CategoryID),
+		Description:     interestAccrualDescription(req.AccountName),
 		OccurredAt:      accrualDate,
 		AllowFutureDate: true,
 	}, false)
@@ -367,7 +372,8 @@ func (e *InterestEngine) Recalculate(ctx context.Context, req *RecalculateRuleIn
 			Type:            models.TransactionTypeInterestIncome,
 			Amount:          pendingAmount,
 			Currency:        currency,
-			Description:     interestAccrualDescription(req.Rule.ID, day),
+			CategoryID:      optionalInterestCategory(req.CategoryID),
+			Description:     interestAccrualDescription(req.AccountName),
 			OccurredAt:      day,
 			AllowFutureDate: true,
 		}, false)
@@ -433,10 +439,8 @@ func (e *InterestEngine) Forecast(ctx context.Context, req *ForecastRuleInterest
 	}
 	toDate := fromDate.AddDate(0, 0, req.Days-1)
 
-	forecastRule := req.Rule
-	forecastRule.AccrualFrequency = models.AccrualFrequencyDaily
 	result, err := e.Recalculate(ctx, &RecalculateRuleInterestRequest{
-		Rule:             forecastRule,
+		Rule:             req.Rule,
 		Currency:         req.Currency,
 		Transactions:     req.Transactions,
 		ExistingAccruals: req.ExistingAccruals,
@@ -865,8 +869,20 @@ func hasInterestAccrual(accruals []models.InterestAccrual, rule *models.Interest
 	return false
 }
 
-func interestAccrualDescription(ruleID string, date time.Time) string {
-	return fmt.Sprintf("interest accrual rule=%s date=%s", ruleID, date.Format(time.DateOnly))
+func interestAccrualDescription(accountName string) string {
+	accountName = strings.TrimSpace(accountName)
+	if accountName == "" {
+		return "Проценты по вкладу"
+	}
+	return "Проценты по вкладу " + accountName
+}
+
+func optionalInterestCategory(categoryID string) *string {
+	categoryID = strings.TrimSpace(categoryID)
+	if categoryID == "" {
+		return nil
+	}
+	return &categoryID
 }
 
 func dateOnly(date time.Time) time.Time {

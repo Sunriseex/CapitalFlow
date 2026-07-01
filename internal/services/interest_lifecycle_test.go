@@ -24,7 +24,7 @@ func TestInterestLifecycleAccruePersistsInsideLock(t *testing.T) {
 			OccurredAt: date.AddDate(0, 0, -1),
 		}},
 	}
-	lifecycle := NewInterestLifecycle(&lifecycleRepo{snapshot: snapshot}, NewInterestEngine())
+	lifecycle := newTestInterestLifecycle(&lifecycleRepo{snapshot: snapshot})
 
 	result, err := lifecycle.Accrue(t.Context(), &AccrueAccountInterestRequest{
 		AccountID:   rule.AccountID,
@@ -38,6 +38,13 @@ func TestInterestLifecycleAccruePersistsInsideLock(t *testing.T) {
 	}
 	if result.Skipped || len(snapshot.createdAccruals) != 1 || len(snapshot.createdTransactions) != 1 {
 		t.Fatalf("result=%+v transactions=%d accruals=%d", result, len(snapshot.createdTransactions), len(snapshot.createdAccruals))
+	}
+	transaction := snapshot.createdTransactions[0]
+	if transaction.Description != "Проценты по вкладу Накопительный счёт" {
+		t.Fatalf("description = %q", transaction.Description)
+	}
+	if transaction.CategoryID == nil || *transaction.CategoryID != "33333333-3333-3333-3333-333333333333" {
+		t.Fatalf("category id = %v", transaction.CategoryID)
 	}
 }
 
@@ -55,7 +62,7 @@ func TestInterestLifecycleAccrueTreatsConflictAsSkipped(t *testing.T) {
 		createErr: repository.ErrConflict,
 	}}
 
-	result, err := NewInterestLifecycle(repo, NewInterestEngine()).Accrue(t.Context(), &AccrueAccountInterestRequest{
+	result, err := newTestInterestLifecycle(repo).Accrue(t.Context(), &AccrueAccountInterestRequest{
 		AccountID: rule.AccountID, UserID: "user-1", Currency: "RUB", RuleID: rule.ID, AccrualDate: date,
 	})
 	if err != nil {
@@ -82,7 +89,7 @@ func TestInterestLifecycleAccrueSelectsLatestActiveRule(t *testing.T) {
 		}},
 	}
 
-	result, err := NewInterestLifecycle(&lifecycleRepo{snapshot: snapshot}, NewInterestEngine()).Accrue(t.Context(), &AccrueAccountInterestRequest{
+	result, err := newTestInterestLifecycle(&lifecycleRepo{snapshot: snapshot}).Accrue(t.Context(), &AccrueAccountInterestRequest{
 		AccountID: currentRule.AccountID, UserID: "user-1", Currency: "RUB", AccrualDate: date,
 	})
 	if err != nil {
@@ -107,7 +114,7 @@ func TestInterestLifecycleRecalculateReplacesInsideLock(t *testing.T) {
 		deleted: 2,
 	}
 
-	result, err := NewInterestLifecycle(&lifecycleRepo{snapshot: snapshot}, NewInterestEngine()).Recalculate(t.Context(), &RecalculateAccountInterestRequest{
+	result, err := newTestInterestLifecycle(&lifecycleRepo{snapshot: snapshot}).Recalculate(t.Context(), &RecalculateAccountInterestRequest{
 		AccountID: rule.AccountID, UserID: "user-1", Currency: "RUB", RuleID: rule.ID,
 		RuleDate: date, FromDate: date, ToDate: date,
 	})
@@ -116,6 +123,16 @@ func TestInterestLifecycleRecalculateReplacesInsideLock(t *testing.T) {
 	}
 	if !snapshot.replaced || result.DeletedAccruals != 2 || result.CreatedAccruals != 1 {
 		t.Fatalf("result=%+v replaced=%t", result, snapshot.replaced)
+	}
+	if len(snapshot.replacedTransactions) != 1 {
+		t.Fatalf("replaced transactions = %d", len(snapshot.replacedTransactions))
+	}
+	transaction := snapshot.replacedTransactions[0]
+	if transaction.Description != "Проценты по вкладу Накопительный счёт" {
+		t.Fatalf("description = %q", transaction.Description)
+	}
+	if transaction.CategoryID == nil || *transaction.CategoryID != "33333333-3333-3333-3333-333333333333" {
+		t.Fatalf("category id = %v", transaction.CategoryID)
 	}
 }
 
@@ -126,6 +143,16 @@ func lifecycleRule(startDate time.Time) models.InterestRule {
 		CapitalizationFrequency: models.CapitalizationFrequencyNone,
 		DayCountConvention:      models.DayCountConventionActual365, IsActive: true, StartDate: startDate,
 	}
+}
+
+func newTestInterestLifecycle(repo repository.InterestAccrualTransactionalRepository) *InterestLifecycle {
+	return NewInterestLifecycle(repo, NewInterestEngine()).
+		WithAccountRepository(&recordingAccountRepo{existing: &models.Account{
+			ID: "11111111-1111-1111-1111-111111111111", Name: "Накопительный счёт", Currency: "RUB",
+		}}).
+		WithCategoryRepository(&moduleCategoryRepo{category: &models.Category{
+			ID: "33333333-3333-3333-3333-333333333333", Slug: "deposit_interest", Name: "Проценты по вкладам",
+		}})
 }
 
 type lifecycleRepo struct {
@@ -146,14 +173,15 @@ func (r *lifecycleRepo) WithAccountInterestLock(ctx context.Context, _, _ string
 }
 
 type lifecycleSnapshot struct {
-	rules               []models.InterestRule
-	transactions        []models.Transaction
-	accruals            []models.InterestAccrual
-	createdTransactions []models.Transaction
-	createdAccruals     []models.InterestAccrual
-	createErr           error
-	replaced            bool
-	deleted             int64
+	rules                []models.InterestRule
+	transactions         []models.Transaction
+	accruals             []models.InterestAccrual
+	createdTransactions  []models.Transaction
+	createdAccruals      []models.InterestAccrual
+	replacedTransactions []models.Transaction
+	createErr            error
+	replaced             bool
+	deleted              int64
 }
 
 func (s *lifecycleSnapshot) GetInterestRuleByID(_ context.Context, id string) (*models.InterestRule, error) {
@@ -192,8 +220,9 @@ func (s *lifecycleSnapshot) CreateInterestAccrualWithTransaction(_ context.Conte
 	return nil
 }
 
-func (s *lifecycleSnapshot) ReplaceInterestAccrualRangeWithTransactions(context.Context, string, string, time.Time, time.Time, []models.Transaction, []models.InterestAccrual) (int64, error) {
+func (s *lifecycleSnapshot) ReplaceInterestAccrualRangeWithTransactions(_ context.Context, _, _ string, _, _ time.Time, transactions []models.Transaction, _ []models.InterestAccrual) (int64, error) {
 	s.replaced = true
+	s.replacedTransactions = append([]models.Transaction(nil), transactions...)
 	return s.deleted, nil
 }
 
