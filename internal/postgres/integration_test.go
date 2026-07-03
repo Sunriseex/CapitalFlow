@@ -2326,6 +2326,24 @@ func TestTransactionRepositoryListByUserFilteredAppliesSQLFiltersAndPagination(t
 	if filtered[0].ID != transactions[0].ID {
 		t.Fatalf("filtered transaction = %s, want %s", filtered[0].ID, transactions[0].ID)
 	}
+
+	byAccountName, err := store.Transactions().(*TransactionRepository).ListByUserFiltered(ctx, userID, &repository.TransactionListFilter{Search: "filtered-secondary"})
+	if err != nil {
+		t.Fatalf("search by account name: %v", err)
+	}
+	if len(byAccountName) != 1 || byAccountName[0].ID != transactions[3].ID {
+		t.Fatalf("account-name search = %+v, want %s", byAccountName, transactions[3].ID)
+	}
+
+	byCategory, err := store.Transactions().(*TransactionRepository).ListByUserFiltered(ctx, userID, &repository.TransactionListFilter{
+		Search: "filtered salary", Types: []models.TransactionType{models.TransactionTypeIncome, models.TransactionTypeExpense}, CategorizedOnly: true,
+	})
+	if err != nil {
+		t.Fatalf("search by category: %v", err)
+	}
+	if len(byCategory) != 3 {
+		t.Fatalf("category search count = %d, want 3: %+v", len(byCategory), byCategory)
+	}
 }
 
 func TestTransactionRepositoryListByUserFilteredHasStableDescendingPagination(t *testing.T) {

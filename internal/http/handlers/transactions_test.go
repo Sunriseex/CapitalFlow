@@ -66,7 +66,7 @@ func TestListTransactionsUsesRepositoryFiltering(t *testing.T) {
 	req := httptest.NewRequestWithContext(
 		t.Context(),
 		http.MethodGet,
-		"/api/v1/transactions?account_id=11111111-1111-1111-1111-111111111111&category_id="+categoryID+"&type=income&from_date=2026-05-01&to_date=2026-06-30&search=salary&limit=10&page=2",
+		"/api/v1/transactions?account_id=11111111-1111-1111-1111-111111111111&category_id="+categoryID+"&type=income&type=expense&categorized=true&from_date=2026-05-01&to_date=2026-06-30&search=salary&limit=10&page=2",
 		nil,
 	)
 	req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
@@ -86,7 +86,10 @@ func TestListTransactionsUsesRepositoryFiltering(t *testing.T) {
 	filter := transactions.listFilteredFilter
 	if filter.AccountID != "11111111-1111-1111-1111-111111111111" ||
 		filter.CategoryID != categoryID ||
-		filter.Type != models.TransactionTypeIncome ||
+		len(filter.Types) != 2 ||
+		filter.Types[0] != models.TransactionTypeIncome ||
+		filter.Types[1] != models.TransactionTypeExpense ||
+		!filter.CategorizedOnly ||
 		filter.Search != "salary" ||
 		filter.Limit != 10 ||
 		filter.Page != 2 ||

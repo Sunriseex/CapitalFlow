@@ -396,6 +396,10 @@ export const ru = {
     filterToDate: "Фильтр операций по дату",
     allAccounts: "Все счета",
     allCategories: "Все категории",
+    pagination: "Страницы операций",
+    previousPage: "Предыдущая страница",
+    nextPage: "Следующая страница",
+    pageLabel: "Страница {page}",
     createTypedTransaction: "Создать {type}",
     adjustmentAmountHint:
       "Можно указать положительную или отрицательную сумму.",
@@ -455,9 +459,11 @@ export const ru = {
     deadlinePassed: "Срок прошёл, внесите сейчас",
     month: "месяц",
     savingsGoals: "Накопительные цели",
-    savingsGoalsDescription: "Прогресс следует за текущим балансом связанного счёта.",
+    savingsGoalsDescription:
+      "Прогресс следует за текущим балансом связанного счёта.",
     monthlyLimits: "Месячные лимиты категорий",
-    monthlyLimitsDescription: "Лимиты повторяются каждый месяц и учитывают расходы той же валюты.",
+    monthlyLimitsDescription:
+      "Лимиты повторяются каждый месяц и учитывают расходы той же валюты.",
     account: "Связанный счёт",
     chooseAccount: "Выберите счёт",
     accountNotLinked: "Счёт не привязан",
@@ -477,7 +483,8 @@ export const ru = {
     currency: "Валюта",
     saveLimit: "Сохранить лимит",
     noLimits: "Лимитов категорий пока нет",
-    noLimitsDescription: "Задайте повторяющийся месячный лимит для категории расходов.",
+    noLimitsDescription:
+      "Задайте повторяющийся месячный лимит для категории расходов.",
     repeatsMonthly: "Повторяется ежемесячно",
     inactive: "Неактивен",
     deactivate: "Отключить",

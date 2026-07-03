@@ -15,6 +15,13 @@ func TestTransactionQueryRejectsInvalidType(t *testing.T) {
 	}
 }
 
+func TestTransactionQueryRejectsInvalidTypeInList(t *testing.T) {
+	_, err := NewTransactionQuery(&recordingTransactionQuery{}).ListByUser(t.Context(), "user-1", &TransactionListFilter{Types: []models.TransactionType{"income", "bad"}})
+	if !IsValidationError(err) {
+		t.Fatalf("error = %v, want validation error", err)
+	}
+}
+
 func TestTransactionQueryDelegatesBoundedFilter(t *testing.T) {
 	repo := &recordingTransactionQuery{transactions: []models.Transaction{{ID: "tx-1"}}}
 	filter := &TransactionListFilter{

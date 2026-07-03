@@ -47,7 +47,7 @@ export function AccountDetails({
   const afterPaint = useAfterPaint();
   const transactions = useQuery({
     queryKey: ["transactions", account.id],
-    queryFn: () => api.transactions(account.id),
+    queryFn: () => api.transactions({ accountId: account.id, limit: 500 }),
   });
   const balance = useQuery({
     queryKey: ["balance", account.id],

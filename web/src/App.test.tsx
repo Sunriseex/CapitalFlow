@@ -216,17 +216,25 @@ describe("App auth screens", () => {
       screen.getByRole("button", { name: "Sign in with passkey" }),
     ).toBeInTheDocument();
     expect(screen.getByTestId("page-transition")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Switch to dark theme" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Choose interface language" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Switch to dark theme" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Choose interface language" }),
+    ).toBeInTheDocument();
   });
 
   it("changes language before sign-in", async () => {
     const user = userEvent.setup();
     renderApp();
     await screen.findByRole("heading", { name: "Sign in" });
-    await user.click(screen.getByRole("button", { name: "Choose interface language" }));
+    await user.click(
+      screen.getByRole("button", { name: "Choose interface language" }),
+    );
     await user.click(screen.getByRole("menuitemradio", { name: "Русский" }));
-    expect(await screen.findByRole("heading", { name: "Вход" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Вход" }),
+    ).toBeInTheDocument();
     expect(localStorage.getItem("capitalflow_locale")).toBe("ru");
   });
 
@@ -234,7 +242,9 @@ describe("App auth screens", () => {
     const user = userEvent.setup();
     renderApp();
     await screen.findByRole("heading", { name: "Sign in" });
-    await user.click(screen.getByRole("button", { name: "Switch to dark theme" }));
+    await user.click(
+      screen.getByRole("button", { name: "Switch to dark theme" }),
+    );
     expect(
       document.documentElement.style.getPropertyValue("--theme-ripple-radius"),
     ).not.toBe("");
@@ -274,8 +284,12 @@ describe("App auth screens", () => {
     expect(
       screen.queryByRole("button", { name: "Sign in with passkey" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Switch to dark theme" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Choose interface language" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Switch to dark theme" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Choose interface language" }),
+    ).toBeInTheDocument();
   });
 
   it("checks setup password strength and confirmation before submit", async () => {
@@ -522,11 +536,16 @@ describe("App query states", () => {
     renderApp();
 
     await user.click(await screen.findByRole("button", { name: "Goals" }));
-    expect(await screen.findByText("No financial goals yet")).toBeInTheDocument();
+    expect(
+      await screen.findByText("No financial goals yet"),
+    ).toBeInTheDocument();
     await user.click(screen.getAllByRole("button", { name: "Create goal" })[0]);
     await user.type(screen.getByLabelText("Goal name"), "Emergency fund");
     await user.type(screen.getByLabelText("Target amount"), "300000");
-    await user.selectOptions(screen.getByLabelText("Linked account"), "account-1");
+    await user.selectOptions(
+      screen.getByLabelText("Linked account"),
+      "account-1",
+    );
     await user.click(screen.getByRole("button", { name: "Save goal" }));
 
     await waitFor(() =>
@@ -608,7 +627,9 @@ describe("App query states", () => {
     expect(
       within(goalItem!).getByText("Recommended monthly contribution"),
     ).toBeInTheDocument();
-    expect(within(goalItem!).getByText("₽12,857.14 / month")).toBeInTheDocument();
+    expect(
+      within(goalItem!).getByText("₽12,857.14 / month"),
+    ).toBeInTheDocument();
     await user.click(within(goalItem!).getByRole("button", { name: "Edit" }));
     const goalForm = within(
       within(goalItem!).getByRole("form", {
@@ -619,9 +640,7 @@ describe("App query states", () => {
     await user.clear(goalAmountInput);
     await user.type(goalAmountInput, "350000");
     await user.selectOptions(goalForm.getByLabelText("Status"), "completed");
-    await user.click(
-      goalForm.getByRole("button", { name: "Save changes" }),
-    );
+    await user.click(goalForm.getByRole("button", { name: "Save changes" }));
     await waitFor(() =>
       expect(mocks.updateFinancialGoal).toHaveBeenCalledWith("goal-1", {
         account_id: "account-1",
@@ -647,9 +666,7 @@ describe("App query states", () => {
     await user.clear(limitAmountInput);
     await user.type(limitAmountInput, "120000");
     await user.selectOptions(limitForm.getByLabelText("Status"), "inactive");
-    await user.click(
-      limitForm.getByRole("button", { name: "Save changes" }),
-    );
+    await user.click(limitForm.getByRole("button", { name: "Save changes" }));
     await waitFor(() =>
       expect(mocks.updateCategoryLimit).toHaveBeenCalledWith("limit-1", {
         category_id: "category-1",
@@ -664,12 +681,19 @@ describe("App query states", () => {
     const user = userEvent.setup();
     renderApp();
     await user.click(await screen.findByRole("button", { name: "Categories" }));
-    expect(await screen.findByRole("dialog", { name: "Categories" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("dialog", { name: "Categories" }),
+    ).toBeInTheDocument();
     await user.type(await screen.findByLabelText("Name"), "Home repair");
-    expect(await screen.findByLabelText("Identifier")).toHaveValue("home-repair");
+    expect(await screen.findByLabelText("Identifier")).toHaveValue(
+      "home-repair",
+    );
     await user.click(screen.getByRole("button", { name: "Create category" }));
     await waitFor(() =>
-      expect(mocks.createCategory.mock.calls[0]?.[0]).toEqual({ name: "Home repair", slug: "home-repair" }),
+      expect(mocks.createCategory.mock.calls[0]?.[0]).toEqual({
+        name: "Home repair",
+        slug: "home-repair",
+      }),
     );
   });
 
@@ -733,9 +757,9 @@ describe("App query states", () => {
     expect(document.querySelectorAll(".nav-icon svg")).toHaveLength(5);
     const sidebar = document.querySelector(".sidebar");
     expect(sidebar).not.toBeNull();
-    expect([...(sidebar?.children ?? [])].map((element) => element.className)).toEqual(
-      ["brand", "nav", "sidebar-status-card", "sidebar-footer"],
-    );
+    expect(
+      [...(sidebar?.children ?? [])].map((element) => element.className),
+    ).toEqual(["brand", "nav", "sidebar-status-card", "sidebar-footer"]);
 
     await user.click(topbarButtons[0]);
 
@@ -749,7 +773,9 @@ describe("App query states", () => {
     expect(
       screen.queryByRole("button", { name: "Choose language" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Overview/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Overview/ }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Logout" })).toBeInTheDocument();
   });
 
@@ -887,7 +913,9 @@ describe("App query states", () => {
     const health = await screen.findByRole("region", {
       name: "Version and health",
     });
-    expect(await within(health).findAllByText("Unavailable")).not.toHaveLength(0);
+    expect(await within(health).findAllByText("Unavailable")).not.toHaveLength(
+      0,
+    );
     expect(within(health).queryByText("Healthy")).not.toBeInTheDocument();
   });
 
@@ -972,7 +1000,7 @@ describe("App query states", () => {
         updated_at: "2026-05-19T00:00:00Z",
       },
     ]);
-    mocks.transactions.mockResolvedValue([
+    const searchableTransactions = [
       {
         id: "transaction-food",
         account_id: "account-1",
@@ -993,7 +1021,18 @@ describe("App query states", () => {
         occurred_at: "2026-05-18",
         created_at: "2026-05-18T00:00:00Z",
       },
-    ]);
+    ];
+    mocks.transactions.mockImplementation(
+      async (filters?: { search?: string; categorized?: boolean }) => {
+        const search = filters?.search?.toLowerCase() ?? "";
+        return searchableTransactions.filter((transaction) => {
+          if (filters?.categorized && !transaction.category_id) return false;
+          const category =
+            transaction.category_id === "category-food" ? "Food" : "Transport";
+          return !search || category.toLowerCase().includes(search);
+        });
+      },
+    );
 
     renderApp();
     await user.keyboard("{Control>}f{/Control}");
