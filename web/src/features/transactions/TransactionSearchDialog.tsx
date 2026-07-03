@@ -7,7 +7,7 @@ import type { Account, Category, Transaction } from "../../api/types";
 import { apiErrorMessages, errorMessage } from "../../shared/api/query";
 import { dateLabel } from "../../shared/date";
 import { useI18n } from "../../shared/i18n/useI18n";
-import { Button } from "../../components/ui/button";
+import { PrimitiveButton as Button } from "../../shared/ui";
 import {
   Command,
   CommandEmpty,

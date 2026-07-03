@@ -10,7 +10,7 @@ import {
   CommandItem,
   CommandList,
 } from "../../components/ui/command";
-import { Button as ShadcnButton } from "../../components/ui/button";
+import { PrimitiveButton as ShadcnButton } from "../../shared/ui";
 import { CategoryBadge } from "./components/CategoryBadge";
 
 type CategoryFilter = "all" | "income" | "expense" | "required" | "regular";

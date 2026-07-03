@@ -2,8 +2,11 @@ import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { compareMoney, formatMoney, signedAmount } from "../../../api/money";
 import type { Account, Category, Transaction } from "../../../api/types";
 import { dateLabel } from "../../../shared/date";
-import { Button, Empty } from "../../../shared/ui";
-import { Button as ShadcnButton } from "../../../components/ui/button";
+import {
+  Button,
+  Empty,
+  PrimitiveButton as ShadcnButton,
+} from "../../../shared/ui";
 import { useI18n } from "../../../shared/i18n/useI18n";
 import type { TranslationDictionary } from "../../../shared/i18n/dictionaries/ru";
 import { CategoryBadge } from "./CategoryBadge";

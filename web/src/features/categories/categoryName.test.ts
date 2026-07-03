@@ -17,13 +17,11 @@ describe("localizeCategories", () => {
       category("home-repair", "Home repair"),
     ];
 
-    expect(localizeCategories(categories, "ru").map(({ name }) => name)).toEqual([
-      "Еда",
-      "Home repair",
-    ]);
-    expect(localizeCategories(categories, "en").map(({ name }) => name)).toEqual([
-      "Food",
-      "Home repair",
-    ]);
+    expect(
+      localizeCategories(categories, "ru").map(({ name }) => name),
+    ).toEqual(["Еда", "Home repair"]);
+    expect(
+      localizeCategories(categories, "en").map(({ name }) => name),
+    ).toEqual(["Food", "Home repair"]);
   });
 });

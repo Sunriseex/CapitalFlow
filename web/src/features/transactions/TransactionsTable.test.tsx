@@ -160,7 +160,9 @@ describe("TransactionsTable", () => {
     );
 
     expect(onOpenTransaction).toHaveBeenCalledWith(incomeTransaction);
-    expect(screen.queryByRole("row", { name: /Salary/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("row", { name: /Salary/ }),
+    ).not.toBeInTheDocument();
   });
 });
 

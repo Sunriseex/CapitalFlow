@@ -5,7 +5,7 @@ import type {
 } from "../../../api/types";
 import { formatMoney } from "../../../api/money";
 import type { Locale } from "../../../shared/i18n/i18n";
-import { Button } from "../../../components/ui/button";
+import { PrimitiveButton as Button } from "../../../shared/ui";
 import {
   selectDashboardProgress,
   type DashboardProgressItem,
@@ -81,8 +81,7 @@ function ProgressRow({
   const percent = target > 0 ? Math.max(0, (current / target) * 100) : 0;
   const boundedPercent = Math.min(100, Math.round(percent));
   const tone = progressTone(item.kind, percent);
-  const name =
-    item.kind === "goal" ? item.data.name : item.data.category_name;
+  const name = item.kind === "goal" ? item.data.name : item.data.category_name;
 
   return (
     <li className="budget-item">

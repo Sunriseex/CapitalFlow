@@ -37,7 +37,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "../../components/ui/popover";
-import { Button } from "../../components/ui/button";
+import { PrimitiveButton as Button } from "../../shared/ui";
 
 export function BrandBlock() {
   const { t } = useI18n();

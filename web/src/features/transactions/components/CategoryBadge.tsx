@@ -8,9 +8,7 @@ export function CategoryBadge({
   name: string;
 }) {
   return (
-    <span
-      className={`tag category-badge ${categoryColorClass(categoryKey)}`}
-    >
+    <span className={`tag category-badge ${categoryColorClass(categoryKey)}`}>
       {name}
     </span>
   );

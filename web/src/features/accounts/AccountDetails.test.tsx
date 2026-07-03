@@ -96,19 +96,16 @@ describe("AccountDetails", () => {
 
   it("caps running balance chart points for large transaction histories", async () => {
     apiMocks.transactions.mockResolvedValue(
-      Array.from(
-        { length: 1000 },
-        (_, index): Transaction => ({
-          id: `tx-${index}`,
-          account_id: account.id,
-          type: "income",
-          amount: "1.00",
-          category_id: null,
-          description: `Transaction ${index}`,
-          occurred_at: `2026-01-${String((index % 28) + 1).padStart(2, "0")}T00:00:00Z`,
-          created_at: "2026-01-01T00:00:00Z",
-        }),
-      ),
+      Array.from({ length: 1000 }, (_, index): Transaction => ({
+        id: `tx-${index}`,
+        account_id: account.id,
+        type: "income",
+        amount: "1.00",
+        category_id: null,
+        description: `Transaction ${index}`,
+        occurred_at: `2026-01-${String((index % 28) + 1).padStart(2, "0")}T00:00:00Z`,
+        created_at: "2026-01-01T00:00:00Z",
+      })),
     );
 
     renderAccountDetails();

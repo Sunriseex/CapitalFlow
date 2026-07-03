@@ -30,25 +30,13 @@ describe("recommendedMonthlyContribution", () => {
 
   it("shows zero for a funded goal", () => {
     expect(
-      recommendedMonthlyContribution(
-        "1200",
-        "1000",
-        "2026-09-01",
-        "RUB",
-        now,
-      ),
+      recommendedMonthlyContribution("1200", "1000", "2026-09-01", "RUB", now),
     ).toEqual({ amount: "0", months: 3, overdue: false });
   });
 
   it("marks a missed deadline and recommends the full remainder", () => {
     expect(
-      recommendedMonthlyContribution(
-        "250",
-        "1000",
-        "2026-05-31",
-        "RUB",
-        now,
-      ),
+      recommendedMonthlyContribution("250", "1000", "2026-05-31", "RUB", now),
     ).toEqual({ amount: "750", months: 1, overdue: true });
   });
 });

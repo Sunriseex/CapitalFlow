@@ -136,8 +136,11 @@ function credentialBuffer(value: BufferSource | string): ArrayBuffer {
     return value.slice(0);
   }
 
-  return new Uint8Array(value.buffer, value.byteOffset, value.byteLength).slice()
-    .buffer;
+  return new Uint8Array(
+    value.buffer,
+    value.byteOffset,
+    value.byteLength,
+  ).slice().buffer;
 }
 
 function base64URLToBuffer(value: string) {

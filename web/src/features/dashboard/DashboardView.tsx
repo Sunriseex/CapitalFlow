@@ -13,8 +13,13 @@ import {
 import type { Account, Category, Transaction } from "../../api/types";
 import { apiErrorMessages, errorMessage } from "../../shared/api/query";
 import type { QuickAction, View } from "../../shared/constants";
-import { Button, Dialog, LoadingSkeleton, QueryError } from "../../shared/ui";
-import { Button as ShadcnButton } from "../../components/ui/button";
+import {
+  Button,
+  Dialog,
+  LoadingSkeleton,
+  PrimitiveButton as ShadcnButton,
+  QueryError,
+} from "../../shared/ui";
 import { TransactionDetails } from "../transactions/components/TransactionDetails";
 import { CashflowChart } from "./components/CashflowChart";
 import { RecentTransactionsTable } from "./components/RecentTransactionsTable";

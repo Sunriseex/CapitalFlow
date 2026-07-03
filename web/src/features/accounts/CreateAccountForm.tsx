@@ -269,10 +269,10 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
     !interestEnabled &&
     Boolean(
       form.rate ||
-        form.promoRate ||
-        form.promoEndDate ||
-        form.accrualFrequency !== "daily" ||
-        form.capitalization !== "none",
+      form.promoRate ||
+      form.promoEndDate ||
+      form.accrualFrequency !== "daily" ||
+      form.capitalization !== "none",
     );
   const monthlyInterestEstimate = estimateMonthlyInterest(
     form.initial,
@@ -298,15 +298,13 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
           {createAccountTypes.map((option) => (
             <label
               key={option.key}
-              className={
-                [
-                  "account-type-card",
-                  form.type === option.type ? "is-selected" : "",
-                  option.disabled ? "is-disabled" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")
-              }
+              className={[
+                "account-type-card",
+                form.type === option.type ? "is-selected" : "",
+                option.disabled ? "is-disabled" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
             >
               <input
                 className="account-type-radio"
@@ -364,7 +362,9 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
 
           <section className="form-section-card">
             <div className="form-section-header">
-              <h3 className="form-section-title">{t.accounts.accountSummary}</h3>
+              <h3 className="form-section-title">
+                {t.accounts.accountSummary}
+              </h3>
               <span className="badge badge-outline">
                 {t.accounts.types[form.type]}
               </span>
@@ -411,9 +411,7 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
               >
                 <Input
                   aria-describedby={
-                    errors.initial
-                      ? getFieldErrorId("initial")
-                      : undefined
+                    errors.initial ? getFieldErrorId("initial") : undefined
                   }
                   aria-invalid={Boolean(errors.initial)}
                   inputMode="decimal"
@@ -423,7 +421,10 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
                 />
               </ValidatedField>
 
-              <PlaceholderCheckbox checked label={t.accounts.includeInBalance} />
+              <PlaceholderCheckbox
+                checked
+                label={t.accounts.includeInBalance}
+              />
               <PlaceholderField label={t.accounts.notes} />
             </div>
           </section>
@@ -591,7 +592,11 @@ export function CreateAccountForm({ onDone }: { onDone: () => void }) {
                   <p className="interest-estimate">
                     {t.accounts.monthlyInterestEstimate.replace(
                       "{amount}",
-                      formatMoney(monthlyInterestEstimate, form.currency, locale),
+                      formatMoney(
+                        monthlyInterestEstimate,
+                        form.currency,
+                        locale,
+                      ),
                     )}
                   </p>
                 ) : null}
@@ -628,7 +633,12 @@ function estimateMonthlyInterest(
 ) {
   const principal = Number(parseValidatedMoney(principalInput, currency));
   const annualRate = parsePercent(annualRateInput);
-  if (!Number.isFinite(principal) || principal <= 0 || !Number.isFinite(annualRate) || annualRate <= 0) {
+  if (
+    !Number.isFinite(principal) ||
+    principal <= 0 ||
+    !Number.isFinite(annualRate) ||
+    annualRate <= 0
+  ) {
     return "";
   }
   return String((principal * annualRate) / 100 / 12);
