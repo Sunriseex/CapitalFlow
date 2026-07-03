@@ -209,11 +209,8 @@ describe("DashboardView", () => {
       screen.getByRole("button", { name: "Create transfer" }),
     ).toBeInTheDocument();
     expect(
-      within(screen.getByRole("group", { name: "Quick actions" })).getByRole(
-        "button",
-        { name: "Import transactions" },
-      ),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "Import transactions" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Create account" }),
     ).toBeInTheDocument();
@@ -226,10 +223,7 @@ describe("DashboardView", () => {
     expect(
       screen.getByRole("heading", { name: "Goals & limits" }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("Unavailable").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("No subscriptions yet").length).toBeGreaterThan(
-      0,
-    );
+    expect(screen.queryByText("No subscriptions yet")).not.toBeInTheDocument();
   });
 
   it("wires dashboard buttons to real actions and navigation", async () => {
@@ -245,14 +239,6 @@ describe("DashboardView", () => {
 
     await user.click(screen.getByRole("button", { name: "Create transfer" }));
     expect(onQuickAction).toHaveBeenCalledWith("transfer");
-
-    await user.click(
-      within(screen.getByRole("group", { name: "Quick actions" })).getByRole(
-        "button",
-        { name: "Import transactions" },
-      ),
-    );
-    expect(onQuickAction).toHaveBeenCalledWith("import");
 
     await user.click(screen.getByRole("button", { name: "Create account" }));
     expect(onQuickAction).toHaveBeenCalledWith("account");

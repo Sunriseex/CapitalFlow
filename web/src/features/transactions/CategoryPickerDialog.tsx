@@ -48,7 +48,9 @@ export function CategoryPickerDialog({
           className="category-search-panel"
           aria-label={t.transactions.categoryPickerActions}
         >
-          <CommandInput placeholder={t.transactions.categoryPickerPlaceholder} />
+          <CommandInput
+            placeholder={t.transactions.categoryPickerPlaceholder}
+          />
           <div className="category-picker-filters" role="group">
             {(["all", "income", "expense", "required", "regular"] as const).map(
               (value) => (
@@ -66,10 +68,6 @@ export function CategoryPickerDialog({
                 </ShadcnButton>
               ),
             )}
-          </div>
-          <div className="preview-note">
-            <strong>{t.transactions.subscriptionPromptTitle}</strong>
-            <p>{t.transactions.subscriptionPromptDescription}</p>
           </div>
         </aside>
         <CommandList className="category-picker-list" role="listbox">
@@ -152,7 +150,9 @@ function groupCategories(
     .filter((group) => group.categories.length > 0);
 
   if (filter === "all") {
-    const uncategorized = categories.filter((category) => !used.has(category.id));
+    const uncategorized = categories.filter(
+      (category) => !used.has(category.id),
+    );
     if (uncategorized.length > 0) {
       result.push({
         key: "other",

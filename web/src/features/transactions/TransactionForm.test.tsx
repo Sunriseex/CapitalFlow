@@ -135,7 +135,9 @@ describe("TransactionForm", () => {
     const { onDone } = renderTransactionForm();
 
     await user.type(screen.getByLabelText("Amount"), "25");
-    await user.click(screen.getByRole("button", { name: /Open category picker/ }));
+    await user.click(
+      screen.getByRole("button", { name: /Open category picker/ }),
+    );
 
     expect(
       await screen.findByRole("dialog", { name: "Categories" }),
@@ -158,25 +160,22 @@ describe("TransactionForm", () => {
     await waitFor(() => expect(onDone).toHaveBeenCalled());
   });
 
-  it("shows a non-blocking subscription suggestion for subscription expenses", async () => {
+  it("does not offer unavailable subscription actions", async () => {
     const user = userEvent.setup();
     renderTransactionForm();
 
     await user.click(screen.getByRole("combobox", { name: "Type" }));
     await user.click(screen.getByRole("option", { name: "Expense" }));
-    await user.click(screen.getByRole("button", { name: /Open category picker/ }));
+    await user.click(
+      screen.getByRole("button", { name: /Open category picker/ }),
+    );
     await user.click(screen.getByRole("option", { name: /Subscriptions/ }));
 
     expect(
-      screen.getByText("This looks like a regular payment."),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create subscription" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Link" })).toBeDisabled();
-
-    await user.click(screen.getByRole("button", { name: "Not now" }));
-
-    expect(
       screen.queryByText("This looks like a regular payment."),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Create subscription" }),
     ).not.toBeInTheDocument();
   });
 });

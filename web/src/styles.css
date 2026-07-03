@@ -4030,56 +4030,6 @@ html.language-ripple-fallback::after {
   text-align: left;
 }
 
-.subscription-suggestion {
-  grid-column: 1 / -1;
-  display: grid;
-  gap: 8px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  padding: 12px;
-  background: var(--surface-inset);
-}
-
-.subscription-suggestion strong {
-  color: var(--text);
-  font-size: 0.9rem;
-}
-
-.subscription-suggestion p {
-  margin: 0;
-  color: var(--muted-foreground);
-  font-size: 0.82rem;
-  line-height: 1.4;
-}
-
-.subscription-suggestion > div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.preview-note {
-  display: grid;
-  gap: 6px;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-xl);
-  padding: 12px;
-  background: color-mix(in oklch, var(--muted) 48%, transparent);
-}
-
-.preview-note strong {
-  color: var(--foreground);
-  font-size: 0.86rem;
-  font-weight: 650;
-}
-
-.preview-note p {
-  margin: 0;
-  color: var(--muted-foreground);
-  font-size: 0.78rem;
-  line-height: 1.4;
-}
-
 .transaction-search-detail {
   display: grid;
   gap: 14px;
@@ -4252,29 +4202,6 @@ html.language-ripple-fallback::after {
 
 :root[data-theme="dark"] .category-color-7 {
   --category-color: oklch(0.78 0.15 350);
-}
-
-.import-placeholder {
-  display: grid;
-  gap: 14px;
-  padding: 18px;
-}
-
-.import-drop {
-  min-height: 164px;
-  display: grid;
-  place-items: center;
-  gap: 8px;
-  padding: 18px;
-  border: 1px dashed rgba(121, 168, 216, 0.36);
-  border-radius: 16px;
-  background: var(--surface-inset, rgba(255, 255, 255, 0.035));
-  text-align: center;
-}
-
-.import-drop span {
-  max-width: 420px;
-  color: var(--muted-foreground);
 }
 
 .form-actions {

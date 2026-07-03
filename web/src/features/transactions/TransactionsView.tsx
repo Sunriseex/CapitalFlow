@@ -27,7 +27,6 @@ export function TransactionsView({
   categoriesLoading = false,
   categoriesError = null,
   onCreateTransaction,
-  onImport,
 }: {
   accounts: Account[];
   categories: Category[];
@@ -36,7 +35,6 @@ export function TransactionsView({
   categoriesLoading?: boolean;
   categoriesError?: unknown;
   onCreateTransaction?: () => void;
-  onImport?: () => void;
 }) {
   const { t } = useI18n();
   const errorMessages = apiErrorMessages(t);
@@ -204,11 +202,6 @@ export function TransactionsView({
                   onClick: onCreateTransaction,
                   disabled: disabledCreate,
                 }
-              : undefined
-          }
-          secondaryAction={
-            onImport
-              ? { label: t.dashboard.importTransactions, onClick: onImport }
               : undefined
           }
         />

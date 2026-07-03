@@ -62,16 +62,17 @@ export function TransactionForm({
   const queryClient = useQueryClient();
   const [error, setError] = useState("");
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
-  const [subscriptionPromptDismissed, setSubscriptionPromptDismissed] =
-    useState(false);
-  const formDefaults = useMemo<TransactionFormValues>(() => ({
-    account_id: accounts[0]?.id ?? "",
-    type: fixedType ?? "income",
-    amount: "",
-    category_id: "",
-    description: "",
-    occurred_at: today,
-  }), [accounts, fixedType]);
+  const formDefaults = useMemo<TransactionFormValues>(
+    () => ({
+      account_id: accounts[0]?.id ?? "",
+      type: fixedType ?? "income",
+      amount: "",
+      category_id: "",
+      description: "",
+      occurred_at: today,
+    }),
+    [accounts, fixedType],
+  );
   const formSchema = useMemo(
     () => createTransactionFormSchema(accounts, moneyParseMessages),
     [accounts, moneyParseMessages],
@@ -144,11 +145,6 @@ export function TransactionForm({
   });
 
   const transactionType = form.type as TransactionType;
-  const showSubscriptionPrompt =
-    transactionType === "expense" &&
-    selectedCategory &&
-    isSubscriptionCategory(selectedCategory) &&
-    !subscriptionPromptDismissed;
   const title = t.transactions.createTypedTransaction.replace(
     "{type}",
     t.transactions.types[transactionType].toLowerCase(),
@@ -245,27 +241,6 @@ export function TransactionForm({
         </ShadcnButton>
       </div>
 
-      {showSubscriptionPrompt ? (
-        <div className="subscription-suggestion" role="status">
-          <strong>{t.transactions.subscriptionPromptTitle}</strong>
-          <p>{t.transactions.subscriptionPromptDescription}</p>
-          <div>
-            <Button type="button" disabled title={t.common.notAvailable}>
-              {t.transactions.createSubscription}
-            </Button>
-            <Button type="button" disabled title={t.common.notAvailable}>
-              {t.transactions.linkSubscription}
-            </Button>
-            <Button
-              type="button"
-              onClick={() => setSubscriptionPromptDismissed(true)}
-            >
-              {t.transactions.notNow}
-            </Button>
-          </div>
-        </div>
-      ) : null}
-
       <Field label={t.transactions.date}>
         <Input type="date" {...register("occurred_at")} />
       </Field>
@@ -281,7 +256,6 @@ export function TransactionForm({
           selectedCategoryId={form.category_id}
           onClose={() => setCategoryPickerOpen(false)}
           onSelect={(categoryId) => {
-            setSubscriptionPromptDismissed(false);
             setValue("category_id", categoryId, {
               shouldDirty: true,
               shouldValidate: true,
@@ -331,13 +305,4 @@ function createTransactionFormSchema(
         });
       }
     });
-}
-
-function isSubscriptionCategory(category: Category) {
-  const value = `${category.name} ${category.slug}`.toLocaleLowerCase();
-  return (
-    value.includes("subscription") ||
-    value.includes("subscriptions") ||
-    value.includes("подпис")
-  );
 }
