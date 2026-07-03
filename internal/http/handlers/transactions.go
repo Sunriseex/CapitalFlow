@@ -33,11 +33,19 @@ func (h *Handler) listTransactions(w http.ResponseWriter, r *http.Request) {
 func parseTransactionListFilter(w http.ResponseWriter, r *http.Request) (services.TransactionListFilter, bool) {
 	query := r.URL.Query()
 	filter := services.TransactionListFilter{
-		AccountID:  strings.TrimSpace(query.Get("account_id")),
-		CategoryID: strings.TrimSpace(query.Get("category_id")),
-		Type:       models.TransactionType(strings.TrimSpace(query.Get("type"))),
-		Search:     strings.ToLower(strings.TrimSpace(query.Get("search"))),
-		Page:       1,
+		AccountID:       strings.TrimSpace(query.Get("account_id")),
+		CategoryID:      strings.TrimSpace(query.Get("category_id")),
+		CategorizedOnly: query.Get("categorized") == "true",
+		Search:          strings.ToLower(strings.TrimSpace(query.Get("search"))),
+		Page:            1,
+	}
+	for _, value := range query["type"] {
+		if value = strings.TrimSpace(value); value != "" {
+			filter.Types = append(filter.Types, models.TransactionType(value))
+		}
+	}
+	if len(filter.Types) == 1 {
+		filter.Type = filter.Types[0]
 	}
 
 	if !validateOptionalUUID(w, filter.AccountID, "account_id") ||
@@ -74,8 +82,26 @@ func parseTransactionListFilter(w http.ResponseWriter, r *http.Request) (service
 	if filter.Page == 0 {
 		filter.Page = 1
 	}
+	filter.Offset, err = parseOptionalNonNegativeInt(query.Get("offset"), "offset")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "validation_error", err.Error(), nil)
+		return services.TransactionListFilter{}, false
+	}
 
 	return filter, true
+}
+
+func parseOptionalNonNegativeInt(input, field string) (int, error) {
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return 0, nil
+	}
+
+	value, err := strconv.Atoi(input)
+	if err != nil || value < 0 {
+		return 0, errValidation(field + " must be a non-negative integer")
+	}
+	return value, nil
 }
 
 func parseOptionalPositiveInt(input, field string) (int, error) {

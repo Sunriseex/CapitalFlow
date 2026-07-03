@@ -88,12 +88,14 @@ export const en = {
     openSettingsCommandDescription: "Open profile, currency, and security.",
     transactionSearchDescription:
       "Find a transaction by description, account, category, amount, or transfer.",
-    transactionSearchDetailDescription: "Review the selected transaction fields.",
+    transactionSearchDetailDescription:
+      "Review the selected transaction fields.",
     transactionSearchPlaceholder:
       "Search by description, category, account, amount...",
     categorySearchPlaceholder: "Find transactions by category name...",
     transactionSearchResults: "Results",
-    transactionSearchEmpty: "No transactions found. Change the query or filter.",
+    transactionSearchEmpty:
+      "No transactions found. Change the query or filter.",
     categorySearchEmpty: "No transactions found in that category.",
     filters: {
       all: "All",
@@ -399,6 +401,10 @@ export const en = {
     filterToDate: "Filter transactions to date",
     allAccounts: "All accounts",
     allCategories: "All categories",
+    pagination: "Transaction pages",
+    previousPage: "Previous page",
+    nextPage: "Next page",
+    pageLabel: "Page {page}",
     createTypedTransaction: "Create {type}",
     adjustmentAmountHint: "Adjustment accepts positive or negative values.",
     categoryPickerTitle: "Categories",
@@ -457,9 +463,11 @@ export const en = {
     deadlinePassed: "Deadline passed, contribute now",
     month: "month",
     savingsGoals: "Savings goals",
-    savingsGoalsDescription: "Progress follows the current balance of the linked account.",
+    savingsGoalsDescription:
+      "Progress follows the current balance of the linked account.",
     monthlyLimits: "Monthly category limits",
-    monthlyLimitsDescription: "Limits repeat each calendar month and use matching-currency expenses.",
+    monthlyLimitsDescription:
+      "Limits repeat each calendar month and use matching-currency expenses.",
     account: "Linked account",
     chooseAccount: "Choose an account",
     accountNotLinked: "Account not linked",
@@ -479,7 +487,8 @@ export const en = {
     currency: "Currency",
     saveLimit: "Save limit",
     noLimits: "No category limits yet",
-    noLimitsDescription: "Set a recurring monthly limit for an expense category.",
+    noLimitsDescription:
+      "Set a recurring monthly limit for an expense category.",
     repeatsMonthly: "Repeats monthly",
     inactive: "Inactive",
     deactivate: "Deactivate",

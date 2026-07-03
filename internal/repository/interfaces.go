@@ -10,14 +10,17 @@ import (
 )
 
 type TransactionListFilter struct {
-	AccountID  string
-	CategoryID string
-	Type       models.TransactionType
-	FromDate   time.Time
-	ToDate     time.Time
-	Search     string
-	Limit      int
-	Page       int
+	AccountID       string
+	CategoryID      string
+	Type            models.TransactionType
+	Types           []models.TransactionType
+	CategorizedOnly bool
+	FromDate        time.Time
+	ToDate          time.Time
+	Search          string
+	Limit           int
+	Page            int
+	Offset          int
 }
 
 type TransactionQueryRepository interface {

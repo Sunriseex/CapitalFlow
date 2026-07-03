@@ -33,8 +33,13 @@ func (q *TransactionQuery) ListByUser(ctx context.Context, userID string, filter
 		filter = &TransactionListFilter{}
 	}
 	userID = strings.TrimSpace(userID)
-	if filter.Type != "" && !domaintransaction.ValidType(filter.Type) {
-		return nil, validationError("invalid type: " + string(filter.Type))
+	if filter.Type != "" && len(filter.Types) == 0 {
+		filter.Types = []models.TransactionType{filter.Type}
+	}
+	for _, transactionType := range filter.Types {
+		if !domaintransaction.ValidType(transactionType) {
+			return nil, validationError("invalid type: " + string(transactionType))
+		}
 	}
 	if !filter.FromDate.IsZero() && !filter.ToDate.IsZero() && filter.ToDate.Before(filter.FromDate) {
 		return nil, validationError("to_date must be on or after from_date")

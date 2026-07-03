@@ -40,11 +40,7 @@ export function TransactionsView({
 }) {
   const { t } = useI18n();
   const errorMessages = apiErrorMessages(t);
-  const transactions = useQuery({
-    queryKey: ["transactions"],
-    queryFn: () => api.transactions(),
-    staleTime: 30_000,
-  });
+  const pageSize = 50;
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
@@ -53,20 +49,25 @@ export function TransactionsView({
   const [type, setType] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const filtered = useMemo(
-    () =>
-      (transactions.data ?? []).filter((transaction) => {
-        const day = transaction.occurred_at.slice(0, 10);
-        return (
-          (!accountId || transaction.account_id === accountId) &&
-          (!categoryId || transaction.category_id === categoryId) &&
-          (!type || transaction.type === type) &&
-          (!from || day >= from) &&
-          (!to || day <= to)
-        );
-      }),
-    [accountId, categoryId, from, to, transactions.data, type],
+  const [page, setPage] = useState(1);
+  const transactionFilters = useMemo(
+    () => ({
+      accountId: accountId || undefined,
+      categoryId: categoryId || undefined,
+      types: type ? [type as Transaction["type"]] : undefined,
+      fromDate: from || undefined,
+      toDate: to || undefined,
+      limit: pageSize + 1,
+      offset: (page - 1) * pageSize,
+    }),
+    [accountId, categoryId, from, page, to, type],
   );
+  const transactions = useQuery({
+    queryKey: ["transactions", transactionFilters],
+    queryFn: () => api.transactions(transactionFilters),
+    placeholderData: (previous) => previous,
+    staleTime: 30_000,
+  });
   const accountOptions = useMemo(
     () =>
       accounts.map((account) => (
@@ -135,7 +136,10 @@ export function TransactionsView({
           aria-label={t.transactions.filterByAccount}
           value={accountId}
           disabled={accountsLoading || Boolean(accountsError)}
-          onChange={(event) => setAccountId(event.target.value)}
+          onChange={(event) => {
+            setAccountId(event.target.value);
+            setPage(1);
+          }}
         >
           <option value="">{t.transactions.allAccounts}</option>
           {accountOptions}
@@ -145,7 +149,10 @@ export function TransactionsView({
           aria-label={t.transactions.filterByCategory}
           value={categoryId}
           disabled={categoriesLoading || Boolean(categoriesError)}
-          onChange={(event) => setCategoryId(event.target.value)}
+          onChange={(event) => {
+            setCategoryId(event.target.value);
+            setPage(1);
+          }}
         >
           <option value="">{t.transactions.allCategories}</option>
           {categoryOptions}
@@ -154,7 +161,10 @@ export function TransactionsView({
         <Select
           aria-label={t.transactions.filterByType}
           value={type}
-          onChange={(event) => setType(event.target.value)}
+          onChange={(event) => {
+            setType(event.target.value);
+            setPage(1);
+          }}
         >
           <option value="">{t.accounts.allTypes}</option>
           {typeOptions}
@@ -164,14 +174,20 @@ export function TransactionsView({
           aria-label={t.transactions.filterFromDate}
           type="date"
           value={from}
-          onChange={(event) => setFrom(event.target.value)}
+          onChange={(event) => {
+            setFrom(event.target.value);
+            setPage(1);
+          }}
         />
 
         <Input
           aria-label={t.transactions.filterToDate}
           type="date"
           value={to}
-          onChange={(event) => setTo(event.target.value)}
+          onChange={(event) => {
+            setTo(event.target.value);
+            setPage(1);
+          }}
         />
       </div>
       {!transactions.isLoading &&
@@ -201,12 +217,40 @@ export function TransactionsView({
       !transactions.error &&
       (transactions.data?.length ?? 0) > 0 ? (
         <TransactionsTable
-          transactions={filtered}
+          transactions={(transactions.data ?? []).slice(0, pageSize)}
           accounts={accounts}
           categories={categories}
-          chunked
           onOpenTransaction={setSelectedTransaction}
         />
+      ) : null}
+      {!transactions.isLoading && !transactions.error ? (
+        <nav
+          className="transaction-pagination"
+          aria-label={t.transactions.pagination}
+        >
+          <Button
+            type="button"
+            variant="outline"
+            disabled={page === 1 || transactions.isFetching}
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
+          >
+            {t.transactions.previousPage}
+          </Button>
+          <span aria-live="polite">
+            {t.transactions.pageLabel.replace("{page}", String(page))}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={
+              (transactions.data?.length ?? 0) <= pageSize ||
+              transactions.isFetching
+            }
+            onClick={() => setPage((current) => current + 1)}
+          >
+            {t.transactions.nextPage}
+          </Button>
+        </nav>
       ) : null}
       {createOpen ? (
         <Dialog

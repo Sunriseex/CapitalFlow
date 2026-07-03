@@ -142,4 +142,19 @@ describe("TransactionsView", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("transaction-1")).toBeInTheDocument();
   });
+
+  it("requests filtered pages from the API", async () => {
+    const user = userEvent.setup();
+    mocks.transactions.mockResolvedValue([]);
+    renderTransactionsView();
+
+    await user.selectOptions(
+      screen.getByLabelText("Filter transactions by account"),
+      "account-1",
+    );
+
+    expect(mocks.transactions).toHaveBeenLastCalledWith(
+      expect.objectContaining({ accountId: "account-1", limit: 51, offset: 0 }),
+    );
+  });
 });

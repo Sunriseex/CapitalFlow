@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ReceiptText } from "lucide-react";
 import { api } from "../../api/client";
@@ -41,12 +41,31 @@ export function TransactionSearchDialog({
   const errorMessages = apiErrorMessages(t);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<QuickFilter>("all");
+  const [page, setPage] = useState(1);
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const deferredQuery = useDeferredValue(query);
+  const pageSize = 50;
+  const transactionFilters = useMemo(() => {
+    const month = currentMonthRange();
+    return {
+      search: deferredQuery || undefined,
+      types:
+        filter === "transfers"
+          ? (["transfer_in", "transfer_out"] as Transaction["type"][])
+          : undefined,
+      categorized: filter === "categories" || undefined,
+      fromDate: filter === "month" ? month.from : undefined,
+      toDate: filter === "month" ? month.to : undefined,
+      limit: pageSize + 1,
+      offset: (page - 1) * pageSize,
+    };
+  }, [deferredQuery, filter, page]);
   const transactions = useQuery({
-    queryKey: ["transactions"],
-    queryFn: () => api.transactions(),
+    queryKey: ["transactions", "search", transactionFilters],
+    queryFn: () => api.transactions(transactionFilters),
+    placeholderData: (previous) => previous,
     staleTime: 30_000,
   });
 
@@ -62,27 +81,7 @@ export function TransactionSearchDialog({
     () => new Map(categories.map((category) => [category.id, category.name])),
     [categories],
   );
-  const results = useMemo(
-    () =>
-      filterTransactions({
-        transactions: transactions.data ?? [],
-        accountNames,
-        accountCurrencies,
-        categoryNames,
-        query,
-        filter,
-        typeLabels: t.transactions.types,
-      }),
-    [
-      accountCurrencies,
-      accountNames,
-      categoryNames,
-      filter,
-      query,
-      t.transactions.types,
-      transactions.data,
-    ],
-  );
+  const results = (transactions.data ?? []).slice(0, pageSize);
 
   useEffect(() => {
     restoreFocusRef.current =
@@ -136,33 +135,50 @@ export function TransactionSearchDialog({
                   ? t.shell.categorySearchPlaceholder
                   : t.shell.transactionSearchPlaceholder
               }
-              onValueChange={setQuery}
+              onValueChange={(value) => {
+                setQuery(value);
+                setPage(1);
+              }}
             />
             <div className="transaction-search-filters" role="group">
               <FilterButton
                 active={filter === "all"}
                 label={t.shell.filters.all}
-                onClick={() => setFilter("all")}
+                onClick={() => {
+                  setFilter("all");
+                  setPage(1);
+                }}
               />
               <FilterButton
                 active={filter === "month"}
                 label={t.shell.filters.thisMonth}
-                onClick={() => setFilter("month")}
+                onClick={() => {
+                  setFilter("month");
+                  setPage(1);
+                }}
               />
               <FilterButton
                 active={filter === "transfers"}
                 label={t.shell.filters.transfers}
-                onClick={() => setFilter("transfers")}
+                onClick={() => {
+                  setFilter("transfers");
+                  setPage(1);
+                }}
               />
               <FilterButton
                 active={filter === "categories"}
                 label={t.shell.filters.categories}
-                onClick={() => setFilter("categories")}
+                onClick={() => {
+                  setFilter("categories");
+                  setPage(1);
+                }}
               />
             </div>
             <CommandList className="transaction-search-results">
               {transactions.isLoading ? (
-                <CommandEmpty>{t.transactions.loadingTransactions}</CommandEmpty>
+                <CommandEmpty>
+                  {t.transactions.loadingTransactions}
+                </CommandEmpty>
               ) : null}
               {transactions.error ? (
                 <CommandEmpty>
@@ -199,6 +215,30 @@ export function TransactionSearchDialog({
                 </CommandEmpty>
               ) : null}
             </CommandList>
+            <div className="transaction-search-pagination">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={page === 1 || transactions.isFetching}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+              >
+                {t.transactions.previousPage}
+              </Button>
+              <span aria-live="polite">
+                {t.transactions.pageLabel.replace("{page}", String(page))}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={
+                  (transactions.data?.length ?? 0) <= pageSize ||
+                  transactions.isFetching
+                }
+                onClick={() => setPage((current) => current + 1)}
+              >
+                {t.transactions.nextPage}
+              </Button>
+            </div>
           </Command>
         )}
       </DialogContent>
@@ -244,7 +284,8 @@ function TransactionResult({
   const { t, locale } = useI18n();
   const signed = signedAmount(transaction);
   const isNegative = compareMoney(signed, "0") < 0;
-  const title = transaction.description || t.transactions.types[transaction.type];
+  const title =
+    transaction.description || t.transactions.types[transaction.type];
 
   return (
     <CommandItem
@@ -282,75 +323,6 @@ function TransactionResult({
   );
 }
 
-function filterTransactions({
-  transactions,
-  accountNames,
-  accountCurrencies,
-  categoryNames,
-  query,
-  filter,
-  typeLabels,
-}: {
-  transactions: Transaction[];
-  accountNames: Map<string, string>;
-  accountCurrencies: Map<string, string>;
-  categoryNames: Map<string, string>;
-  query: string;
-  filter: QuickFilter;
-  typeLabels: Record<Transaction["type"], string>;
-}) {
-  const normalizedQuery = normalizeSearch(query);
-  const monthPrefix = new Date().toISOString().slice(0, 7);
-
-  return transactions
-    .filter((transaction) => {
-      if (
-        filter === "month" &&
-        !transaction.occurred_at.startsWith(monthPrefix)
-      ) {
-        return false;
-      }
-
-      if (
-        filter === "transfers" &&
-        transaction.type !== "transfer_in" &&
-        transaction.type !== "transfer_out"
-      ) {
-        return false;
-      }
-
-      const categoryName = transaction.category_id
-        ? categoryNames.get(transaction.category_id)
-        : undefined;
-
-      if (filter === "categories") {
-        if (!categoryName) {
-          return false;
-        }
-
-        return (
-          !normalizedQuery ||
-          normalizeSearch(categoryName).includes(normalizedQuery)
-        );
-      }
-
-      if (!normalizedQuery) {
-        return true;
-      }
-
-      return normalizeSearch(
-        searchValue(
-          transaction,
-          accountNames.get(transaction.account_id),
-          categoryName,
-          accountCurrencies.get(transaction.account_id) ?? "",
-          typeLabels,
-        ),
-      ).includes(normalizedQuery);
-    })
-    .slice(0, 50);
-}
-
 function searchValue(
   transaction: Transaction,
   accountName?: string,
@@ -374,6 +346,12 @@ function searchValue(
     .join(" ");
 }
 
-function normalizeSearch(value: string) {
-  return value.trim().toLocaleLowerCase();
+function currentMonthRange() {
+  const now = new Date();
+  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0));
+  return {
+    from: from.toISOString().slice(0, 10),
+    to: to.toISOString().slice(0, 10),
+  };
 }

@@ -615,7 +615,16 @@ paths:
         - name: type
           in: query
           schema:
-            $ref: "#/components/schemas/TransactionType"
+            type: array
+            items:
+              $ref: "#/components/schemas/TransactionType"
+          style: form
+          explode: true
+        - name: categorized
+          in: query
+          schema:
+            type: boolean
+            default: false
         - name: from_date
           in: query
           schema:
@@ -635,11 +644,19 @@ paths:
           schema:
             type: integer
             minimum: 1
+            maximum: 500
+            default: 50
         - name: page
           in: query
           schema:
             type: integer
             minimum: 1
+        - name: offset
+          in: query
+          description: Zero-based row offset. Overrides page-based offset when positive.
+          schema:
+            type: integer
+            minimum: 0
             default: 1
       responses:
         "200":
@@ -1256,7 +1273,8 @@ components:
           pattern: "^[a-z0-9]+(?:[-_][a-z0-9]+)*$"
     FinancialGoal:
       type: object
-      required: [id, name, target_amount, currency, status, created_at, updated_at]
+      required:
+        [id, name, target_amount, currency, status, created_at, updated_at]
       properties:
         id:
           type: string
@@ -1325,7 +1343,8 @@ components:
           enum: [active, completed, archived]
     CategoryLimit:
       type: object
-      required: [id, category_id, amount, currency, is_active, created_at, updated_at]
+      required:
+        [id, category_id, amount, currency, is_active, created_at, updated_at]
       properties:
         id:
           type: string
@@ -1808,7 +1827,8 @@ components:
           type: integer
     DashboardGoalProgress:
       type: object
-      required: [id, account_id, name, current_amount, target_amount, currency, status]
+      required:
+        [id, account_id, name, current_amount, target_amount, currency, status]
       properties:
         id:
           type: string
@@ -1833,7 +1853,15 @@ components:
           enum: [active, completed, archived]
     DashboardCategoryLimitProgress:
       type: object
-      required: [id, category_id, category_name, current_amount, target_amount, currency]
+      required:
+        [
+          id,
+          category_id,
+          category_name,
+          current_amount,
+          target_amount,
+          currency,
+        ]
       properties:
         id:
           type: string

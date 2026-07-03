@@ -523,8 +523,7 @@ nav button:focus-visible {
 
 .input[aria-invalid="true"] {
   border-color: var(--destructive);
-  box-shadow: 0 0 0 3px
-    color-mix(in oklch, var(--destructive) 18%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--destructive) 18%, transparent);
 }
 
 .checkbox-field {
@@ -1873,7 +1872,10 @@ ol.toaster {
 
 .goal-create-form {
   display: grid;
-  grid-template-columns: minmax(180px, 1.5fr) minmax(140px, 0.8fr) minmax(160px, 0.8fr) auto;
+  grid-template-columns: minmax(180px, 1.5fr) minmax(140px, 0.8fr) minmax(
+      160px,
+      0.8fr
+    ) auto;
   align-items: end;
   gap: 12px;
   margin-bottom: 18px;
@@ -2072,7 +2074,10 @@ ol.toaster {
 }
 
 .limit-create-form {
-  grid-template-columns: minmax(180px, 1.5fr) minmax(140px, 1fr) minmax(100px, 0.6fr) auto;
+  grid-template-columns: minmax(180px, 1.5fr) minmax(140px, 1fr) minmax(
+      100px,
+      0.6fr
+    ) auto;
 }
 
 .goals-list li > div {
@@ -3370,7 +3375,9 @@ html.theme-ripple-fallback::after {
   z-index: var(--z-transition-overlay);
   pointer-events: none;
   background: var(--background);
-  clip-path: circle(0 at var(--theme-ripple-x, 50vw) var(--theme-ripple-y, 50vh));
+  clip-path: circle(
+    0 at var(--theme-ripple-x, 50vw) var(--theme-ripple-y, 50vh)
+  );
   animation: theme-ripple-reveal 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -3397,7 +3404,9 @@ html.language-ripple-fallback::after {
 
 @keyframes theme-ripple-reveal {
   from {
-    clip-path: circle(0 at var(--theme-ripple-x, 50vw) var(--theme-ripple-y, 50vh));
+    clip-path: circle(
+      0 at var(--theme-ripple-x, 50vw) var(--theme-ripple-y, 50vh)
+    );
   }
 
   to {
@@ -3884,6 +3893,40 @@ html.language-ripple-fallback::after {
   box-shadow: var(--shadow);
 }
 
+.transaction-pagination,
+.transaction-search-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding-top: 12px;
+  color: var(--muted-foreground);
+  font-size: 0.82rem;
+}
+
+.transaction-search-pagination {
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.transaction-pagination .button,
+.transaction-search-pagination .button {
+  min-width: 132px;
+}
+
+@media (max-width: 520px) {
+  .transaction-pagination,
+  .transaction-search-pagination {
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .transaction-pagination .button,
+  .transaction-search-pagination .button {
+    min-width: 0;
+  }
+}
+
 .category-picker-dialog {
   top: clamp(24px, 7vh, 64px);
   width: min(980px, calc(100vw - 24px));
@@ -4134,11 +4177,7 @@ html.language-ripple-fallback::after {
   flex: 0 0 auto;
   border: 1px solid var(--category-color);
   color: var(--category-color);
-  background: color-mix(
-    in oklch,
-    var(--category-color) 12%,
-    transparent
-  );
+  background: color-mix(in oklch, var(--category-color) 12%, transparent);
   font-weight: 740;
   text-overflow: ellipsis;
 }

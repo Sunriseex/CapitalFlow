@@ -43,8 +43,23 @@ const legacyRefreshTokenKey = "capitalflow_refresh_token";
 const legacyDefaultApiBase = "http://localhost:8080/api";
 const defaultApiBase = "/api/v1";
 
+export type TransactionFilters = {
+  accountId?: string;
+  categoryId?: string;
+  types?: Transaction["type"][];
+  categorized?: boolean;
+  fromDate?: string;
+  toDate?: string;
+  search?: string;
+  limit?: number;
+  page?: number;
+  offset?: number;
+};
+
 export function getStoredToken() {
-  return localStorage.getItem(tokenKey) ?? localStorage.getItem(legacyTokenKey) ?? "";
+  return (
+    localStorage.getItem(tokenKey) ?? localStorage.getItem(legacyTokenKey) ?? ""
+  );
 }
 
 export function setStoredToken(token: string) {
@@ -58,7 +73,8 @@ export function clearStoredSession() {
 }
 
 export function getStoredApiBase() {
-  const stored = localStorage.getItem(apiBaseKey) ?? localStorage.getItem(legacyApiBaseKey);
+  const stored =
+    localStorage.getItem(apiBaseKey) ?? localStorage.getItem(legacyApiBaseKey);
   return normalizeApiBase(stored ?? "");
 }
 
@@ -119,7 +135,11 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   return apiFetchWithAuth<T>(path, init, true);
 }
 
-async function apiFetchWithAuth<T>(path: string, init: RequestInit = {}, allowRefresh: boolean): Promise<T> {
+async function apiFetchWithAuth<T>(
+  path: string,
+  init: RequestInit = {},
+  allowRefresh: boolean,
+): Promise<T> {
   const headers = new Headers(init.headers);
   const token = getStoredToken();
 
@@ -137,9 +157,16 @@ async function apiFetchWithAuth<T>(path: string, init: RequestInit = {}, allowRe
 
   let response: Response;
   try {
-    response = await fetch(`${getStoredApiBase()}${path}`, { ...init, headers });
+    response = await fetch(`${getStoredApiBase()}${path}`, {
+      ...init,
+      headers,
+    });
   } catch (err) {
-    throw new ApiClientError(err instanceof Error ? err.message : "API request failed", 0, "network_error");
+    throw new ApiClientError(
+      err instanceof Error ? err.message : "API request failed",
+      0,
+      "network_error",
+    );
   }
 
   if (response.status === 204) {
@@ -155,7 +182,11 @@ async function apiFetchWithAuth<T>(path: string, init: RequestInit = {}, allowRe
 
   if (!response.ok) {
     const err = payload?.error;
-    throw new ApiClientError(err?.message ?? response.statusText, response.status, err?.code);
+    throw new ApiClientError(
+      err?.message ?? response.statusText,
+      response.status,
+      err?.code,
+    );
   }
 
   return payload as T;
@@ -163,7 +194,9 @@ async function apiFetchWithAuth<T>(path: string, init: RequestInit = {}, allowRe
 
 function isMutation(method?: string) {
   const normalized = (method ?? "GET").toUpperCase();
-  return normalized === "POST" || normalized === "PATCH" || normalized === "DELETE";
+  return (
+    normalized === "POST" || normalized === "PATCH" || normalized === "DELETE"
+  );
 }
 
 function newIdempotencyKey() {
@@ -185,7 +218,11 @@ async function authFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
       credentials: "include",
     });
   } catch (err) {
-    throw new ApiClientError(err instanceof Error ? err.message : "API request failed", 0, "network_error");
+    throw new ApiClientError(
+      err instanceof Error ? err.message : "API request failed",
+      0,
+      "network_error",
+    );
   }
 
   if (response.status === 204) {
@@ -193,15 +230,25 @@ async function authFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 
   const contentType = response.headers.get("Content-Type") ?? "";
-  const payload = contentType.includes("application/json") ? await response.json().catch(() => null) : null;
+  const payload = contentType.includes("application/json")
+    ? await response.json().catch(() => null)
+    : null;
 
   if (!response.ok) {
     const err = payload?.error;
-    throw new ApiClientError(err?.message ?? response.statusText, response.status, err?.code);
+    throw new ApiClientError(
+      err?.message ?? response.statusText,
+      response.status,
+      err?.code,
+    );
   }
 
   if (payload == null) {
-    throw new ApiClientError("Invalid API response", response.status, "invalid_response");
+    throw new ApiClientError(
+      "Invalid API response",
+      response.status,
+      "invalid_response",
+    );
   }
 
   return payload as T;
@@ -246,15 +293,34 @@ export const api = {
   authStatus: () => authFetch<AuthStatusResponse>("/auth/status"),
 
   setup: async (input: AuthSetupRequest) =>
-    storeSession(await authFetch<AuthResponse>("/auth/setup", { method: "POST", body: JSON.stringify(input) })),
+    storeSession(
+      await authFetch<AuthResponse>("/auth/setup", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    ),
 
   login: async (input: AuthLoginRequest) =>
-    storeSession(await authFetch<AuthResponse>("/auth/login", { method: "POST", body: JSON.stringify(input) })),
+    storeSession(
+      await authFetch<AuthResponse>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    ),
 
-  passkeyLoginOptions: () => authFetch<{ publicKey: PublicKeyCredentialRequestOptions }>("/auth/passkeys/login/options", { method: "POST" }),
+  passkeyLoginOptions: () =>
+    authFetch<{ publicKey: PublicKeyCredentialRequestOptions }>(
+      "/auth/passkeys/login/options",
+      { method: "POST" },
+    ),
 
   passkeyLoginVerify: async (input: unknown) =>
-    storeSession(await authFetch<AuthResponse>("/auth/passkeys/login/verify", { method: "POST", body: JSON.stringify(input) })),
+    storeSession(
+      await authFetch<AuthResponse>("/auth/passkeys/login/verify", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    ),
 
   logout: async () => {
     await authFetch<void>("/auth/logout", {
@@ -265,13 +331,17 @@ export const api = {
 
   profile: () => apiFetch<Profile>("/settings/profile"),
 
-  passkeys: async () => (await apiFetch<PasskeyCredentialsResponse>("/auth/passkeys")).passkeys,
+  passkeys: async () =>
+    (await apiFetch<PasskeyCredentialsResponse>("/auth/passkeys")).passkeys,
 
   passkeyRegistrationOptions: (input: PasskeyRegistrationOptionsRequest) =>
-    apiFetch<{ publicKey: PublicKeyCredentialCreationOptions }>("/auth/passkeys/registration/options", {
-      method: "POST",
-      body: JSON.stringify(input),
-    }),
+    apiFetch<{ publicKey: PublicKeyCredentialCreationOptions }>(
+      "/auth/passkeys/registration/options",
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+    ),
 
   passkeyRegistrationVerify: (input: unknown) =>
     apiFetch<PasskeyCredential>("/auth/passkeys/registration/verify", {
@@ -280,64 +350,118 @@ export const api = {
     }),
 
   renamePasskey: (id: string, input: PasskeyRenameRequest) =>
-    apiFetch<PasskeyCredential>(`/auth/passkeys/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+    apiFetch<PasskeyCredential>(`/auth/passkeys/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
 
-  deletePasskey: (id: string) => apiFetch<void>(`/auth/passkeys/${id}`, { method: "DELETE" }),
+  deletePasskey: (id: string) =>
+    apiFetch<void>(`/auth/passkeys/${id}`, { method: "DELETE" }),
 
   updateProfile: (input: UpdateProfileRequest) =>
-    apiFetch<Profile>("/settings/profile", { method: "PATCH", body: JSON.stringify(input) }),
+    apiFetch<Profile>("/settings/profile", {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
 
   dashboardSummary: () => apiFetch<DashboardSummary>("/dashboard/summary"),
 
-  dashboardCashflow: () => apiFetch<DashboardCashflow>("/dashboard/cashflow?months=6"),
+  dashboardCashflow: () =>
+    apiFetch<DashboardCashflow>("/dashboard/cashflow?months=6"),
 
-  dashboardInterestIncome: () => apiFetch<DashboardInterestIncome>("/dashboard/interest-income?months=6"),
+  dashboardInterestIncome: () =>
+    apiFetch<DashboardInterestIncome>("/dashboard/interest-income?months=6"),
 
-  currencyRates: (base = "RUB") => apiFetch<CurrencyRateTable>(`/currency-rates?base=${encodeURIComponent(base)}`),
+  currencyRates: (base = "RUB") =>
+    apiFetch<CurrencyRateTable>(
+      `/currency-rates?base=${encodeURIComponent(base)}`,
+    ),
 
   accounts: () => apiFetch<Account[]>("/accounts"),
 
   account: (id: string) => apiFetch<Account>(`/accounts/${id}`),
 
-  accountBalance: (id: string) => apiFetch<AccountBalance>(`/accounts/${id}/balance`),
+  accountBalance: (id: string) =>
+    apiFetch<AccountBalance>(`/accounts/${id}/balance`),
 
-  transactions: (accountId?: string) =>
-    apiFetch<Transaction[]>(accountId ? `/transactions?account_id=${accountId}` : "/transactions"),
+  transactions: (filters: TransactionFilters = {}) => {
+    const query = new URLSearchParams();
+    if (filters.accountId) query.set("account_id", filters.accountId);
+    if (filters.categoryId) query.set("category_id", filters.categoryId);
+    for (const type of filters.types ?? []) query.append("type", type);
+    if (filters.categorized) query.set("categorized", "true");
+    if (filters.fromDate) query.set("from_date", filters.fromDate);
+    if (filters.toDate) query.set("to_date", filters.toDate);
+    if (filters.search?.trim()) query.set("search", filters.search.trim());
+    if (filters.limit) query.set("limit", String(filters.limit));
+    if (filters.page) query.set("page", String(filters.page));
+    if (filters.offset !== undefined)
+      query.set("offset", String(filters.offset));
+    const suffix = query.size ? `?${query.toString()}` : "";
+    return apiFetch<Transaction[]>(`/transactions${suffix}`);
+  },
 
   categories: () => apiFetch<Category[]>("/categories"),
 
   createCategory: (input: { name: string; slug: string }) =>
-    apiFetch<Category>("/categories", { method: "POST", body: JSON.stringify(input) }),
+    apiFetch<Category>("/categories", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
 
   financialGoals: () => apiFetch<FinancialGoal[]>("/financial-goals"),
 
   createFinancialGoal: (input: CreateFinancialGoalRequest) =>
-    apiFetch<FinancialGoal>("/financial-goals", { method: "POST", body: JSON.stringify(input) }),
+    apiFetch<FinancialGoal>("/financial-goals", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
 
   updateFinancialGoal: (id: string, input: UpdateFinancialGoalRequest) =>
-    apiFetch<FinancialGoal>(`/financial-goals/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+    apiFetch<FinancialGoal>(`/financial-goals/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
 
   categoryLimits: () => apiFetch<CategoryLimit[]>("/category-limits"),
 
   createCategoryLimit: (input: CreateCategoryLimitRequest) =>
-    apiFetch<CategoryLimit>("/category-limits", { method: "POST", body: JSON.stringify(input) }),
+    apiFetch<CategoryLimit>("/category-limits", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
 
   updateCategoryLimit: (id: string, input: UpdateCategoryLimitRequest) =>
-    apiFetch<CategoryLimit>(`/category-limits/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+    apiFetch<CategoryLimit>(`/category-limits/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
 
   interestRules: (accountId?: string) =>
-    apiFetch<InterestRule[]>(accountId ? `/accounts/${accountId}/interest-rules` : "/interest-rules"),
+    apiFetch<InterestRule[]>(
+      accountId ? `/accounts/${accountId}/interest-rules` : "/interest-rules",
+    ),
 
   createAccount: (input: CreateAccountRequest) =>
-    apiFetch<Account>("/accounts", { method: "POST", body: JSON.stringify(input) }),
+    apiFetch<Account>("/accounts", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
 
   updateAccount: (id: string, input: UpdateAccountRequest) =>
-    apiFetch<Account>(`/accounts/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+    apiFetch<Account>(`/accounts/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
 
-  archiveAccount: (id: string) => apiFetch<void>(`/accounts/${id}/archive`, { method: "POST" }),
+  archiveAccount: (id: string) =>
+    apiFetch<void>(`/accounts/${id}/archive`, { method: "POST" }),
 
   createTransaction: (input: CreateTransactionRequest) =>
-    apiFetch<Transaction>("/transactions", { method: "POST", body: JSON.stringify(input) }),
+    apiFetch<Transaction>("/transactions", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
 
   createTransfer: (input: CreateTransferRequest) =>
     apiFetch<TransferResponse>("/transfers", {
@@ -347,7 +471,10 @@ export const api = {
   transfers: () => apiFetch<TransferEvent[]>("/transfers"),
 
   createInterestRule: (accountId: string, input: CreateInterestRuleRequest) =>
-    apiFetch<InterestRule>(`/accounts/${accountId}/interest-rules`, { method: "POST", body: JSON.stringify(input) }),
+    apiFetch<InterestRule>(`/accounts/${accountId}/interest-rules`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
 
   accrueInterest: (accountId: string, date: string) =>
     apiFetch<unknown>(`/accounts/${accountId}/accrue-interest`, {

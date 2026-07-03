@@ -345,8 +345,17 @@ func (r *TransactionRepository) ListByUserFiltered(ctx context.Context, userID s
 	if strings.TrimSpace(filter.CategoryID) != "" {
 		query += " AND t.category_id = " + addArg(strings.TrimSpace(filter.CategoryID))
 	}
-	if filter.Type != "" {
+	if len(filter.Types) > 0 {
+		types := make([]string, 0, len(filter.Types))
+		for _, transactionType := range filter.Types {
+			types = append(types, string(transactionType))
+		}
+		query += " AND t.type = ANY(" + addArg(types) + ")"
+	} else if filter.Type != "" {
 		query += " AND t.type = " + addArg(filter.Type)
+	}
+	if filter.CategorizedOnly {
+		query += " AND t.category_id IS NOT NULL"
 	}
 	if !filter.FromDate.IsZero() {
 		query += " AND t.occurred_at >= " + addArg(transactionFilterDate(filter.FromDate))
@@ -356,17 +365,38 @@ func (r *TransactionRepository) ListByUserFiltered(ctx context.Context, userID s
 	}
 	if strings.TrimSpace(filter.Search) != "" {
 		search := strings.ToLower(strings.TrimSpace(filter.Search))
-		query += " AND strpos(lower(t.description), " + addArg(search) + ") > 0"
+		placeholder := addArg(search)
+		query += ` AND (
+			strpos(lower(t.description), ` + placeholder + `) > 0
+			OR strpos(lower(t.type::text), ` + placeholder + `) > 0
+			OR strpos(lower(t.amount::text), ` + placeholder + `) > 0
+			OR strpos(lower(t.id::text), ` + placeholder + `) > 0
+			OR strpos(lower(COALESCE(t.transfer_id::text, '')), ` + placeholder + `) > 0
+			OR EXISTS (
+				SELECT 1 FROM accounts search_account
+				WHERE search_account.id = t.account_id
+					AND (strpos(lower(search_account.name), ` + placeholder + `) > 0 OR strpos(lower(search_account.bank), ` + placeholder + `) > 0 OR strpos(lower(search_account.currency), ` + placeholder + `) > 0)
+			)
+			OR EXISTS (
+				SELECT 1 FROM categories search_category
+				WHERE search_category.id = t.category_id
+					AND (strpos(lower(search_category.name), ` + placeholder + `) > 0 OR strpos(lower(search_category.slug), ` + placeholder + `) > 0)
+			)
+		)`
 	}
 
 	query += " ORDER BY t.occurred_at DESC, t.created_at DESC, t.id DESC"
 	if filter.Limit > 0 {
 		query += " LIMIT " + addArg(filter.Limit)
-		page := filter.Page
-		if page <= 0 {
-			page = 1
+		offset := filter.Offset
+		if offset == 0 {
+			page := filter.Page
+			if page <= 0 {
+				page = 1
+			}
+			offset = (page - 1) * filter.Limit
 		}
-		query += " OFFSET " + addArg((page-1)*filter.Limit)
+		query += " OFFSET " + addArg(offset)
 	}
 
 	return listTransactions(ctx, r.pool, query, args...)
