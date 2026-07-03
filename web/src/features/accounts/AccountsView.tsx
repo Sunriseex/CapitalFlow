@@ -15,14 +15,12 @@ export function AccountsView({
   error = null,
   onSelect,
   onCreateAccount,
-  onImport,
 }: {
   accounts: Account[];
   isLoading?: boolean;
   error?: unknown;
   onSelect: (id: string) => void;
   onCreateAccount?: () => void;
-  onImport?: () => void;
 }) {
   const { t } = useI18n();
   const errorMessages = apiErrorMessages(t);
@@ -93,11 +91,6 @@ export function AccountsView({
           primaryAction={
             onCreateAccount
               ? { label: t.accounts.createAccount, onClick: onCreateAccount }
-              : undefined
-          }
-          secondaryAction={
-            onImport
-              ? { label: t.dashboard.importTransactions, onClick: onImport }
               : undefined
           }
         />

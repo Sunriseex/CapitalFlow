@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 import {
   Command as CommandIcon,
   CreditCard,
-  Download,
   type LucideIcon,
   LayoutDashboard,
   List,
@@ -447,13 +446,6 @@ export function CommandMenu({
             description={t.shell.addAccountCommandDescription}
             onSelect={() => onQuickAction("account")}
           />
-          <CommandAction
-            value="import csv bank statement"
-            icon={<Download aria-hidden="true" />}
-            title={t.dashboard.importTransactions}
-            description={t.shell.importCommandDescription}
-            onSelect={() => onQuickAction("import")}
-          />
         </CommandGroup>
         <CommandGroup heading={t.shell.navigate}>
           <CommandAction
@@ -502,31 +494,6 @@ export function CommandMenu({
         </span>
       </div>
     </CommandDialog>
-  );
-}
-
-export function ImportPlaceholder({
-  onOpenTransactions,
-}: {
-  onOpenTransactions: () => void;
-}) {
-  const { t } = useI18n();
-  return (
-    <div className="import-placeholder">
-      <div className="import-drop" aria-disabled="true">
-        <Download size={22} aria-hidden="true" />
-        <strong>{t.shell.bankImportNotConnected}</strong>
-        <span>{t.shell.backendImportUnavailable}</span>
-      </div>
-      <div className="form-actions">
-        <Button
-          type="button"
-          onClick={onOpenTransactions}
-        >
-          {t.dashboard.allTransactions}
-        </Button>
-      </div>
-    </div>
   );
 }
 

@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CreditCard, Repeat, Zap } from "lucide-react";
+import { CreditCard, Zap } from "lucide-react";
 import { api } from "../../api/client";
 import {
   addMoney,
@@ -134,19 +134,17 @@ export function DashboardView({
   );
   const recentAccounts = useMemo(
     () =>
-      balances.map(
-        (account): Account => ({
-          id: account.account_id,
-          name: account.name,
-          bank: account.bank,
-          type: account.type,
-          currency: account.currency,
-          is_active: account.is_active,
-          opened_at: "",
-          created_at: "",
-          updated_at: "",
-        }),
-      ),
+      balances.map((account): Account => ({
+        id: account.account_id,
+        name: account.name,
+        bank: account.bank,
+        type: account.type,
+        currency: account.currency,
+        is_active: account.is_active,
+        opened_at: "",
+        created_at: "",
+        updated_at: "",
+      })),
     [balances],
   );
   const cashflowBuckets = useMemo(
@@ -299,19 +297,6 @@ export function DashboardView({
                 : formatMoney("0", selectedCurrency, locale)}
             </div>
             <span>{allocation[0]?.name ?? t.dashboard.noPositiveBalances}</span>
-          </article>
-
-          <article className="card metric-card">
-            <div className="metric-card-head">
-              <div className="balance-title">
-                <span>{t.dashboard.subscriptions}</span>
-              </div>
-              <span className="pill">{t.common.notAvailable}</span>
-            </div>
-            <div className="metric-value">
-              {formatMoney("0", selectedCurrency, locale)}
-            </div>
-            <span>{t.dashboard.emptySubscriptionsTitle}</span>
           </article>
         </section>
 
@@ -602,12 +587,6 @@ export function DashboardView({
                 >
                   {t.dashboard.createTransfer}
                 </Button>
-                <Button
-                  type="button"
-                  onClick={() => onQuickAction?.("import")}
-                >
-                  {t.dashboard.importTransactions}
-                </Button>
               </div>
             </article>
 
@@ -659,30 +638,14 @@ export function DashboardView({
               goals={data?.financial_goals ?? []}
               limits={data?.category_limits ?? []}
               locale={locale}
-              monthLabel={new Intl.DateTimeFormat(locale, { month: "long" }).format(new Date())}
+              monthLabel={new Intl.DateTimeFormat(locale, {
+                month: "long",
+              }).format(new Date())}
               title={t.dashboard.goalsAndLimits}
               emptyLabel={t.dashboard.goalsAndLimitsEmpty}
               openLabel={t.dashboard.openGoals}
               onOpen={() => onNavigate?.("goals")}
             />
-
-            <article className="card rail-card">
-              <div className="card-head">
-                <div className="card-title">
-                  <h2>{t.dashboard.subscriptions}</h2>
-                </div>
-                <Repeat aria-hidden="true" />
-              </div>
-              <div className="review-placeholder">
-                <strong>{t.dashboard.emptySubscriptionsTitle}</strong>
-                <Button
-                  type="button"
-                  onClick={() => onNavigate?.("transactions")}
-                >
-                  {t.nav.transactions}
-                </Button>
-              </div>
-            </article>
           </aside>
         </div>
       </section>

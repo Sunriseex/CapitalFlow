@@ -72,9 +72,7 @@ vi.mock("./features/dashboard/DashboardView", () => ({
     onQuickAction,
   }: {
     quickActionsDisabled?: boolean;
-    onQuickAction?: (
-      action: "transaction" | "transfer" | "account" | "import",
-    ) => void;
+    onQuickAction?: (action: "transaction" | "transfer" | "account") => void;
   }) => (
     <div>
       Dashboard mock
@@ -91,9 +89,6 @@ vi.mock("./features/dashboard/DashboardView", () => ({
         onClick={() => onQuickAction?.("transfer")}
       >
         + Transfer
-      </button>
-      <button type="button" onClick={() => onQuickAction?.("import")}>
-        Import
       </button>
     </div>
   ),
@@ -866,7 +861,7 @@ describe("App query states", () => {
     ).not.toBeNull();
   });
 
-  it("opens health popover and import placeholder", async () => {
+  it("opens the health popover", async () => {
     const user = userEvent.setup();
     renderApp();
 
@@ -886,20 +881,6 @@ describe("App query states", () => {
       screen.getByRole("button", { name: "Check system health" }),
     ).toHaveFocus();
     await waitFor(() => expect(mocks.serviceStatus).toHaveBeenCalledTimes(2));
-
-    await user.click(screen.getByRole("button", { name: "Import" }));
-    expect(
-      await screen.findByRole("dialog", { name: "Import transactions" }),
-    ).toBeInTheDocument();
-    const importDialog = await screen.findByRole("dialog", {
-      name: "Import transactions",
-    });
-
-    expect(
-      within(importDialog).getByText(
-        "Backend import is not available yet. Manual transactions and transfers are ready.",
-      ),
-    ).toBeInTheDocument();
   });
 
   it("does not label a non-ok API response as healthy", async () => {

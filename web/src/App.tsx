@@ -1,7 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Bell,
   PanelLeftClose,
   PanelLeftOpen,
   PanelRightClose,
@@ -18,7 +17,6 @@ import {
   BrandBlock,
   CommandMenu,
   CommandTrigger,
-  ImportPlaceholder,
   Nav,
   SidebarStatusCard,
   SidebarFooter,
@@ -242,7 +240,7 @@ export function App() {
   }
 
   function completeQuickAction(
-    action: Exclude<NonNullable<QuickAction>, "import">,
+    action: NonNullable<QuickAction>,
     message: string,
   ) {
     if (action === "account") {
@@ -259,13 +257,6 @@ export function App() {
 
   function openQuickAction(action: NonNullable<QuickAction>) {
     setQuickAction(action);
-    if (action === "import") {
-      toaster.create({
-        type: "info",
-        title: t.dashboard.importTransactions,
-        description: t.shell.backendImportUnavailable,
-      });
-    }
   }
 
   function toggleSidebar() {
@@ -391,40 +382,12 @@ export function App() {
               {t.dashboard.categories}
             </button>
             <button
-              className="topbar-action"
-              type="button"
-              onClick={() =>
-                toaster.create({
-                  type: "info",
-                  title: t.dashboard.emptyStartUnavailable,
-                })
-              }
-            >
-              {t.dashboard.emptyStart}
-            </button>
-            <button
               className="topbar-action primary"
               type="button"
               onClick={() => openQuickAction("account")}
             >
               {t.accounts.createAccount}
             </button>
-            {view === "dashboard" ? null : (
-              <button
-                className="shell-icon-button"
-                type="button"
-                aria-label={t.shell.notifications}
-                title={t.shell.notifications}
-                onClick={() =>
-                  toaster.create({
-                    type: "info",
-                    title: t.shell.notificationsUnavailable,
-                  })
-                }
-              >
-                <Bell aria-hidden="true" />
-              </button>
-            )}
             {view === "dashboard" ? (
               <button
                 className="rail-toggle"
@@ -482,7 +445,6 @@ export function App() {
                   error={accounts.error}
                   onSelect={(id) => navigateTo("accounts", id)}
                   onCreateAccount={() => openQuickAction("account")}
-                  onImport={() => openQuickAction("import")}
                 />
               )
             ) : null}
@@ -496,7 +458,6 @@ export function App() {
                 categoriesLoading={categories.isLoading}
                 categoriesError={categories.error}
                 onCreateTransaction={() => openQuickAction("transaction")}
-                onImport={() => openQuickAction("import")}
               />
             ) : null}
 
@@ -554,15 +515,6 @@ export function App() {
                 onDone={() =>
                   completeQuickAction("transaction", t.dashboard.addTransaction)
                 }
-              />
-            ) : null}
-
-            {quickAction === "import" ? (
-              <ImportPlaceholder
-                onOpenTransactions={() => {
-                  setQuickAction(null);
-                  navigateTo("transactions");
-                }}
               />
             ) : null}
           </Suspense>
@@ -638,7 +590,12 @@ function currentRoute(): { view: View; accountId: string } {
     };
   }
 
-  if (view === "transactions" || view === "goals" || view === "settings" || view === "dashboard") {
+  if (
+    view === "transactions" ||
+    view === "goals" ||
+    view === "settings" ||
+    view === "dashboard"
+  ) {
     return { view, accountId: "" };
   }
 
@@ -698,6 +655,5 @@ function quickActionTitle(
     transaction: t.transactions.createTransaction,
     transfer: t.dashboard.createTransfer,
     account: t.accounts.createAccount,
-    import: t.dashboard.importTransactions,
   }[action];
 }
