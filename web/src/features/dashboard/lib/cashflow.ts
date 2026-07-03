@@ -3,7 +3,7 @@ import type { DashboardCashflowBucket } from "../../../api/types";
 import type { CurrencyRateTable } from "../../../api/generated";
 import type { Locale } from "../../../shared/i18n/i18n";
 
-export type CashflowPeriod = "week" | "month" | "quarter" | "year";
+export type CashflowPeriod = "month" | "quarter" | "year";
 
 export type CashflowChartBucket = {
   period: string;
@@ -16,7 +16,6 @@ export type CashflowChartBucket = {
 
 export const cashflowPeriods: Array<{ value: CashflowPeriod; label: string }> =
   [
-    { value: "week", label: "Week" },
     { value: "month", label: "Month" },
     { value: "quarter", label: "Quarter" },
     { value: "year", label: "Year" },
@@ -49,10 +48,6 @@ export function groupCashflow(
 ) {
   if (period === "month") {
     return buckets;
-  }
-
-  if (period === "week") {
-    return [];
   }
 
   const grouped = new Map<string, CashflowChartBucket>();

@@ -298,9 +298,6 @@ export const en = {
     expense: "Expense",
     openLedger: "Open ledger",
     real: "Real",
-    weeklyCashflowUnavailable: "Weekly cashflow unavailable",
-    backendReturnsMonthlyCashflow:
-      "The backend currently returns monthly cashflow buckets.",
     noCashflowYet: "No cashflow yet",
     addIncomeOrExpensesToBuildChart:
       "Add income or expenses to build this chart.",
@@ -308,7 +305,6 @@ export const en = {
     cashflowChartSummary:
       "Cashflow chart covers {count} periods. Income {income}, expenses {expenses}, net {net}.",
     periods: {
-      week: "Week",
       month: "Month",
       quarter: "Quarter",
       year: "Year",

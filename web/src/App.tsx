@@ -330,19 +330,6 @@ export function App() {
             <h1 id="pageTitle">
               {view === "dashboard" ? t.nav.overview : pageTitle}
             </h1>
-            <div className="page-title">
-              {view === "dashboard" && serviceStatus.data?.version ? (
-                <span
-                  className="version-badge"
-                  aria-label={t.shell.serviceVersion.replace(
-                    "{version}",
-                    serviceStatus.data.version,
-                  )}
-                >
-                  {serviceStatus.data.version}
-                </span>
-              ) : null}
-            </div>
           </div>
 
           <div className="head-tools">

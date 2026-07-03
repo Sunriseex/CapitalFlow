@@ -252,7 +252,6 @@ describe("DashboardView", () => {
     renderDashboardView();
 
     expect(await screen.findByText("2 periods · Month")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Week" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Month" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Quarter" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Year" })).toBeInTheDocument();
@@ -274,15 +273,6 @@ describe("DashboardView", () => {
 
     await user.click(await screen.findByRole("button", { name: "Quarter" }));
     expect(await screen.findByText("1 period · Quarter")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Week" }));
-    expect(
-      await screen.findByText("Weekly cashflow unavailable"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "The backend currently returns monthly cashflow buckets.",
-      ),
-    ).toBeInTheDocument();
   });
 
   it("honors the external right rail visibility state without unmounting dashboard content", async () => {

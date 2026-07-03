@@ -107,7 +107,7 @@ function ProgressRow({
                 ? `budget-progress-bar category-progress ${categoryColorClass(item.data.category_id)}`
                 : `budget-progress-bar is-${tone}`
             }
-            style={{ width: `${boundedPercent}%` }}
+            style={{ transform: `scaleX(${boundedPercent / 100})` }}
           />
         </span>
       </button>
