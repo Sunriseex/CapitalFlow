@@ -402,11 +402,13 @@ export function CommandMenu({
   onClose,
   onNavigate,
   onQuickAction,
+  onManageCategories,
 }: {
   transactionActionsDisabled: boolean;
   onClose: () => void;
   onNavigate: (view: View) => void;
   onQuickAction: (action: NonNullable<QuickAction>) => void;
+  onManageCategories: () => void;
 }) {
   const { t } = useI18n();
 
@@ -445,6 +447,13 @@ export function CommandMenu({
             title={t.accounts.createAccount}
             description={t.shell.addAccountCommandDescription}
             onSelect={() => onQuickAction("account")}
+          />
+          <CommandAction
+            value="categories tags manage"
+            icon={<List aria-hidden="true" />}
+            title={t.dashboard.categories}
+            description={t.transactions.categoryPickerActions}
+            onSelect={onManageCategories}
           />
         </CommandGroup>
         <CommandGroup heading={t.shell.navigate}>

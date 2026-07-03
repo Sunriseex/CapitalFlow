@@ -3086,7 +3086,6 @@ ol.toaster {
 }
 
 .shell-icon-button,
-.topbar-action,
 .sidebar-icon-button,
 .language-choice {
   min-height: 40px;
@@ -3123,8 +3122,6 @@ ol.toaster {
 
 .shell-icon-button:hover,
 .shell-icon-button:focus-visible,
-.topbar-action:hover,
-.topbar-action:focus-visible,
 .sidebar-icon-button:hover,
 .sidebar-icon-button:focus-visible,
 .language-choice:hover,
@@ -3132,35 +3129,6 @@ ol.toaster {
   background: var(--accent);
   outline: 2px solid var(--ring);
   outline-offset: 2px;
-}
-
-.topbar-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 40px;
-  padding: 0 14px;
-  font-size: 14px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.topbar-action.primary {
-  color: var(--primary-foreground);
-  background: var(--primary);
-  border-color: var(--primary);
-}
-
-.topbar-action.primary:hover,
-.topbar-action.primary:focus-visible {
-  color: var(--primary-foreground);
-  background: var(--primary);
-  border-color: var(--primary);
-}
-
-.topbar-action:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .sidebar-footer {

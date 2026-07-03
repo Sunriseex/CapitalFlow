@@ -380,20 +380,6 @@ export function App() {
             >
               <Search aria-hidden="true" />
             </button>
-            <button
-              className="topbar-action"
-              type="button"
-              onClick={() => setCategoryManagerOpen(true)}
-            >
-              {t.dashboard.categories}
-            </button>
-            <button
-              className="topbar-action primary"
-              type="button"
-              onClick={() => openQuickAction("account")}
-            >
-              {t.accounts.createAccount}
-            </button>
             {view === "dashboard" ? (
               <button
                 className="rail-toggle"
@@ -542,6 +528,10 @@ export function App() {
           onQuickAction={(action) => {
             setCommandOpen(false);
             openQuickAction(action);
+          }}
+          onManageCategories={() => {
+            setCommandOpen(false);
+            setCategoryManagerOpen(true);
           }}
         />
       ) : null}
