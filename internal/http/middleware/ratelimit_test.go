@@ -116,7 +116,7 @@ func TestRateLimitByIPTrustedProxyFallsBackToRemoteAddr(t *testing.T) {
 	}
 }
 
-func TestRateLimitByIPUsesLeftMostValidForwardedFor(t *testing.T) {
+func TestRateLimitByIPIgnoresSpoofedLeftMostForwardedFor(t *testing.T) {
 	now := time.Date(2026, 5, 9, 12, 0, 0, 0, time.UTC)
 	var mu sync.Mutex
 	buckets := make(map[string]rateLimitBucket)
@@ -126,7 +126,7 @@ func TestRateLimitByIPUsesLeftMostValidForwardedFor(t *testing.T) {
 		}),
 	)
 
-	for _, forwardedFor := range []string{"bad, 198.51.100.1", "198.51.100.1, 198.51.100.2"} {
+	for i, forwardedFor := range []string{"203.0.113.1, 198.51.100.1", "203.0.113.2, 198.51.100.1"} {
 		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/auth/login", http.NoBody)
 		req.RemoteAddr = "192.0.2.10:1234"
 		req.Header.Set("X-Forwarded-For", forwardedFor)
@@ -134,10 +134,10 @@ func TestRateLimitByIPUsesLeftMostValidForwardedFor(t *testing.T) {
 
 		handler.ServeHTTP(rec, req)
 
-		if forwardedFor == "bad, 198.51.100.1" && rec.Code != http.StatusOK {
+		if i == 0 && rec.Code != http.StatusOK {
 			t.Fatalf("first status = %d, want %d", rec.Code, http.StatusOK)
 		}
-		if forwardedFor != "bad, 198.51.100.1" && rec.Code != http.StatusTooManyRequests {
+		if i == 1 && rec.Code != http.StatusTooManyRequests {
 			t.Fatalf("second status = %d, want %d", rec.Code, http.StatusTooManyRequests)
 		}
 	}

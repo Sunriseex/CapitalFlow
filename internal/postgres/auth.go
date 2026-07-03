@@ -38,6 +38,17 @@ func (r *UserRepository) Setup(ctx context.Context, user *models.User, refreshTo
 		_ = tx.Rollback(ctx)
 	}()
 
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended('capitalflow:auth_setup', 0))`); err != nil {
+		return fmt.Errorf("lock auth setup: %w", err)
+	}
+	var setupComplete bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM users)`).Scan(&setupComplete); err != nil {
+		return fmt.Errorf("check auth setup: %w", err)
+	}
+	if setupComplete {
+		return repository.ErrConflict
+	}
+
 	if err := insertUser(ctx, tx, user); err != nil {
 		return fmt.Errorf("create setup user: %w", err)
 	}
@@ -279,6 +290,33 @@ func (r *RefreshTokenRepository) Revoke(ctx context.Context, id string, revokedA
 	}
 	if tag.RowsAffected() == 0 {
 		return fmt.Errorf("revoke refresh token: %w", repository.ErrNotFound)
+	}
+	return nil
+}
+
+func (r *RefreshTokenRepository) Rotate(ctx context.Context, oldTokenID string, newToken *models.RefreshToken, revokedAt time.Time, reason string) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin refresh token rotation: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	tag, err := tx.Exec(ctx, `
+		UPDATE refresh_tokens
+		SET revoked_at = $2, revoked_reason = $3
+		WHERE id = $1 AND revoked_at IS NULL
+	`, oldTokenID, revokedAt, reason)
+	if err != nil {
+		return fmt.Errorf("revoke rotated refresh token: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("revoke rotated refresh token: %w", repository.ErrNotFound)
+	}
+	if err := insertRefreshToken(ctx, tx, newToken); err != nil {
+		return fmt.Errorf("create rotated refresh token: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit refresh token rotation: %w", err)
 	}
 	return nil
 }

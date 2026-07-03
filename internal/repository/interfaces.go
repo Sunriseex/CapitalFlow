@@ -143,6 +143,10 @@ type RefreshTokenRepository interface {
 	RevokeByUser(ctx context.Context, userID string, revokedAt time.Time, reason string) error
 }
 
+type RefreshTokenRotator interface {
+	Rotate(ctx context.Context, oldTokenID string, newToken *models.RefreshToken, revokedAt time.Time, reason string) error
+}
+
 type AuthAuditRepository interface {
 	Create(ctx context.Context, event *models.AuthAuditEvent) error
 }
@@ -150,5 +154,5 @@ type AuthAuditRepository interface {
 type IdempotencyRepository interface {
 	Get(ctx context.Context, key, userID, method, path string) (*models.IdempotencyRecord, error)
 	CreatePending(ctx context.Context, record *models.IdempotencyRecord) (bool, error)
-	Complete(ctx context.Context, key, userID, method, path string, statusCode int, responseBody []byte) error
+	Complete(ctx context.Context, recordID, key, userID, method, path string, statusCode int, responseBody []byte) error
 }

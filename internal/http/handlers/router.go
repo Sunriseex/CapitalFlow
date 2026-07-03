@@ -39,6 +39,8 @@ type RouterConfig struct {
 	TrustedProxies                  []string
 }
 
+const maxRequestBodyBytes = 1 << 20
+
 func NewRouter(app *application.Application, cfg *RouterConfig) http.Handler {
 	if cfg == nil {
 		cfg = &RouterConfig{}
@@ -58,6 +60,7 @@ func NewRouter(app *application.Application, cfg *RouterConfig) http.Handler {
 	}
 	r := chi.NewRouter()
 	r.Use(chimiddleware.RequestID)
+	r.Use(appmiddleware.LimitRequestBody(maxRequestBodyBytes))
 	r.Use(appmiddleware.RequestLogger)
 	r.Use(chimiddleware.Recoverer)
 	r.Use(appmiddleware.SecurityHeaders(appmiddleware.SecurityHeadersConfig{

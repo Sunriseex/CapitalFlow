@@ -61,12 +61,16 @@ func (r *IdempotencyRepository) CreatePending(ctx context.Context, record *model
 	record.UpdatedAt = now
 	lockedUntil := now.Add(30 * time.Second)
 	record.LockedUntil = &lockedUntil
+	if _, err := r.pool.Exec(ctx, `DELETE FROM idempotency_keys WHERE expires_at <= now()`); err != nil {
+		return false, fmt.Errorf("delete expired idempotency keys: %w", err)
+	}
 
 	tag, err := r.pool.Exec(ctx, `
 		INSERT INTO idempotency_keys (id, key, user_id, method, path, endpoint, request_hash, status, locked_until, created_at, updated_at, expires_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9, $10, $11)
 		ON CONFLICT (key, user_id, method, path) DO UPDATE
-		SET request_hash = EXCLUDED.request_hash,
+		SET id = EXCLUDED.id,
+			request_hash = EXCLUDED.request_hash,
 			status = 'pending',
 			status_code = NULL,
 			response_body = NULL,
@@ -74,7 +78,9 @@ func (r *IdempotencyRepository) CreatePending(ctx context.Context, record *model
 			created_at = EXCLUDED.created_at,
 			updated_at = EXCLUDED.updated_at,
 			expires_at = EXCLUDED.expires_at
-		WHERE idempotency_keys.expires_at <= now()
+		WHERE idempotency_keys.status = 'pending'
+			AND idempotency_keys.locked_until <= now()
+			AND idempotency_keys.request_hash = EXCLUDED.request_hash
 	`, record.ID, record.Key, record.UserID, record.Method, record.Path, record.Endpoint, record.RequestHash, record.LockedUntil, record.CreatedAt, record.UpdatedAt, record.ExpiresAt)
 	if err != nil {
 		return false, fmt.Errorf("create idempotency key: %w", err)
@@ -82,12 +88,12 @@ func (r *IdempotencyRepository) CreatePending(ctx context.Context, record *model
 	return tag.RowsAffected() == 1, nil
 }
 
-func (r *IdempotencyRepository) Complete(ctx context.Context, key, userID, method, path string, statusCode int, responseBody []byte) error {
+func (r *IdempotencyRepository) Complete(ctx context.Context, recordID, key, userID, method, path string, statusCode int, responseBody []byte) error {
 	tag, err := r.pool.Exec(ctx, `
 		UPDATE idempotency_keys
-		SET status = 'completed', status_code = $5, response_body = $6, locked_until = NULL, updated_at = now()
-		WHERE key = $1 AND user_id = $2 AND method = $3 AND path = $4
-	`, key, userID, method, path, statusCode, responseBody)
+		SET status = 'completed', status_code = $6, response_body = $7, locked_until = NULL, updated_at = now()
+		WHERE id = $1 AND key = $2 AND user_id = $3 AND method = $4 AND path = $5 AND status = 'pending'
+	`, recordID, key, userID, method, path, statusCode, responseBody)
 	if err != nil {
 		return fmt.Errorf("complete idempotency key: %w", err)
 	}

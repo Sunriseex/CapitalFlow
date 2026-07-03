@@ -29,7 +29,7 @@ func (h *Handler) passkeyLoginOptions(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) passkeyLoginVerify(w http.ResponseWriter, r *http.Request) {
 	body, err := readPasskeyBody(r)
 	if err != nil {
-		writeServiceError(w, err)
+		writeDecodeError(w, err)
 		return
 	}
 	service, ok := h.passkeyService(w)
@@ -72,7 +72,7 @@ func (h *Handler) passkeyRegistrationOptions(w http.ResponseWriter, r *http.Requ
 	var req dto.PasskeyRegistrationOptionsRequest
 	if r.Body != nil && r.ContentLength != 0 {
 		if err := decodeJSON(r, &req); err != nil {
-			writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
+			writeDecodeError(w, err)
 			return
 		}
 	}
@@ -99,7 +99,7 @@ func (h *Handler) passkeyRegistrationVerify(w http.ResponseWriter, r *http.Reque
 	}
 	body, err := readPasskeyBody(r)
 	if err != nil {
-		writeServiceError(w, err)
+		writeDecodeError(w, err)
 		return
 	}
 	service, ok := h.passkeyService(w)
@@ -122,7 +122,7 @@ func (h *Handler) renamePasskey(w http.ResponseWriter, r *http.Request) {
 	}
 	var req dto.PasskeyRenameRequest
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
+		writeDecodeError(w, err)
 		return
 	}
 	service, ok := h.passkeyService(w)
@@ -192,9 +192,13 @@ func readPasskeyBody(r *http.Request) ([]byte, error) {
 	if r.Body == nil {
 		return nil, services.ValidationError("passkey response is required")
 	}
-	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	const maxPasskeyBodyBytes = 1 << 20
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxPasskeyBodyBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("read passkey response: %w", err)
+	}
+	if len(body) > maxPasskeyBodyBytes {
+		return nil, &http.MaxBytesError{Limit: maxPasskeyBodyBytes}
 	}
 	if len(body) == 0 {
 		return nil, services.ValidationError("passkey response is required")

@@ -32,7 +32,7 @@ func (h *Handler) updateProfile(w http.ResponseWriter, r *http.Request) {
 
 	var req dto.UpdateProfileRequest
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
+		writeDecodeError(w, err)
 		return
 	}
 

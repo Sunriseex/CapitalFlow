@@ -10,6 +10,11 @@ import (
 	"github.com/sunriseex/capitalflow/internal/repository"
 )
 
+const (
+	defaultTransactionListLimit = 50
+	maxTransactionListLimit     = 500
+)
+
 type TransactionListFilter = repository.TransactionListFilter
 
 type TransactionQuery struct {
@@ -36,6 +41,15 @@ func (q *TransactionQuery) ListByUser(ctx context.Context, userID string, filter
 	}
 	if filter.Limit < 0 || filter.Page < 0 {
 		return nil, validationError("pagination values must be positive")
+	}
+	if filter.Limit == 0 {
+		filter.Limit = defaultTransactionListLimit
+	}
+	if filter.Limit > maxTransactionListLimit {
+		return nil, validationError("limit must not exceed 500")
+	}
+	if filter.Page == 0 {
+		filter.Page = 1
 	}
 	listed, err := q.repo.ListByUserFiltered(ctx, userID, filter)
 	if err != nil {

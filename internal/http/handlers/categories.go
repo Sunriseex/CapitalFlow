@@ -19,7 +19,7 @@ func (h *Handler) listCategories(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) createCategory(w http.ResponseWriter, r *http.Request) {
 	var req dto.CreateCategoryRequest
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
+		writeDecodeError(w, err)
 		return
 	}
 	category, err := h.app.Categories.Create(r.Context(), &services.CreateCategoryRequest{Name: req.Name, Slug: req.Slug})

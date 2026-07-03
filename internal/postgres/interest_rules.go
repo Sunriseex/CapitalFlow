@@ -128,7 +128,7 @@ func (r *InterestRuleRepository) Update(ctx context.Context, rule *models.Intere
 		WHERE id = $1
 	`, rule.ID, rule.AnnualRateBps, rule.PromoRateBps, rule.PromoEndDate, rule.AccrualFrequency, rule.CapitalizationFrequency, rule.DayCountConvention, rule.IsActive, rule.StartDate, rule.EndDate)
 	if err != nil {
-		return fmt.Errorf("update interest rule: %w", err)
+		return fmt.Errorf("update interest rule: %w", mapConflict(err))
 	}
 	if tag.RowsAffected() == 0 {
 		return fmt.Errorf("update interest rule: %w", repository.ErrNotFound)
@@ -177,7 +177,7 @@ func insertInterestRule(ctx context.Context, execer sqlExecer, rule *models.Inte
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`, rule.ID, rule.AccountID, rule.AnnualRateBps, rule.PromoRateBps, rule.PromoEndDate, rule.AccrualFrequency, rule.CapitalizationFrequency, rule.DayCountConvention, rule.IsActive, rule.StartDate, rule.EndDate)
 	if err != nil {
-		return fmt.Errorf("insert interest rule: %w", err)
+		return fmt.Errorf("insert interest rule: %w", mapConflict(err))
 	}
 	return nil
 }

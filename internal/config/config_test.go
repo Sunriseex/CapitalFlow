@@ -98,6 +98,24 @@ func TestInitRejectsInvalidAppEnv(t *testing.T) {
 	}
 }
 
+func TestInitRejectsInvalidTypedEnv(t *testing.T) {
+	tests := map[string]string{
+		"RATE_LIMIT_REQUESTS": "many",
+		"ACCESS_TOKEN_TTL":    "soon",
+		"COOKIE_SECURE":       "sometimes",
+		"LOG_LEVEL":           "verbose",
+	}
+	for key, value := range tests {
+		t.Run(key, func(t *testing.T) {
+			t.Setenv("CAPITALFLOW_ENV_FILE", "missing-test-env-file")
+			t.Setenv(key, value)
+			if err := Init(); err == nil {
+				t.Fatalf("expected invalid %s error", key)
+			}
+		})
+	}
+}
+
 func TestInitNormalizesPublicOriginDefaultPort(t *testing.T) {
 	oldConfig := AppConfig
 	t.Cleanup(func() {

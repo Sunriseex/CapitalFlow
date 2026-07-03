@@ -51,7 +51,7 @@ func (h *Handler) createInterestRule(w http.ResponseWriter, r *http.Request) {
 	}
 	var req dto.CreateInterestRuleRequest
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
+		writeDecodeError(w, err)
 		return
 	}
 
@@ -107,7 +107,7 @@ func (h *Handler) updateInterestRule(w http.ResponseWriter, r *http.Request) {
 
 	var req dto.UpdateInterestRuleRequest
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
+		writeDecodeError(w, err)
 		return
 	}
 
@@ -179,7 +179,7 @@ func (h *Handler) accrueInterest(w http.ResponseWriter, r *http.Request) {
 	var req dto.AccrueInterestRequest
 
 	if err := decodeOptionalJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
+		writeDecodeError(w, err)
 		return
 	}
 
@@ -221,7 +221,7 @@ func (h *Handler) recalculateInterest(w http.ResponseWriter, r *http.Request) {
 
 	var req dto.RecalculateInterestRequest
 	if err := decodeOptionalJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
+		writeDecodeError(w, err)
 		return
 	}
 	if !validateOptionalUUID(w, req.RuleID, "rule_id") {

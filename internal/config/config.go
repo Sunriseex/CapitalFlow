@@ -73,6 +73,9 @@ func Init() error {
 	if !loaded {
 		slog.Debug("env file not found, using defaults")
 	}
+	if err := validateTypedEnv(); err != nil {
+		return err
+	}
 
 	logLevel := slog.LevelError
 	if envLogLevel := os.Getenv("LOG_LEVEL"); envLogLevel != "" {
@@ -85,6 +88,8 @@ func Init() error {
 			logLevel = slog.LevelWarn
 		case "error":
 			logLevel = slog.LevelError
+		default:
+			return configurationError("LOG_LEVEL must be debug, info, warn, or error", nil)
 		}
 	}
 
@@ -148,6 +153,31 @@ func Init() error {
 
 	slog.Debug("Конфигурация инициализирована", "log_level", logLevel)
 
+	return nil
+}
+
+func validateTypedEnv() error {
+	for _, key := range []string{"RATE_LIMIT_REQUESTS", "AUTH_RATE_LIMIT_REQUESTS", "PASSKEY_OPTIONS_RATE_LIMIT_REQUESTS", "MUTATION_RATE_LIMIT_REQUESTS"} {
+		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+			if _, err := strconv.Atoi(value); err != nil {
+				return configurationError(key+" must be an integer", err)
+			}
+		}
+	}
+	for _, key := range []string{"ACCESS_TOKEN_TTL", "REFRESH_TOKEN_TTL", "RATE_LIMIT_WINDOW", "AUTH_RATE_LIMIT_WINDOW", "PASSKEY_OPTIONS_RATE_LIMIT_WINDOW", "MUTATION_RATE_LIMIT_WINDOW"} {
+		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+			if _, err := time.ParseDuration(value); err != nil {
+				return configurationError(key+" must be a duration", err)
+			}
+		}
+	}
+	for _, key := range []string{"COOKIE_SECURE", "ALLOW_DIRECT_IP_LOGIN"} {
+		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+			if _, err := strconv.ParseBool(value); err != nil {
+				return configurationError(key+" must be a boolean", err)
+			}
+		}
+	}
 	return nil
 }
 
