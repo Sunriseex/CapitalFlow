@@ -10,11 +10,16 @@ import type {
   CategoryLimit,
   FinancialGoal,
 } from "../../api/types";
-import { Button } from "../../components/ui/button";
-import { Input } from "../../components/ui/input";
 import { apiErrorMessages, errorMessage } from "../../shared/api/query";
 import { useI18n } from "../../shared/i18n/useI18n";
-import { Empty, EmptyState, Panel, Select } from "../../shared/ui";
+import {
+  Empty,
+  EmptyState,
+  Panel,
+  PrimitiveButton as Button,
+  PrimitiveInput as Input,
+  Select,
+} from "../../shared/ui";
 import { recommendedMonthlyContribution } from "./goalContribution";
 import { categoryColorClass } from "../categories/categoryColor";
 import { CategoryBadge } from "../transactions/components/CategoryBadge";
@@ -61,8 +66,7 @@ export function GoalsView({
   const [limitCurrency, setLimitCurrency] = useState(primaryCurrency);
   const [goalDraft, setGoalDraft] = useState<GoalDraft | null>(null);
   const [limitDraft, setLimitDraft] = useState<LimitDraft | null>(null);
-  const [activeSection, setActiveSection] =
-    useState<GoalsSection>("goals");
+  const [activeSection, setActiveSection] = useState<GoalsSection>("goals");
 
   const goals = useQuery({
     queryKey: ["financial-goals"],
@@ -94,10 +98,7 @@ export function GoalsView({
   const limitProgress = useMemo(
     () =>
       new Map(
-        (summary.data?.category_limits ?? []).map((limit) => [
-          limit.id,
-          limit,
-        ]),
+        (summary.data?.category_limits ?? []).map((limit) => [limit.id, limit]),
       ),
     [summary.data?.category_limits],
   );
@@ -354,14 +355,8 @@ export function GoalsView({
                         : t.goals.monthlyContribution}
                     </span>
                     <strong>
-                      {formatMoney(
-                        contribution.amount,
-                        goal.currency,
-                        locale,
-                      )}
-                      {contribution.overdue
-                        ? null
-                        : ` / ${t.goals.month}`}
+                      {formatMoney(contribution.amount, goal.currency, locale)}
+                      {contribution.overdue ? null : ` / ${t.goals.month}`}
                     </strong>
                   </div>
                 ) : null}
@@ -464,7 +459,8 @@ export function GoalsView({
                         onChange={(event) =>
                           setGoalDraft({
                             ...goalDraft,
-                            status: event.target.value as FinancialGoal["status"],
+                            status: event.target
+                              .value as FinancialGoal["status"],
                           })
                         }
                       >
@@ -786,9 +782,7 @@ export function GoalsView({
                         })
                       }
                     >
-                      {limit.is_active
-                        ? t.goals.deactivate
-                        : t.goals.activate}
+                      {limit.is_active ? t.goals.deactivate : t.goals.activate}
                     </Button>
                   </div>
                 )}
@@ -901,9 +895,7 @@ function StatusLabel({
       : status === "archived"
         ? labels.statusArchived
         : labels.statusActive;
-  return (
-    <span className={`management-status is-${status}`}>{label}</span>
-  );
+  return <span className={`management-status is-${status}`}>{label}</span>;
 }
 
 function Progress({
@@ -974,9 +966,7 @@ function ratio(current: string, target: string) {
   return targetValue > 0 ? (Number(current) / targetValue) * 100 : 0;
 }
 
-async function refreshGoalData(
-  queryClient: ReturnType<typeof useQueryClient>,
-) {
+async function refreshGoalData(queryClient: ReturnType<typeof useQueryClient>) {
   await Promise.all([
     queryClient.invalidateQueries({ queryKey: ["financial-goals"] }),
     queryClient.invalidateQueries({ queryKey: ["category-limits"] }),

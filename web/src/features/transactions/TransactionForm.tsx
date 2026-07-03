@@ -17,10 +17,10 @@ import {
   Field,
   FormShell,
   Input,
+  PrimitiveButton as ShadcnButton,
   ThemedSelect,
   ValidatedField,
 } from "../../shared/ui";
-import { Button as ShadcnButton } from "../../components/ui/button";
 import { useI18n } from "../../shared/i18n/useI18n";
 import { CategoryPickerDialog } from "./CategoryPickerDialog";
 

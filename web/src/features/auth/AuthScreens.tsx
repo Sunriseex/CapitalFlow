@@ -10,9 +10,9 @@ import {
   FieldError,
   Input,
   PageTransition,
+  PrimitiveButton as ShadcnButton,
   Select,
 } from "../../shared/ui";
-import { Button as ShadcnButton } from "../../components/ui/button";
 import {
   Popover,
   PopoverContent,
@@ -289,9 +289,7 @@ export function LoginScreen({
                     })}
                   />
                   {emailError ? (
-                    <FieldError id="email-error">
-                      {emailError}
-                    </FieldError>
+                    <FieldError id="email-error">{emailError}</FieldError>
                   ) : null}
                 </div>
 
@@ -341,9 +339,7 @@ export function LoginScreen({
                     </ShadcnButton>
                   </div>
                   {passwordError ? (
-                    <FieldError id="password-error">
-                      {passwordError}
-                    </FieldError>
+                    <FieldError id="password-error">{passwordError}</FieldError>
                   ) : null}
                 </div>
 
@@ -429,18 +425,18 @@ export function InitialSetupScreen({
   const passwordError =
     submitError?.target === "password"
       ? submitError.message
-      : errors.password?.message ??
+      : (errors.password?.message ??
         (touchedFields.password && password && strength.score < 3
-        ? t.auth.passwordScoreRequirement
-        : "");
+          ? t.auth.passwordScoreRequirement
+          : ""));
   const confirmError =
     submitError?.target === "confirm"
       ? submitError.message
-      : errors.passwordConfirm?.message ??
+      : (errors.passwordConfirm?.message ??
         ((touchedFields.passwordConfirm || passwordConfirm) &&
         passwordConfirm !== password
-        ? t.auth.passwordsDoNotMatch
-        : "");
+          ? t.auth.passwordsDoNotMatch
+          : ""));
   const setupConfirmError =
     submitError?.target === "setup-confirm"
       ? submitError.message
@@ -553,9 +549,7 @@ export function InitialSetupScreen({
                     })}
                   />
                   {emailError ? (
-                    <FieldError id="owner-email-error">
-                      {emailError}
-                    </FieldError>
+                    <FieldError id="owner-email-error">{emailError}</FieldError>
                   ) : null}
                 </div>
 
@@ -797,10 +791,7 @@ export function AuthStatusScreen({
             </header>
             {action ? (
               <div className="auth-card-content">
-                <Button
-                  type="button"
-                  onClick={action.onClick}
-                >
+                <Button type="button" onClick={action.onClick}>
                   {action.label}
                 </Button>
               </div>

@@ -58,13 +58,16 @@ export function TransferForm({
 
   const queryClient = useQueryClient();
   const [error, setError] = useState("");
-  const formDefaults = useMemo<TransferFormValues>(() => ({
-    from_account_id: accounts[0]?.id ?? "",
-    to_account_id: accounts[1]?.id ?? "",
-    amount: "",
-    fee_amount: "",
-    description: "",
-  }), [accounts]);
+  const formDefaults = useMemo<TransferFormValues>(
+    () => ({
+      from_account_id: accounts[0]?.id ?? "",
+      to_account_id: accounts[1]?.id ?? "",
+      amount: "",
+      fee_amount: "",
+      description: "",
+    }),
+    [accounts],
+  );
   const formSchema = useMemo(
     () => createTransferFormSchema(accounts, moneyParseMessages),
     [accounts, moneyParseMessages],
@@ -213,9 +216,7 @@ export function TransferForm({
       </Field>
 
       <Field label={t.transfers.to}>
-        <Select {...register("to_account_id")}>
-          {accountOptions}
-        </Select>
+        <Select {...register("to_account_id")}>{accountOptions}</Select>
       </Field>
 
       <ValidatedField
@@ -224,9 +225,7 @@ export function TransferForm({
         label={t.transactions.amount}
       >
         <Input
-          aria-describedby={
-            errors.amount ? "transfer-amount-error" : undefined
-          }
+          aria-describedby={errors.amount ? "transfer-amount-error" : undefined}
           aria-label={t.transactions.amount}
           aria-invalid={Boolean(errors.amount)}
           required

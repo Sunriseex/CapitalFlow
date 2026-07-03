@@ -117,15 +117,11 @@ export function EditAccountForm({
       </Field>
 
       <Field label={t.accounts.type}>
-        <Select {...register("type")}>
-          {accountTypeOptions}
-        </Select>
+        <Select {...register("type")}>{accountTypeOptions}</Select>
       </Field>
 
       <Field label={t.accounts.currency}>
-        <Select {...register("currency")}>
-          {currencySelectOptions}
-        </Select>
+        <Select {...register("currency")}>{currencySelectOptions}</Select>
       </Field>
 
       <Field label={t.accounts.opened}>
@@ -133,10 +129,7 @@ export function EditAccountForm({
       </Field>
 
       <label className="checkbox-field">
-        <input
-          type="checkbox"
-          {...register("is_active")}
-        />
+        <input type="checkbox" {...register("is_active")} />
         <span>{t.accounts.active}</span>
       </label>
 

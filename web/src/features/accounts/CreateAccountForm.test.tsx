@@ -97,9 +97,7 @@ describe("CreateAccountForm", () => {
 
     await user.click(screen.getByRole("radio", { name: /Card/ }));
     expect(screen.queryByLabelText("Annual rate %")).not.toBeInTheDocument();
-    expect(
-      screen.getByText(/Interest fields are hidden/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Interest fields are hidden/)).toBeInTheDocument();
 
     await user.click(screen.getByRole("radio", { name: /Savings/ }));
     expect(screen.getByLabelText("Annual rate %")).toHaveValue("5");
@@ -196,7 +194,9 @@ describe("CreateAccountForm", () => {
     await user.type(screen.getByLabelText("Current balance"), "120000");
     await user.type(screen.getByLabelText("Annual rate %"), "12");
 
-    expect(screen.getByText(/Approximately.*1,200.*per month/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Approximately.*1,200.*per month/),
+    ).toBeInTheDocument();
   });
 
   it("hides bank and interest fields for cash accounts", async () => {

@@ -5,8 +5,10 @@ import type { Category } from "../../api/types";
 import { api } from "../../api/client";
 import { errorMessage, apiErrorMessages } from "../../shared/api/query";
 import { useI18n } from "../../shared/i18n/useI18n";
-import { Button } from "../../components/ui/button";
-import { Input } from "../../components/ui/input";
+import {
+  PrimitiveButton as Button,
+  PrimitiveInput as Input,
+} from "../../shared/ui";
 import { CategoryBadge } from "../transactions/components/CategoryBadge";
 
 export function CategoryManager({ categories }: { categories: Category[] }) {
@@ -119,10 +121,7 @@ export function CategoryManager({ categories }: { categories: Category[] }) {
         <ul className="category-manager-list">
           {visibleCategories.map((category) => (
             <li key={category.id}>
-              <CategoryBadge
-                categoryKey={category.id}
-                name={category.name}
-              />
+              <CategoryBadge categoryKey={category.id} name={category.name} />
               <code>{category.slug}</code>
             </li>
           ))}
@@ -148,9 +147,37 @@ function categorySlug(value: string) {
 }
 
 const cyrillic: Record<string, string> = {
-  а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e",
-  ж: "zh", з: "z", и: "i", й: "y", к: "k", л: "l", м: "m",
-  н: "n", о: "o", п: "p", р: "r", с: "s", т: "t", у: "u",
-  ф: "f", х: "h", ц: "c", ч: "ch", ш: "sh", щ: "sch", ъ: "",
-  ы: "y", ь: "", э: "e", ю: "yu", я: "ya",
+  а: "a",
+  б: "b",
+  в: "v",
+  г: "g",
+  д: "d",
+  е: "e",
+  ё: "e",
+  ж: "zh",
+  з: "z",
+  и: "i",
+  й: "y",
+  к: "k",
+  л: "l",
+  м: "m",
+  н: "n",
+  о: "o",
+  п: "p",
+  р: "r",
+  с: "s",
+  т: "t",
+  у: "u",
+  ф: "f",
+  х: "h",
+  ц: "c",
+  ч: "ch",
+  ш: "sh",
+  щ: "sch",
+  ъ: "",
+  ы: "y",
+  ь: "",
+  э: "e",
+  ю: "yu",
+  я: "ya",
 };

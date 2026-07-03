@@ -30,6 +30,7 @@ import { PageTransition } from "./PageTransition";
 import { useI18n } from "../i18n/useI18n";
 
 export { PageTransition };
+export { ShadcnButton as PrimitiveButton, ShadcnInput as PrimitiveInput };
 
 export function Panel({
   title,
