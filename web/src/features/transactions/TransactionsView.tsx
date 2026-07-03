@@ -11,7 +11,9 @@ import {
   Empty,
   EmptyState,
   Input,
+  LoadingSkeleton,
   Panel,
+  QueryError,
   Select,
 } from "../../shared/ui";
 import { TransactionDetails } from "./components/TransactionDetails";
@@ -27,6 +29,8 @@ export function TransactionsView({
   categoriesLoading = false,
   categoriesError = null,
   onCreateTransaction,
+  onRetryAccounts,
+  onRetryCategories,
 }: {
   accounts: Account[];
   categories: Category[];
@@ -35,6 +39,8 @@ export function TransactionsView({
   categoriesLoading?: boolean;
   categoriesError?: unknown;
   onCreateTransaction?: () => void;
+  onRetryAccounts?: () => void;
+  onRetryCategories?: () => void;
 }) {
   const { t } = useI18n();
   const errorMessages = apiErrorMessages(t);
@@ -109,25 +115,31 @@ export function TransactionsView({
     >
       {accountsLoading ? <Empty>{t.accounts.loadingAccounts}</Empty> : null}{" "}
       {accountsError ? (
-        <div className="error inline-error">
-          {errorMessage(accountsError, errorMessages)}
-        </div>
+        <QueryError
+          stale={accounts.length > 0}
+          message={errorMessage(accountsError, errorMessages)}
+          onRetry={onRetryAccounts}
+        />
       ) : null}
       {categoriesLoading ? (
         <Empty>{t.transactions.loadingCategories}</Empty>
       ) : null}{" "}
       {categoriesError ? (
-        <div className="error inline-error">
-          {errorMessage(categoriesError, errorMessages)}
-        </div>
+        <QueryError
+          stale={categories.length > 0}
+          message={errorMessage(categoriesError, errorMessages)}
+          onRetry={onRetryCategories}
+        />
       ) : null}
       {transactions.isLoading ? (
-        <Empty>{t.transactions.loadingTransactions}</Empty>
+        <LoadingSkeleton label={t.transactions.loadingTransactions} />
       ) : null}{" "}
       {transactions.error ? (
-        <div className="error inline-error">
-          {errorMessage(transactions.error, errorMessages)}
-        </div>
+        <QueryError
+          stale={Boolean(transactions.data)}
+          message={errorMessage(transactions.error, errorMessages)}
+          onRetry={() => void transactions.refetch()}
+        />
       ) : null}
       <div className="filters workspace-filters transactions-filters">
         <Select
@@ -189,7 +201,7 @@ export function TransactionsView({
         />
       </div>
       {!transactions.isLoading &&
-      !transactions.error &&
+      (!transactions.error || Boolean(transactions.data)) &&
       (transactions.data?.length ?? 0) === 0 ? (
         <EmptyState
           icon={<ReceiptText aria-hidden="true" />}
@@ -207,7 +219,7 @@ export function TransactionsView({
         />
       ) : null}
       {!transactions.isLoading &&
-      !transactions.error &&
+      (!transactions.error || Boolean(transactions.data)) &&
       (transactions.data?.length ?? 0) > 0 ? (
         <TransactionsTable
           transactions={(transactions.data ?? []).slice(0, pageSize)}
@@ -216,7 +228,7 @@ export function TransactionsView({
           onOpenTransaction={setSelectedTransaction}
         />
       ) : null}
-      {!transactions.isLoading && !transactions.error ? (
+      {!transactions.isLoading && (!transactions.error || transactions.data) ? (
         <nav
           className="transaction-pagination"
           aria-label={t.transactions.pagination}

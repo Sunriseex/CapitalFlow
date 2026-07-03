@@ -10,6 +10,7 @@ export const en = {
     save: "Save",
     close: "Close",
     retry: "Retry",
+    staleData: "Showing the last available data.",
     open: "Open",
     create: "Create",
     add: "Add",

@@ -163,6 +163,7 @@ describe("DashboardView", () => {
     expect(
       await screen.findByText("Dashboard unavailable"),
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
   });
 
   it("renders empty balance and transaction states", async () => {

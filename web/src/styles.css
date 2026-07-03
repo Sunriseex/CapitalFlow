@@ -861,6 +861,53 @@ th {
   background: var(--surface-inset, rgba(255, 255, 255, 0.025));
 }
 
+.loading-skeleton {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+
+.loading-skeleton > span:not(.sr-only) {
+  min-height: 96px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    100deg,
+    var(--surface-inset) 25%,
+    var(--surface) 45%,
+    var(--surface-inset) 65%
+  );
+  background-size: 220% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.query-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 10px 0;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in oklch, var(--destructive) 35%, var(--border));
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklch, var(--destructive) 8%, var(--background));
+}
+
+.query-error.is-stale {
+  border-color: color-mix(in oklch, var(--gold) 35%, var(--border));
+  background: color-mix(in oklch, var(--gold) 8%, var(--background));
+}
+
+.search-query-error {
+  margin-inline: 8px;
+}
+
+@keyframes skeleton-shimmer {
+  to {
+    background-position-x: -220%;
+  }
+}
+
 .empty-state-panel {
   display: grid;
   gap: 12px;
@@ -1872,10 +1919,9 @@ ol.toaster {
 
 .goal-create-form {
   display: grid;
-  grid-template-columns: minmax(180px, 1.5fr) minmax(140px, 0.8fr) minmax(
-      160px,
-      0.8fr
-    ) auto;
+  grid-template-columns:
+    minmax(180px, 1.5fr) minmax(140px, 0.8fr) minmax(160px, 0.8fr)
+    auto;
   align-items: end;
   gap: 12px;
   margin-bottom: 18px;
@@ -2074,10 +2120,9 @@ ol.toaster {
 }
 
 .limit-create-form {
-  grid-template-columns: minmax(180px, 1.5fr) minmax(140px, 1fr) minmax(
-      100px,
-      0.6fr
-    ) auto;
+  grid-template-columns:
+    minmax(180px, 1.5fr) minmax(140px, 1fr) minmax(100px, 0.6fr)
+    auto;
 }
 
 .goals-list li > div {

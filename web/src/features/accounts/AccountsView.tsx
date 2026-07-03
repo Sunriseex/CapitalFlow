@@ -5,7 +5,14 @@ import { api } from "../../api/client";
 import type { Account, InterestRule } from "../../api/types";
 import { accountTypes } from "../../shared/constants";
 import { apiErrorMessages, errorMessage } from "../../shared/api/query";
-import { Empty, EmptyState, Panel, Select } from "../../shared/ui";
+import {
+  Empty,
+  EmptyState,
+  LoadingSkeleton,
+  Panel,
+  QueryError,
+  Select,
+} from "../../shared/ui";
 import { AccountsTable } from "./components/AccountsTable";
 import { useI18n } from "../../shared/i18n/useI18n";
 
@@ -15,12 +22,14 @@ export function AccountsView({
   error = null,
   onSelect,
   onCreateAccount,
+  onRetry,
 }: {
   accounts: Account[];
   isLoading?: boolean;
   error?: unknown;
   onSelect: (id: string) => void;
   onCreateAccount?: () => void;
+  onRetry?: () => void;
 }) {
   const { t } = useI18n();
   const errorMessages = apiErrorMessages(t);
@@ -77,13 +86,19 @@ export function AccountsView({
         </Select>
       }
     >
-      {isLoading ? <Empty>{t.accounts.loadingAccounts}</Empty> : null}{" "}
+      {isLoading ? (
+        <LoadingSkeleton label={t.accounts.loadingAccounts} />
+      ) : null}{" "}
       {error ? (
-        <div className="error inline-error">
-          {errorMessage(error, errorMessages)}
-        </div>
+        <QueryError
+          stale={accounts.length > 0}
+          message={errorMessage(error, errorMessages)}
+          onRetry={onRetry}
+        />
       ) : null}
-      {!isLoading && !error && accounts.length === 0 ? (
+      {!isLoading &&
+      (!error || accounts.length > 0) &&
+      accounts.length === 0 ? (
         <EmptyState
           icon={<CreditCard aria-hidden="true" />}
           title={t.accounts.emptyTitle}
@@ -95,10 +110,13 @@ export function AccountsView({
           }
         />
       ) : null}
-      {!isLoading && !error && accounts.length > 0 && !filtered.length ? (
+      {!isLoading &&
+      (!error || accounts.length > 0) &&
+      accounts.length > 0 &&
+      !filtered.length ? (
         <Empty>{t.accounts.noAccounts}</Empty>
       ) : null}
-      {!isLoading && !error && filtered.length ? (
+      {!isLoading && (!error || accounts.length > 0) && filtered.length ? (
         <AccountsTable
           accounts={filtered}
           balances={balances}

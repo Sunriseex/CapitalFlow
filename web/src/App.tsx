@@ -23,7 +23,13 @@ import {
 } from "./features/shell/AppShell";
 import type { QuickAction, View } from "./shared/constants";
 import { apiErrorMessages, errorMessage } from "./shared/api/query";
-import { Dialog, Empty, PageTransition } from "./shared/ui";
+import {
+  Dialog,
+  Empty,
+  LoadingSkeleton,
+  PageTransition,
+  QueryError,
+} from "./shared/ui";
 import { toaster } from "./components/ui/toaster-store";
 import { useI18n } from "./shared/i18n/useI18n";
 import { localizeCategories } from "./features/categories/categoryName";
@@ -417,7 +423,7 @@ export function App() {
         </header>
 
         <PageTransition>
-          <Suspense fallback={<Empty>{t.common.loadingView}</Empty>}>
+          <Suspense fallback={<LoadingSkeleton label={t.common.loadingView} />}>
             {view === "dashboard" ? (
               <DashboardView
                 key={primaryCurrency}
@@ -445,6 +451,7 @@ export function App() {
                   error={accounts.error}
                   onSelect={(id) => navigateTo("accounts", id)}
                   onCreateAccount={() => openQuickAction("account")}
+                  onRetry={() => void accounts.refetch()}
                 />
               )
             ) : null}
@@ -458,6 +465,8 @@ export function App() {
                 categoriesLoading={categories.isLoading}
                 categoriesError={categories.error}
                 onCreateTransaction={() => openQuickAction("transaction")}
+                onRetryAccounts={() => void accounts.refetch()}
+                onRetryCategories={() => void categories.refetch()}
               />
             ) : null}
 
@@ -471,11 +480,12 @@ export function App() {
 
             {view === "settings" ? (
               profile.isLoading ? (
-                <Empty>{t.settings.loadingProfile}</Empty>
+                <LoadingSkeleton label={t.settings.loadingProfile} />
               ) : profile.error ? (
-                <div className="error inline-error">
-                  {errorMessage(profile.error, errorMessages)}
-                </div>
+                <QueryError
+                  message={errorMessage(profile.error, errorMessages)}
+                  onRetry={() => void profile.refetch()}
+                />
               ) : (
                 <SettingsView profile={profile.data} />
               )
