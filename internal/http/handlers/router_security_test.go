@@ -471,7 +471,7 @@ func (r *testIdempotencyRepo) CreatePending(_ context.Context, record *models.Id
 	return true, nil
 }
 
-func (r *testIdempotencyRepo) Complete(_ context.Context, _ string, key, userID, method, path string, statusCode int, responseBody []byte) error {
+func (r *testIdempotencyRepo) Complete(_ context.Context, _, key, userID, method, path string, statusCode int, responseBody []byte) error {
 	record, ok := r.records[idempotencyTestKey(key, userID, method, path)]
 	if !ok {
 		return repository.ErrNotFound
