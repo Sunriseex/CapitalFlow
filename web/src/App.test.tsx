@@ -672,10 +672,13 @@ describe("App query states", () => {
     );
   });
 
-  it("opens category management from the topbar", async () => {
+  it("opens category management from the command menu", async () => {
     const user = userEvent.setup();
     renderApp();
-    await user.click(await screen.findByRole("button", { name: "Categories" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Open command menu" }),
+    );
+    await user.click(await screen.findByRole("option", { name: /Categories/ }));
     expect(
       await screen.findByRole("dialog", { name: "Categories" }),
     ).toBeInTheDocument();
