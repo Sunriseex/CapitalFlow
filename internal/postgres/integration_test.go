@@ -42,6 +42,91 @@ func newTestStore(t *testing.T) *Store {
 	return NewStore(pool)
 }
 
+func TestAuthSetupAllowsOnlyOneConcurrentFirstUser(t *testing.T) {
+	store := newTestStore(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+	start := make(chan struct{})
+	errs := make(chan error, 2)
+	for i := range 2 {
+		go func() {
+			<-start
+			userID := uuid.NewString()
+			err := store.Users().(repository.AuthSetupRepository).Setup(ctx, &models.User{
+				ID: userID, Email: fmt.Sprintf("setup-%d-%s@example.com", i, userID), PasswordHash: "hash",
+				PrimaryCurrency: "RUB", CreatedAt: now, UpdatedAt: now,
+			}, &models.RefreshToken{
+				ID: uuid.NewString(), UserID: userID, TokenHash: uuid.NewString(), ExpiresAt: now.Add(time.Hour), CreatedAt: now,
+			}, nil)
+			errs <- err
+		}()
+	}
+	close(start)
+
+	succeeded, conflicted := 0, 0
+	for range 2 {
+		err := <-errs
+		switch {
+		case err == nil:
+			succeeded++
+		case errors.Is(err, repository.ErrConflict):
+			conflicted++
+		default:
+			t.Fatalf("setup error: %v", err)
+		}
+	}
+	if succeeded != 1 || conflicted != 1 {
+		t.Fatalf("succeeded=%d conflicted=%d", succeeded, conflicted)
+	}
+}
+
+func TestRefreshTokenRotateRollsBackRevokeWhenInsertFails(t *testing.T) {
+	store := newTestStore(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+	userID := seedUser(ctx, t, store, "rotate-rollback@example.com")
+	old := &models.RefreshToken{ID: uuid.NewString(), UserID: userID, TokenHash: uuid.NewString(), ExpiresAt: now.Add(time.Hour), CreatedAt: now}
+	if err := store.RefreshTokens().Create(ctx, old); err != nil {
+		t.Fatalf("create old token: %v", err)
+	}
+	newToken := &models.RefreshToken{ID: old.ID, UserID: userID, TokenHash: uuid.NewString(), ExpiresAt: now.Add(2 * time.Hour), CreatedAt: now}
+	err := store.RefreshTokens().(repository.RefreshTokenRotator).Rotate(ctx, old.ID, newToken, now, "rotated")
+	if err == nil {
+		t.Fatal("expected rotation failure")
+	}
+	got, err := store.RefreshTokens().GetByID(ctx, old.ID)
+	if err != nil {
+		t.Fatalf("get old token: %v", err)
+	}
+	if got.RevokedAt != nil {
+		t.Fatalf("old token revoked after rolled-back rotation: %v", got.RevokedAt)
+	}
+}
+
+func TestIdempotencyExpiredLeaseCanBeTakenOver(t *testing.T) {
+	store := newTestStore(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+	userID := seedUser(ctx, t, store, "idempotency-lease@example.com")
+	repo := store.Idempotency()
+	first := &models.IdempotencyRecord{ID: uuid.NewString(), Key: "lease", UserID: userID, Method: "POST", Path: "/tx", RequestHash: "same", CreatedAt: now.Add(-time.Minute), ExpiresAt: now.Add(time.Hour)}
+	created, err := repo.CreatePending(ctx, first)
+	if err != nil || !created {
+		t.Fatalf("create first pending: created=%v err=%v", created, err)
+	}
+	second := &models.IdempotencyRecord{ID: uuid.NewString(), Key: "lease", UserID: userID, Method: "POST", Path: "/tx", RequestHash: "same", CreatedAt: now, ExpiresAt: now.Add(time.Hour)}
+	created, err = repo.CreatePending(ctx, second)
+	if err != nil || !created {
+		t.Fatalf("take over pending: created=%v err=%v", created, err)
+	}
+	if err := repo.Complete(ctx, first.ID, first.Key, userID, first.Method, first.Path, 201, []byte("old")); !errors.Is(err, repository.ErrNotFound) {
+		t.Fatalf("stale completion error = %v", err)
+	}
+	if err := repo.Complete(ctx, second.ID, second.Key, userID, second.Method, second.Path, 201, []byte("new")); err != nil {
+		t.Fatalf("complete takeover: %v", err)
+	}
+}
+
 func seedAccount(ctx context.Context, t *testing.T, store *Store) *models.Account {
 	t.Helper()
 

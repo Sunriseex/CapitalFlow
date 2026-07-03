@@ -107,7 +107,7 @@ func clientIP(r *http.Request, trusted trustedProxySet) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err == nil && host != "" {
 		if remoteAddr, parseErr := netip.ParseAddr(host); parseErr == nil && trusted.contains(remoteAddr) {
-			if forwarded := forwardedClientIP(r); forwarded != "" {
+			if forwarded := forwardedClientIP(r, trusted); forwarded != "" {
 				return forwarded
 			}
 		}
@@ -116,10 +116,11 @@ func clientIP(r *http.Request, trusted trustedProxySet) string {
 	return r.RemoteAddr
 }
 
-func forwardedClientIP(r *http.Request) string {
-	for part := range strings.SplitSeq(r.Header.Get("X-Forwarded-For"), ",") {
-		part = strings.TrimSpace(part)
-		if addr, err := netip.ParseAddr(part); err == nil {
+func forwardedClientIP(r *http.Request, trusted trustedProxySet) string {
+	parts := strings.Split(r.Header.Get("X-Forwarded-For"), ",")
+	for i := len(parts) - 1; i >= 0; i-- {
+		addr, err := netip.ParseAddr(strings.TrimSpace(parts[i]))
+		if err == nil && !trusted.contains(addr) {
 			return addr.String()
 		}
 	}

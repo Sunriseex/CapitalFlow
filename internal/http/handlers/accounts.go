@@ -30,7 +30,7 @@ func (h *Handler) createAccount(w http.ResponseWriter, r *http.Request) {
 
 	var req dto.CreateAccountRequest
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
+		writeDecodeError(w, err)
 		return
 	}
 
@@ -87,7 +87,7 @@ func (h *Handler) updateAccount(w http.ResponseWriter, r *http.Request) {
 
 	var req dto.UpdateAccountRequest
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
+		writeDecodeError(w, err)
 		return
 	}
 

@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/repository"
 )
@@ -55,7 +57,7 @@ func MutationOnly(middleware func(http.Handler) http.Handler) func(http.Handler)
 type IdempotencyStore interface {
 	Get(ctx context.Context, key, userID, method, path string) (*models.IdempotencyRecord, error)
 	CreatePending(ctx context.Context, record *models.IdempotencyRecord) (bool, error)
-	Complete(ctx context.Context, key, userID, method, path string, statusCode int, responseBody []byte) error
+	Complete(ctx context.Context, recordID, key, userID, method, path string, statusCode int, responseBody []byte) error
 }
 
 func Idempotency(repo IdempotencyStore) func(http.Handler) http.Handler {
@@ -81,6 +83,11 @@ func Idempotency(repo IdempotencyStore) func(http.Handler) http.Handler {
 
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
+				var tooLarge *http.MaxBytesError
+				if errors.As(err, &tooLarge) {
+					writeJSONError(w, http.StatusRequestEntityTooLarge, "request_too_large", "Request body is too large", nil)
+					return
+				}
 				writeJSONError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
 				return
 			}
@@ -89,6 +96,7 @@ func Idempotency(repo IdempotencyStore) func(http.Handler) http.Handler {
 
 			requestHash := hashRequestBody(body)
 			record := &models.IdempotencyRecord{
+				ID:          uuid.NewString(),
 				Key:         key,
 				UserID:      claims.UserID,
 				Method:      r.Method,
@@ -130,8 +138,9 @@ func Idempotency(repo IdempotencyStore) func(http.Handler) http.Handler {
 			rec := newCaptureResponseWriter(w)
 			next.ServeHTTP(rec, r)
 
-			completeCtx := context.WithoutCancel(r.Context())
-			if err := repo.Complete(completeCtx, key, claims.UserID, r.Method, r.URL.Path, rec.statusCode(), rec.body.Bytes()); err != nil {
+			completeCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 5*time.Second)
+			defer cancel()
+			if err := repo.Complete(completeCtx, record.ID, key, claims.UserID, r.Method, r.URL.Path, rec.statusCode(), rec.body.Bytes()); err != nil {
 				if rec.statusCode() >= http.StatusOK && rec.statusCode() < http.StatusMultipleChoices {
 					writeIdempotencyCompletionUnknown(w)
 					return

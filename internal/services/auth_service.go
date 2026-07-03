@@ -255,23 +255,31 @@ func (s *AuthService) Refresh(ctx context.Context, rawRefreshToken string) (*Aut
 		return nil, validationError("invalid refresh token")
 	}
 
-	if err := s.refresh.Revoke(ctx, token.ID, now, refreshRevokedReasonRotated); err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			s.authentication.Audit(ctx, "refresh_failed", "", &token.UserID, false, "refresh_token_already_rotated")
-			return nil, validationError("invalid refresh token")
-		}
-		return nil, fmt.Errorf("revoke refresh token: %w", err)
-	}
-
 	user, err := s.users.GetByID(ctx, token.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
 	}
 
-	session, err := s.authentication.issueSession(ctx, user)
+	var session *AuthSession
+	if rotator, ok := s.refresh.(repository.RefreshTokenRotator); ok {
+		var refreshToken *models.RefreshToken
+		session, refreshToken, err = s.authentication.buildSession(user)
+		if err == nil {
+			err = rotator.Rotate(ctx, token.ID, refreshToken, now, refreshRevokedReasonRotated)
+		}
+	} else {
+		err = s.refresh.Revoke(ctx, token.ID, now, refreshRevokedReasonRotated)
+		if err == nil {
+			session, err = s.authentication.issueSession(ctx, user)
+		}
+	}
 	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			s.authentication.Audit(ctx, "refresh_failed", "", &token.UserID, false, "refresh_token_already_rotated")
+			return nil, validationError("invalid refresh token")
+		}
 		s.authentication.Audit(ctx, "refresh_failed", user.Email, &user.ID, false, "issue_session_failed")
-		return nil, err
+		return nil, fmt.Errorf("rotate refresh token: %w", err)
 	}
 	s.authentication.Audit(ctx, "refresh_success", user.Email, &user.ID, true, "")
 	return session, nil

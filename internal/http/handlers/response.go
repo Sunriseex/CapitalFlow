@@ -71,6 +71,15 @@ func decodeOptionalJSON(r *http.Request, dst any) error {
 	return fmt.Errorf("decode optional json body: %w", err)
 }
 
+func writeDecodeError(w http.ResponseWriter, err error) {
+	var tooLarge *http.MaxBytesError
+	if errors.As(err, &tooLarge) {
+		writeError(w, http.StatusRequestEntityTooLarge, "request_too_large", "Request body is too large", nil)
+		return
+	}
+	writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
+}
+
 type errorResponse struct {
 	status  int
 	code    string

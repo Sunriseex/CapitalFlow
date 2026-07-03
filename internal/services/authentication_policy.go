@@ -155,8 +155,10 @@ func (p *AuthenticationPolicy) Audit(ctx context.Context, eventType, email strin
 	if p == nil || p.audit == nil {
 		return
 	}
+	auditCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	defer cancel()
 	event := p.NewAuditEvent(eventType, email, userID, success, reason)
-	if err := p.audit.Create(ctx, event); err != nil {
+	if err := p.audit.Create(auditCtx, event); err != nil {
 		slog.Warn("auth audit event was not persisted", "event_type", eventType, "error", err)
 	}
 }

@@ -32,7 +32,7 @@ func (h *Handler) createCategoryLimit(w http.ResponseWriter, r *http.Request) {
 	}
 	var req dto.CreateCategoryLimitRequest
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
+		writeDecodeError(w, err)
 		return
 	}
 	categoryID := strings.TrimSpace(req.CategoryID)
@@ -62,7 +62,7 @@ func (h *Handler) updateCategoryLimit(w http.ResponseWriter, r *http.Request) {
 	}
 	var req dto.UpdateCategoryLimitRequest
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
+		writeDecodeError(w, err)
 		return
 	}
 	if req.CategoryID != nil {

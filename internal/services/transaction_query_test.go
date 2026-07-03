@@ -32,6 +32,22 @@ func TestTransactionQueryDelegatesBoundedFilter(t *testing.T) {
 	}
 }
 
+func TestTransactionQueryAppliesDefaultAndMaximumLimit(t *testing.T) {
+	repo := &recordingTransactionQuery{}
+	filter := &TransactionListFilter{}
+	if _, err := NewTransactionQuery(repo).ListByUser(t.Context(), "user-1", filter); err != nil {
+		t.Fatalf("default limit: %v", err)
+	}
+	if filter.Limit != defaultTransactionListLimit || filter.Page != 1 {
+		t.Fatalf("pagination = limit %d page %d", filter.Limit, filter.Page)
+	}
+
+	_, err := NewTransactionQuery(repo).ListByUser(t.Context(), "user-1", &TransactionListFilter{Limit: maxTransactionListLimit + 1})
+	if !IsValidationError(err) {
+		t.Fatalf("error = %v, want validation error", err)
+	}
+}
+
 type recordingTransactionQuery struct {
 	userID       string
 	filter       *TransactionListFilter

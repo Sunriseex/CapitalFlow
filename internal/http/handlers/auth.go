@@ -28,7 +28,7 @@ func (h *Handler) authStatus(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) authSetup(w http.ResponseWriter, r *http.Request) {
 	var req dto.AuthRequest
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
+		writeDecodeError(w, err)
 		return
 	}
 
@@ -48,7 +48,7 @@ func (h *Handler) authSetup(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) authLogin(w http.ResponseWriter, r *http.Request) {
 	var req dto.AuthRequest
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
+		writeDecodeError(w, err)
 		return
 	}
 
@@ -96,7 +96,7 @@ func (h *Handler) changePassword(w http.ResponseWriter, r *http.Request) {
 
 	var req dto.ChangePasswordRequest
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
+		writeDecodeError(w, err)
 		return
 	}
 

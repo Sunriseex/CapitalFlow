@@ -33,7 +33,7 @@ func (h *Handler) createFinancialGoal(w http.ResponseWriter, r *http.Request) {
 	}
 	var req dto.CreateFinancialGoalRequest
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
+		writeDecodeError(w, err)
 		return
 	}
 	accountID := strings.TrimSpace(req.AccountID)
@@ -72,7 +72,7 @@ func (h *Handler) updateFinancialGoal(w http.ResponseWriter, r *http.Request) {
 	}
 	var req dto.UpdateFinancialGoalRequest
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "validation_error", "Invalid request body", nil)
+		writeDecodeError(w, err)
 		return
 	}
 	if req.AccountID != nil {
