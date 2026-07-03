@@ -13,7 +13,7 @@ import {
 import type { Account, Category, Transaction } from "../../api/types";
 import { apiErrorMessages, errorMessage } from "../../shared/api/query";
 import type { QuickAction, View } from "../../shared/constants";
-import { Button, Dialog, Empty } from "../../shared/ui";
+import { Button, Dialog, LoadingSkeleton, QueryError } from "../../shared/ui";
 import { Button as ShadcnButton } from "../../components/ui/button";
 import { TransactionDetails } from "../transactions/components/TransactionDetails";
 import { CashflowChart } from "./components/CashflowChart";
@@ -219,15 +219,27 @@ export function DashboardView({
   const chartMotionKey = `${cashflowPeriod}:${selectedCurrency}`;
 
   if (summary.isLoading) {
-    return <Empty>{t.dashboard.loadingDashboard}</Empty>;
+    return <LoadingSkeleton label={t.dashboard.loadingDashboard} />;
   }
 
-  if (summary.error) {
-    return <Empty>{errorMessage(summary.error, errorMessages)}</Empty>;
+  if (summary.error && !summary.data) {
+    return (
+      <QueryError
+        message={errorMessage(summary.error, errorMessages)}
+        onRetry={() => void summary.refetch()}
+      />
+    );
   }
 
   return (
     <div className="ref-dashboard">
+      {summary.error ? (
+        <QueryError
+          stale
+          message={errorMessage(summary.error, errorMessages)}
+          onRetry={() => void summary.refetch()}
+        />
+      ) : null}
       <section className="tab-panel" id="overview" aria-labelledby="pageTitle">
         <section className="metrics-grid" aria-label={t.dashboard.overview}>
           <article className="card balance-card metric-card">

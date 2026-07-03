@@ -179,11 +179,7 @@ export function ThemedSelect({
   value: string;
 }) {
   return (
-    <ShadcnSelect
-      name={name}
-      value={value}
-      onValueChange={onValueChange}
-    >
+    <ShadcnSelect name={name} value={value} onValueChange={onValueChange}>
       <SelectTrigger
         className="input themed-select-trigger"
         aria-label={ariaLabel}
@@ -206,6 +202,42 @@ export function ThemedSelect({
 
 export function Empty({ children }: { children: ReactNode }) {
   return <div className="empty">{children}</div>;
+}
+
+export function LoadingSkeleton({ label }: { label: string }) {
+  return (
+    <div className="loading-skeleton" role="status" aria-label={label}>
+      <span />
+      <span />
+      <span />
+      <span className="sr-only">{label}</span>
+    </div>
+  );
+}
+
+export function QueryError({
+  message,
+  onRetry,
+  stale = false,
+}: {
+  message: string;
+  onRetry?: () => void;
+  stale?: boolean;
+}) {
+  const { t } = useI18n();
+  return (
+    <div
+      className={stale ? "query-error is-stale" : "query-error"}
+      role="alert"
+    >
+      <span>{stale ? `${t.common.staleData} ${message}` : message}</span>
+      {onRetry ? (
+        <Button type="button" onClick={onRetry}>
+          {t.common.retry}
+        </Button>
+      ) : null}
+    </div>
+  );
 }
 
 export function EmptyState({
@@ -345,9 +377,7 @@ export function Dialog({
       >
         <DialogHeader className="modal-header dialog-header">
           <div className="dialog-title-stack">
-            <DialogTitle className="dialog-title">
-              {title}
-            </DialogTitle>
+            <DialogTitle className="dialog-title">{title}</DialogTitle>
           </div>
           <DialogClose asChild>
             <IconButton

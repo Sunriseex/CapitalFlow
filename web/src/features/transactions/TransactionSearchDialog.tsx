@@ -181,11 +181,18 @@ export function TransactionSearchDialog({
                 </CommandEmpty>
               ) : null}
               {transactions.error ? (
-                <CommandEmpty>
-                  {errorMessage(transactions.error, errorMessages)}
-                </CommandEmpty>
+                <div className="query-error search-query-error" role="alert">
+                  <span>{errorMessage(transactions.error, errorMessages)}</span>
+                  <Button
+                    type="button"
+                    onClick={() => void transactions.refetch()}
+                  >
+                    {t.common.retry}
+                  </Button>
+                </div>
               ) : null}
-              {!transactions.isLoading && !transactions.error ? (
+              {!transactions.isLoading &&
+              (!transactions.error || transactions.data) ? (
                 <CommandGroup heading={t.shell.transactionSearchResults}>
                   {results.map((transaction) => (
                     <TransactionResult
@@ -206,7 +213,7 @@ export function TransactionSearchDialog({
                 </CommandGroup>
               ) : null}
               {!transactions.isLoading &&
-              !transactions.error &&
+              (!transactions.error || Boolean(transactions.data)) &&
               results.length === 0 ? (
                 <CommandEmpty>
                   {filter === "categories"
