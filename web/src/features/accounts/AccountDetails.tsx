@@ -47,7 +47,7 @@ export function AccountDetails({
   const afterPaint = useAfterPaint();
   const transactions = useQuery({
     queryKey: ["transactions", account.id],
-    queryFn: () => api.transactions({ accountId: account.id, limit: 500 }),
+    queryFn: () => loadAccountHistory(account.id),
   });
   const balance = useQuery({
     queryKey: ["balance", account.id],
@@ -228,6 +228,23 @@ export function AccountDetails({
       ) : null}
     </div>
   );
+}
+
+async function loadAccountHistory(accountId: string) {
+  const pageSize = 500;
+  const history: Transaction[] = [];
+
+  for (let offset = 0; ; offset += pageSize) {
+    const page = await api.transactions({
+      accountId,
+      limit: pageSize,
+      offset,
+    });
+    history.push(...page);
+    if (page.length < pageSize) {
+      return history;
+    }
+  }
 }
 
 const RunningBalanceChart = memo(function RunningBalanceChart({
