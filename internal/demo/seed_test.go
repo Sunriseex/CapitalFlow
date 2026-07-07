@@ -16,25 +16,26 @@ func TestValidateEnvironment(t *testing.T) {
 	}
 }
 
-func TestBuildDatasetIsDeterministicAndCoversFiveYears(t *testing.T) {
+func TestBuildDatasetIsDeterministicAndCoversSixYears(t *testing.T) {
 	now := time.Date(2026, 6, 27, 0, 0, 0, 0, time.UTC)
 	categories := map[string]string{
 		"salary": "salary", "food": "food", "transport": "transport",
 		"subscriptions": "subscriptions", "housing": "housing", "health": "health",
 		"entertainment": "entertainment", "deposit_interest": "interest", "other": "other",
+		"travel": "travel", "clothing": "clothing", "gifts": "gifts", "education": "education",
 	}
 	first := buildDataset(now, categories, "rule")
 	second := buildDataset(now, categories, "rule")
-	if len(first.transactions) < 950 || len(first.transactions) > 1150 {
-		t.Fatalf("transactions = %d, want about 1000", len(first.transactions))
+	if len(first.transactions) < 1200 || len(first.transactions) > 1450 {
+		t.Fatalf("transactions = %d, want about 1300", len(first.transactions))
 	}
 	if len(first.transactions) != len(second.transactions) {
 		t.Fatalf("transaction count changed: %d != %d", len(first.transactions), len(second.transactions))
 	}
 	oldest := now
 	for i, transaction := range first.transactions {
-		if transaction.occurredAt.Before(now.AddDate(-5, 0, 0)) {
-			t.Fatalf("transaction %s is older than five years", transaction.id)
+		if transaction.occurredAt.Before(now.AddDate(-6, 0, 0)) {
+			t.Fatalf("transaction %s is older than six years", transaction.id)
 		}
 		if transaction.occurredAt.After(now) {
 			t.Fatalf("transaction %s is in the future", transaction.id)
@@ -49,8 +50,8 @@ func TestBuildDatasetIsDeterministicAndCoversFiveYears(t *testing.T) {
 			oldest = transaction.occurredAt
 		}
 	}
-	if !oldest.Equal(now.AddDate(-5, 0, 0)) {
-		t.Fatalf("oldest transaction = %s, want %s", oldest, now.AddDate(-5, 0, 0))
+	if !oldest.Equal(now.AddDate(-6, 0, 0)) {
+		t.Fatalf("oldest transaction = %s, want %s", oldest, now.AddDate(-6, 0, 0))
 	}
 }
 
@@ -60,6 +61,7 @@ func TestCurrentMonthLimitRatios(t *testing.T) {
 		"salary": "salary", "food": "food", "transport": "transport",
 		"subscriptions": "subscriptions", "housing": "housing", "health": "health",
 		"entertainment": "entertainment", "deposit_interest": "interest", "other": "other",
+		"travel": "travel", "clothing": "clothing", "gifts": "gifts", "education": "education",
 	}
 	data := buildDataset(now, categories, "rule")
 	totals := map[string]string{}
