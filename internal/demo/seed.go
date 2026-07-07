@@ -71,7 +71,7 @@ func Seed(ctx context.Context, pool *pgxpool.Pool, passwordHash string, now time
 	if err := resetTx(ctx, tx, userID); err != nil {
 		return Result{}, err
 	}
-	createdAt := dateOnly(now).AddDate(-5, 0, 0)
+	createdAt := dateOnly(now).AddDate(-6, 0, 0)
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO users (id, email, password_hash, primary_currency, email_verified_at, created_at, updated_at)
 		VALUES ($1, $2, $3, 'RUB', $4, $4, $4)
@@ -169,7 +169,8 @@ func ensureCategories(ctx context.Context, tx pgx.Tx, now time.Time) (map[string
 		"salary": "Зарплата", "food": "Продукты", "transport": "Транспорт",
 		"subscriptions": "Подписки", "housing": "Жильё", "health": "Здоровье",
 		"entertainment": "Развлечения", "deposit_interest": "Проценты по вкладам",
-		"other": "Прочее",
+		"other": "Прочее", "travel": "Путешествия", "clothing": "Одежда",
+		"gifts": "Подарки", "education": "Образование",
 	}
 	result := make(map[string]string, len(names))
 	for slug, name := range names {
@@ -191,8 +192,8 @@ func ensureCategories(ctx context.Context, tx pgx.Tx, now time.Time) (map[string
 
 func buildDataset(now time.Time, categories map[string]string, ruleID string) dataset {
 	now = dateOnly(now)
-	historyStart := now.AddDate(-5, 0, 0)
-	startMonth := time.Date(now.Year(), now.Month(), 1, 9, 0, 0, 0, now.Location()).AddDate(-5, 0, 0)
+	historyStart := now.AddDate(-6, 0, 0)
+	startMonth := time.Date(now.Year(), now.Month(), 1, 9, 0, 0, 0, now.Location()).AddDate(-6, 0, 0)
 	checking, card := seedID("account:checking"), seedID("account:card")
 	savings, deposit, usd := seedID("account:savings"), seedID("account:deposit"), seedID("account:usd")
 	data := dataset{balances: map[string]decimal.Decimal{}}
@@ -217,8 +218,9 @@ func buildDataset(now time.Time, categories map[string]string, ruleID string) da
 	}
 
 	depositBalance := decimal.RequireFromString("300000")
-	for monthIndex := 0; monthIndex <= 60; monthIndex++ {
+	for monthIndex := 0; monthIndex <= 72; monthIndex++ {
 		month := startMonth.AddDate(0, monthIndex, 0)
+		yearIndex := monthIndex / 12
 		addIfPast := func(key, account, kind, amount, category, description string, day int) string {
 			date := time.Date(month.Year(), month.Month(), day, 9, 0, 0, 0, now.Location())
 			if date.Before(historyStart) || date.After(now) {
@@ -226,19 +228,23 @@ func buildDataset(now time.Time, categories map[string]string, ruleID string) da
 			}
 			return add(fmt.Sprintf("%s:%02d", key, monthIndex), account, kind, amount, category, description, date, nil)
 		}
-		addIfPast("salary", checking, "income", "215000", "salary", "Зарплата", 1)
-		addIfPast("rent", card, "expense", "55000", "housing", "Аренда квартиры", 4)
-		addIfPast("utilities", card, "expense", "8000", "housing", "Коммунальные услуги", 7)
+		salary := 165000 + yearIndex*14000
+		rent := 42000 + yearIndex*3500
+		utilities := 6200 + (int(month.Month())%4)*650
+		addIfPast("salary", checking, "income", fmt.Sprintf("%d", salary), "salary", "Зарплата", 1)
+		addIfPast("rent", card, "expense", fmt.Sprintf("%d", rent), "housing", "Аренда квартиры", 4)
+		addIfPast("utilities", card, "expense", fmt.Sprintf("%d", utilities), "housing", "Коммунальные услуги", 7)
 		if month.Year() != now.Year() || month.Month() != now.Month() {
-			addIfPast("spotify", card, "expense", "1000", "subscriptions", "Spotify", 8)
-			addIfPast("vps", card, "expense", "1299", "subscriptions", "VPS", 18)
+			addIfPast("spotify", card, "expense", fmt.Sprintf("%d", 650+yearIndex*90), "subscriptions", "Музыка", 8)
+			addIfPast("vps", card, "expense", fmt.Sprintf("%d", 990+yearIndex*120), "subscriptions", "Облачный сервер", 18)
 		}
-		addIfPast("entertainment", card, "expense", "6000", "entertainment", "Кино и развлечения", 20)
-		interestID := addIfPast("interest", deposit, "interest_income", "3500", "deposit_interest", "Проценты по вкладу", 25)
+		addIfPast("entertainment", card, "expense", fmt.Sprintf("%d", 3500+(monthIndex%5)*900), "entertainment", "Кино и развлечения", 20)
+		interestAmount := 2800 + yearIndex*220
+		interestID := addIfPast("interest", deposit, "interest_income", fmt.Sprintf("%d", interestAmount), "deposit_interest", "Проценты по вкладу", 25)
 		if interestID != "" {
-			depositBalance = depositBalance.Add(decimal.RequireFromString("3500"))
+			depositBalance = depositBalance.Add(decimal.NewFromInt(int64(interestAmount)))
 			date := time.Date(month.Year(), month.Month(), 25, 9, 0, 0, 0, now.Location())
-			data.accruals = append(data.accruals, accrualSeed{seedID(fmt.Sprintf("accrual:%02d", monthIndex)), deposit, ruleID, interestID, "3500", depositBalance.String(), date, date.Add(2 * time.Hour)})
+			data.accruals = append(data.accruals, accrualSeed{seedID(fmt.Sprintf("accrual:%02d", monthIndex)), deposit, ruleID, interestID, fmt.Sprintf("%d", interestAmount), depositBalance.String(), date, date.Add(2 * time.Hour)})
 		}
 		addTransfer := func(key, from, to, amount string, day int) {
 			date := time.Date(month.Year(), month.Month(), day, 10, 0, 0, 0, now.Location())
@@ -259,18 +265,34 @@ func buildDataset(now time.Time, categories map[string]string, ruleID string) da
 			addIfPast("adjustment", checking, "adjustment", "2500", "other", "Корректировка остатка", 15)
 		}
 		if monthIndex%3 == 0 {
-			addIfPast("health", card, "expense", "5000", "health", "Медицина", 12)
+			addIfPast("health", card, "expense", fmt.Sprintf("%d", 2800+(monthIndex%4)*1100), "health", "Аптека и медицина", 12)
+		}
+		if month.Month() == time.June {
+			addIfPast("travel", card, "expense", fmt.Sprintf("%d", 65000+yearIndex*12000), "travel", "Летняя поездка", 14)
+		}
+		if month.Month() == time.September {
+			addIfPast("education", card, "expense", fmt.Sprintf("%d", 18000+yearIndex*2500), "education", "Курсы и книги", 10)
+		}
+		if month.Month() == time.December {
+			addIfPast("gifts", card, "expense", fmt.Sprintf("%d", 22000+yearIndex*3000), "gifts", "Новогодние подарки", 22)
+		}
+		if monthIndex%18 == 6 {
+			addIfPast("clothing", card, "expense", fmt.Sprintf("%d", 14000+(monthIndex%3)*3500), "clothing", "Одежда и обувь", 16)
 		}
 	}
 
+	foodDescriptions := []string{"Пятёрочка", "ВкусВилл", "Перекрёсток", "Лента", "Рынок"}
+	transportDescriptions := []string{"Метро и автобус", "Такси", "Каршеринг", "Топливо"}
 	weekIndex := 0
 	for day := historyStart; !day.After(now); day = day.AddDate(0, 0, 7) {
 		if day.Year() == now.Year() && day.Month() == now.Month() {
 			continue
 		}
-		add(fmt.Sprintf("food:%03d", weekIndex), card, "expense", "3500", "food", "Продукты", day, nil)
+		foodAmount := 2600 + (weekIndex%7)*310
+		add(fmt.Sprintf("food:%03d", weekIndex), card, "expense", fmt.Sprintf("%d", foodAmount), "food", foodDescriptions[weekIndex%len(foodDescriptions)], day, nil)
 		if weekIndex%2 == 0 {
-			add(fmt.Sprintf("transport:%03d", weekIndex), card, "expense", "1200", "transport", "Транспорт", day.AddDate(0, 0, 2), nil)
+			transportAmount := 700 + (weekIndex%5)*240
+			add(fmt.Sprintf("transport:%03d", weekIndex), card, "expense", fmt.Sprintf("%d", transportAmount), "transport", transportDescriptions[weekIndex%len(transportDescriptions)], day.AddDate(0, 0, 2), nil)
 		}
 		weekIndex++
 	}
