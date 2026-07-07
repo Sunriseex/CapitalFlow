@@ -165,16 +165,10 @@ export function DashboardView({
     () => groupCashflow(cashflowBuckets, cashflowPeriod),
     [cashflowBuckets, cashflowPeriod],
   );
-  const cashflowEmpty =
-    cashflowPeriod === "week" && cashflowBuckets.length > 0
-      ? {
-          title: t.dashboard.weeklyCashflowUnavailable,
-          description: t.dashboard.backendReturnsMonthlyCashflow,
-        }
-      : {
-          title: t.dashboard.noCashflowYet,
-          description: t.dashboard.addIncomeOrExpensesToBuildChart,
-        };
+  const cashflowEmpty = {
+    title: t.dashboard.noCashflowYet,
+    description: t.dashboard.addIncomeOrExpensesToBuildChart,
+  };
   const totalInterest = sumConverted(
     interestIncome.data?.total,
     selectedCurrency,

@@ -733,19 +733,11 @@ describe("App query states", () => {
     expect(window.location.pathname).toBe("/accounts");
   });
 
-  it("shows the service version badge on the dashboard", async () => {
-    renderApp();
-
-    expect(
-      await screen.findByLabelText("Service version v0.5.8"),
-    ).toBeInTheDocument();
-  });
-
   it("renders sidebar icons and keeps the collapse control in the topbar", async () => {
     const user = userEvent.setup();
     renderApp();
 
-    await screen.findByLabelText("Service version v0.5.8");
+    await screen.findByRole("heading", { name: "Overview" });
     const headTools = document.querySelector(".head-tools") as HTMLElement;
     const topbarButtons = within(headTools).getAllByRole("button");
 

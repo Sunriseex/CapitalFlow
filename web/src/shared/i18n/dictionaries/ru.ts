@@ -293,9 +293,6 @@ export const ru = {
     expense: "Расход",
     openLedger: "Открыть журнал",
     real: "Факт",
-    weeklyCashflowUnavailable: "Группировка по неделям пока недоступна",
-    backendReturnsMonthlyCashflow:
-      "Пока доступны только месячные периоды движения денег.",
     noCashflowYet: "Движений пока нет",
     addIncomeOrExpensesToBuildChart:
       "Добавьте доходы или расходы, чтобы построить график.",
@@ -303,7 +300,6 @@ export const ru = {
     cashflowChartSummary:
       "График движения денег охватывает {count} периодов. Доходы {income}, расходы {expenses}, итог {net}.",
     periods: {
-      week: "Неделя",
       month: "Месяц",
       quarter: "Квартал",
       year: "Год",
