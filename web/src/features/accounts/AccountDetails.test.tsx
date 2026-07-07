@@ -95,17 +95,19 @@ describe("AccountDetails", () => {
   });
 
   it("caps running balance chart points for large transaction histories", async () => {
-    apiMocks.transactions.mockResolvedValue(
-      Array.from({ length: 1000 }, (_, index): Transaction => ({
-        id: `tx-${index}`,
-        account_id: account.id,
-        type: "income",
-        amount: "1.00",
-        category_id: null,
-        description: `Transaction ${index}`,
-        occurred_at: `2026-01-${String((index % 28) + 1).padStart(2, "0")}T00:00:00Z`,
-        created_at: "2026-01-01T00:00:00Z",
-      })),
+    const history = Array.from({ length: 1000 }, (_, index): Transaction => ({
+      id: `tx-${index}`,
+      account_id: account.id,
+      type: "income",
+      amount: "1.00",
+      category_id: null,
+      description: `Transaction ${index}`,
+      occurred_at: `2026-01-${String((index % 28) + 1).padStart(2, "0")}T00:00:00Z`,
+      created_at: "2026-01-01T00:00:00Z",
+    }));
+    apiMocks.transactions.mockImplementation(
+      ({ offset = 0, limit = 500 }: { offset?: number; limit?: number }) =>
+        Promise.resolve(history.slice(offset, offset + limit)),
     );
 
     renderAccountDetails();
@@ -119,5 +121,10 @@ describe("AccountDetails", () => {
     expect(
       screen.getByText(/Running balance chart covers 1000 transactions/),
     ).toHaveClass("sr-only");
+    expect(apiMocks.transactions).toHaveBeenLastCalledWith({
+      accountId: account.id,
+      limit: 500,
+      offset: 1000,
+    });
   });
 });
