@@ -925,7 +925,7 @@ function Progress({
             ? `budget-progress-bar category-progress ${categoryColorClass(categoryKey)}`
             : `budget-progress-bar is-${tone}`
         }
-        style={{ width: `${bounded}%` }}
+        style={{ transform: `scaleX(${bounded / 100})` }}
       />
     </span>
   );
