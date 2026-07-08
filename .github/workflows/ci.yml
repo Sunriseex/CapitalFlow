@@ -201,6 +201,61 @@ jobs:
             postgres "$DATABASE_URL" \
             status
 
+  real-e2e:
+    name: Real financial flow E2E
+    runs-on: ubuntu-latest
+    env:
+      TEST_DATABASE_URL: postgres://capitalflow:capitalflow@localhost:5432/capitalflow_e2e?sslmode=disable
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: capitalflow_e2e
+          POSTGRES_USER: capitalflow
+          POSTGRES_PASSWORD: capitalflow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U capitalflow -d capitalflow_e2e"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install WebUI dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Install Chromium
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Run migrations
+        run: |
+          go run github.com/pressly/goose/v3/cmd/goose@v3.27.1 \
+            -dir migrations \
+            postgres "$TEST_DATABASE_URL" \
+            up
+
+      - name: Run real E2E
+        working-directory: web
+        run: npm run test:e2e:real
+
   validate-production-images:
     name: Validate production images
     runs-on: ubuntu-latest
@@ -211,6 +266,7 @@ jobs:
       - web
       - openapi
       - migrations
+      - real-e2e
     if: github.event_name == 'pull_request'
 
     steps:
@@ -250,6 +306,7 @@ jobs:
       - web
       - openapi
       - migrations
+      - real-e2e
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
 
     steps:

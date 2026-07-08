@@ -12,6 +12,7 @@
     "check:api-types": "node scripts/check-api-types.mjs",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:e2e:real": "playwright test --config=playwright.real.config.ts",
     "perf:profile": "node scripts/perf-profile.mjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
