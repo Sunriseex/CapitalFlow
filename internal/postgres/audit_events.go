@@ -27,19 +27,39 @@ func (r *AuditEventRepository) Create(ctx context.Context, event *models.AuditEv
 }
 
 func newAuditEvent(actorUserID *string, eventType, entityType, entityID string, afterSummary any) (*models.AuditEvent, error) {
-	after, err := json.Marshal(afterSummary)
+	return newAuditEventWithSummaries(actorUserID, eventType, entityType, entityID, nil, afterSummary)
+}
+
+func newAuditEventWithSummaries(actorUserID *string, eventType, entityType, entityID string, beforeSummary, afterSummary any) (*models.AuditEvent, error) {
+	before, err := marshalAuditSummary(beforeSummary)
+	if err != nil {
+		return nil, fmt.Errorf("encode audit before summary: %w", err)
+	}
+	after, err := marshalAuditSummary(afterSummary)
 	if err != nil {
 		return nil, fmt.Errorf("encode audit after summary: %w", err)
 	}
 	return &models.AuditEvent{
-		ID:           uuid.NewString(),
-		ActorUserID:  actorUserID,
-		EventType:    eventType,
-		EntityType:   entityType,
-		EntityID:     entityID,
-		AfterSummary: after,
-		CreatedAt:    time.Now().UTC(),
+		ID:            uuid.NewString(),
+		ActorUserID:   actorUserID,
+		EventType:     eventType,
+		EntityType:    entityType,
+		EntityID:      entityID,
+		BeforeSummary: before,
+		AfterSummary:  after,
+		CreatedAt:     time.Now().UTC(),
 	}, nil
+}
+
+func marshalAuditSummary(summary any) (json.RawMessage, error) {
+	if summary == nil {
+		return nil, nil
+	}
+	encoded, err := json.Marshal(summary)
+	if err != nil {
+		return nil, fmt.Errorf("marshal audit summary: %w", err)
+	}
+	return encoded, nil
 }
 
 func insertAuditEvent(ctx context.Context, execer sqlExecer, event *models.AuditEvent) error {
