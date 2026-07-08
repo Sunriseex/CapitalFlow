@@ -170,6 +170,65 @@ func TestAccountArchiveWritesBeforeAndAfterAudit(t *testing.T) {
 	}
 }
 
+func TestInterestRuleCreateAndUpdateWriteAuditEvents(t *testing.T) {
+	store := newTestStore(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+	userID := seedUser(ctx, t, store, "interest-rule-audit@example.com")
+	account := transferTestAccount(t, store, userID, "interest-rule-audit")
+	rule := &models.InterestRule{
+		ID: uuid.NewString(), AccountID: account.ID, AnnualRateBps: 1_200,
+		AccrualFrequency:        models.AccrualFrequencyMonthly,
+		CapitalizationFrequency: models.CapitalizationFrequencyMonthly,
+		DayCountConvention:      models.DayCountConventionActual365,
+		IsActive:                true, StartDate: pgDateOnly(now),
+	}
+	if err := store.InterestRules().Create(ctx, rule); err != nil {
+		t.Fatalf("create interest rule: %v", err)
+	}
+
+	var actorID string
+	var created map[string]any
+	if err := store.pool.QueryRow(ctx, `
+		SELECT actor_user_id::text, after_summary FROM audit_events
+		WHERE event_type = 'interest_rule.created' AND entity_id = $1
+	`, rule.ID).Scan(&actorID, &created); err != nil {
+		t.Fatalf("get interest rule create audit: %v", err)
+	}
+	if actorID != userID || created["annual_rate_bps"] != float64(1_200) || created["account_id"] != account.ID {
+		t.Fatalf("interest rule create audit = %s/%#v", actorID, created)
+	}
+
+	rule.AnnualRateBps = 1_500
+	if err := store.InterestRules().Update(ctx, rule); err != nil {
+		t.Fatalf("update interest rule: %v", err)
+	}
+	var before, after map[string]any
+	if err := store.pool.QueryRow(ctx, `
+		SELECT before_summary, after_summary FROM audit_events
+		WHERE event_type = 'interest_rule.updated' AND entity_id = $1
+	`, rule.ID).Scan(&before, &after); err != nil {
+		t.Fatalf("get interest rule update audit: %v", err)
+	}
+	if before["annual_rate_bps"] != float64(1_200) || after["annual_rate_bps"] != float64(1_500) {
+		t.Fatalf("interest rule update audit = before %#v after %#v", before, after)
+	}
+
+	rule.IsActive = false
+	if err := store.InterestRules().Update(ctx, rule); err != nil {
+		t.Fatalf("deactivate interest rule: %v", err)
+	}
+	if err := store.pool.QueryRow(ctx, `
+		SELECT before_summary, after_summary FROM audit_events
+		WHERE event_type = 'interest_rule.deactivated' AND entity_id = $1
+	`, rule.ID).Scan(&before, &after); err != nil {
+		t.Fatalf("get interest rule deactivation audit: %v", err)
+	}
+	if before["is_active"] != true || after["is_active"] != false {
+		t.Fatalf("interest rule deactivation audit = before %#v after %#v", before, after)
+	}
+}
+
 func TestTransactionCreateRollsBackWhenAuditWriteFails(t *testing.T) {
 	store := newTestStore(t)
 	ctx := t.Context()
