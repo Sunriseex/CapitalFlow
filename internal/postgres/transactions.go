@@ -49,6 +49,19 @@ func (r *TransactionRepository) CreateForUser(ctx context.Context, userID string
 	if err := insertTransaction(ctx, tx, transaction); err != nil {
 		return fmt.Errorf("create user transaction: %w", err)
 	}
+	auditEvent, err := newAuditEvent(&userID, "transaction.created", "transaction", transaction.ID, map[string]any{
+		"account_id":  transaction.AccountID,
+		"type":        transaction.Type,
+		"amount":      transaction.Amount.String(),
+		"source_type": transaction.SourceType,
+		"occurred_at": transaction.OccurredAt,
+	})
+	if err != nil {
+		return fmt.Errorf("build transaction audit event: %w", err)
+	}
+	if err := insertAuditEvent(ctx, tx, auditEvent); err != nil {
+		return fmt.Errorf("create transaction audit event: %w", err)
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit create user transaction: %w", err)
 	}
@@ -218,6 +231,21 @@ func (r *TransactionRepository) CreateTransfer(ctx context.Context, transfer *mo
 		if err := insertTransaction(ctx, tx, &transactions[i]); err != nil {
 			return fmt.Errorf("create transfer transaction %s: %w", transactions[i].ID, err)
 		}
+	}
+	auditEvent, err := newAuditEvent(&transfer.UserID, "transfer.created", "transfer", transfer.ID, map[string]any{
+		"from_account_id": transfer.FromAccountID,
+		"to_account_id":   transfer.ToAccountID,
+		"from_amount":     transfer.FromAmount.String(),
+		"to_amount":       transfer.ToAmount.String(),
+		"from_currency":   transfer.FromCurrency,
+		"to_currency":     transfer.ToCurrency,
+		"fee_amount":      transfer.FeeAmount.String(),
+	})
+	if err != nil {
+		return fmt.Errorf("build transfer audit event: %w", err)
+	}
+	if err := insertAuditEvent(ctx, tx, auditEvent); err != nil {
+		return fmt.Errorf("create transfer audit event: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit create transfer: %w", err)

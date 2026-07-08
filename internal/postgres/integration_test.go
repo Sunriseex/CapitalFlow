@@ -59,6 +59,80 @@ func TestTransactionSourceRoundTrip(t *testing.T) {
 	}
 }
 
+func TestTransactionCreateForUserWritesAuditEvent(t *testing.T) {
+	store := newTestStore(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+	userID := seedUser(ctx, t, store, "transaction-audit@example.com")
+	account := transferTestAccount(t, store, userID, "audit")
+	transaction := &models.Transaction{
+		ID:         uuid.NewString(),
+		AccountID:  account.ID,
+		Type:       models.TransactionTypeExpense,
+		Amount:     dec("12.34"),
+		OccurredAt: now,
+		CreatedAt:  now,
+	}
+	if err := store.Transactions().CreateForUser(ctx, userID, transaction); err != nil {
+		t.Fatalf("create transaction: %v", err)
+	}
+
+	var actorID, eventType, entityType, entityID string
+	var afterSummary map[string]any
+	if err := store.pool.QueryRow(ctx, `
+		SELECT actor_user_id::text, event_type, entity_type, entity_id, after_summary
+		FROM audit_events
+		WHERE entity_type = 'transaction' AND entity_id = $1
+	`, transaction.ID).Scan(&actorID, &eventType, &entityType, &entityID, &afterSummary); err != nil {
+		t.Fatalf("get transaction audit event: %v", err)
+	}
+	if actorID != userID || eventType != "transaction.created" || entityType != "transaction" || entityID != transaction.ID {
+		t.Fatalf("audit identity = %s/%s/%s/%s", actorID, eventType, entityType, entityID)
+	}
+	if afterSummary["account_id"] != account.ID || afterSummary["type"] != string(models.TransactionTypeExpense) || afterSummary["amount"] != "12.34" {
+		t.Fatalf("after summary = %#v", afterSummary)
+	}
+	if _, err := store.pool.Exec(ctx, `UPDATE audit_events SET event_type = 'tampered' WHERE entity_id = $1`, transaction.ID); err == nil {
+		t.Fatal("audit event update succeeded")
+	}
+}
+
+func TestTransactionCreateRollsBackWhenAuditWriteFails(t *testing.T) {
+	store := newTestStore(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+	userID := seedUser(ctx, t, store, "transaction-audit-rollback@example.com")
+	account := transferTestAccount(t, store, userID, "audit-rollback")
+	if _, err := store.pool.Exec(ctx, `
+		CREATE FUNCTION reject_test_audit_event() RETURNS trigger LANGUAGE plpgsql AS $$
+		BEGIN
+			RAISE EXCEPTION 'reject test audit event';
+		END;
+		$$;
+		CREATE TRIGGER reject_test_audit_event BEFORE INSERT ON audit_events
+		FOR EACH ROW EXECUTE FUNCTION reject_test_audit_event();
+	`); err != nil {
+		t.Fatalf("create rejecting audit trigger: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = store.pool.Exec(context.Background(), `
+			DROP TRIGGER IF EXISTS reject_test_audit_event ON audit_events;
+			DROP FUNCTION IF EXISTS reject_test_audit_event();
+		`)
+	})
+
+	transaction := &models.Transaction{
+		ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeIncome,
+		Amount: dec("1"), OccurredAt: now, CreatedAt: now,
+	}
+	if err := store.Transactions().CreateForUser(ctx, userID, transaction); err == nil {
+		t.Fatal("transaction creation succeeded")
+	}
+	if _, err := store.Transactions().GetByID(ctx, transaction.ID); !errors.Is(err, repository.ErrNotFound) {
+		t.Fatalf("transaction persisted after audit failure: %v", err)
+	}
+}
+
 func newTestStore(t *testing.T) *Store {
 	t.Helper()
 
@@ -76,7 +150,7 @@ func newTestStore(t *testing.T) *Store {
 	t.Cleanup(pool.Close)
 
 	if _, err := pool.Exec(ctx, `
-		TRUNCATE idempotency_keys, interest_accruals, interest_rules, transfers, transactions, categories, accounts, refresh_tokens, auth_audit_events, users RESTART IDENTITY CASCADE
+		TRUNCATE audit_events, idempotency_keys, interest_accruals, interest_rules, transfers, transactions, categories, accounts, refresh_tokens, auth_audit_events, users RESTART IDENTITY CASCADE
 	`); err != nil {
 		t.Fatalf("truncate test tables; run migrations first: %v", err)
 	}
@@ -250,7 +324,7 @@ func TestPostgresRepositoriesIntegration(t *testing.T) {
 	defer pool.Close()
 
 	if _, err := pool.Exec(ctx, `
-		TRUNCATE idempotency_keys, interest_accruals, interest_rules, transfers, transactions, categories, accounts, refresh_tokens, auth_audit_events, users RESTART IDENTITY CASCADE
+		TRUNCATE audit_events, idempotency_keys, interest_accruals, interest_rules, transfers, transactions, categories, accounts, refresh_tokens, auth_audit_events, users RESTART IDENTITY CASCADE
 	`); err != nil {
 		t.Fatalf("truncate test tables; run migrations first: %v", err)
 	}
@@ -708,7 +782,7 @@ func TestAccountCreateClaimsSingleExistingUser(t *testing.T) {
 	defer pool.Close()
 
 	if _, err := pool.Exec(ctx, `
-		TRUNCATE idempotency_keys, interest_accruals, interest_rules, transfers, transactions, categories, accounts, refresh_tokens, auth_audit_events, users RESTART IDENTITY CASCADE
+		TRUNCATE audit_events, idempotency_keys, interest_accruals, interest_rules, transfers, transactions, categories, accounts, refresh_tokens, auth_audit_events, users RESTART IDENTITY CASCADE
 	`); err != nil {
 		t.Fatalf("truncate test tables; run migrations first: %v", err)
 	}
@@ -1795,6 +1869,18 @@ func TestTransactionCreateTransferPersistsAuditRecord(t *testing.T) {
 			gotTransactions[i].SourceRefID == nil || *gotTransactions[i].SourceRefID != transfer.ID {
 			t.Fatalf("transaction %s source = %q/%v, want transfer/%s", gotTransactions[i].ID, gotTransactions[i].SourceType, gotTransactions[i].SourceRefID, transfer.ID)
 		}
+	}
+	var auditActorID, auditEventType string
+	var auditSummary map[string]any
+	if err := store.pool.QueryRow(ctx, `
+		SELECT actor_user_id::text, event_type, after_summary
+		FROM audit_events
+		WHERE entity_type = 'transfer' AND entity_id = $1
+	`, transfer.ID).Scan(&auditActorID, &auditEventType, &auditSummary); err != nil {
+		t.Fatalf("get generic transfer audit: %v", err)
+	}
+	if auditActorID != userID || auditEventType != "transfer.created" || auditSummary["from_account_id"] != from.ID || auditSummary["to_account_id"] != to.ID {
+		t.Fatalf("generic transfer audit = %s/%s/%#v", auditActorID, auditEventType, auditSummary)
 	}
 }
 

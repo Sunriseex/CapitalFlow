@@ -350,18 +350,20 @@ The future risk is imports and bulk actions, where batch-level and row-level ide
 - [x] Auth/passkey events can be audited.
 - [x] Transfer audit data is persisted in the `transfers` table.
 - [x] Interest accruals are persisted and linked to generated transactions.
+- [x] Generic immutable `audit_events` table exists for non-auth events.
+- [x] Transaction and transfer creation write audit events atomically with financial data.
 
 ### Still TODO
 
-- [ ] Add generic `audit_events` table for non-auth events.
+- [x] Add generic `audit_events` table for non-auth events.
 - [ ] Audit account create/update/archive.
-- [ ] Audit transaction create/change/reverse/soft-delete.
-- [ ] Audit transfer create/reverse/correction.
+- [ ] PARTIAL — audit transaction create/change/reverse/soft-delete (create is covered).
+- [ ] PARTIAL — audit transfer create/reverse/correction (create is covered).
 - [ ] Audit interest rule create/update/delete/deactivate.
 - [ ] Audit settings/security changes.
 - [ ] Audit backup/restore operations.
 - [ ] Audit import batch decisions.
-- [ ] Store actor/user ID, event type, entity type, entity ID, before/after summary, IP/user-agent where appropriate.
+- [ ] PARTIAL — store actor/user ID, event type, entity type, entity ID and before/after summary; request IP/user-agent capture remains.
 - [ ] Add audit event query UI for security/settings/admin diagnostics.
 
 ### Narrow points
@@ -1481,7 +1483,7 @@ The web app itself should not casually rewrite env files.
 
 ## P0 — Must close before real money usage
 
-- [ ] `feat(audit): add generic financial/settings audit_events table`
+- [x] `feat(audit): add generic financial/settings audit_events table`
 - [x] `feat(transactions): add source_type/source_ref_id/source_metadata`
 - [ ] `feat(transactions): add lifecycle status and correction/reversal model`
 - [x] `feat(backups): add backup command and restore into fresh DB`

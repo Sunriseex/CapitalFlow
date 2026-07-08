@@ -154,6 +154,10 @@ type AuthAuditRepository interface {
 	Create(ctx context.Context, event *models.AuthAuditEvent) error
 }
 
+type AuditEventRepository interface {
+	Create(ctx context.Context, event *models.AuditEvent) error
+}
+
 type IdempotencyRepository interface {
 	Get(ctx context.Context, key, userID, method, path string) (*models.IdempotencyRecord, error)
 	CreatePending(ctx context.Context, record *models.IdempotencyRecord) (bool, error)
