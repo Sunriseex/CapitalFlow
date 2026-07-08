@@ -4,12 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopspring/decimal"
 
 	"github.com/sunriseex/capitalflow/internal/models"
@@ -20,7 +23,7 @@ import (
 func newTestStore(t *testing.T) *Store {
 	t.Helper()
 
-	databaseURL := os.Getenv("TEST_DATABASE_URL")
+	databaseURL := testDatabaseURL(t)
 	if databaseURL == "" {
 		t.Skip("TEST_DATABASE_URL is not set")
 	}
@@ -33,13 +36,43 @@ func newTestStore(t *testing.T) *Store {
 
 	t.Cleanup(pool.Close)
 
-	if _, err := pool.Exec(ctx, `
-		TRUNCATE idempotency_keys, interest_accruals, interest_rules, transfers, transactions, categories, accounts, refresh_tokens, auth_audit_events, users RESTART IDENTITY CASCADE
-	`); err != nil {
-		t.Fatalf("truncate test tables; run migrations first: %v", err)
-	}
+	resetTestTables(t, pool, ctx)
+	t.Cleanup(func() {
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		resetTestTables(t, pool, cleanupCtx)
+	})
 
 	return NewStore(pool)
+}
+
+const truncateTestTables = `
+	TRUNCATE idempotency_keys, interest_accruals, interest_rules, transfers, transactions, categories, accounts, refresh_tokens, auth_audit_events, users RESTART IDENTITY CASCADE
+`
+
+func testDatabaseURL(t *testing.T) string {
+	t.Helper()
+	databaseURL := os.Getenv("TEST_DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("TEST_DATABASE_URL is not set")
+	}
+
+	parsed, err := url.Parse(databaseURL)
+	if err != nil {
+		t.Fatalf("parse TEST_DATABASE_URL: %v", err)
+	}
+	databaseName := strings.Trim(parsed.Path, "/")
+	if !strings.Contains(strings.ToLower(databaseName), "test") {
+		t.Fatalf("TEST_DATABASE_URL database %q must contain 'test'; refusing destructive integration tests", databaseName)
+	}
+	return databaseURL
+}
+
+func resetTestTables(t *testing.T, pool *pgxpool.Pool, ctx context.Context) {
+	t.Helper()
+	if _, err := pool.Exec(ctx, truncateTestTables); err != nil {
+		t.Fatalf("truncate test tables; run migrations first: %v", err)
+	}
 }
 
 func TestAuthSetupAllowsOnlyOneConcurrentFirstUser(t *testing.T) {
@@ -195,10 +228,7 @@ func seedUser(ctx context.Context, t *testing.T, store *Store, email string) str
 }
 
 func TestPostgresRepositoriesIntegration(t *testing.T) {
-	databaseURL := os.Getenv("TEST_DATABASE_URL")
-	if databaseURL == "" {
-		t.Skip("TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testDatabaseURL(t)
 
 	ctx := t.Context()
 	pool, err := OpenPool(ctx, databaseURL)
@@ -207,11 +237,8 @@ func TestPostgresRepositoriesIntegration(t *testing.T) {
 	}
 	defer pool.Close()
 
-	if _, err := pool.Exec(ctx, `
-		TRUNCATE idempotency_keys, interest_accruals, interest_rules, transfers, transactions, categories, accounts, refresh_tokens, auth_audit_events, users RESTART IDENTITY CASCADE
-	`); err != nil {
-		t.Fatalf("truncate test tables; run migrations first: %v", err)
-	}
+	resetTestTables(t, pool, ctx)
+	defer resetTestTables(t, pool, context.Background())
 
 	store := NewStore(pool)
 	accounts := store.Accounts()
@@ -653,10 +680,7 @@ func TestRefreshTokenRepositoryConcurrentRevokeOnlyOneSucceeds(t *testing.T) {
 }
 
 func TestAccountCreateClaimsSingleExistingUser(t *testing.T) {
-	databaseURL := os.Getenv("TEST_DATABASE_URL")
-	if databaseURL == "" {
-		t.Skip("TEST_DATABASE_URL is not set")
-	}
+	databaseURL := testDatabaseURL(t)
 
 	ctx := t.Context()
 	pool, err := OpenPool(ctx, databaseURL)
@@ -665,11 +689,8 @@ func TestAccountCreateClaimsSingleExistingUser(t *testing.T) {
 	}
 	defer pool.Close()
 
-	if _, err := pool.Exec(ctx, `
-		TRUNCATE idempotency_keys, interest_accruals, interest_rules, transfers, transactions, categories, accounts, refresh_tokens, auth_audit_events, users RESTART IDENTITY CASCADE
-	`); err != nil {
-		t.Fatalf("truncate test tables; run migrations first: %v", err)
-	}
+	resetTestTables(t, pool, ctx)
+	defer resetTestTables(t, pool, context.Background())
 
 	store := NewStore(pool)
 	now := time.Now().UTC()
