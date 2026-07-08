@@ -56,6 +56,8 @@ services:
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?public origin required}
       JWT_SECRET: ${JWT_SECRET:?jwt secret required}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      CAPITALFLOW_BACKUP_TIMEOUT: ${CAPITALFLOW_BACKUP_TIMEOUT:-30m}
+      CAPITALFLOW_BACKUP_RETENTION_COUNT: ${CAPITALFLOW_BACKUP_RETENTION_COUNT:-14}
       TZ: ${TZ:-Europe/Moscow}
     entrypoint: ["/usr/local/bin/capitalflow"]
     depends_on:
@@ -63,6 +65,8 @@ services:
         condition: service_healthy
     networks:
       - backend
+    volumes:
+      - ${CAPITALFLOW_BACKUP_HOST_DIR:-./backups}:/backups
     profiles:
       - tools
 

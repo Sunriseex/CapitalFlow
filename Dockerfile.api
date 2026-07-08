@@ -35,12 +35,14 @@ COPY scripts/interest-schedule.sh /usr/local/bin/capitalflow-interest-schedule
 COPY scripts/backup-scheduler.sh /usr/local/bin/capitalflow-backup-scheduler
 COPY scripts/backup-schedule.sh /usr/local/bin/capitalflow-backup-schedule
 COPY scripts/backup-retention.sh /usr/local/bin/capitalflow-backup-retention
+COPY scripts/pre-migration-backup.sh /usr/local/bin/capitalflow-pre-migration-backup
 RUN chmod +x \
     /usr/local/bin/capitalflow-interest-scheduler \
     /usr/local/bin/capitalflow-interest-schedule \
     /usr/local/bin/capitalflow-backup-scheduler \
     /usr/local/bin/capitalflow-backup-schedule \
-    /usr/local/bin/capitalflow-backup-retention
+    /usr/local/bin/capitalflow-backup-retention \
+    /usr/local/bin/capitalflow-pre-migration-backup
 
 EXPOSE 8080
 
