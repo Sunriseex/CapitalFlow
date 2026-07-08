@@ -60,7 +60,7 @@ Syncthing:
 cd /home/sunriseex/projects/CapitalFlow/deploy
 docker compose --profile tools run -T --rm \
   --user "${CAPITALFLOW_BACKUP_UID:-$(id -u)}:${CAPITALFLOW_BACKUP_GID:-$(id -g)}" \
-  -v /srv/backups/capitalflow:/backups \
+  -v "${CAPITALFLOW_BACKUP_HOST_DIR:-${HOME}/backups/capitalflow}:/backups" \
   job-runner backup --output /backups/capitalflow-$(date -u +%Y%m%dT%H%M%SZ).zip
 ```
 
@@ -74,7 +74,7 @@ overwrite a database containing public tables:
 ```bash
 docker compose --profile tools run -T --rm \
   --user "${CAPITALFLOW_BACKUP_UID:-$(id -u)}:${CAPITALFLOW_BACKUP_GID:-$(id -g)}" \
-  -v /srv/backups/capitalflow:/backups:ro \
+  -v "${CAPITALFLOW_BACKUP_HOST_DIR:-${HOME}/backups/capitalflow}:/backups:ro" \
   job-runner restore \
   --input /backups/capitalflow-20260708T050000Z.zip \
   --database-url "$RESTORE_DATABASE_URL"
@@ -90,7 +90,7 @@ Production Compose runs `backup-scheduler` daily. Defaults:
 * `CAPITALFLOW_BACKUP_TIME=02:30`
 * `CAPITALFLOW_BACKUP_TIMEOUT=30m`
 * `CAPITALFLOW_BACKUP_RETENTION_COUNT=14`
-* `CAPITALFLOW_BACKUP_HOST_DIR=/srv/backups/capitalflow`
+* `CAPITALFLOW_BACKUP_HOST_DIR=$HOME/backups/capitalflow`
 * `CAPITALFLOW_BACKUP_UID` and `CAPITALFLOW_BACKUP_GID` default to the deploy owner
 
 The scheduler writes UTC timestamped archives atomically, keeps the newest
@@ -105,7 +105,7 @@ Check scheduler state on the VM:
 cd /home/sunriseex/projects/CapitalFlow/deploy
 docker compose ps backup-scheduler
 docker compose logs --tail 100 backup-scheduler
-ls -l "${CAPITALFLOW_BACKUP_HOST_DIR:-/srv/backups/capitalflow}"
+ls -l "${CAPITALFLOW_BACKUP_HOST_DIR:-${HOME}/backups/capitalflow}"
 ```
 
 ## Incident Pages

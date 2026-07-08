@@ -123,7 +123,7 @@ services:
       retries: 3
       start_period: 10s
     volumes:
-      - ${CAPITALFLOW_BACKUP_HOST_DIR:-/srv/backups/capitalflow}:/backups
+      - ${CAPITALFLOW_BACKUP_HOST_DIR:-./backups}:/backups
     depends_on:
       postgres:
         condition: service_healthy
