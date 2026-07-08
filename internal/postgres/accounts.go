@@ -19,8 +19,24 @@ func NewAccountRepository(pool *pgxpool.Pool) *AccountRepository {
 }
 
 func (r *AccountRepository) Create(ctx context.Context, account *models.Account) error {
-	if err := insertAccount(ctx, r.pool, account); err != nil {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin create account: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := insertAccount(ctx, tx, account); err != nil {
 		return fmt.Errorf("create account: %w", err)
+	}
+	auditEvent, err := newAuditEvent(account.OwnerUserID, "account.created", "account", account.ID, accountAuditSummary(account))
+	if err != nil {
+		return fmt.Errorf("build account audit event: %w", err)
+	}
+	if err := insertAuditEvent(ctx, tx, auditEvent); err != nil {
+		return fmt.Errorf("create account audit event: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit create account: %w", err)
 	}
 	return nil
 }
@@ -105,17 +121,15 @@ func (r *AccountRepository) UpdateForUserEnforcingCurrencyInvariant(ctx context.
 		_ = tx.Rollback(ctx)
 	}()
 
-	var currentCurrency string
-	if err := tx.QueryRow(ctx, `
-		SELECT currency
-		FROM accounts
+	before, err := scanAccount(tx.QueryRow(ctx, accountSelectSQL+`
 		WHERE id = $1 AND owner_user_id = $2
 		FOR UPDATE
-	`, account.ID, userID).Scan(&currentCurrency); err != nil {
-		return fmt.Errorf("lock account enforcing currency invariant: %w", mapNotFound(err))
+	`, account.ID, userID))
+	if err != nil {
+		return fmt.Errorf("lock account enforcing currency invariant: %w", err)
 	}
 
-	if currentCurrency != account.Currency {
+	if before.Currency != account.Currency {
 		var hasTransactions bool
 		if err := tx.QueryRow(ctx, `
 			SELECT EXISTS (
@@ -142,6 +156,13 @@ func (r *AccountRepository) UpdateForUserEnforcingCurrencyInvariant(ctx context.
 	if tag.RowsAffected() == 0 {
 		return fmt.Errorf("update account enforcing currency invariant: %w", repository.ErrNotFound)
 	}
+	auditEvent, err := newAuditEventWithSummaries(&userID, "account.updated", "account", account.ID, accountAuditSummary(before), accountAuditSummary(account))
+	if err != nil {
+		return fmt.Errorf("build account update audit event: %w", err)
+	}
+	if err := insertAuditEvent(ctx, tx, auditEvent); err != nil {
+		return fmt.Errorf("create account update audit event: %w", err)
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit update account enforcing currency invariant: %w", err)
 	}
@@ -160,12 +181,37 @@ func (r *AccountRepository) Archive(ctx context.Context, id string) error {
 }
 
 func (r *AccountRepository) ArchiveForUser(ctx context.Context, id, userID string) error {
-	tag, err := r.pool.Exec(ctx, `UPDATE accounts SET is_active = false, updated_at = now() WHERE id = $1 AND owner_user_id = $2`, id, userID)
+	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("archive account: %w", err)
+		return fmt.Errorf("begin archive account: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("archive account: %w", repository.ErrNotFound)
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	before, err := scanAccount(tx.QueryRow(ctx, accountSelectSQL+`
+		WHERE id = $1 AND owner_user_id = $2
+		FOR UPDATE
+	`, id, userID))
+	if err != nil {
+		return fmt.Errorf("lock account for archive: %w", err)
+	}
+	after := *before
+	after.IsActive = false
+	if err := tx.QueryRow(ctx, `
+		UPDATE accounts SET is_active = false, updated_at = now()
+		WHERE id = $1 AND owner_user_id = $2
+		RETURNING updated_at
+	`, id, userID).Scan(&after.UpdatedAt); err != nil {
+		return fmt.Errorf("archive account: %w", mapNotFound(err))
+	}
+	auditEvent, err := newAuditEventWithSummaries(&userID, "account.archived", "account", id, accountAuditSummary(before), accountAuditSummary(&after))
+	if err != nil {
+		return fmt.Errorf("build account archive audit event: %w", err)
+	}
+	if err := insertAuditEvent(ctx, tx, auditEvent); err != nil {
+		return fmt.Errorf("create account archive audit event: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit archive account: %w", err)
 	}
 	return nil
 }
@@ -242,4 +288,16 @@ func insertAccount(ctx context.Context, execer sqlExecer, account *models.Accoun
 		return fmt.Errorf("insert account: %w", err)
 	}
 	return nil
+}
+
+func accountAuditSummary(account *models.Account) map[string]any {
+	return map[string]any{
+		"name":       account.Name,
+		"bank":       account.Bank,
+		"type":       account.Type,
+		"currency":   account.Currency,
+		"is_active":  account.IsActive,
+		"opened_at":  account.OpenedAt,
+		"updated_at": account.UpdatedAt,
+	}
 }

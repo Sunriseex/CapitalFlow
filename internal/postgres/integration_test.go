@@ -97,6 +97,79 @@ func TestTransactionCreateForUserWritesAuditEvent(t *testing.T) {
 	}
 }
 
+func TestAccountCreateWritesAuditEvent(t *testing.T) {
+	store := newTestStore(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+	userID := seedUser(ctx, t, store, "account-audit-create@example.com")
+	account := &models.Account{
+		ID: uuid.NewString(), OwnerUserID: &userID, Name: "Cash", Bank: "Wallet",
+		Type: models.AccountTypeCash, Currency: "RUB", IsActive: true,
+		OpenedAt: now, CreatedAt: now, UpdatedAt: now,
+	}
+	if err := store.Accounts().Create(ctx, account); err != nil {
+		t.Fatalf("create account: %v", err)
+	}
+
+	var actorID, eventType string
+	var summary map[string]any
+	if err := store.pool.QueryRow(ctx, `
+		SELECT actor_user_id::text, event_type, after_summary
+		FROM audit_events WHERE entity_type = 'account' AND entity_id = $1
+	`, account.ID).Scan(&actorID, &eventType, &summary); err != nil {
+		t.Fatalf("get account audit event: %v", err)
+	}
+	if actorID != userID || eventType != "account.created" || summary["name"] != "Cash" || summary["currency"] != "RUB" {
+		t.Fatalf("account audit = %s/%s/%#v", actorID, eventType, summary)
+	}
+}
+
+func TestAccountUpdateWritesBeforeAndAfterAudit(t *testing.T) {
+	store := newTestStore(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+	userID := seedUser(ctx, t, store, "account-audit-update@example.com")
+	account := transferTestAccount(t, store, userID, "before")
+	account.Name = "After"
+	account.Bank = "Updated bank"
+	account.UpdatedAt = now.Add(time.Minute)
+	if err := store.Accounts().UpdateForUserEnforcingCurrencyInvariant(ctx, account, userID); err != nil {
+		t.Fatalf("update account: %v", err)
+	}
+
+	var before, after map[string]any
+	if err := store.pool.QueryRow(ctx, `
+		SELECT before_summary, after_summary FROM audit_events
+		WHERE event_type = 'account.updated' AND entity_id = $1
+	`, account.ID).Scan(&before, &after); err != nil {
+		t.Fatalf("get account update audit: %v", err)
+	}
+	if before["name"] != "before" || after["name"] != "After" || after["bank"] != "Updated bank" {
+		t.Fatalf("account update audit = before %#v after %#v", before, after)
+	}
+}
+
+func TestAccountArchiveWritesBeforeAndAfterAudit(t *testing.T) {
+	store := newTestStore(t)
+	ctx := t.Context()
+	userID := seedUser(ctx, t, store, "account-audit-archive@example.com")
+	account := transferTestAccount(t, store, userID, "archive")
+	if err := store.Accounts().ArchiveForUser(ctx, account.ID, userID); err != nil {
+		t.Fatalf("archive account: %v", err)
+	}
+
+	var before, after map[string]any
+	if err := store.pool.QueryRow(ctx, `
+		SELECT before_summary, after_summary FROM audit_events
+		WHERE event_type = 'account.archived' AND entity_id = $1
+	`, account.ID).Scan(&before, &after); err != nil {
+		t.Fatalf("get account archive audit: %v", err)
+	}
+	if before["is_active"] != true || after["is_active"] != false {
+		t.Fatalf("account archive audit = before %#v after %#v", before, after)
+	}
+}
+
 func TestTransactionCreateRollsBackWhenAuditWriteFails(t *testing.T) {
 	store := newTestStore(t)
 	ctx := t.Context()
