@@ -66,7 +66,6 @@ func rewriteDump(t *testing.T, path, replacement string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer reader.Close()
 
 	manifest, err := reader.File[0].Open()
 	if err != nil {
@@ -77,6 +76,9 @@ func rewriteDump(t *testing.T, path, replacement string) {
 		t.Fatal(err)
 	}
 	if err := manifest.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := reader.Close(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -94,6 +96,9 @@ func rewriteDump(t *testing.T, path, replacement string) {
 		t.Fatal(err)
 	}
 	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(path); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Rename(temporary, path); err != nil {
