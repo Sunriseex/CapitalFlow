@@ -59,7 +59,7 @@ Legend:
 - [x] `/health`, `/ready`, `/metrics` routes exist.
 - [x] Basic dashboard endpoints exist.
 - [x] Basic dashboard UI exists.
-- [x] Basic Playwright E2E smoke test exists.
+- [x] Playwright E2E covers both mocked UI smoke and a real backend + PostgreSQL financial flow.
 - [x] CI runs backend tests, race tests, lint, WebUI checks, OpenAPI lint and migration checks.
 - [x] Production Docker images are built in CI on release tags.
 - [x] Deployment compose exists under `deploy/compose.yaml`.
@@ -79,7 +79,7 @@ Legend:
 - [ ] `Accept all safe` import confirmation.
 - [ ] Parser version storage.
 - [ ] Manual CSV mapping templates.
-- [ ] Backup/restore feature.
+- [x] Backup/restore CLI, scheduled backups, retention and pre-migration backups.
 - [ ] Encrypted integration secrets backup/restore behavior.
 - [ ] Goals/reserved money/emergency fund system goal.
 - [ ] Budgeting/safe-to-spend.
@@ -93,15 +93,14 @@ Legend:
 
 ### Biggest current risks
 
-1. **No backup/restore yet.** The app already has serious financial core work, but still should not be trusted with real data until restore is tested.
-2. **Financial audit log is incomplete.** Auth audit exists, but financial/settings-wide audit events are not clearly implemented.
-3. **Transactions have no source model yet.** No `source_type`, `source_ref_id`, `source_metadata`, import linkage or subscription linkage.
-4. **Transfer model is strong, but lifecycle is narrow.** DB status currently allows only `completed`; no pending/cancelled/reversed states.
-5. **Interest engine exists, but deposit product model is still incomplete.** Rules/accruals/jobs exist; fixed deposits, top-up cutoff, expected-vs-actual interest and imported actual interest matching are not done.
-6. **Repo README/TODO still contain stale or conflicting claims.** Example: README still says `DELETE /api/v1/transactions`, but router does not expose that route.
-7. **Currency rates are only latest external display rates.** No CBR/manual provider, no hourly sync, no persisted rate history, no historical report rates.
-8. **Production deploy exists, but backup/restore and NixOS service/timer examples are missing.**
-9. **E2E exists but is mocked WebUI smoke, not real backend + PostgreSQL E2E.**
+1. **Financial audit log is incomplete.** Auth audit exists, but financial/settings-wide audit events are not clearly implemented.
+2. **Transactions have no source model yet.** No `source_type`, `source_ref_id`, `source_metadata`, import linkage or subscription linkage.
+3. **Transfer model is strong, but lifecycle is narrow.** DB status currently allows only `completed`; no pending/cancelled/reversed states.
+4. **Interest engine exists, but deposit product model is still incomplete.** Rules/accruals/jobs exist; fixed deposits, top-up cutoff, expected-vs-actual interest and imported actual interest matching are not done.
+5. **Repo README/TODO still contain stale or conflicting claims.** Example: README still says `DELETE /api/v1/transactions`, but router does not expose that route.
+6. **Currency rates are only latest external display rates.** No CBR/manual provider, no hourly sync, no persisted rate history, no historical report rates.
+7. **Backup archives are not encrypted.** Financial restore is tested, but future integration-secret recovery still needs an explicit key-loss model.
+8. **NixOS service/timer examples are missing.** Production Docker deployment and its backup scheduler are implemented.
 
 ---
 
@@ -110,7 +109,7 @@ Legend:
 - [ ] v0.5.9 — Frontend Reference Refactor.
 - [ ] v0.6.0 — Financial Correctness Foundation.
 - [ ] v0.6.1 — Security / Auth / Recovery.
-- [ ] v0.6.2 — Backup / Restore.
+- [x] v0.6.2 — Backup / Restore core (UI and encryption remain follow-ups).
 - [ ] v0.6.3 — Subscriptions.
 - [ ] v0.6.4 — Deposits / Savings / Interest Engine.
 - [ ] v0.6.5 — Goals / Reserves / Emergency Fund.
@@ -530,8 +529,8 @@ If the web account is locked, the server owner needs a local/admin recovery path
 ### Narrow points
 
 ```text
-Backup is the largest P0 gap.
-Without a tested restore path, the app should not be trusted with real finance data.
+The core backup/restore path is tested against an empty database.
+Encryption and future integration-secret recovery remain separate follow-ups.
 ```
 
 ```text
@@ -1396,17 +1395,19 @@ But do keep dashboard slots ready for those modules.
 - [x] Basic Playwright config exists.
 - [x] `npm run test:e2e` script exists.
 - [x] Basic E2E smoke test exists.
+- [x] Real backend + PostgreSQL E2E stack exists.
+- [x] Real setup, account, transaction, transfer and dashboard flow runs in CI.
+- [x] Backup/restore smoke test runs in CI against an empty database.
 
 ### Still TODO
 
-- [ ] Add real backend + PostgreSQL E2E stack.
-- [ ] Add `docker-compose.e2e.yml`.
-- [ ] Add test DB reset/seed strategy.
-- [ ] Add setup flow E2E with real backend.
+- [x] Add real backend + PostgreSQL E2E stack.
+- [x] Add isolated test DB reset strategy.
+- [x] Add setup flow E2E with real backend.
 - [ ] Add login/logout/refresh E2E with real backend.
-- [ ] Add transaction/transfer/dashboard E2E with real backend.
+- [x] Add transaction/transfer/dashboard E2E with real backend.
 - [ ] Add passkey virtual authenticator E2E.
-- [ ] Add backup/restore smoke test.
+- [x] Add backup/restore smoke test.
 - [ ] Add import preview/apply E2E after import module exists.
 - [ ] Add Playwright traces/screenshots/videos only on failure.
 - [ ] Add controlled clock/test helpers for date-sensitive flows.
@@ -1417,8 +1418,8 @@ But do keep dashboard slots ready for those modules.
 ### Narrow point
 
 ```text
-Current E2E is useful UI smoke, but it mocks network routes.
-It does not prove backend + PostgreSQL + browser integration yet.
+The mocked UI smoke test remains useful for broad flows.
+The real E2E additionally proves the core browser + backend + PostgreSQL financial path.
 ```
 
 ---
@@ -1444,7 +1445,7 @@ It does not prove backend + PostgreSQL + browser integration yet.
 - [ ] PARTIAL: Request logging does not include request ID or user ID.
 - [ ] PARTIAL: `/metrics` route exists, but Prometheus-quality metrics need verification.
 - [ ] NixOS service/timer examples not confirmed.
-- [ ] Backup timer/example not implemented.
+- [x] Backup scheduler is part of the production compose deployment.
 
 ### TODO
 
@@ -1452,7 +1453,7 @@ It does not prove backend + PostgreSQL + browser integration yet.
 - [ ] Add nginx reverse-proxy example.
 - [ ] Keep Traefik example from deploy compose and document it.
 - [ ] Add NixOS systemd service example.
-- [ ] Add NixOS backup timer after backup command exists.
+- [ ] Add NixOS backup timer example for non-Docker deployments.
 - [ ] Add production `.env.example` with safe comments.
 - [ ] Add request ID to logs.
 - [ ] Add user ID to logs when available.
@@ -1465,7 +1466,8 @@ It does not prove backend + PostgreSQL + browser integration yet.
 
 ```text
 Deployment is ahead of product modules, which is good.
-But operations without backup/restore is still incomplete for real finance data.
+Backup/restore and scheduled retention now cover the Docker deployment path.
+Native NixOS examples remain operational documentation work.
 ```
 
 ```text
@@ -1482,12 +1484,12 @@ The web app itself should not casually rewrite env files.
 - [ ] `feat(audit): add generic financial/settings audit_events table`
 - [ ] `feat(transactions): add source_type/source_ref_id/source_metadata`
 - [ ] `feat(transactions): add lifecycle status and correction/reversal model`
-- [ ] `feat(backups): add backup command and restore into fresh DB`
-- [ ] `test(backups): verify restore path against empty DB`
+- [x] `feat(backups): add backup command and restore into fresh DB`
+- [x] `test(backups): verify restore path against empty DB`
 - [ ] `feat(recovery): add server-console password reset command`
 - [ ] `docs(security): document recovery, APP_SECRET_KEY and secret-loss behavior`
 - [ ] `fix(docs): remove stale transaction DELETE route or implement safe endpoint`
-- [ ] `test(e2e): add real backend + PostgreSQL critical flow`
+- [x] `test(e2e): add real backend + PostgreSQL critical flow`
 
 ## P1 — Daily personal value
 
@@ -1534,8 +1536,8 @@ Make CapitalFlow safe enough for daily personal finance use with real data.
 
 ## Acceptance criteria
 
-- [ ] Backup and restore are tested against a fresh database.
-- [ ] Critical browser flows are covered by real backend + PostgreSQL E2E tests.
+- [x] Backup and restore are tested against a fresh database.
+- [x] Critical browser flows are covered by real backend + PostgreSQL E2E tests.
 - [ ] Financial audit, correction and recovery paths are documented.
 - [ ] README, deployment docs and API docs match the implemented product.
 - [ ] No P0 issue remains in the deduplicated backlog.
