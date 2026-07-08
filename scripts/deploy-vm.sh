@@ -307,6 +307,10 @@ else
   docker compose --profile tools build api web migrate
 fi
 docker compose up -d --wait postgres
+docker compose --profile tools run -T --rm \
+  --user "${CAPITALFLOW_BACKUP_UID}:${CAPITALFLOW_BACKUP_GID}" \
+  --entrypoint /usr/local/bin/capitalflow-pre-migration-backup \
+  job-runner </dev/null
 docker compose stop api web interest-scheduler backup-scheduler >/dev/null 2>&1 || true
 docker compose --profile tools run -T --rm migrate </dev/null
 docker compose up -d --wait --no-build api web

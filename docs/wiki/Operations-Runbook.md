@@ -99,6 +99,12 @@ configured number, and exposes a heartbeat health check. Point
 or another backup system. Retention only removes files matching
 `capitalflow-*.zip`.
 
+Every VM deploy also creates
+`capitalflow-<UTC timestamp>-pre-migration.zip` before Goose runs. A backup
+failure stops the deploy before the schema changes. Fresh installations skip
+this step until `goose_db_version` exists. Pre-migration archives participate
+in the same retention policy.
+
 Check scheduler state on the VM:
 
 ```bash

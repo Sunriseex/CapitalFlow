@@ -505,7 +505,7 @@ If the web account is locked, the server owner needs a local/admin recovery path
 - [x] Add scheduled backup support.
 - [x] Add local backup destination.
 - [x] Add Syncthing-friendly backup directory support.
-- [ ] Add backup before migrations.
+- [x] Add backup before migrations.
 - [ ] Add backup before import.
 - [ ] Add backup before bulk destructive/reversal actions.
 - [x] Add restore into fresh instance.

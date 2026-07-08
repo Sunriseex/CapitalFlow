@@ -59,6 +59,7 @@ jobs:
           sh scripts/backup-schedule_test.sh
           sh scripts/backup-retention_test.sh
           sh scripts/backup-scheduler_test.sh
+          sh scripts/pre-migration-backup_test.sh
 
       - name: Build binaries
         run: go build ./cmd/...
