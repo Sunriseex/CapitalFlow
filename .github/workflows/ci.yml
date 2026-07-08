@@ -54,7 +54,11 @@ jobs:
 
       - name: Run scheduler tests
         if: runner.os == 'Linux'
-        run: sh scripts/interest-schedule_test.sh
+        run: |
+          sh scripts/interest-schedule_test.sh
+          sh scripts/backup-schedule_test.sh
+          sh scripts/backup-retention_test.sh
+          sh scripts/backup-scheduler_test.sh
 
       - name: Build binaries
         run: go build ./cmd/...
