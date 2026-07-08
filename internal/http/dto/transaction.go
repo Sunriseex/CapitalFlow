@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/sunriseex/capitalflow/internal/models"
@@ -8,16 +9,19 @@ import (
 )
 
 type TransactionResponse struct {
-	ID               string                 `json:"id"`
-	AccountID        string                 `json:"account_id"`
-	RelatedAccountID *string                `json:"related_account_id,omitempty"`
-	TransferID       *string                `json:"transfer_id,omitempty"`
-	Type             models.TransactionType `json:"type"`
-	Amount           money.JSONDecimal      `json:"amount"`
-	CategoryID       *string                `json:"category_id,omitempty"`
-	Description      string                 `json:"description,omitempty"`
-	OccurredAt       time.Time              `json:"occurred_at"`
-	CreatedAt        time.Time              `json:"created_at"`
+	ID               string                   `json:"id"`
+	AccountID        string                   `json:"account_id"`
+	RelatedAccountID *string                  `json:"related_account_id,omitempty"`
+	TransferID       *string                  `json:"transfer_id,omitempty"`
+	SourceType       models.TransactionSource `json:"source_type"`
+	SourceRefID      *string                  `json:"source_ref_id,omitempty"`
+	SourceMetadata   json.RawMessage          `json:"source_metadata"`
+	Type             models.TransactionType   `json:"type"`
+	Amount           money.JSONDecimal        `json:"amount"`
+	CategoryID       *string                  `json:"category_id,omitempty"`
+	Description      string                   `json:"description,omitempty"`
+	OccurredAt       time.Time                `json:"occurred_at"`
+	CreatedAt        time.Time                `json:"created_at"`
 }
 
 type CreateTransactionRequest struct {
@@ -31,11 +35,22 @@ type CreateTransactionRequest struct {
 }
 
 func TransactionFromModel(transaction *models.Transaction) TransactionResponse {
+	sourceType := transaction.SourceType
+	if sourceType == "" {
+		sourceType = models.TransactionSourceManual
+	}
+	sourceMetadata := transaction.SourceMetadata
+	if len(sourceMetadata) == 0 {
+		sourceMetadata = json.RawMessage(`{}`)
+	}
 	return TransactionResponse{
 		ID:               transaction.ID,
 		AccountID:        transaction.AccountID,
 		RelatedAccountID: transaction.RelatedAccountID,
 		TransferID:       transaction.TransferID,
+		SourceType:       sourceType,
+		SourceRefID:      transaction.SourceRefID,
+		SourceMetadata:   sourceMetadata,
 		Type:             transaction.Type,
 		Amount:           money.NewJSONDecimal(transaction.Amount),
 		CategoryID:       transaction.CategoryID,

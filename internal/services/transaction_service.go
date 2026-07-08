@@ -1,8 +1,11 @@
 package services
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -47,6 +50,9 @@ type CreateTransactionRequest struct {
 	Amount           decimal.Decimal
 	Currency         string
 	CategoryID       *string
+	SourceType       models.TransactionSource
+	SourceRefID      *string
+	SourceMetadata   json.RawMessage
 	Description      string
 	OccurredAt       time.Time
 	AccountOpenedAt  time.Time
@@ -139,8 +145,12 @@ func (s *TransactionService) CreateTransfer(ctx context.Context, transfer *model
 	}
 	transfer.FromTransactionID = transactions[0].ID
 	transfer.ToTransactionID = transactions[1].ID
-	for i := range transactions[:2] {
-		transactions[i].TransferID = &transfer.ID
+	for i := range transactions {
+		transactions[i].SourceType = models.TransactionSourceTransfer
+		transactions[i].SourceRefID = &transfer.ID
+		if i < 2 {
+			transactions[i].TransferID = &transfer.ID
+		}
 	}
 	if len(transactions) == 3 {
 		transfer.FeeTransactionID = &transactions[2].ID
@@ -238,10 +248,38 @@ func buildTransaction(ctx context.Context, req *CreateTransactionRequest, allowT
 		return nil, validationError(err.Error())
 	}
 
+	sourceType := req.SourceType
+	if sourceType == "" {
+		sourceType = models.TransactionSourceManual
+	}
+	if !sourceType.IsValid() {
+		return nil, validationError("invalid transaction source type")
+	}
+	var sourceRefID *string
+	if req.SourceRefID != nil {
+		normalized := strings.TrimSpace(*req.SourceRefID)
+		if _, err := uuid.Parse(normalized); err != nil {
+			return nil, validationError("transaction source reference must be a UUID")
+		}
+		sourceRefID = &normalized
+	}
+	if len(req.SourceMetadata) > 0 {
+		metadata := bytes.TrimSpace(req.SourceMetadata)
+		if !json.Valid(metadata) || len(metadata) == 0 || metadata[0] != '{' {
+			return nil, validationError("transaction source metadata must be a JSON object")
+		}
+	}
+	sourceMetadata := slices.Clone(req.SourceMetadata)
+	if len(sourceMetadata) == 0 {
+		sourceMetadata = json.RawMessage(`{}`)
+	}
 	transaction := &models.Transaction{
 		ID:               uuid.NewString(),
 		AccountID:        strings.TrimSpace(req.AccountID),
 		RelatedAccountID: req.RelatedAccountID,
+		SourceType:       sourceType,
+		SourceRefID:      sourceRefID,
+		SourceMetadata:   sourceMetadata,
 		Type:             req.Type,
 		Amount:           req.Amount,
 		CategoryID:       req.CategoryID,

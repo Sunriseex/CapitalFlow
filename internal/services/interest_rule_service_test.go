@@ -196,6 +196,12 @@ func TestInterestEngineAccrue(t *testing.T) {
 	if got.Accrual.RuleID != "rule-1" {
 		t.Fatalf("accrual rule id = %s, want rule-1", got.Accrual.RuleID)
 	}
+	if got.Transaction.SourceType != models.TransactionSourceDepositInterest {
+		t.Fatalf("source type = %q, want deposit_interest", got.Transaction.SourceType)
+	}
+	if got.Transaction.SourceRefID == nil || *got.Transaction.SourceRefID != got.Accrual.ID {
+		t.Fatalf("source ref = %v, want accrual %q", got.Transaction.SourceRefID, got.Accrual.ID)
+	}
 }
 
 func TestInterestEngineAccrueUsesPromoRate(t *testing.T) {

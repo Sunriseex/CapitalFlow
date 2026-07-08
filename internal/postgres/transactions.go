@@ -213,6 +213,8 @@ func (r *TransactionRepository) CreateTransfer(ctx context.Context, transfer *mo
 		return fmt.Errorf("create transfer audit: %w", err)
 	}
 	for i := range transactions {
+		transactions[i].SourceType = models.TransactionSourceTransfer
+		transactions[i].SourceRefID = &transfer.ID
 		if err := insertTransaction(ctx, tx, &transactions[i]); err != nil {
 			return fmt.Errorf("create transfer transaction %s: %w", transactions[i].ID, err)
 		}
@@ -470,7 +472,9 @@ type transactionScanner interface {
 }
 
 const transactionSelectSQL = `
-	SELECT t.id, t.account_id, t.related_account_id, t.transfer_id, t.type, t.amount, t.category_id, t.description, t.occurred_at, t.created_at
+	SELECT t.id, t.account_id, t.related_account_id, t.transfer_id,
+		t.source_type, t.source_ref_id, t.source_metadata,
+		t.type, t.amount, t.category_id, t.description, t.occurred_at, t.created_at
 	FROM transactions t
 `
 
@@ -481,6 +485,9 @@ func scanTransaction(row transactionScanner) (*models.Transaction, error) {
 		&transaction.AccountID,
 		&transaction.RelatedAccountID,
 		&transaction.TransferID,
+		&transaction.SourceType,
+		&transaction.SourceRefID,
+		&transaction.SourceMetadata,
 		&transaction.Type,
 		&transaction.Amount,
 		&transaction.CategoryID,
@@ -494,10 +501,22 @@ func scanTransaction(row transactionScanner) (*models.Transaction, error) {
 }
 
 func insertTransaction(ctx context.Context, execer sqlExecer, transaction *models.Transaction) error {
+	if transaction.SourceType == "" {
+		transaction.SourceType = models.TransactionSourceManual
+	}
+	if len(transaction.SourceMetadata) == 0 {
+		transaction.SourceMetadata = []byte(`{}`)
+	}
 	_, err := execer.Exec(ctx, `
-		INSERT INTO transactions (id, account_id, related_account_id, transfer_id, type, amount, category_id, description, occurred_at, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-	`, transaction.ID, transaction.AccountID, transaction.RelatedAccountID, transaction.TransferID, transaction.Type, transaction.Amount, transaction.CategoryID, transaction.Description, transaction.OccurredAt, transaction.CreatedAt)
+		INSERT INTO transactions (
+			id, account_id, related_account_id, transfer_id,
+			source_type, source_ref_id, source_metadata,
+			type, amount, category_id, description, occurred_at, created_at
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12, $13)
+	`, transaction.ID, transaction.AccountID, transaction.RelatedAccountID, transaction.TransferID,
+		transaction.SourceType, transaction.SourceRefID, string(transaction.SourceMetadata),
+		transaction.Type, transaction.Amount, transaction.CategoryID, transaction.Description, transaction.OccurredAt, transaction.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("insert transaction: %w", err)
 	}

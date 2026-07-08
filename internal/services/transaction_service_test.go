@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -11,6 +12,60 @@ import (
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/repository"
 )
+
+func TestTransactionServiceCreatePreservesExplicitSource(t *testing.T) {
+	refID := "11111111-1111-1111-1111-111111111111"
+	tx, err := NewTransactionService(&recordingCreateForUserRepo{}).Create(t.Context(), &CreateTransactionRequest{
+		AccountID:      "account-1",
+		Type:           models.TransactionTypeIncome,
+		Amount:         dec("100"),
+		SourceType:     models.TransactionSourceCSVImport,
+		SourceRefID:    &refID,
+		SourceMetadata: json.RawMessage(`{"parser_version":"1"}`),
+	})
+	if err != nil {
+		t.Fatalf("create sourced transaction: %v", err)
+	}
+	if tx.SourceType != models.TransactionSourceCSVImport {
+		t.Fatalf("source type = %q, want csv_import", tx.SourceType)
+	}
+	if tx.SourceRefID == nil || *tx.SourceRefID != refID {
+		t.Fatalf("source ref = %v, want %q", tx.SourceRefID, refID)
+	}
+	if string(tx.SourceMetadata) != `{"parser_version":"1"}` {
+		t.Fatalf("source metadata = %s", tx.SourceMetadata)
+	}
+}
+
+func TestTransactionServiceCreateRejectsInvalidSource(t *testing.T) {
+	invalidRef := "not-a-uuid"
+	tests := []struct {
+		name     string
+		source   models.TransactionSource
+		refID    *string
+		metadata json.RawMessage
+	}{
+		{name: "unknown type", source: "unknown"},
+		{name: "invalid reference", source: models.TransactionSourceCSVImport, refID: &invalidRef},
+		{name: "invalid json", source: models.TransactionSourceManual, metadata: json.RawMessage(`{`)},
+		{name: "non-object metadata", source: models.TransactionSourceManual, metadata: json.RawMessage(`[]`)},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := NewTransactionService(&recordingCreateForUserRepo{}).Create(t.Context(), &CreateTransactionRequest{
+				AccountID:      "account-1",
+				Type:           models.TransactionTypeIncome,
+				Amount:         dec("100"),
+				SourceType:     test.source,
+				SourceRefID:    test.refID,
+				SourceMetadata: test.metadata,
+			})
+			if err == nil || !IsValidationError(err) {
+				t.Fatalf("error = %v, want validation error", err)
+			}
+		})
+	}
+}
 
 func TestTransactionServiceCreate(t *testing.T) {
 	repo := &recordingCreateForUserRepo{}
@@ -28,6 +83,9 @@ func TestTransactionServiceCreate(t *testing.T) {
 	}
 	if tx.Description != "Salary" {
 		t.Fatalf("description = %q, want Salary", tx.Description)
+	}
+	if tx.SourceType != models.TransactionSourceManual {
+		t.Fatalf("source type = %q, want manual", tx.SourceType)
 	}
 	if tx.OccurredAt.IsZero() {
 		t.Fatal("occurred at is zero")
@@ -215,6 +273,14 @@ func TestTransactionServiceCreateTransferAllowsTransferTypes(t *testing.T) {
 	}
 	if transfer.FromTransactionID == "" || transfer.ToTransactionID == "" {
 		t.Fatalf("transfer transaction ids were not set: %+v", transfer)
+	}
+	for _, transaction := range transactions {
+		if transaction.SourceType != models.TransactionSourceTransfer {
+			t.Fatalf("source type = %q, want transfer", transaction.SourceType)
+		}
+		if transaction.SourceRefID == nil || *transaction.SourceRefID != transfer.ID {
+			t.Fatalf("source ref = %v, want %q", transaction.SourceRefID, transfer.ID)
+		}
 	}
 }
 

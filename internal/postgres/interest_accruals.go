@@ -39,6 +39,8 @@ func (r *InterestAccrualRepository) CreateWithTransaction(ctx context.Context, t
 	if err := lockAccountForTransaction(ctx, tx, transaction.AccountID); err != nil {
 		return fmt.Errorf("lock interest transaction account: %w", err)
 	}
+	transaction.SourceType = models.TransactionSourceDepositInterest
+	transaction.SourceRefID = &accrual.ID
 	if err := insertTransaction(ctx, tx, transaction); err != nil {
 		return fmt.Errorf("create interest transaction: %w", err)
 	}
@@ -132,6 +134,8 @@ func replaceInterestAccrualRangeWithTransactions(ctx context.Context, db queryer
 	}
 
 	for i := range transactions {
+		transactions[i].SourceType = models.TransactionSourceDepositInterest
+		transactions[i].SourceRefID = &accruals[i].ID
 		if err := insertTransaction(ctx, db, &transactions[i]); err != nil {
 			return 0, fmt.Errorf("create recalculated interest transaction: %w", err)
 		}

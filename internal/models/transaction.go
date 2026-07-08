@@ -1,10 +1,44 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/shopspring/decimal"
 )
+
+type TransactionSource string
+
+const (
+	TransactionSourceManual                   TransactionSource = "manual"
+	TransactionSourceCSVImport                TransactionSource = "csv_import"
+	TransactionSourceTransfer                 TransactionSource = "transfer"
+	TransactionSourceDepositInterest          TransactionSource = "deposit_interest"
+	TransactionSourceSavingsAllocation        TransactionSource = "savings_allocation"
+	TransactionSourceSubscription             TransactionSource = "subscription"
+	TransactionSourceReconciliationAdjustment TransactionSource = "reconciliation_adjustment"
+	TransactionSourceAutomationRule           TransactionSource = "automation_rule"
+	TransactionSourceLLMDraft                 TransactionSource = "llm_draft"
+	TransactionSourceSystem                   TransactionSource = "system"
+)
+
+func (source TransactionSource) IsValid() bool {
+	switch source {
+	case TransactionSourceManual,
+		TransactionSourceCSVImport,
+		TransactionSourceTransfer,
+		TransactionSourceDepositInterest,
+		TransactionSourceSavingsAllocation,
+		TransactionSourceSubscription,
+		TransactionSourceReconciliationAdjustment,
+		TransactionSourceAutomationRule,
+		TransactionSourceLLMDraft,
+		TransactionSourceSystem:
+		return true
+	default:
+		return false
+	}
+}
 
 type TransactionType string
 
@@ -19,16 +53,19 @@ const (
 )
 
 type Transaction struct {
-	ID               string          `json:"id"`
-	AccountID        string          `json:"account_id"`
-	RelatedAccountID *string         `json:"related_account_id,omitempty"`
-	TransferID       *string         `json:"transfer_id,omitempty"`
-	Type             TransactionType `json:"type"`
-	Amount           decimal.Decimal `json:"amount"`
-	CategoryID       *string         `json:"category_id,omitempty"`
-	Description      string          `json:"description,omitempty"`
-	OccurredAt       time.Time       `json:"occurred_at"`
-	CreatedAt        time.Time       `json:"created_at"`
+	ID               string            `json:"id"`
+	AccountID        string            `json:"account_id"`
+	RelatedAccountID *string           `json:"related_account_id,omitempty"`
+	TransferID       *string           `json:"transfer_id,omitempty"`
+	SourceType       TransactionSource `json:"source_type"`
+	SourceRefID      *string           `json:"source_ref_id,omitempty"`
+	SourceMetadata   json.RawMessage   `json:"source_metadata,omitempty"`
+	Type             TransactionType   `json:"type"`
+	Amount           decimal.Decimal   `json:"amount"`
+	CategoryID       *string           `json:"category_id,omitempty"`
+	Description      string            `json:"description,omitempty"`
+	OccurredAt       time.Time         `json:"occurred_at"`
+	CreatedAt        time.Time         `json:"created_at"`
 }
 
 type Transfer struct {

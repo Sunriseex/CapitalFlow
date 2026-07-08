@@ -92,6 +92,8 @@ export type AccountType = "cash" | "card" | "savings" | "term_deposit" | "broker
 
 export type TransactionType = "initial_balance" | "income" | "expense" | "transfer_in" | "transfer_out" | "interest_income" | "adjustment";
 
+export type TransactionSource = "manual" | "csv_import" | "transfer" | "deposit_interest" | "savings_allocation" | "subscription" | "reconciliation_adjustment" | "automation_rule" | "llm_draft" | "system";
+
 export type AccrualFrequency = "daily" | "monthly" | "end_of_term";
 
 export type CapitalizationFrequency = "none" | "daily" | "monthly" | "end_of_term";
@@ -208,6 +210,9 @@ export type Transaction = {
   "account_id": string;
   "related_account_id"?: string | null;
   "transfer_id"?: string | null;
+  "source_type": TransactionSource;
+  "source_ref_id"?: string | null;
+  "source_metadata": Record<string, unknown>;
   "type": TransactionType;
   "amount": string;
   "category_id"?: string | null;
