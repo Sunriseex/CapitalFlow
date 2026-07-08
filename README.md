@@ -372,8 +372,10 @@ Transactions:
 GET    /api/v1/transactions
 POST   /api/v1/transactions
 GET    /api/v1/transactions/{id}
-DELETE /api/v1/transactions/{id}
 ```
+
+Transactions cannot be hard-deleted. Correction and reversal semantics are
+planned so financial history remains auditable.
 
 Transfers:
 

@@ -97,10 +97,9 @@ Legend:
 2. **Transactions have no source model yet.** No `source_type`, `source_ref_id`, `source_metadata`, import linkage or subscription linkage.
 3. **Transfer model is strong, but lifecycle is narrow.** DB status currently allows only `completed`; no pending/cancelled/reversed states.
 4. **Interest engine exists, but deposit product model is still incomplete.** Rules/accruals/jobs exist; fixed deposits, top-up cutoff, expected-vs-actual interest and imported actual interest matching are not done.
-5. **Repo README/TODO still contain stale or conflicting claims.** Example: README still says `DELETE /api/v1/transactions`, but router does not expose that route.
-6. **Currency rates are only latest external display rates.** No CBR/manual provider, no hourly sync, no persisted rate history, no historical report rates.
-7. **Backup archives are not encrypted.** Financial restore is tested, but future integration-secret recovery still needs an explicit key-loss model.
-8. **NixOS service/timer examples are missing.** Production Docker deployment and its backup scheduler are implemented.
+5. **Currency rates are only latest external display rates.** No CBR/manual provider, no hourly sync, no persisted rate history, no historical report rates.
+6. **Backup archives are not encrypted.** Financial restore is tested, but future integration-secret recovery still needs an explicit key-loss model.
+7. **NixOS service/timer examples are missing.** Production Docker deployment and its backup scheduler are implemented.
 
 ---
 
@@ -200,7 +199,7 @@ Reason: the latest repository tag is `v0.5.8`; the next planned release must rem
 - [ ] Add explicit correction event model for changed financial history.
 - [ ] Ensure cancelled/reversed/soft-deleted transactions are excluded from current balances.
 - [ ] Add transaction history/audit UI for changed records.
-- [ ] Remove or update stale README route `DELETE /api/v1/transactions/{id}` unless delete route is actually implemented.
+- [x] Remove stale README route `DELETE /api/v1/transactions/{id}` and document why hard delete is unavailable.
 
 ### Narrow points
 
@@ -1488,7 +1487,7 @@ The web app itself should not casually rewrite env files.
 - [x] `test(backups): verify restore path against empty DB`
 - [ ] `feat(recovery): add server-console password reset command`
 - [ ] `docs(security): document recovery, APP_SECRET_KEY and secret-loss behavior`
-- [ ] `fix(docs): remove stale transaction DELETE route or implement safe endpoint`
+- [x] `fix(docs): remove stale transaction DELETE route or implement safe endpoint`
 - [x] `test(e2e): add real backend + PostgreSQL critical flow`
 
 ## P1 — Daily personal value
