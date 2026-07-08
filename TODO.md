@@ -502,7 +502,7 @@ If the web account is locked, the server owner needs a local/admin recovery path
 ### TODO
 
 - [x] Add manual backup command.
-- [ ] Add scheduled backup support.
+- [x] Add scheduled backup support.
 - [x] Add local backup destination.
 - [x] Add Syncthing-friendly backup directory support.
 - [ ] Add backup before migrations.
@@ -523,7 +523,7 @@ If the web account is locked, the server owner needs a local/admin recovery path
 - [ ] Restore encrypted integration secrets only when `APP_SECRET_KEY` matches.
 - [ ] Mark integrations as `reconnect_required` when secrets cannot be decrypted.
 - [x] Add backup integrity checks/checksums.
-- [ ] Add retention policy.
+- [x] Add retention policy.
 - [ ] Add Settings → Backups UI page.
 - [ ] Add Telegram alert for failed backup after Telegram integration exists.
 

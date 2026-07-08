@@ -32,7 +32,15 @@ COPY --from=build /out/goose /usr/local/bin/goose
 COPY migrations ./migrations
 COPY scripts/interest-scheduler.sh /usr/local/bin/capitalflow-interest-scheduler
 COPY scripts/interest-schedule.sh /usr/local/bin/capitalflow-interest-schedule
-RUN chmod +x /usr/local/bin/capitalflow-interest-scheduler /usr/local/bin/capitalflow-interest-schedule
+COPY scripts/backup-scheduler.sh /usr/local/bin/capitalflow-backup-scheduler
+COPY scripts/backup-schedule.sh /usr/local/bin/capitalflow-backup-schedule
+COPY scripts/backup-retention.sh /usr/local/bin/capitalflow-backup-retention
+RUN chmod +x \
+    /usr/local/bin/capitalflow-interest-scheduler \
+    /usr/local/bin/capitalflow-interest-schedule \
+    /usr/local/bin/capitalflow-backup-scheduler \
+    /usr/local/bin/capitalflow-backup-schedule \
+    /usr/local/bin/capitalflow-backup-retention
 
 EXPOSE 8080
 
