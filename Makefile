@@ -23,7 +23,7 @@ WEB_LOG := $(DEV_LOG_DIR)/web.log
 
 WEB_API_PROXY_TARGET := http://127.0.0.1:$(API_PORT)
 
-.PHONY: help test race lint check check-race check-all web-api-types web-lint web-test web-build web-check db-up db-down db-migrate db-rollback demo-seed demo-reset run-dev stop-dev reset-dev dev-dirs dev-db-wait dev-backend dev-web dev-status dev-logs deploy-vm fix fix-check
+.PHONY: help test race lint check check-race check-all web-api-types web-lint web-test web-build web-check real-e2e db-up db-down db-migrate db-rollback demo-seed demo-reset run-dev stop-dev reset-dev dev-dirs dev-db-wait dev-backend dev-web dev-status dev-logs deploy-vm fix fix-check
 
 help:
 	@echo "Targets:"
@@ -37,6 +37,7 @@ help:
 	@echo "  web-test      - run WebUI tests"
 	@echo "  web-build     - build WebUI"
 	@echo "  web-check     - run WebUI lint, tests, and build"
+	@echo "  real-e2e      - run browser tests against a clean PostgreSQL database"
 	@echo "  db-up         - start local PostgreSQL"
 	@echo "  db-down       - stop local PostgreSQL"
 	@echo "  db-migrate    - run PostgreSQL migrations"
@@ -79,6 +80,9 @@ web-build:
 	@cd web && npm run build
 
 web-check: web-api-types web-lint web-test web-build
+
+real-e2e:
+	@./scripts/real-e2e.sh
 
 db-up:
 	@docker compose up -d postgres
