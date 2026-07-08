@@ -22,7 +22,7 @@ LABEL org.opencontainers.image.title="CapitalFlow API" \
     org.opencontainers.image.version="${APP_VERSION}" \
     org.opencontainers.image.source="https://github.com/Sunriseex/CapitalFlow"
 
-RUN apk add --no-cache ca-certificates coreutils tzdata
+RUN apk add --no-cache ca-certificates coreutils postgresql17-client tzdata
 
 WORKDIR /app
 

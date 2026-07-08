@@ -88,3 +88,31 @@ func TestValidInterestJobName(t *testing.T) {
 		})
 	}
 }
+
+func TestBackupAndRestoreRequireArchivePathBeforeDatabaseAccess(t *testing.T) {
+	oldConfig := config.AppConfig
+	config.AppConfig = &config.Config{
+		DatabaseURL: "postgres://invalid:invalid@127.0.0.1:1/invalid?sslmode=disable",
+		AppVersion:  "test",
+	}
+	t.Cleanup(func() {
+		config.AppConfig = oldConfig
+	})
+
+	tests := []struct {
+		name string
+		run  func(context.Context, []string) error
+		want string
+	}{
+		{name: "backup", run: runBackup, want: "backup output path is required"},
+		{name: "restore", run: runRestore, want: "backup input path is required"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := test.run(t.Context(), nil)
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("error = %v, want %q", err, test.want)
+			}
+		})
+	}
+}

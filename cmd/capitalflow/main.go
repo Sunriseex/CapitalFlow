@@ -12,6 +12,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/sunriseex/capitalflow/internal/application"
+	"github.com/sunriseex/capitalflow/internal/backup"
 	"github.com/sunriseex/capitalflow/internal/config"
 	"github.com/sunriseex/capitalflow/internal/jobs"
 	"github.com/sunriseex/capitalflow/internal/models"
@@ -77,6 +78,16 @@ func main() {
 	case "jobs":
 		if err := runJobs(ctx, os.Args[2:]); err != nil {
 			slog.Error("jobs failed", "error", err)
+			os.Exit(1)
+		}
+	case "backup":
+		if err := runBackup(ctx, os.Args[2:]); err != nil {
+			slog.Error("backup failed", "error", err)
+			os.Exit(1)
+		}
+	case "restore":
+		if err := runRestore(ctx, os.Args[2:]); err != nil {
+			slog.Error("restore failed", "error", err)
 			os.Exit(1)
 		}
 	case "version":
@@ -642,6 +653,49 @@ func dateOnly(date time.Time) time.Time {
 
 func parseAmount(input string) (decimal.Decimal, error) { return money.ParseDecimalString(input) }
 
+func runBackup(ctx context.Context, args []string) error {
+	flags := flag.NewFlagSet("backup", flag.ContinueOnError)
+	output := flags.String("output", "", "backup archive path")
+	databaseURL := flags.String("database-url", config.AppConfig.DatabaseURL, "PostgreSQL connection URL")
+	timeout := flags.Duration("timeout", 10*time.Minute, "operation timeout")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	operationContext, cancel := context.WithTimeout(ctx, *timeout)
+	defer cancel()
+	manifest, err := backup.Create(operationContext, backup.CreateOptions{
+		DatabaseURL: *databaseURL,
+		OutputPath:  *output,
+		AppVersion:  config.AppConfig.AppVersion,
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("backup created: %s (schema %d)\n", *output, manifest.SchemaVersion)
+	return nil
+}
+
+func runRestore(ctx context.Context, args []string) error {
+	flags := flag.NewFlagSet("restore", flag.ContinueOnError)
+	input := flags.String("input", "", "backup archive path")
+	databaseURL := flags.String("database-url", config.AppConfig.DatabaseURL, "PostgreSQL connection URL")
+	timeout := flags.Duration("timeout", 10*time.Minute, "operation timeout")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	operationContext, cancel := context.WithTimeout(ctx, *timeout)
+	defer cancel()
+	manifest, err := backup.Restore(operationContext, backup.RestoreOptions{
+		DatabaseURL: *databaseURL,
+		InputPath:   *input,
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("backup restored: %s (schema %d)\n", *input, manifest.SchemaVersion)
+	return nil
+}
+
 func showHelp() {
 	fmt.Println(`capitalflow
 
@@ -657,6 +711,8 @@ Commands:
   capitalflow recalculate --account id [--rule id] --from YYYY-MM-DD [--to YYYY-MM-DD] [--database-url url]
   capitalflow migrate-json [--deposits path] [--owner-user-id user-id] [--database-url url]
   capitalflow jobs run --name daily_interest_accrual_job [--date YYYY-MM-DD] [--database-url url]
+  capitalflow backup --output path [--database-url url]
+  capitalflow restore --input path --database-url url
   capitalflow version
   capitalflow help`)
 }

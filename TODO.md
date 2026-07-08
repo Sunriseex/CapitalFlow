@@ -493,36 +493,36 @@ If the web account is locked, the server owner needs a local/admin recovery path
 
 ### Verified current state
 
-- [ ] No application backup command confirmed.
-- [ ] No restore command confirmed.
+- [x] Application backup command exists.
+- [x] Restore command exists and requires an empty database.
 - [ ] No backup UI confirmed.
-- [ ] No backup/restore CI verification confirmed.
+- [x] Backup/restore CI verification restores financial data into an empty database.
 - [ ] No encrypted backup format confirmed.
 
 ### TODO
 
-- [ ] Add manual backup command.
+- [x] Add manual backup command.
 - [ ] Add scheduled backup support.
-- [ ] Add local backup destination.
-- [ ] Add Syncthing-friendly backup directory support.
+- [x] Add local backup destination.
+- [x] Add Syncthing-friendly backup directory support.
 - [ ] Add backup before migrations.
 - [ ] Add backup before import.
 - [ ] Add backup before bulk destructive/reversal actions.
-- [ ] Add restore into fresh instance.
-- [ ] Add restore test against empty DB.
-- [ ] Add backup metadata:
-  - app version;
-  - schema version;
-  - created_at;
-  - base currency;
-  - backup format version;
-  - APP_SECRET_KEY fingerprint, not the key itself.
+- [x] Add restore into fresh instance.
+- [x] Add restore test against empty DB.
+- [ ] PARTIAL — add backup metadata:
+  - [x] app version;
+  - [x] schema version;
+  - [x] created_at;
+  - [x] base currency;
+  - [x] backup format version;
+  - [ ] APP_SECRET_KEY fingerprint, not the key itself (key does not exist yet).
 - [ ] Include original CSV import files in backups.
 - [ ] Include encrypted integration secrets by default.
 - [ ] Restore financial data even when `APP_SECRET_KEY` is missing/different.
 - [ ] Restore encrypted integration secrets only when `APP_SECRET_KEY` matches.
 - [ ] Mark integrations as `reconnect_required` when secrets cannot be decrypted.
-- [ ] Add backup integrity checks/checksums.
+- [x] Add backup integrity checks/checksums.
 - [ ] Add retention policy.
 - [ ] Add Settings → Backups UI page.
 - [ ] Add Telegram alert for failed backup after Telegram integration exists.

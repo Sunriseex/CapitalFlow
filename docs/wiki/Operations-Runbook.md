@@ -50,6 +50,38 @@ After deploying auth changes:
 5. Verify `auth_audit_events` receives records.
 6. Verify `capitalflow_auth_events_total` changes in `/metrics`.
 
+## Backup and Restore
+
+The API image includes `pg_dump`, `pg_restore`, and the `capitalflow` admin CLI.
+Create backups on the VM in a directory that is copied off-host, for example by
+Syncthing:
+
+```bash
+cd /home/sunriseex/projects/CapitalFlow/deploy
+docker compose --profile tools run -T --rm \
+  -v /srv/backups/capitalflow:/backups \
+  job-runner backup --output /backups/capitalflow-$(date -u +%Y%m%dT%H%M%SZ).zip
+```
+
+Each archive contains a PostgreSQL custom dump and a manifest with the app
+version, schema version, creation time, base currency, format version, and a
+SHA-256 checksum. The final archive is written atomically with mode `0600`.
+
+Restore only into a newly created, empty database. The command refuses to
+overwrite a database containing public tables:
+
+```bash
+docker compose --profile tools run -T --rm \
+  -v /srv/backups/capitalflow:/backups:ro \
+  job-runner restore \
+  --input /backups/capitalflow-20260708T050000Z.zip \
+  --database-url "$RESTORE_DATABASE_URL"
+```
+
+After restore, the command verifies that the restored schema version matches
+the archive manifest. Test restore regularly; an untested archive is not a
+recovery plan.
+
 ## Incident Pages
 
 * [Auth Incident Response](Auth-Incident-Response)
