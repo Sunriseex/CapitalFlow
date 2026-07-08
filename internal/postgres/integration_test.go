@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -16,6 +17,47 @@ import (
 	"github.com/sunriseex/capitalflow/internal/repository"
 	"github.com/sunriseex/capitalflow/internal/services"
 )
+
+func TestTransactionSourceRoundTrip(t *testing.T) {
+	store := newTestStore(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+	userID := seedUser(ctx, t, store, "transaction-source@example.com")
+	account := transferTestAccount(t, store, userID, "source")
+	refID := uuid.NewString()
+	created := &models.Transaction{
+		ID:             uuid.NewString(),
+		AccountID:      account.ID,
+		SourceType:     models.TransactionSourceCSVImport,
+		SourceRefID:    &refID,
+		SourceMetadata: json.RawMessage(`{"parser_version":"1"}`),
+		Type:           models.TransactionTypeIncome,
+		Amount:         dec("10"),
+		OccurredAt:     now,
+		CreatedAt:      now,
+	}
+	if err := store.Transactions().CreateForUser(ctx, userID, created); err != nil {
+		t.Fatalf("create sourced transaction: %v", err)
+	}
+
+	got, err := store.Transactions().GetByIDForUser(ctx, created.ID, userID)
+	if err != nil {
+		t.Fatalf("get sourced transaction: %v", err)
+	}
+	if got.SourceType != created.SourceType {
+		t.Fatalf("source type = %q, want %q", got.SourceType, created.SourceType)
+	}
+	if got.SourceRefID == nil || *got.SourceRefID != refID {
+		t.Fatalf("source ref = %v, want %q", got.SourceRefID, refID)
+	}
+	var metadata map[string]string
+	if err := json.Unmarshal(got.SourceMetadata, &metadata); err != nil {
+		t.Fatalf("decode source metadata: %v", err)
+	}
+	if metadata["parser_version"] != "1" {
+		t.Fatalf("source metadata = %s", got.SourceMetadata)
+	}
+}
 
 func newTestStore(t *testing.T) *Store {
 	t.Helper()
@@ -1267,8 +1309,13 @@ func TestInterestAccrualCreateWithTransactionWaitsForCurrencyUpdate(t *testing.T
 	if gotAccount.Currency != "USD" {
 		t.Fatalf("currency = %s, want USD", gotAccount.Currency)
 	}
-	if _, err := store.Transactions().GetByIDForUser(ctx, interestTx.ID, userID); err != nil {
+	gotInterest, err := store.Transactions().GetByIDForUser(ctx, interestTx.ID, userID)
+	if err != nil {
 		t.Fatalf("get interest transaction: %v", err)
+	}
+	if gotInterest.SourceType != models.TransactionSourceDepositInterest ||
+		gotInterest.SourceRefID == nil || *gotInterest.SourceRefID != accrual.ID {
+		t.Fatalf("interest source = %q/%v, want deposit_interest/%s", gotInterest.SourceType, gotInterest.SourceRefID, accrual.ID)
 	}
 }
 
@@ -1743,6 +1790,10 @@ func TestTransactionCreateTransferPersistsAuditRecord(t *testing.T) {
 		}
 		if gotTransactions[i].TransferID == nil || *gotTransactions[i].TransferID != transfer.ID {
 			t.Fatalf("transaction %s transfer_id = %v, want %s", gotTransactions[i].ID, gotTransactions[i].TransferID, transfer.ID)
+		}
+		if gotTransactions[i].SourceType != models.TransactionSourceTransfer ||
+			gotTransactions[i].SourceRefID == nil || *gotTransactions[i].SourceRefID != transfer.ID {
+			t.Fatalf("transaction %s source = %q/%v, want transfer/%s", gotTransactions[i].ID, gotTransactions[i].SourceType, gotTransactions[i].SourceRefID, transfer.ID)
 		}
 	}
 }

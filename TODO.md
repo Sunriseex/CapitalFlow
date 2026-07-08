@@ -94,12 +94,11 @@ Legend:
 ### Biggest current risks
 
 1. **Financial audit log is incomplete.** Auth audit exists, but financial/settings-wide audit events are not clearly implemented.
-2. **Transactions have no source model yet.** No `source_type`, `source_ref_id`, `source_metadata`, import linkage or subscription linkage.
-3. **Transfer model is strong, but lifecycle is narrow.** DB status currently allows only `completed`; no pending/cancelled/reversed states.
-4. **Interest engine exists, but deposit product model is still incomplete.** Rules/accruals/jobs exist; fixed deposits, top-up cutoff, expected-vs-actual interest and imported actual interest matching are not done.
-5. **Currency rates are only latest external display rates.** No CBR/manual provider, no hourly sync, no persisted rate history, no historical report rates.
-6. **Backup archives are not encrypted.** Financial restore is tested, but future integration-secret recovery still needs an explicit key-loss model.
-7. **NixOS service/timer examples are missing.** Production Docker deployment and its backup scheduler are implemented.
+2. **Transfer model is strong, but lifecycle is narrow.** DB status currently allows only `completed`; no pending/cancelled/reversed states.
+3. **Interest engine exists, but deposit product model is still incomplete.** Rules/accruals/jobs exist; fixed deposits, top-up cutoff, expected-vs-actual interest and imported actual interest matching are not done.
+4. **Currency rates are only latest external display rates.** No CBR/manual provider, no hourly sync, no persisted rate history, no historical report rates.
+5. **Backup archives are not encrypted.** Financial restore is tested, but future integration-secret recovery still needs an explicit key-loss model.
+6. **NixOS service/timer examples are missing.** Production Docker deployment and its backup scheduler are implemented.
 
 ---
 
@@ -172,6 +171,8 @@ Reason: the latest repository tag is `v0.5.8`; the next planned release must rem
 - [x] Inactive account writes are guarded in repository flow.
 - [x] Transaction-before-account-open is guarded.
 - [x] Transaction creation validates account and category existence through service/repository boundaries.
+- [x] Transactions persist a validated source type, optional source reference and JSONB metadata.
+- [x] Manual, transfer and deposit-interest flows assign their source automatically.
 
 ### Still TODO
 
@@ -181,10 +182,10 @@ Reason: the latest repository tag is `v0.5.8`; the next planned release must rem
   - `cancelled`;
   - `reversed`;
   - `soft_deleted`.
-- [ ] Add `source_type` to transactions.
-- [ ] Add `source_ref_id` to transactions.
-- [ ] Add `source_metadata JSONB` to transactions.
-- [ ] Add source enum:
+- [x] Add `source_type` to transactions.
+- [x] Add `source_ref_id` to transactions.
+- [x] Add `source_metadata JSONB` to transactions.
+- [x] Add source enum:
   - `manual`;
   - `csv_import`;
   - `transfer`;
@@ -204,8 +205,8 @@ Reason: the latest repository tag is `v0.5.8`; the next planned release must rem
 ### Narrow points
 
 ```text
-The current model can calculate balances, but it cannot yet explain where every transaction came from.
-That blocks imports, subscriptions, LLM explanations, backup audits and reconciliation.
+The source seam is implemented and exposed through the API.
+Future imports, subscriptions and automation must populate it when they create transactions.
 ```
 
 ```text
@@ -1481,7 +1482,7 @@ The web app itself should not casually rewrite env files.
 ## P0 — Must close before real money usage
 
 - [ ] `feat(audit): add generic financial/settings audit_events table`
-- [ ] `feat(transactions): add source_type/source_ref_id/source_metadata`
+- [x] `feat(transactions): add source_type/source_ref_id/source_metadata`
 - [ ] `feat(transactions): add lifecycle status and correction/reversal model`
 - [x] `feat(backups): add backup command and restore into fresh DB`
 - [x] `test(backups): verify restore path against empty DB`

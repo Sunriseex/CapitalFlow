@@ -42,6 +42,8 @@ const categories: Category[] = [
 const transaction: Transaction = {
   id: "transaction-1",
   account_id: "account-1",
+  source_type: "manual",
+  source_metadata: {},
   type: "income",
   amount: "100.00",
   category_id: "category-1",

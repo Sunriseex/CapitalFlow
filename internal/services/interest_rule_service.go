@@ -276,6 +276,8 @@ func (e *InterestEngine) Accrue(ctx context.Context, req *AccrueRuleInterestRequ
 		AnnualRateBps: rateBps,
 		CreatedAt:     time.Now(),
 	}
+	tx.SourceType = models.TransactionSourceDepositInterest
+	tx.SourceRefID = &accrual.ID
 
 	return &AccrueRuleInterestResponse{
 		Transaction: tx,
@@ -392,6 +394,8 @@ func (e *InterestEngine) Recalculate(ctx context.Context, req *RecalculateRuleIn
 			AnnualRateBps: pendingRate,
 			CreatedAt:     time.Now(),
 		}
+		tx.SourceType = models.TransactionSourceDepositInterest
+		tx.SourceRefID = &accrual.ID
 
 		response.Transactions = append(response.Transactions, *tx)
 		response.Accruals = append(response.Accruals, accrual)

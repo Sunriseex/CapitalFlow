@@ -309,6 +309,8 @@ describe("DashboardView", () => {
         {
           id: "tx-1",
           account_id: "account-1",
+          source_type: "manual",
+          source_metadata: {},
           type: "expense",
           amount: "25.00",
           category_id: "category-food",

@@ -98,6 +98,8 @@ describe("AccountDetails", () => {
     const history = Array.from({ length: 1000 }, (_, index): Transaction => ({
       id: `tx-${index}`,
       account_id: account.id,
+      source_type: "manual",
+      source_metadata: {},
       type: "income",
       amount: "1.00",
       category_id: null,

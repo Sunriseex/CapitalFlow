@@ -1148,6 +1148,21 @@ components:
           interest_income,
           adjustment,
         ]
+    TransactionSource:
+      type: string
+      enum:
+        [
+          manual,
+          csv_import,
+          transfer,
+          deposit_interest,
+          savings_allocation,
+          subscription,
+          reconciliation_adjustment,
+          automation_rule,
+          llm_draft,
+          system,
+        ]
     AccrualFrequency:
       type: string
       enum: [daily, monthly, end_of_term]
@@ -1400,7 +1415,7 @@ components:
           type: boolean
     Transaction:
       type: object
-      required: [id, account_id, type, amount, occurred_at, created_at]
+      required: [id, account_id, source_type, source_metadata, type, amount, occurred_at, created_at]
       properties:
         id:
           type: string
@@ -1416,6 +1431,15 @@ components:
           type: string
           format: uuid
           nullable: true
+        source_type:
+          $ref: "#/components/schemas/TransactionSource"
+        source_ref_id:
+          type: string
+          format: uuid
+          nullable: true
+        source_metadata:
+          type: object
+          additionalProperties: true
         type:
           $ref: "#/components/schemas/TransactionType"
         amount:
