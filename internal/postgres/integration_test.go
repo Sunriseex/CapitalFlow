@@ -647,6 +647,68 @@ func TestAccountAndUserRepositoriesPersistCryptoCurrencyCodes(t *testing.T) {
 	}
 }
 
+func TestUserUpdatePrimaryCurrencyWritesAuditEvent(t *testing.T) {
+	ctx := t.Context()
+	store := newTestStore(t)
+	now := time.Now().UTC()
+	userID := seedUser(ctx, t, store, "profile-settings-audit@example.com")
+
+	if err := store.Users().UpdatePrimaryCurrency(ctx, userID, "USD", now); err != nil {
+		t.Fatalf("update primary currency: %v", err)
+	}
+
+	var actorID, eventType, entityType, entityID string
+	var before, after map[string]any
+	if err := store.pool.QueryRow(ctx, `
+		SELECT actor_user_id::text, event_type, entity_type, entity_id, before_summary, after_summary
+		FROM audit_events
+		WHERE event_type = 'settings.profile_updated' AND entity_id = $1
+	`, userID).Scan(&actorID, &eventType, &entityType, &entityID, &before, &after); err != nil {
+		t.Fatalf("get profile settings audit: %v", err)
+	}
+	if actorID != userID || eventType != "settings.profile_updated" || entityType != "user_settings" || entityID != userID {
+		t.Fatalf("profile settings audit identity = %s/%s/%s/%s", actorID, eventType, entityType, entityID)
+	}
+	if before["primary_currency"] != "RUB" || after["primary_currency"] != "USD" {
+		t.Fatalf("profile settings audit = before %#v after %#v", before, after)
+	}
+}
+
+func TestUserUpdatePrimaryCurrencyRollsBackWhenAuditWriteFails(t *testing.T) {
+	ctx := t.Context()
+	store := newTestStore(t)
+	now := time.Now().UTC()
+	userID := seedUser(ctx, t, store, "profile-settings-audit-rollback@example.com")
+	if _, err := store.pool.Exec(ctx, `
+		CREATE FUNCTION reject_test_audit_event() RETURNS trigger LANGUAGE plpgsql AS $$
+		BEGIN
+			RAISE EXCEPTION 'reject test audit event';
+		END;
+		$$;
+		CREATE TRIGGER reject_test_audit_event BEFORE INSERT ON audit_events
+		FOR EACH ROW EXECUTE FUNCTION reject_test_audit_event();
+	`); err != nil {
+		t.Fatalf("create rejecting audit trigger: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = store.pool.Exec(context.Background(), `
+			DROP TRIGGER IF EXISTS reject_test_audit_event ON audit_events;
+			DROP FUNCTION IF EXISTS reject_test_audit_event();
+		`)
+	})
+
+	if err := store.Users().UpdatePrimaryCurrency(ctx, userID, "USD", now); err == nil {
+		t.Fatal("primary currency update succeeded")
+	}
+	user, err := store.Users().GetByID(ctx, userID)
+	if err != nil {
+		t.Fatalf("get user: %v", err)
+	}
+	if user.PrimaryCurrency != "RUB" {
+		t.Fatalf("primary currency = %q, want RUB after audit rollback", user.PrimaryCurrency)
+	}
+}
+
 func TestUserRepositorySetupRollsBackOnRefreshTokenFailure(t *testing.T) {
 	store := newTestStore(t)
 	ctx := t.Context()
