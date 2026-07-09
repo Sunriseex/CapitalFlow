@@ -20,8 +20,28 @@ func NewInterestRuleRepository(pool *pgxpool.Pool) *InterestRuleRepository {
 }
 
 func (r *InterestRuleRepository) Create(ctx context.Context, rule *models.InterestRule) error {
-	if err := insertInterestRule(ctx, r.pool, rule); err != nil {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin create interest rule: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	actorUserID, err := interestRuleActor(ctx, tx, rule.AccountID)
+	if err != nil {
+		return fmt.Errorf("get interest rule actor: %w", err)
+	}
+	if err := insertInterestRule(ctx, tx, rule); err != nil {
 		return fmt.Errorf("create interest rule: %w", err)
+	}
+	auditEvent, err := newAuditEvent(actorUserID, "interest_rule.created", "interest_rule", rule.ID, interestRuleAuditSummary(rule))
+	if err != nil {
+		return fmt.Errorf("build interest rule audit event: %w", err)
+	}
+	if err := insertAuditEvent(ctx, tx, auditEvent); err != nil {
+		return fmt.Errorf("create interest rule audit event: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit create interest rule: %w", err)
 	}
 	return nil
 }
@@ -120,7 +140,21 @@ func listInterestRules(ctx context.Context, db queryer, query string, args ...an
 }
 
 func (r *InterestRuleRepository) Update(ctx context.Context, rule *models.InterestRule) error {
-	tag, err := r.pool.Exec(ctx, `
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin update interest rule: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	before, err := scanInterestRule(tx.QueryRow(ctx, selectInterestRuleSQL+` WHERE id = $1 FOR UPDATE`, rule.ID))
+	if err != nil {
+		return fmt.Errorf("lock interest rule: %w", err)
+	}
+	actorUserID, err := interestRuleActor(ctx, tx, before.AccountID)
+	if err != nil {
+		return fmt.Errorf("get interest rule actor: %w", err)
+	}
+	tag, err := tx.Exec(ctx, `
 		UPDATE interest_rules
 		SET annual_rate_bps = $2, promo_rate_bps = $3, promo_end_date = $4,
 			accrual_frequency = $5, capitalization_frequency = $6, day_count_convention = $7,
@@ -132,6 +166,20 @@ func (r *InterestRuleRepository) Update(ctx context.Context, rule *models.Intere
 	}
 	if tag.RowsAffected() == 0 {
 		return fmt.Errorf("update interest rule: %w", repository.ErrNotFound)
+	}
+	eventType := "interest_rule.updated"
+	if before.IsActive && !rule.IsActive {
+		eventType = "interest_rule.deactivated"
+	}
+	auditEvent, err := newAuditEventWithSummaries(actorUserID, eventType, "interest_rule", rule.ID, interestRuleAuditSummary(before), interestRuleAuditSummary(rule))
+	if err != nil {
+		return fmt.Errorf("build interest rule update audit event: %w", err)
+	}
+	if err := insertAuditEvent(ctx, tx, auditEvent); err != nil {
+		return fmt.Errorf("create interest rule update audit event: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit update interest rule: %w", err)
 	}
 	return nil
 }
@@ -180,6 +228,29 @@ func insertInterestRule(ctx context.Context, execer sqlExecer, rule *models.Inte
 		return fmt.Errorf("insert interest rule: %w", mapConflict(err))
 	}
 	return nil
+}
+
+func interestRuleActor(ctx context.Context, db queryer, accountID string) (*string, error) {
+	var actorUserID *string
+	if err := db.QueryRow(ctx, `SELECT owner_user_id FROM accounts WHERE id = $1`, accountID).Scan(&actorUserID); err != nil {
+		return nil, mapNotFound(err)
+	}
+	return actorUserID, nil
+}
+
+func interestRuleAuditSummary(rule *models.InterestRule) map[string]any {
+	return map[string]any{
+		"account_id":               rule.AccountID,
+		"annual_rate_bps":          rule.AnnualRateBps,
+		"promo_rate_bps":           rule.PromoRateBps,
+		"promo_end_date":           rule.PromoEndDate,
+		"accrual_frequency":        rule.AccrualFrequency,
+		"capitalization_frequency": rule.CapitalizationFrequency,
+		"day_count_convention":     rule.DayCountConvention,
+		"is_active":                rule.IsActive,
+		"start_date":               rule.StartDate,
+		"end_date":                 rule.EndDate,
+	}
 }
 
 func dateOnly(date time.Time) time.Time {

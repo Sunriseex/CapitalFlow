@@ -353,6 +353,7 @@ The future risk is imports and bulk actions, where batch-level and row-level ide
 - [x] Generic immutable `audit_events` table exists for non-auth events.
 - [x] Transaction and transfer creation write audit events atomically with financial data.
 - [x] Account create/update/archive write atomic audit events with before/after summaries.
+- [x] Interest rule create/update/deactivate write atomic audit events.
 
 ### Still TODO
 
@@ -360,7 +361,7 @@ The future risk is imports and bulk actions, where batch-level and row-level ide
 - [x] Audit account create/update/archive.
 - [ ] PARTIAL — audit transaction create/change/reverse/soft-delete (create is covered).
 - [ ] PARTIAL — audit transfer create/reverse/correction (create is covered).
-- [ ] Audit interest rule create/update/delete/deactivate.
+- [ ] PARTIAL — audit interest rule create/update/delete/deactivate (all implemented mutations are covered; delete does not exist).
 - [ ] Audit settings/security changes.
 - [ ] Audit backup/restore operations.
 - [ ] Audit import batch decisions.
