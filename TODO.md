@@ -354,6 +354,7 @@ The future risk is imports and bulk actions, where batch-level and row-level ide
 - [x] Transaction and transfer creation write audit events atomically with financial data.
 - [x] Account create/update/archive write atomic audit events with before/after summaries.
 - [x] Interest rule create/update/deactivate write atomic audit events.
+- [x] Profile settings primary currency changes write atomic audit events.
 
 ### Still TODO
 
@@ -362,7 +363,7 @@ The future risk is imports and bulk actions, where batch-level and row-level ide
 - [ ] PARTIAL — audit transaction create/change/reverse/soft-delete (create is covered).
 - [ ] PARTIAL — audit transfer create/reverse/correction (create is covered).
 - [ ] PARTIAL — audit interest rule create/update/delete/deactivate (all implemented mutations are covered; delete does not exist).
-- [ ] Audit settings/security changes.
+- [ ] PARTIAL — audit settings/security changes (profile primary currency is covered).
 - [ ] Audit backup/restore operations.
 - [ ] Audit import batch decisions.
 - [ ] PARTIAL — store actor/user ID, event type, entity type, entity ID and before/after summary; request IP/user-agent capture remains.

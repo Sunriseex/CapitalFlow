@@ -100,7 +100,28 @@ func (r *UserRepository) GetByID(ctx context.Context, id string) (*models.User, 
 }
 
 func (r *UserRepository) UpdatePrimaryCurrency(ctx context.Context, id, primaryCurrency string, updatedAt time.Time) error {
-	_, err := r.pool.Exec(ctx, `
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin update user primary currency: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	before, err := scanUser(tx.QueryRow(ctx, `
+		SELECT id, email, password_hash, primary_currency,
+			email_verified_at, email_verification_token_hash, email_verification_sent_at,
+			failed_login_attempts, locked_until,
+			created_at, updated_at
+		FROM users
+		WHERE id = $1
+		FOR UPDATE
+	`, id))
+	if err != nil {
+		return fmt.Errorf("read user primary currency: %w", err)
+	}
+
+	tag, err := tx.Exec(ctx, `
 		UPDATE users
 		SET primary_currency = $2, updated_at = $3
 		WHERE id = $1
@@ -108,7 +129,31 @@ func (r *UserRepository) UpdatePrimaryCurrency(ctx context.Context, id, primaryC
 	if err != nil {
 		return fmt.Errorf("update user primary currency: %w", err)
 	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("update user primary currency: %w", repository.ErrNotFound)
+	}
+	actorUserID := before.ID
+	auditEvent, err := newAuditEventWithSummaries(
+		&actorUserID, "settings.profile_updated", "user_settings", id,
+		userSettingsAuditSummary(before.PrimaryCurrency),
+		userSettingsAuditSummary(primaryCurrency),
+	)
+	if err != nil {
+		return fmt.Errorf("build user primary currency audit event: %w", err)
+	}
+	if err := insertAuditEvent(ctx, tx, auditEvent); err != nil {
+		return fmt.Errorf("create user primary currency audit event: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit update user primary currency: %w", err)
+	}
 	return nil
+}
+
+func userSettingsAuditSummary(primaryCurrency string) map[string]any {
+	return map[string]any{
+		"primary_currency": primaryCurrency,
+	}
 }
 
 func (r *UserRepository) RecordLoginFailure(ctx context.Context, id string, threshold int, delays []time.Duration, updatedAt time.Time) (int, *time.Time, error) {
