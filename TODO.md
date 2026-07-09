@@ -39,6 +39,7 @@ Legend:
 - [x] PostgreSQL migrations exist and are checked in CI.
 - [x] Money columns were migrated from `amount_minor` to `NUMERIC(38,18)`.
 - [x] Go money math uses `shopspring/decimal` in the current transaction/domain paths.
+- [x] Currency precision/rounding helper exists and is tested for several currency scales.
 - [x] Transfers have a first-class `transfers` table linked to transaction legs.
 - [x] Cross-currency transfer stores applied exchange rate, provider and timestamp.
 - [x] Transfer fee is represented separately through `fee_transaction_id` and `fee_amount`.
@@ -59,6 +60,8 @@ Legend:
 - [x] `/health`, `/ready`, `/metrics` routes exist.
 - [x] Basic dashboard endpoints exist.
 - [x] Basic dashboard UI exists.
+- [x] Financial goals table, API, service, UI and dashboard progress exist.
+- [x] Category limits table, API, service, UI and dashboard progress exist.
 - [x] Playwright E2E covers both mocked UI smoke and a real backend + PostgreSQL financial flow.
 - [x] CI runs backend tests, race tests, lint, WebUI checks, OpenAPI lint and migration checks.
 - [x] Production Docker images are built in CI on release tags.
@@ -81,8 +84,8 @@ Legend:
 - [ ] Manual CSV mapping templates.
 - [x] Backup/restore CLI, scheduled backups, retention and pre-migration backups.
 - [ ] Encrypted integration secrets backup/restore behavior.
-- [ ] Goals/reserved money/emergency fund system goal.
-- [ ] Budgeting/safe-to-spend.
+- [ ] PARTIAL — financial goals and category limits exist; reserved money/emergency fund are not implemented.
+- [ ] PARTIAL — category limits exist; full budgeting/safe-to-spend is not implemented.
 - [ ] Money calendar.
 - [ ] App-level Telegram integration.
 - [ ] Local LLM assistant.
@@ -93,10 +96,10 @@ Legend:
 
 ### Biggest current risks
 
-1. **Financial audit log is incomplete.** Auth audit exists, but financial/settings-wide audit events are not clearly implemented.
+1. **Financial audit log is incomplete.** Generic audit events exist and cover core creates/updates, but reversal/correction, backup/restore, import decisions and audit UI are still missing.
 2. **Transfer model is strong, but lifecycle is narrow.** DB status currently allows only `completed`; no pending/cancelled/reversed states.
 3. **Interest engine exists, but deposit product model is still incomplete.** Rules/accruals/jobs exist; fixed deposits, top-up cutoff, expected-vs-actual interest and imported actual interest matching are not done.
-4. **Currency rates are only latest external display rates.** No CBR/manual provider, no hourly sync, no persisted rate history, no historical report rates.
+4. **Currency rates are only latest external display rates.** Basic currency precision exists, but there is no CBR/manual provider, hourly sync, persisted rate history, or historical report rates.
 5. **Backup archives are not encrypted.** Financial restore is tested, but future integration-secret recovery still needs an explicit key-loss model.
 6. **NixOS service/timer examples are missing.** Production Docker deployment and its backup scheduler are implemented.
 
@@ -110,11 +113,11 @@ Legend:
 - [x] v0.6.2 — Backup / Restore core (UI and encryption remain follow-ups).
 - [ ] v0.6.3 — Subscriptions.
 - [ ] v0.6.4 — Deposits / Savings / Interest Engine.
-- [ ] v0.6.5 — Goals / Reserves / Emergency Fund.
+- [ ] PARTIAL — v0.6.5 — Goals / Reserves / Emergency Fund.
 - [ ] v0.6.6 — CSV Import.
 - [ ] v0.6.7 — Review Queue.
 - [ ] v0.6.8 — Currencies / Rates.
-- [ ] v0.6.9 — Budgeting / Money Calendar.
+- [ ] PARTIAL — v0.6.9 — Budgeting / Money Calendar.
 - [ ] v0.7.0 — Telegram Integration.
 - [ ] v0.7.1 — Automation Rules.
 - [ ] v0.7.2 — Reconciliation.
@@ -225,20 +228,22 @@ No hard delete route is better than unsafe delete, but there still needs to be a
 - [x] Go models use `shopspring/decimal` for money fields.
 - [x] Transfer exchange rate uses numeric precision.
 - [x] API-facing generated/test data uses string money values in several paths.
+- [x] Currency scale helper exists for fiat-like precision plus special zero/3/4-decimal currencies and `USDT`.
+- [x] Domain validation rejects sub-minor-unit amounts for request paths that call `ValidateCurrencyScale`.
 
 ### Still TODO
 
-- [ ] Define asset/currency precision table.
-- [ ] Support crypto-like precision intentionally instead of treating every asset as normal fiat currency.
+- [ ] PARTIAL — define asset/currency precision table (currency scales exist; asset precision does not).
+- [ ] PARTIAL — support crypto-like precision intentionally instead of treating every asset as normal fiat currency (`USDT` exists; `BTC` and 8+ decimal assets are not supported).
 - [ ] Decide whether `BTC`, `USDT`, stocks and broker positions are allowed in stable core or future asset module only.
-- [ ] Define rounding rules in domain layer.
-- [ ] Add tests for:
-  - RUB 2-decimal precision;
-  - USD/EUR 2-decimal precision;
-  - crypto-like 8+ decimal precision;
-  - huge amount bounds;
-  - sub-minor rejection;
-  - cross-currency conversion precision.
+- [x] Define basic rounding rules in domain layer.
+- [ ] PARTIAL — add tests for:
+  - [x] RUB 2-decimal precision;
+  - [ ] USD/EUR 2-decimal precision;
+  - [ ] crypto-like 8+ decimal precision;
+  - [ ] huge amount bounds;
+  - [x] sub-minor rejection;
+  - [ ] cross-currency conversion precision.
 - [ ] Avoid converting decimal rates to `float64` in API if precision matters for financial display.
 
 ### Narrow points
@@ -444,7 +449,7 @@ For self-hosted software, recovery must be boring and documented before passkey-
 ### Still TODO
 
 - [ ] Add real browser E2E with Playwright virtual authenticator.
-- [ ] Confirm “fresh password/session required before first passkey add” in code if not already covered by tests.
+- [x] Confirm “fresh password/session required before first passkey add” in code and tests.
 - [ ] Add recovery UX for deleting last passkey safely.
 - [ ] Add passkey management docs for self-host reverse proxy.
 - [ ] Add warning when RP ID/origin config is unsafe.
@@ -692,10 +697,19 @@ Savings account should appear in Accounts as real money, and in Interest/Deposit
 
 ### Verified current state
 
-- [ ] No `goals` table found.
+- [x] `financial_goals` table exists.
+- [x] Financial goals are scoped to owner user.
+- [x] Financial goals can link to an account.
+- [x] Financial goals have name, target amount, currency, optional target date and status.
+- [x] Goal statuses exist: `active`, `completed`, `archived`.
+- [x] Financial goal service/repository/HTTP handlers exist.
+- [x] Financial goals WebUI exists under the goals workspace.
+- [x] Goal archive/reactivate behavior exists.
+- [x] Dashboard goal progress is calculated from linked account balance.
+- [x] UI recommends a monthly contribution when a target date exists.
 - [ ] No `goal_contributions` table found.
 - [ ] No reserved-money planning layer found.
-- [ ] No goals UI found.
+- [ ] No emergency fund system goal found.
 
 ### Decisions
 
@@ -710,7 +724,7 @@ Savings account should appear in Accounts as real money, and in Interest/Deposit
 
 ### TODO
 
-- [ ] Add `goals` table.
+- [x] Add `goals` table.
 - [ ] Add `goal_contributions` or `goal_allocations` table.
 - [ ] Add priority enum:
   - `critical`;
@@ -718,23 +732,23 @@ Savings account should appear in Accounts as real money, and in Interest/Deposit
   - `medium`;
   - `low`;
   - `paused`.
-- [ ] Add goal status:
-  - `active`;
-  - `completed`;
-  - `paused`;
-  - `archived`.
-- [ ] Add fields:
-  - target amount;
-  - target currency;
-  - current/reserved amount;
-  - deadline date;
-  - monthly required amount;
-  - template type;
-  - completion metadata.
+- [ ] PARTIAL — add goal status:
+  - [x] `active`;
+  - [x] `completed`;
+  - [ ] `paused`;
+  - [x] `archived`.
+- [ ] PARTIAL — add fields:
+  - [x] target amount;
+  - [x] target currency;
+  - [ ] current/reserved amount;
+  - [x] deadline date;
+  - [x] monthly required amount calculated in UI;
+  - [ ] template type;
+  - [ ] completion metadata.
 - [ ] Add goal funding history UI.
-- [ ] Add goal archive behavior.
-- [ ] Add manual complete button.
-- [ ] Add progress calculation.
+- [x] Add goal archive behavior.
+- [ ] PARTIAL — add manual complete button (status can be changed to completed through edit form, but there is no dedicated complete action).
+- [x] Add progress calculation.
 - [ ] Add risk marker: not enough monthly saving to reach deadline.
 - [ ] Add deterministic sorting:
   - active first;
@@ -1009,7 +1023,10 @@ Historical applied rate is financial truth; latest rate is only display/estimate
 ### Verified current state
 
 - [ ] No budgets table found.
-- [ ] No budget categories table found.
+- [x] `category_limits` table exists as a lightweight monthly category limit model.
+- [x] Category limit service/repository/HTTP handlers exist.
+- [x] Category limits WebUI exists in the goals/limits workspace.
+- [x] Dashboard category-limit progress is calculated from monthly category expense.
 - [ ] No safe-to-spend calculation found.
 
 ### Decisions
@@ -1027,9 +1044,9 @@ Historical applied rate is financial truth; latest rate is only display/estimate
 ### TODO
 
 - [ ] Add `budgets` table.
-- [ ] Add `budget_categories` table.
-- [ ] Add monthly budget UI.
-- [ ] Add planned vs actual calculations.
+- [ ] PARTIAL — add `budget_categories` table (`category_limits` exists, but not full budget/category planning).
+- [ ] PARTIAL — add monthly budget UI (category limit CRUD exists, but no full monthly budget workspace).
+- [ ] PARTIAL — add planned vs actual calculations (category limit dashboard progress exists, but no full budget reporting).
 - [ ] Add rollover behavior.
 - [ ] Add safe-to-spend service.
 - [ ] Add safe-to-spend dashboard card.
@@ -1335,12 +1352,14 @@ Offline writes are dangerous for finance apps unless conflict resolution and ide
 ### Verified current state
 
 - [x] React + Vite + TypeScript WebUI exists.
-- [x] Chakra UI is used.
+- [x] shadcn/Radix-style components with Tailwind utilities are used.
 - [x] TanStack Query is installed.
 - [x] Recharts is installed.
 - [x] Dashboard view exists.
 - [x] Accounts/transactions/transfer flows exist.
 - [x] Login/setup/auth flow exists.
+- [x] Goals/category limits workspace exists.
+- [x] Dashboard goals/limits card exists.
 - [ ] PARTIAL: compact professional dashboard exists, but it is not yet aligned with the new subscription/deposit/budget-first product direction.
 - [ ] Privacy mode / hide amounts hotkey not found.
 - [ ] Subscriptions dashboard card not implemented.
@@ -1365,12 +1384,12 @@ Offline writes are dangerous for finance apps unless conflict resolution and ide
 
 - [ ] Add privacy mode state.
 - [ ] Add hotkey to hide amounts.
-- [ ] Add total capital card with clear hierarchy.
+- [x] Add total capital card with clear hierarchy.
 - [ ] Add upcoming expenses/income card.
 - [ ] Add subscriptions-this-month card.
 - [ ] Add budget/safe-to-spend card after budgeting module exists.
 - [ ] Add “needs attention” card after Review Queue exists.
-- [ ] Add empty/loading/error/warning states consistently for new pages.
+- [ ] PARTIAL — add empty/loading/error/warning states consistently for new pages.
 - [ ] Add mobile bottom navigation only if sidebar is poor on phone.
 
 ### Narrow point
@@ -1414,7 +1433,7 @@ But do keep dashboard slots ready for those modules.
 - [ ] Add passkey virtual authenticator E2E.
 - [x] Add backup/restore smoke test.
 - [ ] Add import preview/apply E2E after import module exists.
-- [ ] Add Playwright traces/screenshots/videos only on failure.
+- [ ] PARTIAL — add Playwright traces/screenshots/videos only on failure (`trace: on-first-retry` exists; screenshots/videos are not configured).
 - [ ] Add controlled clock/test helpers for date-sensitive flows.
 - [ ] Add migration down test where safe.
 - [ ] Add dashboard performance baseline.
@@ -1454,9 +1473,9 @@ The real E2E additionally proves the core browser + backend + PostgreSQL financi
 
 ### TODO
 
-- [ ] Add or verify `docker-compose.yml` for local development and make docs match actual file names.
+- [x] Add or verify `docker-compose.yml` for local development and make docs match actual file names.
 - [ ] Add nginx reverse-proxy example.
-- [ ] Keep Traefik example from deploy compose and document it.
+- [x] Keep Traefik example from deploy compose and document it.
 - [ ] Add NixOS systemd service example.
 - [ ] Add NixOS backup timer example for non-Docker deployments.
 - [ ] Add production `.env.example` with safe comments.
@@ -1509,8 +1528,10 @@ The web app itself should not casually rewrite env files.
 - [ ] `feat(imports): add preview and final accept-all-safe confirmation`
 - [ ] `feat(imports): add manual mapping fallback and reusable templates`
 - [ ] `feat(review): add review queue for imports/subscriptions/rates/interest discrepancies`
+- [x] `feat(goals): add financial goals CRUD, UI and dashboard progress`
 - [ ] `feat(goals): add goals and global reserved money planning layer`
 - [ ] `feat(goals): add emergency fund system goal`
+- [x] `feat(budget): add category limits CRUD, UI and dashboard progress`
 - [ ] `feat(budget): add monthly budgets and safe-to-spend`
 - [ ] `feat(interest): add expected-vs-actual interest matching`
 - [ ] `feat(rates): add persisted rate history and CBR/manual provider`
@@ -1572,11 +1593,18 @@ migrations/000019_add_financial_invariants_and_indexes.sql
 migrations/000021_money_amounts_numeric.sql
 migrations/000022_complete_v056_transfer_idempotency.sql
 migrations/000025_create_passkeys.sql
+migrations/000026_create_financial_goals.sql
+migrations/000027_add_goal_accounts_and_category_limits.sql
 internal/models/transaction.go
+internal/models/financial_goal.go
+internal/models/category_limit.go
 internal/services/account_service.go
 internal/services/balance_service.go
 internal/services/transaction_service.go
 internal/services/currency_service.go
+internal/services/financial_goal_service.go
+internal/services/category_limit_service.go
+internal/services/dashboard_reporting.go
 internal/jobs/interest.go
 internal/postgres/store.go
 internal/postgres/transactions.go
@@ -1584,13 +1612,26 @@ internal/http/handlers/router.go
 internal/http/handlers/health.go
 internal/http/handlers/dashboard.go
 internal/http/handlers/currencies.go
+internal/http/handlers/financial_goals.go
+internal/http/handlers/category_limits.go
+internal/domain/money/money.go
+internal/domain/money/money_test.go
+pkg/money/money.go
+pkg/money/money_test.go
 internal/http/handlers/response.go
 internal/http/middleware/idempotency.go
 internal/http/middleware/logging.go
 web/package.json
 web/playwright.config.ts
+web/playwright.real.config.ts
 web/e2e/core-flow.spec.ts
+web/e2e-real/financial-flow.spec.ts
+web/src/features/goals/GoalsView.tsx
+web/src/features/goals/goalContribution.ts
+web/src/features/goals/goalContribution.test.ts
+web/src/features/dashboard/components/GoalsLimitsCard.tsx
 scripts/interest-scheduler.sh
 scripts/deploy-vm.sh
 deploy/compose.yaml
+docker-compose.yml
 ```
