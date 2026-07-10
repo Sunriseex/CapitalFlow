@@ -2879,6 +2879,7 @@ func TestInterestRuleRepositoryListActiveForAccrual(t *testing.T) {
 	now := time.Now().UTC()
 	userID := seedUser(ctx, t, store, "list-active-accrual@example.com")
 	account := transferTestAccount(t, store, userID, "active-accrual-account")
+	monthlyAccount := transferTestAccount(t, store, userID, "monthly-accrual-account")
 
 	rule1End := now.AddDate(0, 0, -2)
 	rule1 := &models.InterestRule{
@@ -2938,7 +2939,7 @@ func TestInterestRuleRepositoryListActiveForAccrual(t *testing.T) {
 	}
 	monthlyRule := &models.InterestRule{
 		ID:                      uuid.NewString(),
-		AccountID:               account.ID,
+		AccountID:               monthlyAccount.ID,
 		AnnualRateBps:           1_300,
 		AccrualFrequency:        models.AccrualFrequencyMonthly,
 		CapitalizationFrequency: models.CapitalizationFrequencyMonthly,
