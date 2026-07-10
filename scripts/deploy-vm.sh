@@ -94,6 +94,18 @@ remote_script="${archive_dir}/deploy-remote.sh"
 cat > "${remote_script}" <<'EOF'
 set -euo pipefail
 
+migration_services_stopped=false
+previous_services=""
+restart_previous_services() {
+  if [ "${migration_services_stopped}" != true ] || [ -z "${previous_services}" ]; then
+    return
+  fi
+  echo "Migration failed; restarting the previously running services" >&2
+  # shellcheck disable=SC2086
+  docker compose start ${previous_services} >/dev/null || true
+}
+trap restart_previous_services ERR
+
 origin_host() {
   local origin="$1"
   origin="${origin#*://}"
@@ -108,7 +120,7 @@ origin_host() {
 set_env_var() {
   local key="$1"
   local value="$2"
-  local env_file="deploy/.env"
+  local env_file="${REMOTE_DIR}/deploy/.env"
   local tmp
   tmp="$(mktemp)"
   if [ -f "${env_file}" ]; then
@@ -168,6 +180,15 @@ CAPITALFLOW_BACKUP_RETENTION_COUNT=14
 CAPITALFLOW_BACKUP_HOST_DIR=${HOME}/backups/capitalflow
 CAPITALFLOW_BACKUP_UID=$(id -u)
 CAPITALFLOW_BACKUP_GID=$(id -g)
+CAPITALFLOW_OPERATIONS_HOST_DIR=${HOME}/.local/state/capitalflow/operations
+CAPITALFLOW_BACKUP_REPLICATION_COMMAND=
+CAPITALFLOW_BACKUP_REPLICATION_REQUIRED=true
+CAPITALFLOW_BACKUP_REPLICATION_HOST_DIR=${HOME}/.config/capitalflow/replication
+CAPITALFLOW_RESTORE_DRILL_ENABLED=true
+CAPITALFLOW_RESTORE_DRILL_INTERVAL_DAYS=7
+CAPITALFLOW_RESTORE_DRILL_TIMEOUT=30m
+CAPITALFLOW_DISK_MAX_USED_PERCENT=90
+CAPITALFLOW_DISK_MIN_FREE_MB=2048
 TZ=Europe/Moscow
 ENV
   chmod 600 deploy/.env
@@ -245,6 +266,8 @@ if [ -z "${requested_backup_host_dir}" ] && [ "${CAPITALFLOW_BACKUP_HOST_DIR}" =
 fi
 CAPITALFLOW_BACKUP_UID="${CAPITALFLOW_BACKUP_UID:-$(id -u)}"
 CAPITALFLOW_BACKUP_GID="${CAPITALFLOW_BACKUP_GID:-$(id -g)}"
+CAPITALFLOW_OPERATIONS_HOST_DIR="${CAPITALFLOW_OPERATIONS_HOST_DIR:-${HOME}/.local/state/capitalflow/operations}"
+CAPITALFLOW_BACKUP_REPLICATION_HOST_DIR="${CAPITALFLOW_BACKUP_REPLICATION_HOST_DIR:-${HOME}/.config/capitalflow/replication}"
 TZ="${TZ:-Europe/Moscow}"
 if [ "${DEPLOY_MODE}" = "build" ]; then
   APP_VERSION="git-${DEPLOY_COMMIT}"
@@ -289,11 +312,24 @@ set_env_var CAPITALFLOW_BACKUP_RETENTION_COUNT "${CAPITALFLOW_BACKUP_RETENTION_C
 set_env_var CAPITALFLOW_BACKUP_HOST_DIR "${CAPITALFLOW_BACKUP_HOST_DIR}"
 set_env_var CAPITALFLOW_BACKUP_UID "${CAPITALFLOW_BACKUP_UID}"
 set_env_var CAPITALFLOW_BACKUP_GID "${CAPITALFLOW_BACKUP_GID}"
+set_env_var CAPITALFLOW_OPERATIONS_HOST_DIR "${CAPITALFLOW_OPERATIONS_HOST_DIR}"
+set_env_var CAPITALFLOW_BACKUP_REPLICATION_HOST_DIR "${CAPITALFLOW_BACKUP_REPLICATION_HOST_DIR}"
 set_env_var TZ "${TZ}"
 
 mkdir -p "${CAPITALFLOW_BACKUP_HOST_DIR}"
 chown "${CAPITALFLOW_BACKUP_UID}:${CAPITALFLOW_BACKUP_GID}" "${CAPITALFLOW_BACKUP_HOST_DIR}"
 chmod 700 "${CAPITALFLOW_BACKUP_HOST_DIR}"
+mkdir -p "${CAPITALFLOW_OPERATIONS_HOST_DIR}"
+chown "${CAPITALFLOW_BACKUP_UID}:${CAPITALFLOW_BACKUP_GID}" "${CAPITALFLOW_OPERATIONS_HOST_DIR}"
+chmod 755 "${CAPITALFLOW_OPERATIONS_HOST_DIR}"
+mkdir -p "${CAPITALFLOW_BACKUP_REPLICATION_HOST_DIR}"
+chown "${CAPITALFLOW_BACKUP_UID}:${CAPITALFLOW_BACKUP_GID}" "${CAPITALFLOW_BACKUP_REPLICATION_HOST_DIR}"
+chmod 700 "${CAPITALFLOW_BACKUP_REPLICATION_HOST_DIR}"
+
+"${REMOTE_DIR}/scripts/disk-guard.sh" "${REMOTE_DIR}" \
+  "${CAPITALFLOW_DISK_MAX_USED_PERCENT:-90}" "${CAPITALFLOW_DISK_MIN_FREE_MB:-2048}"
+"${REMOTE_DIR}/scripts/disk-guard.sh" "${CAPITALFLOW_BACKUP_HOST_DIR}" \
+  "${CAPITALFLOW_DISK_MAX_USED_PERCENT:-90}" "${CAPITALFLOW_DISK_MIN_FREE_MB:-2048}"
 
 if ! docker network inspect "${CAPITALFLOW_PROXY_NETWORK}" >/dev/null 2>&1; then
   docker network create "${CAPITALFLOW_PROXY_NETWORK}" >/dev/null
@@ -303,6 +339,14 @@ cd deploy
 
 if [ "${DEPLOY_MODE}" = "images" ]; then
   docker compose --profile tools pull api web migrate
+  api_version="$(docker image inspect "${CAPITALFLOW_API_IMAGE}" --format '{{ index .Config.Labels "org.opencontainers.image.version" }}')"
+  web_version="$(docker image inspect "${CAPITALFLOW_WEB_IMAGE}" --format '{{ index .Config.Labels "org.opencontainers.image.version" }}')"
+  if [ -z "${api_version}" ] || [ "${api_version}" != "${web_version}" ]; then
+    echo "API and Web image versions must be non-empty and equal (api=${api_version}, web=${web_version})" >&2
+    exit 1
+  fi
+  APP_VERSION="${api_version}"
+  set_env_var APP_VERSION "${APP_VERSION}"
 else
   docker compose --profile tools build api web migrate
 fi
@@ -311,8 +355,14 @@ docker compose --profile tools run -T --rm \
   --user "${CAPITALFLOW_BACKUP_UID}:${CAPITALFLOW_BACKUP_GID}" \
   --entrypoint /usr/local/bin/capitalflow-pre-migration-backup \
   job-runner </dev/null
-docker compose stop api web interest-scheduler backup-scheduler >/dev/null 2>&1 || true
+previous_services="$(docker compose ps --status running --services | grep -E '^(api|web|interest-scheduler|backup-scheduler)$' | tr '\n' ' ' || true)"
+if [ -n "${previous_services}" ]; then
+  # shellcheck disable=SC2086
+  docker compose stop ${previous_services} >/dev/null
+  migration_services_stopped=true
+fi
 docker compose --profile tools run -T --rm migrate </dev/null
+migration_services_stopped=false
 docker compose up -d --wait --no-build api web
 if [ "${CAPITALFLOW_INTEREST_JOBS_ENABLED}" = "true" ]; then
   docker compose up -d --wait --no-build interest-scheduler
@@ -329,6 +379,16 @@ docker compose ps
 curl -fsS "http://127.0.0.1:${CAPITALFLOW_API_PORT}/health" >/dev/null
 curl -fsS "http://127.0.0.1:${CAPITALFLOW_API_PORT}/ready" >/dev/null
 curl -fsS "http://127.0.0.1:${CAPITALFLOW_WEB_PORT}/health" >/dev/null
+
+api_label="$(docker image inspect "${CAPITALFLOW_API_IMAGE}" --format '{{ index .Config.Labels "org.opencontainers.image.version" }}')"
+web_label="$(docker image inspect "${CAPITALFLOW_WEB_IMAGE}" --format '{{ index .Config.Labels "org.opencontainers.image.version" }}')"
+cli_version="$(docker run --rm --entrypoint /usr/local/bin/capitalflow "${CAPITALFLOW_API_IMAGE}" version)"
+health_version="$(curl -fsS "http://127.0.0.1:${CAPITALFLOW_API_PORT}/health" | python3 -c 'import json,sys; print(json.load(sys.stdin)["version"])')"
+if [ "${api_label}" != "${APP_VERSION}" ] || [ "${web_label}" != "${APP_VERSION}" ] || \
+   [ "${cli_version}" != "${APP_VERSION}" ] || [ "${health_version}" != "${APP_VERSION}" ]; then
+  echo "artifact version mismatch: expected=${APP_VERSION} api=${api_label} web=${web_label} cli=${cli_version} health=${health_version}" >&2
+  exit 1
+fi
 EOF
 
 deploy_env=(

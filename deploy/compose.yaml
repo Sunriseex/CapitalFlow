@@ -85,13 +85,19 @@ services:
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?public origin required}
       JWT_SECRET: ${JWT_SECRET:?jwt secret required}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      CAPITALFLOW_INTEREST_HEARTBEAT_FILE: /operations/capitalflow-interest-scheduler.heartbeat
+      CAPITALFLOW_INTEREST_STARTED_FILE: /operations/capitalflow-interest-scheduler.started
+      CAPITALFLOW_INTEREST_SUCCESS_FILE: /operations/capitalflow-interest-scheduler.last-success
+      CAPITALFLOW_INTEREST_STATUS_FILE: /operations/capitalflow-interest-scheduler.status
       CAPITALFLOW_INTEREST_JOBS_ENABLED: ${CAPITALFLOW_INTEREST_JOBS_ENABLED:-true}
       CAPITALFLOW_INTEREST_JOBS_TIME: ${CAPITALFLOW_INTEREST_JOBS_TIME:-03:15}
       CAPITALFLOW_INTEREST_JOB_TIMEOUT: ${CAPITALFLOW_INTEREST_JOB_TIMEOUT:-30m}
+      CAPITALFLOW_SCHEDULER_HEARTBEAT_MAX_AGE: ${CAPITALFLOW_SCHEDULER_HEARTBEAT_MAX_AGE:-300}
+      CAPITALFLOW_INTEREST_SUCCESS_MAX_AGE: ${CAPITALFLOW_INTEREST_SUCCESS_MAX_AGE:-108000}
       TZ: ${TZ:-Europe/Moscow}
     entrypoint: ["/usr/local/bin/capitalflow-interest-scheduler"]
     healthcheck:
-      test: ["CMD-SHELL", "test -f /tmp/capitalflow-interest-scheduler.heartbeat"]
+      test: ["CMD-SHELL", "/usr/local/bin/capitalflow-scheduler-healthcheck /operations/capitalflow-interest-scheduler.heartbeat /operations/capitalflow-interest-scheduler.last-success /operations/capitalflow-interest-scheduler.started $${CAPITALFLOW_SCHEDULER_HEARTBEAT_MAX_AGE} $${CAPITALFLOW_INTEREST_SUCCESS_MAX_AGE}"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -101,6 +107,8 @@ services:
         condition: service_healthy
     networks:
       - backend
+    volumes:
+      - ${CAPITALFLOW_OPERATIONS_HOST_DIR:-./operations}:/operations
 
   backup-scheduler:
     image: ${CAPITALFLOW_API_IMAGE:-capitalflow-api:local}
@@ -118,20 +126,35 @@ services:
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?public origin required}
       JWT_SECRET: ${JWT_SECRET:?jwt secret required}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      CAPITALFLOW_BACKUP_HEARTBEAT_FILE: /operations/capitalflow-backup-scheduler.heartbeat
+      CAPITALFLOW_BACKUP_STARTED_FILE: /operations/capitalflow-backup-scheduler.started
+      CAPITALFLOW_BACKUP_SUCCESS_FILE: /operations/capitalflow-backup-scheduler.last-success
+      CAPITALFLOW_BACKUP_STATUS_FILE: /operations/capitalflow-backup-scheduler.status
       CAPITALFLOW_BACKUPS_ENABLED: ${CAPITALFLOW_BACKUPS_ENABLED:-true}
       CAPITALFLOW_BACKUP_TIME: ${CAPITALFLOW_BACKUP_TIME:-02:30}
       CAPITALFLOW_BACKUP_TIMEOUT: ${CAPITALFLOW_BACKUP_TIMEOUT:-30m}
       CAPITALFLOW_BACKUP_RETENTION_COUNT: ${CAPITALFLOW_BACKUP_RETENTION_COUNT:-14}
+      CAPITALFLOW_BACKUP_REPLICATION_COMMAND: ${CAPITALFLOW_BACKUP_REPLICATION_COMMAND:-}
+      CAPITALFLOW_BACKUP_REPLICATION_REQUIRED: ${CAPITALFLOW_BACKUP_REPLICATION_REQUIRED:-true}
+      CAPITALFLOW_RESTORE_DRILL_ENABLED: ${CAPITALFLOW_RESTORE_DRILL_ENABLED:-true}
+      CAPITALFLOW_RESTORE_DRILL_INTERVAL_DAYS: ${CAPITALFLOW_RESTORE_DRILL_INTERVAL_DAYS:-7}
+      CAPITALFLOW_RESTORE_DRILL_TIMEOUT: ${CAPITALFLOW_RESTORE_DRILL_TIMEOUT:-30m}
+      CAPITALFLOW_SCHEDULER_HEARTBEAT_MAX_AGE: ${CAPITALFLOW_SCHEDULER_HEARTBEAT_MAX_AGE:-300}
+      CAPITALFLOW_BACKUP_SUCCESS_MAX_AGE: ${CAPITALFLOW_BACKUP_SUCCESS_MAX_AGE:-108000}
+      CAPITALFLOW_DISK_MAX_USED_PERCENT: ${CAPITALFLOW_DISK_MAX_USED_PERCENT:-90}
+      CAPITALFLOW_DISK_MIN_FREE_MB: ${CAPITALFLOW_DISK_MIN_FREE_MB:-1024}
       TZ: ${TZ:-Europe/Moscow}
     entrypoint: ["/usr/local/bin/capitalflow-backup-scheduler"]
     healthcheck:
-      test: ["CMD-SHELL", "test -f /tmp/capitalflow-backup-scheduler.heartbeat"]
+      test: ["CMD-SHELL", "/usr/local/bin/capitalflow-scheduler-healthcheck /operations/capitalflow-backup-scheduler.heartbeat /operations/capitalflow-backup-scheduler.last-success /operations/capitalflow-backup-scheduler.started $${CAPITALFLOW_SCHEDULER_HEARTBEAT_MAX_AGE} $${CAPITALFLOW_BACKUP_SUCCESS_MAX_AGE}"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
     volumes:
       - ${CAPITALFLOW_BACKUP_HOST_DIR:-./backups}:/backups
+      - ${CAPITALFLOW_OPERATIONS_HOST_DIR:-./operations}:/operations
+      - ${CAPITALFLOW_BACKUP_REPLICATION_HOST_DIR:-./replication}:/replication:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -163,6 +186,7 @@ services:
       COOKIE_SAMESITE: Strict
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-127.0.0.1/32,172.16.0.0/12}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      CAPITALFLOW_OPERATIONS_DIR: /operations
     ports:
       - "127.0.0.1:${CAPITALFLOW_API_PORT:-18080}:8080"
     healthcheck:
@@ -176,11 +200,15 @@ services:
         condition: service_healthy
     networks:
       - backend
+    volumes:
+      - ${CAPITALFLOW_OPERATIONS_HOST_DIR:-./operations}:/operations:ro
 
   web:
     build:
       context: ..
       dockerfile: web/Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-dev}
     image: ${CAPITALFLOW_WEB_IMAGE:-capitalflow-web:local}
     container_name: capitalflow-web
     restart: unless-stopped

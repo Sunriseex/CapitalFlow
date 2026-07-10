@@ -462,6 +462,17 @@ export const api = {
       method: "POST",
       body: JSON.stringify(input),
     }),
+  cancelTransaction: (id: string) =>
+    apiFetch<Transaction>(`/transactions/${id}/cancel`, { method: "POST" }),
+  reverseTransaction: (id: string) =>
+    apiFetch<{
+      transaction: Transaction;
+      reversal: Transaction;
+    }>(`/transactions/${id}/reverse`, { method: "POST" }),
+  softDeleteTransaction: (id: string) =>
+    apiFetch<Transaction>(`/transactions/${id}/soft-delete`, {
+      method: "POST",
+    }),
 
   createTransfer: (input: CreateTransferRequest) =>
     apiFetch<TransferResponse>("/transfers", {

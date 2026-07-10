@@ -2,21 +2,36 @@ openapi: 3.0.3
 info:
   title: CapitalFlow API
   version: v0.5.8
+  license:
+    name: MIT
+    url: https://opensource.org/license/mit
 servers:
   - url: http://localhost:8080/api/v1
 security:
   - bearerAuth: []
 tags:
   - name: Auth
+    description: Authentication, sessions, passwords, and passkeys.
   - name: System
+    description: Service health, readiness, and operational metrics.
   - name: Profile
+    description: Current-user preferences.
   - name: Categories
+    description: Transaction categories.
+  - name: Goals
+    description: Financial goals and monthly category limits.
   - name: Currencies
+    description: Currency exchange rates.
   - name: Accounts
+    description: Financial accounts and balances.
   - name: Transactions
+    description: Ledger transactions and their lifecycle.
   - name: Transfers
+    description: Transfers between accounts.
   - name: Interest Rules
+    description: Interest rules, accrual, and recalculation.
   - name: Dashboard
+    description: Aggregated financial reporting.
 paths:
   /health:
     servers:
@@ -34,6 +49,43 @@ paths:
                 $ref: "#/components/schemas/ServiceStatus"
         default:
           $ref: "#/components/responses/APIError"
+  /ready:
+    servers:
+      - url: http://localhost:8080
+    get:
+      tags: [System]
+      summary: Check service dependencies
+      operationId: getReadiness
+      security: []
+      responses:
+        "200":
+          description: Service dependencies are ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadyStatus"
+        "503":
+          description: A required dependency is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /metrics:
+    servers:
+      - url: http://localhost:8080
+    get:
+      tags: [System]
+      summary: Get allow-listed application metrics
+      operationId: getMetrics
+      security: []
+      responses:
+        "200":
+          description: Application metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
   /auth/status:
     servers:
       - url: http://localhost:8080
@@ -704,6 +756,57 @@ paths:
                 $ref: "#/components/schemas/Transaction"
         default:
           $ref: "#/components/responses/APIError"
+  /transactions/{id}/cancel:
+    parameters:
+      - $ref: "#/components/parameters/ID"
+    post:
+      tags: [Transactions]
+      summary: Cancel a confirmed manual transaction
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Cancelled transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+        default:
+          $ref: "#/components/responses/APIError"
+  /transactions/{id}/reverse:
+    parameters:
+      - $ref: "#/components/parameters/ID"
+    post:
+      tags: [Transactions]
+      summary: Reverse a confirmed manual transaction with an adjustment
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Reversed transaction and created adjustment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReverseTransactionResponse"
+        default:
+          $ref: "#/components/responses/APIError"
+  /transactions/{id}/soft-delete:
+    parameters:
+      - $ref: "#/components/parameters/ID"
+    post:
+      tags: [Transactions]
+      summary: Soft-delete a confirmed manual transaction
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Soft-deleted transaction
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transaction"
+        default:
+          $ref: "#/components/responses/APIError"
   /transfers:
     get:
       tags: [Transfers]
@@ -1037,6 +1140,13 @@ components:
           type: string
         version:
           type: string
+    ReadyStatus:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]
     ChangePasswordRequest:
       type: object
       required: [current_password, new_password]
@@ -1148,6 +1258,9 @@ components:
           interest_income,
           adjustment,
         ]
+    TransactionStatus:
+      type: string
+      enum: [pending, confirmed, cancelled, reversed, soft_deleted]
     TransactionSource:
       type: string
       enum:
@@ -1415,7 +1528,18 @@ components:
           type: boolean
     Transaction:
       type: object
-      required: [id, account_id, source_type, source_metadata, type, amount, occurred_at, created_at]
+      required:
+        [
+          id,
+          account_id,
+          source_type,
+          source_metadata,
+          type,
+          status,
+          amount,
+          occurred_at,
+          created_at,
+        ]
       properties:
         id:
           type: string
@@ -1442,6 +1566,8 @@ components:
           additionalProperties: true
         type:
           $ref: "#/components/schemas/TransactionType"
+        status:
+          $ref: "#/components/schemas/TransactionStatus"
         amount:
           type: string
           pattern: "^-?\\d+(\\.\\d{1,18})?$"
@@ -1457,6 +1583,14 @@ components:
         created_at:
           type: string
           format: date-time
+    ReverseTransactionResponse:
+      type: object
+      required: [transaction, reversal]
+      properties:
+        transaction:
+          $ref: "#/components/schemas/Transaction"
+        reversal:
+          $ref: "#/components/schemas/Transaction"
     CreateTransactionRequest:
       type: object
       required: [account_id, type, amount, description, occurred_at]

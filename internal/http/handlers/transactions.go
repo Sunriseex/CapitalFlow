@@ -200,3 +200,63 @@ func (h *Handler) getTransaction(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, dto.TransactionFromModel(transaction))
 }
+
+func (h *Handler) cancelTransaction(w http.ResponseWriter, r *http.Request) {
+	userID, ok := currentUserID(w, r)
+	if !ok {
+		return
+	}
+	transactionID, ok := routeUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	transaction, err := h.app.Transactions.CancelForUser(r.Context(), userID, transactionID)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, dto.TransactionFromModel(transaction))
+}
+
+func (h *Handler) reverseTransaction(w http.ResponseWriter, r *http.Request) {
+	userID, ok := currentUserID(w, r)
+	if !ok {
+		return
+	}
+	transactionID, ok := routeUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	transaction, reversal, err := h.app.Transactions.ReverseForUser(r.Context(), userID, transactionID)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, dto.ReverseTransactionResponse{
+		Transaction: dto.TransactionFromModel(transaction),
+		Reversal:    dto.TransactionFromModel(reversal),
+	})
+}
+
+func (h *Handler) softDeleteTransaction(w http.ResponseWriter, r *http.Request) {
+	userID, ok := currentUserID(w, r)
+	if !ok {
+		return
+	}
+	transactionID, ok := routeUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	transaction, err := h.app.Transactions.SoftDeleteForUser(r.Context(), userID, transactionID)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, dto.TransactionFromModel(transaction))
+}

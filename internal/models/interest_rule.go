@@ -39,4 +39,5 @@ type InterestRule struct {
 	IsActive                bool                    `json:"is_active"`
 	StartDate               time.Time               `json:"start_date"`
 	EndDate                 *time.Time              `json:"end_date,omitempty"`
+	Version                 int64                   `json:"version"`
 }

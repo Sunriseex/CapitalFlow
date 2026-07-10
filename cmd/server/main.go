@@ -96,6 +96,19 @@ func run() error {
 			MutationRateLimitRequests:       config.AppConfig.MutationRateLimitRequests,
 			MutationRateLimitWindow:         config.AppConfig.MutationRateLimitWindow,
 			TrustedProxies:                  config.AppConfig.TrustedProxies,
+			OperationsMetricsDir:            os.Getenv("CAPITALFLOW_OPERATIONS_DIR"),
+			DBPoolMetrics: func() handlers.DBPoolMetrics {
+				stats := pool.Stat()
+				return handlers.DBPoolMetrics{
+					AcquiredConnections: stats.AcquiredConns(),
+					IdleConnections:     stats.IdleConns(),
+					TotalConnections:    stats.TotalConns(),
+					MaxConnections:      stats.MaxConns(),
+					EmptyAcquires:       stats.EmptyAcquireCount(),
+					CanceledAcquires:    stats.CanceledAcquireCount(),
+					AcquireDurationMS:   stats.AcquireDuration().Milliseconds(),
+				}
+			},
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,

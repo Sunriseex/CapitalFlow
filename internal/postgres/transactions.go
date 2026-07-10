@@ -49,13 +49,7 @@ func (r *TransactionRepository) CreateForUser(ctx context.Context, userID string
 	if err := insertTransaction(ctx, tx, transaction); err != nil {
 		return fmt.Errorf("create user transaction: %w", err)
 	}
-	auditEvent, err := newAuditEvent(&userID, "transaction.created", "transaction", transaction.ID, map[string]any{
-		"account_id":  transaction.AccountID,
-		"type":        transaction.Type,
-		"amount":      transaction.Amount.String(),
-		"source_type": transaction.SourceType,
-		"occurred_at": transaction.OccurredAt,
-	})
+	auditEvent, err := newAuditEvent(&userID, "transaction.created", "transaction", transaction.ID, transactionAuditSummary(transaction))
 	if err != nil {
 		return fmt.Errorf("build transaction audit event: %w", err)
 	}
@@ -263,6 +257,7 @@ func transferSourceBalance(ctx context.Context, db queryExecer, accountID string
 		END), 0)
 		FROM transactions
 		WHERE account_id = $1
+			AND status IN ('confirmed', 'reversed')
 	`, accountID).Scan(&balance); err != nil {
 		return decimal.Zero, fmt.Errorf("scan source balance: %w", err)
 	}
@@ -340,6 +335,133 @@ func (r *TransactionRepository) GetByIDForUser(ctx context.Context, id, userID s
 	return transaction, nil
 }
 
+func (r *TransactionRepository) CancelForUser(ctx context.Context, id, userID string) (*models.Transaction, error) {
+	transaction, err := r.updateManualTransactionStatusForUser(ctx, id, userID, models.TransactionStatusCancelled, "transaction.cancelled")
+	if err != nil {
+		return nil, fmt.Errorf("cancel transaction: %w", err)
+	}
+	return transaction, nil
+}
+
+func (r *TransactionRepository) SoftDeleteForUser(ctx context.Context, id, userID string) (*models.Transaction, error) {
+	transaction, err := r.updateManualTransactionStatusForUser(ctx, id, userID, models.TransactionStatusSoftDeleted, "transaction.soft_deleted")
+	if err != nil {
+		return nil, fmt.Errorf("soft-delete transaction: %w", err)
+	}
+	return transaction, nil
+}
+
+func (r *TransactionRepository) ReverseForUser(ctx context.Context, id, userID string, reversalTransaction *models.Transaction) (updated, created *models.Transaction, err error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("begin reverse transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	before, err := lockManualLifecycleTransactionForUser(ctx, tx, id, userID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("lock transaction: %w", err)
+	}
+	if before.Status != models.TransactionStatusConfirmed {
+		return nil, nil, fmt.Errorf("reverse transaction: %w", repository.ErrConflict)
+	}
+
+	after := *before
+	after.Status = models.TransactionStatusReversed
+	if _, err := tx.Exec(ctx, `UPDATE transactions SET status = $1 WHERE id = $2`, after.Status, id); err != nil {
+		return nil, nil, fmt.Errorf("mark transaction reversed: %w", err)
+	}
+
+	reversalTransaction.AccountID = before.AccountID
+	reversalTransaction.RelatedAccountID = before.RelatedAccountID
+	reversalTransaction.CategoryID = before.CategoryID
+	reversalTransaction.Status = models.TransactionStatusConfirmed
+	reversalTransaction.SourceType = models.TransactionSourceReconciliationAdjustment
+	reversalTransaction.SourceRefID = &before.ID
+	if err := insertTransaction(ctx, tx, reversalTransaction); err != nil {
+		return nil, nil, fmt.Errorf("create reversal transaction: %w", err)
+	}
+
+	statusEvent, err := newAuditEventWithSummaries(&userID, "transaction.reversed", "transaction", before.ID, transactionAuditSummary(before), transactionAuditSummary(&after))
+	if err != nil {
+		return nil, nil, fmt.Errorf("build transaction status audit event: %w", err)
+	}
+	if err := insertAuditEvent(ctx, tx, statusEvent); err != nil {
+		return nil, nil, fmt.Errorf("create transaction status audit event: %w", err)
+	}
+
+	reversalEvent, err := newAuditEvent(&userID, "transaction.created", "transaction", reversalTransaction.ID, transactionAuditSummary(reversalTransaction))
+	if err != nil {
+		return nil, nil, fmt.Errorf("build reversal transaction audit event: %w", err)
+	}
+	if err := insertAuditEvent(ctx, tx, reversalEvent); err != nil {
+		return nil, nil, fmt.Errorf("create reversal transaction audit event: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, nil, fmt.Errorf("commit reverse transaction: %w", err)
+	}
+	return &after, reversalTransaction, nil
+}
+
+func (r *TransactionRepository) updateManualTransactionStatusForUser(ctx context.Context, id, userID string, status models.TransactionStatus, eventType string) (*models.Transaction, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin transaction status update: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	before, err := lockManualLifecycleTransactionForUser(ctx, tx, id, userID)
+	if err != nil {
+		return nil, fmt.Errorf("lock transaction: %w", err)
+	}
+	if before.Status != models.TransactionStatusConfirmed {
+		return nil, fmt.Errorf("update transaction status: %w", repository.ErrConflict)
+	}
+
+	after := *before
+	after.Status = status
+	if _, err := tx.Exec(ctx, `UPDATE transactions SET status = $1 WHERE id = $2`, status, id); err != nil {
+		return nil, fmt.Errorf("update transaction status: %w", err)
+	}
+
+	auditEvent, err := newAuditEventWithSummaries(&userID, eventType, "transaction", id, transactionAuditSummary(before), transactionAuditSummary(&after))
+	if err != nil {
+		return nil, fmt.Errorf("build transaction status audit event: %w", err)
+	}
+	if err := insertAuditEvent(ctx, tx, auditEvent); err != nil {
+		return nil, fmt.Errorf("create transaction status audit event: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit transaction status update: %w", err)
+	}
+	return &after, nil
+}
+
+func lockManualLifecycleTransactionForUser(ctx context.Context, db queryer, id, userID string) (*models.Transaction, error) {
+	transaction, err := scanTransaction(db.QueryRow(ctx, transactionSelectSQL+`
+		WHERE t.id = $1 AND EXISTS (
+			SELECT 1 FROM accounts a WHERE a.id = t.account_id AND a.owner_user_id = $2
+		)
+		FOR UPDATE
+	`, id, userID))
+	if err != nil {
+		return nil, mapNotFound(err)
+	}
+	if transaction.SourceType != "" && transaction.SourceType != models.TransactionSourceManual {
+		return nil, repository.ErrConflict
+	}
+	if transaction.TransferID != nil {
+		return nil, repository.ErrConflict
+	}
+	return transaction, nil
+}
+
 func (r *TransactionRepository) List(ctx context.Context) ([]models.Transaction, error) {
 	return listTransactions(ctx, r.pool, transactionSelectSQL+` ORDER BY t.occurred_at DESC, t.created_at DESC, t.id DESC`)
 }
@@ -394,10 +516,10 @@ func (r *TransactionRepository) ListByUserFiltered(ctx context.Context, userID s
 		query += " AND t.occurred_at < " + addArg(transactionFilterDate(filter.ToDate).AddDate(0, 0, 1))
 	}
 	if strings.TrimSpace(filter.Search) != "" {
-		search := strings.ToLower(strings.TrimSpace(filter.Search))
+		search := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(strings.ToLower(strings.TrimSpace(filter.Search)))
 		placeholder := addArg(search)
 		query += ` AND (
-			strpos(lower(t.description), ` + placeholder + `) > 0
+			lower(t.description) LIKE '%' || ` + placeholder + ` || '%' ESCAPE '\'
 			OR strpos(lower(t.type::text), ` + placeholder + `) > 0
 			OR strpos(lower(t.amount::text), ` + placeholder + `) > 0
 			OR strpos(lower(t.id::text), ` + placeholder + `) > 0
@@ -405,26 +527,33 @@ func (r *TransactionRepository) ListByUserFiltered(ctx context.Context, userID s
 			OR EXISTS (
 				SELECT 1 FROM accounts search_account
 				WHERE search_account.id = t.account_id
-					AND (strpos(lower(search_account.name), ` + placeholder + `) > 0 OR strpos(lower(search_account.bank), ` + placeholder + `) > 0 OR strpos(lower(search_account.currency), ` + placeholder + `) > 0)
+					AND (lower(search_account.name) LIKE '%' || ` + placeholder + ` || '%' ESCAPE '\' OR lower(search_account.bank) LIKE '%' || ` + placeholder + ` || '%' ESCAPE '\' OR strpos(lower(search_account.currency), ` + placeholder + `) > 0)
 			)
 			OR EXISTS (
 				SELECT 1 FROM categories search_category
 				WHERE search_category.id = t.category_id
-					AND (strpos(lower(search_category.name), ` + placeholder + `) > 0 OR strpos(lower(search_category.slug), ` + placeholder + `) > 0)
+					AND (lower(search_category.name) LIKE '%' || ` + placeholder + ` || '%' ESCAPE '\' OR lower(search_category.slug) LIKE '%' || ` + placeholder + ` || '%' ESCAPE '\')
 			)
 		)`
 	}
 
 	query += " ORDER BY t.occurred_at DESC, t.created_at DESC, t.id DESC"
-	if filter.Limit > 0 {
-		query += " LIMIT " + addArg(filter.Limit)
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 500 {
+		limit = 500
+	}
+	query += " LIMIT " + addArg(limit)
+	if filter.Offset > 0 || filter.Page > 1 {
 		offset := filter.Offset
 		if offset == 0 {
 			page := filter.Page
 			if page <= 0 {
 				page = 1
 			}
-			offset = (page - 1) * filter.Limit
+			offset = (page - 1) * limit
 		}
 		query += " OFFSET " + addArg(offset)
 	}
@@ -465,6 +594,7 @@ func (r *TransactionRepository) GetBalanceByAccountForUser(ctx context.Context, 
 			COUNT(t.id)
 		FROM transactions t
 		WHERE t.account_id = $1
+			AND t.status IN ('confirmed', 'reversed')
 			AND EXISTS (
 				SELECT 1 FROM accounts a WHERE a.id = t.account_id AND a.owner_user_id = $2
 			)
@@ -502,7 +632,7 @@ type transactionScanner interface {
 const transactionSelectSQL = `
 	SELECT t.id, t.account_id, t.related_account_id, t.transfer_id,
 		t.source_type, t.source_ref_id, t.source_metadata,
-		t.type, t.amount, t.category_id, t.description, t.occurred_at, t.created_at
+		t.type, t.status, t.amount, t.category_id, t.description, t.occurred_at, t.created_at
 	FROM transactions t
 `
 
@@ -517,6 +647,7 @@ func scanTransaction(row transactionScanner) (*models.Transaction, error) {
 		&transaction.SourceRefID,
 		&transaction.SourceMetadata,
 		&transaction.Type,
+		&transaction.Status,
 		&transaction.Amount,
 		&transaction.CategoryID,
 		&transaction.Description,
@@ -535,20 +666,34 @@ func insertTransaction(ctx context.Context, execer sqlExecer, transaction *model
 	if len(transaction.SourceMetadata) == 0 {
 		transaction.SourceMetadata = []byte(`{}`)
 	}
+	if transaction.Status == "" {
+		transaction.Status = models.TransactionStatusConfirmed
+	}
 	_, err := execer.Exec(ctx, `
 		INSERT INTO transactions (
 			id, account_id, related_account_id, transfer_id,
 			source_type, source_ref_id, source_metadata,
-			type, amount, category_id, description, occurred_at, created_at
+			type, status, amount, category_id, description, occurred_at, created_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12, $13)
+		VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12, $13, $14)
 	`, transaction.ID, transaction.AccountID, transaction.RelatedAccountID, transaction.TransferID,
 		transaction.SourceType, transaction.SourceRefID, string(transaction.SourceMetadata),
-		transaction.Type, transaction.Amount, transaction.CategoryID, transaction.Description, transaction.OccurredAt, transaction.CreatedAt)
+		transaction.Type, transaction.Status, transaction.Amount, transaction.CategoryID, transaction.Description, transaction.OccurredAt, transaction.CreatedAt)
 	if err != nil {
 		return fmt.Errorf("insert transaction: %w", err)
 	}
 	return nil
+}
+
+func transactionAuditSummary(transaction *models.Transaction) map[string]any {
+	return map[string]any{
+		"account_id":  transaction.AccountID,
+		"type":        transaction.Type,
+		"status":      transaction.Status,
+		"amount":      transaction.Amount.String(),
+		"source_type": transaction.SourceType,
+		"occurred_at": transaction.OccurredAt,
+	}
 }
 
 func insertTransfer(ctx context.Context, execer sqlExecer, transfer *models.Transfer) error {

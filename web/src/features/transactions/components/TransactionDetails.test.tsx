@@ -45,6 +45,7 @@ const transaction: Transaction = {
   related_account_id: "account-2",
   transfer_id: "transfer-1",
   type: "income",
+  status: "confirmed",
   amount: "100.00",
   category_id: "category-1",
   description: "Salary payment",

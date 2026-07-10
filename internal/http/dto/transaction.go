@@ -17,11 +17,17 @@ type TransactionResponse struct {
 	SourceRefID      *string                  `json:"source_ref_id,omitempty"`
 	SourceMetadata   json.RawMessage          `json:"source_metadata"`
 	Type             models.TransactionType   `json:"type"`
+	Status           models.TransactionStatus `json:"status"`
 	Amount           money.JSONDecimal        `json:"amount"`
 	CategoryID       *string                  `json:"category_id,omitempty"`
 	Description      string                   `json:"description,omitempty"`
 	OccurredAt       time.Time                `json:"occurred_at"`
 	CreatedAt        time.Time                `json:"created_at"`
+}
+
+type ReverseTransactionResponse struct {
+	Transaction TransactionResponse `json:"transaction"`
+	Reversal    TransactionResponse `json:"reversal"`
 }
 
 type CreateTransactionRequest struct {
@@ -43,6 +49,10 @@ func TransactionFromModel(transaction *models.Transaction) TransactionResponse {
 	if len(sourceMetadata) == 0 {
 		sourceMetadata = json.RawMessage(`{}`)
 	}
+	status := transaction.Status
+	if status == "" {
+		status = models.TransactionStatusConfirmed
+	}
 	return TransactionResponse{
 		ID:               transaction.ID,
 		AccountID:        transaction.AccountID,
@@ -52,6 +62,7 @@ func TransactionFromModel(transaction *models.Transaction) TransactionResponse {
 		SourceRefID:      transaction.SourceRefID,
 		SourceMetadata:   sourceMetadata,
 		Type:             transaction.Type,
+		Status:           status,
 		Amount:           money.NewJSONDecimal(transaction.Amount),
 		CategoryID:       transaction.CategoryID,
 		Description:      transaction.Description,

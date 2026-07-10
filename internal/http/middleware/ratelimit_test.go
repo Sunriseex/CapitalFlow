@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -219,5 +220,28 @@ func TestRateLimitByIPResetsAfterWindow(t *testing.T) {
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+}
+
+func TestRateLimitByIPBoundsUniqueClientBuckets(t *testing.T) {
+	now := time.Date(2026, 5, 9, 12, 0, 0, 0, time.UTC)
+	var mu sync.Mutex
+	buckets := make(map[string]rateLimitBucket)
+	limit := 1
+	handler := rateLimitByIP(limit, time.Minute, func() time.Time { return now }, &mu, buckets, trustedProxySet{})(
+		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}),
+	)
+
+	capacity := rateLimitBucketCapacity(limit)
+	for i := range capacity + 100 {
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
+		req.RemoteAddr = "client-" + strconv.Itoa(i)
+		handler.ServeHTTP(httptest.NewRecorder(), req)
+	}
+
+	if len(buckets) != capacity {
+		t.Fatalf("bucket count = %d, want bounded capacity %d", len(buckets), capacity)
 	}
 }

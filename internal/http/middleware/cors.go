@@ -74,12 +74,26 @@ func isAllowedOrigin(allowedOrigins []string, origin string, allowCredentials bo
 		if err != nil || allowed.Scheme != requested.Scheme {
 			continue
 		}
-		if isLoopbackHost(allowed.Hostname()) {
+		if isLoopbackHost(allowed.Hostname()) && originPort(allowed) == originPort(requested) {
 			return true
 		}
 	}
 
 	return false
+}
+
+func originPort(origin *url.URL) string {
+	if port := origin.Port(); port != "" {
+		return port
+	}
+	switch strings.ToLower(origin.Scheme) {
+	case "http":
+		return "80"
+	case "https":
+		return "443"
+	default:
+		return ""
+	}
 }
 
 func isLoopbackHost(host string) bool {

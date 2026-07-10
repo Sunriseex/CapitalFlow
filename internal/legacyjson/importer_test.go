@@ -679,6 +679,39 @@ func (r *fakeTransactionRepo) CreateTransfer(ctx context.Context, _ *models.Tran
 	return r.CreateMany(ctx, transactions)
 }
 
+func (r *fakeTransactionRepo) CancelForUser(ctx context.Context, id, _ string) (*models.Transaction, error) {
+	transaction, err := r.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	transaction.Status = models.TransactionStatusCancelled
+	r.byID[id] = transaction
+	return transaction, nil
+}
+
+func (r *fakeTransactionRepo) ReverseForUser(ctx context.Context, id, _ string, reversal *models.Transaction) (updated, created *models.Transaction, err error) {
+	transaction, err := r.GetByID(ctx, id)
+	if err != nil {
+		return nil, nil, err
+	}
+	transaction.Status = models.TransactionStatusReversed
+	r.byID[id] = transaction
+	if err := r.Create(ctx, reversal); err != nil {
+		return nil, nil, err
+	}
+	return transaction, reversal, nil
+}
+
+func (r *fakeTransactionRepo) SoftDeleteForUser(ctx context.Context, id, _ string) (*models.Transaction, error) {
+	transaction, err := r.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	transaction.Status = models.TransactionStatusSoftDeleted
+	r.byID[id] = transaction
+	return transaction, nil
+}
+
 func (r *fakeTransactionRepo) ListTransfersByUser(context.Context, string) ([]models.Transfer, error) {
 	return nil, nil
 }

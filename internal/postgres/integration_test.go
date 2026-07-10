@@ -59,6 +59,117 @@ func TestTransactionSourceRoundTrip(t *testing.T) {
 	}
 }
 
+func TestTransactionStatusRoundTripAndBalanceFiltering(t *testing.T) {
+	store := newTestStore(t)
+	ctx := t.Context()
+	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
+	userID := seedUser(ctx, t, store, "transaction-status@example.com")
+	account := transferTestAccount(t, store, userID, "status")
+
+	transactions := []models.Transaction{
+		{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeIncome, Status: models.TransactionStatusConfirmed, Amount: dec("100"), OccurredAt: now, CreatedAt: now},
+		{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeIncome, Status: models.TransactionStatusPending, Amount: dec("1000"), OccurredAt: now, CreatedAt: now},
+		{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeExpense, Status: models.TransactionStatusCancelled, Amount: dec("20"), OccurredAt: now, CreatedAt: now},
+		{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeExpense, Status: models.TransactionStatusSoftDeleted, Amount: dec("30"), OccurredAt: now, CreatedAt: now},
+	}
+	if err := store.Transactions().CreateMany(ctx, transactions); err != nil {
+		t.Fatalf("create status transactions: %v", err)
+	}
+
+	got, err := store.Transactions().GetByIDForUser(ctx, transactions[1].ID, userID)
+	if err != nil {
+		t.Fatalf("get pending transaction: %v", err)
+	}
+	if got.Status != models.TransactionStatusPending {
+		t.Fatalf("status = %s, want pending", got.Status)
+	}
+
+	balance, count, err := store.Transactions().GetBalanceByAccountForUser(ctx, account.ID, userID)
+	if err != nil {
+		t.Fatalf("get balance: %v", err)
+	}
+	if !balance.Equal(dec("100")) || count != 1 {
+		t.Fatalf("balance/count = %s/%d, want 100/1", balance, count)
+	}
+
+	if _, err := store.pool.Exec(ctx, `
+		INSERT INTO transactions (id, account_id, type, status, amount, occurred_at, created_at)
+		VALUES ($1, $2, 'income', 'bad', 1, $3, $3)
+	`, uuid.NewString(), account.ID, now); err == nil {
+		t.Fatal("insert invalid transaction status succeeded")
+	}
+}
+
+func TestTransactionLifecycleMutationsWriteAuditAndAffectBalances(t *testing.T) {
+	store := newTestStore(t)
+	ctx := t.Context()
+	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
+	userID := seedUser(ctx, t, store, "transaction-lifecycle@example.com")
+	account := transferTestAccount(t, store, userID, "lifecycle")
+
+	cancelled := &models.Transaction{
+		ID: uuid.NewString(), AccountID: account.ID, SourceType: models.TransactionSourceManual,
+		Type: models.TransactionTypeIncome, Status: models.TransactionStatusConfirmed,
+		Amount: dec("100"), OccurredAt: now, CreatedAt: now,
+	}
+	reversed := &models.Transaction{
+		ID: uuid.NewString(), AccountID: account.ID, SourceType: models.TransactionSourceManual,
+		Type: models.TransactionTypeIncome, Status: models.TransactionStatusConfirmed,
+		Amount: dec("50"), OccurredAt: now, CreatedAt: now,
+	}
+	if err := store.Transactions().CreateForUser(ctx, userID, cancelled); err != nil {
+		t.Fatalf("create cancellable transaction: %v", err)
+	}
+	if err := store.Transactions().CreateForUser(ctx, userID, reversed); err != nil {
+		t.Fatalf("create reversible transaction: %v", err)
+	}
+
+	cancelled, err := store.Transactions().CancelForUser(ctx, cancelled.ID, userID)
+	if err != nil {
+		t.Fatalf("cancel transaction: %v", err)
+	}
+	if cancelled.Status != models.TransactionStatusCancelled {
+		t.Fatalf("cancelled status = %s", cancelled.Status)
+	}
+
+	reversal := &models.Transaction{
+		ID: uuid.NewString(), SourceMetadata: json.RawMessage(`{}`),
+		Type: models.TransactionTypeAdjustment, Amount: dec("-50"),
+		Description: "Reversal", OccurredAt: now.Add(time.Minute), CreatedAt: now.Add(time.Minute),
+	}
+	reversed, reversal, err = store.Transactions().ReverseForUser(ctx, reversed.ID, userID, reversal)
+	if err != nil {
+		t.Fatalf("reverse transaction: %v", err)
+	}
+	if reversed.Status != models.TransactionStatusReversed || reversal.Status != models.TransactionStatusConfirmed {
+		t.Fatalf("reverse statuses = %s/%s", reversed.Status, reversal.Status)
+	}
+	if reversal.SourceRefID == nil || *reversal.SourceRefID != reversed.ID {
+		t.Fatalf("reversal source ref = %v, want %s", reversal.SourceRefID, reversed.ID)
+	}
+
+	balance, count, err := store.Transactions().GetBalanceByAccountForUser(ctx, account.ID, userID)
+	if err != nil {
+		t.Fatalf("get balance: %v", err)
+	}
+	if !balance.Equal(decimal.Zero) || count != 2 {
+		t.Fatalf("balance/count = %s/%d, want 0/2", balance, count)
+	}
+
+	var events int
+	if err := store.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM audit_events
+		WHERE entity_type = 'transaction'
+			AND event_type IN ('transaction.cancelled', 'transaction.reversed')
+			AND entity_id IN ($1, $2)
+	`, cancelled.ID, reversed.ID).Scan(&events); err != nil {
+		t.Fatalf("count lifecycle audit events: %v", err)
+	}
+	if events != 2 {
+		t.Fatalf("lifecycle audit events = %d, want 2", events)
+	}
+}
+
 func TestTransactionCreateForUserWritesAuditEvent(t *testing.T) {
 	store := newTestStore(t)
 	ctx := t.Context()
@@ -351,7 +462,7 @@ func TestRefreshTokenRotateRollsBackRevokeWhenInsertFails(t *testing.T) {
 	}
 }
 
-func TestIdempotencyExpiredLeaseCanBeTakenOver(t *testing.T) {
+func TestIdempotencyPendingOperationCannotBeTakenOver(t *testing.T) {
 	store := newTestStore(t)
 	ctx := t.Context()
 	now := time.Now().UTC()
@@ -364,14 +475,14 @@ func TestIdempotencyExpiredLeaseCanBeTakenOver(t *testing.T) {
 	}
 	second := &models.IdempotencyRecord{ID: uuid.NewString(), Key: "lease", UserID: userID, Method: "POST", Path: "/tx", RequestHash: "same", CreatedAt: now, ExpiresAt: now.Add(time.Hour)}
 	created, err = repo.CreatePending(ctx, second)
-	if err != nil || !created {
+	if err != nil || created {
 		t.Fatalf("take over pending: created=%v err=%v", created, err)
 	}
-	if err := repo.Complete(ctx, first.ID, first.Key, userID, first.Method, first.Path, 201, []byte("old")); !errors.Is(err, repository.ErrNotFound) {
-		t.Fatalf("stale completion error = %v", err)
+	if err := repo.Complete(ctx, first.ID, first.Key, userID, first.Method, first.Path, 201, []byte("old")); err != nil {
+		t.Fatalf("original completion error = %v", err)
 	}
-	if err := repo.Complete(ctx, second.ID, second.Key, userID, second.Method, second.Path, 201, []byte("new")); err != nil {
-		t.Fatalf("complete takeover: %v", err)
+	if err := repo.Complete(ctx, second.ID, second.Key, userID, second.Method, second.Path, 201, []byte("new")); !errors.Is(err, repository.ErrNotFound) {
+		t.Fatalf("takeover completion error = %v", err)
 	}
 }
 
@@ -541,10 +652,13 @@ func TestPostgresRepositoriesIntegration(t *testing.T) {
 		OccurredAt:  now,
 		CreatedAt:   now,
 	}
+	accrualID := uuid.NewString()
 	income := models.Transaction{
 		ID:          uuid.NewString(),
 		AccountID:   account.ID,
-		Type:        models.TransactionTypeIncome,
+		SourceType:  models.TransactionSourceDepositInterest,
+		SourceRefID: &accrualID,
+		Type:        models.TransactionTypeInterestIncome,
 		Amount:      dec("100"),
 		CategoryID:  &category.ID,
 		Description: "income",
@@ -578,7 +692,7 @@ func TestPostgresRepositoriesIntegration(t *testing.T) {
 
 	accrualDate := pgDateOnly(now)
 	accrual := &models.InterestAccrual{
-		ID:            uuid.NewString(),
+		ID:            accrualID,
 		AccountID:     account.ID,
 		RuleID:        rule.ID,
 		TransactionID: income.ID,
@@ -1024,12 +1138,23 @@ func TestDashboardRepositoryAggregatesBoundedProjection(t *testing.T) {
 	now := time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC)
 	userID := seedUser(ctx, t, store, "dashboard@example.com")
 	account := transferTestAccount(t, store, userID, "dashboard")
+	categoryID := uuid.NewString()
+	if err := store.Categories().Create(ctx, &models.Category{
+		ID: categoryID, Slug: "dashboard-reversed", Name: "Dashboard reversed",
+		CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		t.Fatalf("create dashboard category: %v", err)
+	}
 
 	transactions := []models.Transaction{
 		{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeInitialBalance, Amount: dec("1000"), OccurredAt: now.AddDate(0, -1, 0), CreatedAt: now},
 		{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeIncome, Amount: dec("500"), OccurredAt: now, CreatedAt: now},
 		{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeExpense, Amount: dec("200"), OccurredAt: now, CreatedAt: now},
 		{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeInterestIncome, Amount: dec("10"), OccurredAt: now, CreatedAt: now},
+		{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeIncome, Status: models.TransactionStatusReversed, Amount: dec("70"), OccurredAt: now, CreatedAt: now},
+		{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeAdjustment, Amount: dec("-70"), OccurredAt: now, CreatedAt: now},
+		{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeExpense, Status: models.TransactionStatusReversed, Amount: dec("30"), CategoryID: &categoryID, OccurredAt: now, CreatedAt: now},
+		{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeAdjustment, Amount: dec("30"), OccurredAt: now, CreatedAt: now},
 	}
 	if err := store.Transactions().CreateMany(ctx, transactions); err != nil {
 		t.Fatalf("create dashboard transactions: %v", err)
@@ -1039,7 +1164,7 @@ func TestDashboardRepositoryAggregatesBoundedProjection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("account balances: %v", err)
 	}
-	if len(balances) != 1 || !balances[0].Balance.Equal(dec("1310")) || balances[0].TransactionCount != 4 {
+	if len(balances) != 1 || !balances[0].Balance.Equal(dec("1310")) || balances[0].TransactionCount != 8 {
 		t.Fatalf("account balances = %#v", balances)
 	}
 
@@ -1052,6 +1177,13 @@ func TestDashboardRepositoryAggregatesBoundedProjection(t *testing.T) {
 	}
 	if flow[0].TransactionCount != 3 || flow[0].InterestCount != 1 {
 		t.Fatalf("monthly flow counts = %d/%d, want 3/1", flow[0].TransactionCount, flow[0].InterestCount)
+	}
+	expenses, err := store.Dashboard().(*DashboardRepository).categoryExpense(ctx, userID, now.AddDate(0, 0, -1), now.AddDate(0, 0, 1))
+	if err != nil {
+		t.Fatalf("category expense: %v", err)
+	}
+	if len(expenses) != 0 {
+		t.Fatalf("category expense includes reversed transaction: %#v", expenses)
 	}
 }
 
@@ -2747,7 +2879,9 @@ func TestInterestRuleRepositoryListActiveForAccrual(t *testing.T) {
 	now := time.Now().UTC()
 	userID := seedUser(ctx, t, store, "list-active-accrual@example.com")
 	account := transferTestAccount(t, store, userID, "active-accrual-account")
+	monthlyAccount := transferTestAccount(t, store, userID, "monthly-accrual-account")
 
+	rule1End := now.AddDate(0, 0, -2)
 	rule1 := &models.InterestRule{
 		ID:                      uuid.NewString(),
 		AccountID:               account.ID,
@@ -2757,7 +2891,9 @@ func TestInterestRuleRepositoryListActiveForAccrual(t *testing.T) {
 		DayCountConvention:      models.DayCountConventionActual365,
 		IsActive:                true,
 		StartDate:               now.AddDate(0, 0, -5),
+		EndDate:                 &rule1End,
 	}
+	rule2End := now
 	rule2 := &models.InterestRule{
 		ID:                      uuid.NewString(),
 		AccountID:               account.ID,
@@ -2767,6 +2903,7 @@ func TestInterestRuleRepositoryListActiveForAccrual(t *testing.T) {
 		DayCountConvention:      models.DayCountConventionActual365,
 		IsActive:                true,
 		StartDate:               now.AddDate(0, 0, -1),
+		EndDate:                 &rule2End,
 	}
 	rule3 := &models.InterestRule{
 		ID:                      uuid.NewString(),
@@ -2778,7 +2915,7 @@ func TestInterestRuleRepositoryListActiveForAccrual(t *testing.T) {
 		IsActive:                false,
 		StartDate:               now.AddDate(0, 0, -3),
 	}
-	expiredEndDate := now.AddDate(0, 0, -1)
+	expiredEndDate := now.AddDate(0, 0, -6)
 	rule4 := &models.InterestRule{
 		ID:                      uuid.NewString(),
 		AccountID:               account.ID,
@@ -2802,7 +2939,7 @@ func TestInterestRuleRepositoryListActiveForAccrual(t *testing.T) {
 	}
 	monthlyRule := &models.InterestRule{
 		ID:                      uuid.NewString(),
-		AccountID:               account.ID,
+		AccountID:               monthlyAccount.ID,
 		AnnualRateBps:           1_300,
 		AccrualFrequency:        models.AccrualFrequencyMonthly,
 		CapitalizationFrequency: models.CapitalizationFrequencyMonthly,
@@ -2822,17 +2959,17 @@ func TestInterestRuleRepositoryListActiveForAccrual(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListActiveForAccrual: %v", err)
 	}
-	if len(targets) != 2 {
-		t.Fatalf("expected 2 active rules, got %d", len(targets))
+	if len(targets) != 1 {
+		t.Fatalf("expected 1 effective rule, got %d", len(targets))
 	}
 	gotIDs := map[string]bool{}
 	for _, target := range targets {
 		gotIDs[target.Rule.ID] = true
 	}
-	if !gotIDs[rule1.ID] || !gotIDs[rule2.ID] {
-		t.Fatalf("active target ids = %+v, want rule1 and rule2", gotIDs)
+	if !gotIDs[rule2.ID] {
+		t.Fatalf("active target ids = %+v, want rule2", gotIDs)
 	}
-	if gotIDs[rule3.ID] || gotIDs[rule4.ID] || gotIDs[rule5.ID] {
+	if gotIDs[rule1.ID] || gotIDs[rule3.ID] || gotIDs[rule4.ID] || gotIDs[rule5.ID] {
 		t.Fatalf("inactive, expired, or future rules returned: %+v", gotIDs)
 	}
 	if gotIDs[monthlyRule.ID] {
@@ -2881,6 +3018,161 @@ func TestInterestRuleRepositoryListByUserScopesRulesToOwnedAccounts(t *testing.T
 	}
 	if got[0].ID != rule.ID {
 		t.Fatalf("rule id = %s, want %s", got[0].ID, rule.ID)
+	}
+}
+
+func TestInterestRuleRepositoryRejectsOverlappingActivePeriods(t *testing.T) {
+	ctx := t.Context()
+	store := newTestStore(t)
+	userID := seedUser(ctx, t, store, "overlapping-rules@example.com")
+	account := transferTestAccount(t, store, userID, "overlapping-rules")
+	start := pgDateOnly(time.Now().UTC())
+	end := start.AddDate(0, 0, 10)
+	first := &models.InterestRule{
+		ID: uuid.NewString(), AccountID: account.ID, AnnualRateBps: 500,
+		AccrualFrequency: models.AccrualFrequencyDaily, CapitalizationFrequency: models.CapitalizationFrequencyDaily,
+		DayCountConvention: models.DayCountConventionActual365, IsActive: true, StartDate: start, EndDate: &end,
+	}
+	if err := store.InterestRules().Create(ctx, first); err != nil {
+		t.Fatalf("create first rule: %v", err)
+	}
+	second := *first
+	second.ID = uuid.NewString()
+	second.StartDate = start.AddDate(0, 0, 5)
+	second.AccrualFrequency = models.AccrualFrequencyMonthly
+	second.CapitalizationFrequency = models.CapitalizationFrequencyMonthly
+	if err := store.InterestRules().Create(ctx, &second); !errors.Is(err, repository.ErrConflict) {
+		t.Fatalf("overlapping rule error = %v, want conflict", err)
+	}
+}
+
+func TestMutableFinancialRepositoriesRejectStaleVersions(t *testing.T) {
+	ctx := t.Context()
+	store := newTestStore(t)
+	userID := seedUser(ctx, t, store, "cas@example.com")
+	account := transferTestAccount(t, store, userID, "cas")
+	now := time.Now().UTC()
+
+	goal := &models.FinancialGoal{ID: uuid.NewString(), OwnerUserID: userID, AccountID: &account.ID, Name: "Goal", TargetAmount: dec("100"), Currency: "RUB", Status: models.FinancialGoalActive, CreatedAt: now, UpdatedAt: now}
+	if err := store.FinancialGoals().Create(ctx, goal); err != nil {
+		t.Fatalf("create goal: %v", err)
+	}
+	goalA, _ := store.FinancialGoals().GetByIDForUser(ctx, goal.ID, userID)
+	goalB, _ := store.FinancialGoals().GetByIDForUser(ctx, goal.ID, userID)
+	goalA.Name = "First"
+	if err := store.FinancialGoals().UpdateForUser(ctx, goalA, userID); err != nil {
+		t.Fatalf("update goal: %v", err)
+	}
+	goalB.Name = "Stale"
+	if err := store.FinancialGoals().UpdateForUser(ctx, goalB, userID); !errors.Is(err, repository.ErrConflict) {
+		t.Fatalf("stale goal error = %v, want conflict", err)
+	}
+
+	category := &models.Category{ID: uuid.NewString(), Slug: "cas-category", Name: "CAS", CreatedAt: now, UpdatedAt: now}
+	if err := store.Categories().Create(ctx, category); err != nil {
+		t.Fatalf("create category: %v", err)
+	}
+	limit := &models.CategoryLimit{ID: uuid.NewString(), OwnerUserID: userID, CategoryID: category.ID, Amount: dec("10"), Currency: "RUB", IsActive: true, CreatedAt: now, UpdatedAt: now}
+	if err := store.CategoryLimits().Create(ctx, limit); err != nil {
+		t.Fatalf("create limit: %v", err)
+	}
+	limitA, _ := store.CategoryLimits().GetByIDForUser(ctx, limit.ID, userID)
+	limitB, _ := store.CategoryLimits().GetByIDForUser(ctx, limit.ID, userID)
+	limitA.Amount = dec("20")
+	if err := store.CategoryLimits().UpdateForUser(ctx, limitA, userID); err != nil {
+		t.Fatalf("update limit: %v", err)
+	}
+	limitB.Amount = dec("30")
+	if err := store.CategoryLimits().UpdateForUser(ctx, limitB, userID); !errors.Is(err, repository.ErrConflict) {
+		t.Fatalf("stale limit error = %v, want conflict", err)
+	}
+
+	rule := seedInterestRule(ctx, t, store, account.ID)
+	ruleA, _ := store.InterestRules().GetByID(ctx, rule.ID)
+	ruleB, _ := store.InterestRules().GetByID(ctx, rule.ID)
+	ruleA.AnnualRateBps = 600
+	if err := store.InterestRules().Update(ctx, ruleA); err != nil {
+		t.Fatalf("update rule: %v", err)
+	}
+	ruleB.AnnualRateBps = 700
+	if err := store.InterestRules().Update(ctx, ruleB); !errors.Is(err, repository.ErrConflict) {
+		t.Fatalf("stale rule error = %v, want conflict", err)
+	}
+}
+
+func TestDatabaseRejectsCrossTenantFinancialLinks(t *testing.T) {
+	ctx := t.Context()
+	store := newTestStore(t)
+	ownerID := seedUser(ctx, t, store, "constraints-owner@example.com")
+	otherID := seedUser(ctx, t, store, "constraints-other@example.com")
+	owned := transferTestAccount(t, store, ownerID, "owned")
+	foreign := transferTestAccount(t, store, otherID, "foreign")
+	now := time.Now().UTC()
+
+	if _, err := store.pool.Exec(ctx, `INSERT INTO financial_goals
+		(id, owner_user_id, account_id, name, target_amount, currency, status)
+		VALUES ($1, $2, $3, 'bad goal', 1, 'RUB', 'active')`, uuid.NewString(), ownerID, foreign.ID); err == nil {
+		t.Fatal("cross-tenant goal must fail")
+	}
+	if _, err := store.pool.Exec(ctx, `INSERT INTO transfers
+		(id, user_id, from_account_id, to_account_id, from_transaction_id, to_transaction_id,
+		 from_amount, to_amount, from_currency, to_currency, exchange_rate, exchange_rate_provider, exchange_rate_date)
+		VALUES ($1,$2,$3,$4,$5,$6,1,1,'RUB','RUB',1,'test',$7)`,
+		uuid.NewString(), ownerID, owned.ID, foreign.ID, uuid.NewString(), uuid.NewString(), now); err == nil {
+		t.Fatal("cross-tenant transfer must fail")
+	}
+	tx, err := store.pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO transactions (id, account_id, related_account_id, type, amount, occurred_at)
+		VALUES ($1,$2,$3,'income',1,$4)`, uuid.NewString(), owned.ID, foreign.ID, now)
+	if err != nil {
+		_ = tx.Rollback(ctx)
+		t.Fatalf("insert related transaction: %v", err)
+	}
+	if err := tx.Commit(ctx); err == nil {
+		t.Fatal("cross-tenant related account must fail at commit")
+	}
+}
+
+func TestDatabaseRejectsMismatchedInterestAccrual(t *testing.T) {
+	ctx := t.Context()
+	store := newTestStore(t)
+	userID := seedUser(ctx, t, store, "accrual-constraints@example.com")
+	account := transferTestAccount(t, store, userID, "accrual-main")
+	other := transferTestAccount(t, store, userID, "accrual-other")
+	rule := seedInterestRule(ctx, t, store, account.ID)
+	now := time.Now().UTC()
+	accrualID := uuid.NewString()
+	transaction := &models.Transaction{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeInterestIncome, SourceType: models.TransactionSourceDepositInterest, SourceRefID: &accrualID, Amount: dec("1"), OccurredAt: now, CreatedAt: now}
+	if err := store.Transactions().CreateForUser(ctx, userID, transaction); err != nil {
+		t.Fatalf("create interest transaction: %v", err)
+	}
+	if _, err := store.pool.Exec(ctx, `INSERT INTO interest_accruals
+		(id, account_id, rule_id, transaction_id, accrual_date, amount, balance, annual_rate_bps)
+		VALUES ($1,$2,$3,$4,$5,1,1,500)`, accrualID, other.ID, rule.ID, transaction.ID, pgDateOnly(now)); err == nil {
+		t.Fatal("mismatched accrual account must fail")
+	}
+
+	badAccrualID := uuid.NewString()
+	badTransaction := &models.Transaction{ID: uuid.NewString(), AccountID: account.ID, Type: models.TransactionTypeIncome, SourceType: models.TransactionSourceDepositInterest, SourceRefID: &badAccrualID, Amount: dec("1"), OccurredAt: now, CreatedAt: now}
+	if err := store.Transactions().CreateForUser(ctx, userID, badTransaction); err != nil {
+		t.Fatalf("create mismatched transaction: %v", err)
+	}
+	tx, err := store.pool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO interest_accruals
+		(id, account_id, rule_id, transaction_id, accrual_date, amount, balance, annual_rate_bps)
+		VALUES ($1,$2,$3,$4,$5,1,1,500)`, badAccrualID, account.ID, rule.ID, badTransaction.ID, pgDateOnly(now.AddDate(0, 0, 1)))
+	if err != nil {
+		_ = tx.Rollback(ctx)
+		t.Fatalf("insert mismatched accrual: %v", err)
+	}
+	if err := tx.Commit(ctx); err == nil {
+		t.Fatal("mismatched interest transaction type must fail at commit")
 	}
 }
 

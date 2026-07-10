@@ -360,6 +360,13 @@ export const en = {
     transfer: "Transfer",
     posted: "Posted",
     verified: "Verified",
+    statuses: {
+      pending: "Pending",
+      confirmed: "Confirmed",
+      cancelled: "Cancelled",
+      reversed: "Reversed",
+      soft_deleted: "Soft-deleted",
+    },
     initialBalance: "Initial balance",
     interest: "Interest",
     adjustment: "Adjustment",

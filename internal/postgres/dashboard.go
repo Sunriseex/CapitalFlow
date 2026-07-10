@@ -73,7 +73,7 @@ func (r *DashboardRepository) AccountBalances(ctx context.Context, userID string
 			END), 0),
 			COUNT(t.id)::int
 		FROM accounts a
-		LEFT JOIN transactions t ON t.account_id = a.id
+		LEFT JOIN transactions t ON t.account_id = a.id AND t.status IN ('confirmed', 'reversed')
 		WHERE a.owner_user_id = $1
 		GROUP BY a.id
 		ORDER BY a.created_at, a.name
@@ -125,6 +125,7 @@ func (r *DashboardRepository) MonthlyFlow(ctx context.Context, userID string, fr
 			AND t.occurred_at >= $2
 			AND t.occurred_at < $3
 			AND t.type IN ('income', 'expense', 'interest_income')
+			AND t.status = 'confirmed'
 		GROUP BY date_trunc('month', t.occurred_at), a.currency
 		ORDER BY date_trunc('month', t.occurred_at), a.currency
 	`, userID, from, to)
@@ -156,6 +157,7 @@ func (r *DashboardRepository) categoryExpense(ctx context.Context, userID string
 			AND t.occurred_at >= $2
 			AND t.occurred_at < $3
 			AND t.type = 'expense'
+			AND t.status = 'confirmed'
 			AND t.category_id IS NOT NULL
 		GROUP BY t.category_id, a.currency
 	`, userID, from, to)

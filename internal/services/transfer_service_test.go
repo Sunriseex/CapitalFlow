@@ -365,6 +365,18 @@ func (r *batchTransactionRepo) CreateTransfer(ctx context.Context, transfer *mod
 	return r.CreateMany(ctx, transactions)
 }
 
+func (r *batchTransactionRepo) CancelForUser(context.Context, string, string) (*models.Transaction, error) {
+	return nil, errNotImplemented
+}
+
+func (r *batchTransactionRepo) ReverseForUser(context.Context, string, string, *models.Transaction) (updated, created *models.Transaction, err error) {
+	return nil, nil, errNotImplemented
+}
+
+func (r *batchTransactionRepo) SoftDeleteForUser(context.Context, string, string) (*models.Transaction, error) {
+	return nil, errNotImplemented
+}
+
 func (r *batchTransactionRepo) ListTransfersByUser(context.Context, string) ([]models.Transfer, error) {
 	return nil, nil
 }

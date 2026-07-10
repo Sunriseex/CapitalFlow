@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sunriseex/capitalflow/internal/auth"
 	"github.com/sunriseex/capitalflow/internal/models"
@@ -37,6 +38,30 @@ func TestIdempotencyFlushesResponseAfterComplete(t *testing.T) {
 	}
 	if repo.completeCalls != 1 {
 		t.Fatalf("complete calls = %d, want 1", repo.completeCalls)
+	}
+}
+
+func TestIdempotencyDoesNotCompleteOrCacheServerErrors(t *testing.T) {
+	repo := newTestIdempotencyRepo()
+	handler := Idempotency(repo)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(`{"error":"temporary"}`))
+	}))
+	req := newIdempotencyRequest(t, "temporary-error")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusServiceUnavailable || rec.Body.String() != `{"error":"temporary"}` {
+		t.Fatalf("response = %d %s", rec.Code, rec.Body.String())
+	}
+	if repo.completeCalls != 0 {
+		t.Fatalf("complete calls = %d, want 0", repo.completeCalls)
+	}
+	record := repo.records["temporary-error\x00user-1\x00POST\x00/api/v1/transactions"]
+	if record == nil || record.StatusCode != nil {
+		t.Fatalf("record = %#v, want uncompleted pending record", record)
 	}
 }
 
@@ -183,6 +208,27 @@ func TestIdempotencyRejectsConcurrentInProgressRetry(t *testing.T) {
 	assertMiddlewareJSONError(t, rec, "idempotency_in_progress")
 }
 
+func TestIdempotencyReportsExpiredPendingOutcomeAsUnknown(t *testing.T) {
+	repo := newTestIdempotencyRepo()
+	repo.skipComplete = true
+	handler := Idempotency(repo)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+	}))
+
+	handler.ServeHTTP(httptest.NewRecorder(), newIdempotencyRequest(t, "unknown-outcome"))
+	record := repo.records[idempotencyTestKey("unknown-outcome", "user-1", http.MethodPost, "/api/v1/transactions")]
+	expired := time.Now().UTC().Add(-time.Second)
+	record.LockedUntil = &expired
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, newIdempotencyRequest(t, "unknown-outcome"))
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusConflict, rec.Body.String())
+	}
+	assertMiddlewareJSONError(t, rec, "idempotency_outcome_unknown")
+}
+
 type testIdempotencyRepo struct {
 	records       map[string]*models.IdempotencyRecord
 	completeErr   error
@@ -210,6 +256,8 @@ func (r *testIdempotencyRepo) CreatePending(_ context.Context, record *models.Id
 		return false, nil
 	}
 	recordCopy := *record
+	lockedUntil := time.Now().UTC().Add(30 * time.Second)
+	recordCopy.LockedUntil = &lockedUntil
 	r.records[key] = &recordCopy
 	return true, nil
 }

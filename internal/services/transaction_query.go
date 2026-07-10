@@ -13,6 +13,7 @@ import (
 const (
 	defaultTransactionListLimit = 50
 	maxTransactionListLimit     = 500
+	maxTransactionListOffset    = 100_000
 )
 
 type TransactionListFilter = repository.TransactionListFilter
@@ -55,6 +56,9 @@ func (q *TransactionQuery) ListByUser(ctx context.Context, userID string, filter
 	}
 	if filter.Page == 0 {
 		filter.Page = 1
+	}
+	if filter.Offset > maxTransactionListOffset || filter.Page > maxTransactionListOffset/filter.Limit+1 {
+		return nil, validationError("pagination offset must not exceed 100000")
 	}
 	listed, err := q.repo.ListByUserFiltered(ctx, userID, filter)
 	if err != nil {

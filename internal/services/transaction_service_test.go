@@ -491,6 +491,18 @@ func (r failingTransactionRepo) CreateTransfer(_ context.Context, _ *models.Tran
 	return r.err
 }
 
+func (r failingTransactionRepo) CancelForUser(_ context.Context, _, _ string) (*models.Transaction, error) {
+	return nil, r.err
+}
+
+func (r failingTransactionRepo) ReverseForUser(_ context.Context, _, _ string, _ *models.Transaction) (updated, created *models.Transaction, err error) {
+	return nil, nil, r.err
+}
+
+func (r failingTransactionRepo) SoftDeleteForUser(_ context.Context, _, _ string) (*models.Transaction, error) {
+	return nil, r.err
+}
+
 func (r failingTransactionRepo) ListTransfersByUser(context.Context, string) ([]models.Transfer, error) {
 	return nil, r.err
 }

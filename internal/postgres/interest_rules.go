@@ -73,7 +73,7 @@ func (r *InterestRuleRepository) ListActiveForAccrual(ctx context.Context, frequ
         interest_rules.promo_rate_bps, interest_rules.promo_end_date,
         interest_rules.accrual_frequency, interest_rules.capitalization_frequency,
         interest_rules.day_count_convention, interest_rules.is_active,
-        interest_rules.start_date, interest_rules.end_date,
+        interest_rules.start_date, interest_rules.end_date, interest_rules.version,
         a.owner_user_id, a.currency
     FROM interest_rules
     JOIN accounts a ON a.id = interest_rules.account_id
@@ -105,6 +105,7 @@ func (r *InterestRuleRepository) ListActiveForAccrual(ctx context.Context, frequ
 			&target.Rule.IsActive,
 			&target.Rule.StartDate,
 			&target.Rule.EndDate,
+			&target.Rule.Version,
 			&target.OwnerUserID,
 			&target.AccountCurrency,
 		); err != nil {
@@ -150,22 +151,23 @@ func (r *InterestRuleRepository) Update(ctx context.Context, rule *models.Intere
 	if err != nil {
 		return fmt.Errorf("lock interest rule: %w", err)
 	}
+	if before.Version != rule.Version {
+		return fmt.Errorf("update interest rule: %w", repository.ErrConflict)
+	}
 	actorUserID, err := interestRuleActor(ctx, tx, before.AccountID)
 	if err != nil {
 		return fmt.Errorf("get interest rule actor: %w", err)
 	}
-	tag, err := tx.Exec(ctx, `
+	err = tx.QueryRow(ctx, `
 		UPDATE interest_rules
 		SET annual_rate_bps = $2, promo_rate_bps = $3, promo_end_date = $4,
 			accrual_frequency = $5, capitalization_frequency = $6, day_count_convention = $7,
-			is_active = $8, start_date = $9, end_date = $10, updated_at = now()
-		WHERE id = $1
-	`, rule.ID, rule.AnnualRateBps, rule.PromoRateBps, rule.PromoEndDate, rule.AccrualFrequency, rule.CapitalizationFrequency, rule.DayCountConvention, rule.IsActive, rule.StartDate, rule.EndDate)
+			is_active = $8, start_date = $9, end_date = $10, updated_at = now(), version = version + 1
+		WHERE id = $1 AND version = $11
+		RETURNING version
+	`, rule.ID, rule.AnnualRateBps, rule.PromoRateBps, rule.PromoEndDate, rule.AccrualFrequency, rule.CapitalizationFrequency, rule.DayCountConvention, rule.IsActive, rule.StartDate, rule.EndDate, rule.Version).Scan(&rule.Version)
 	if err != nil {
 		return fmt.Errorf("update interest rule: %w", mapConflict(err))
-	}
-	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("update interest rule: %w", repository.ErrNotFound)
 	}
 	eventType := "interest_rule.updated"
 	if before.IsActive && !rule.IsActive {
@@ -187,7 +189,7 @@ func (r *InterestRuleRepository) Update(ctx context.Context, rule *models.Intere
 const selectInterestRuleSQL = `
 	SELECT id, account_id, annual_rate_bps, promo_rate_bps, promo_end_date,
 		accrual_frequency, capitalization_frequency, day_count_convention,
-		is_active, start_date, end_date
+		is_active, start_date, end_date, version
 	FROM interest_rules
 `
 
@@ -209,6 +211,7 @@ func scanInterestRule(row interestRuleScanner) (*models.InterestRule, error) {
 		&rule.IsActive,
 		&rule.StartDate,
 		&rule.EndDate,
+		&rule.Version,
 	); err != nil {
 		return nil, fmt.Errorf("scan interest rule: %w", mapNotFound(err))
 	}
@@ -220,10 +223,10 @@ func insertInterestRule(ctx context.Context, execer sqlExecer, rule *models.Inte
 		INSERT INTO interest_rules (
 			id, account_id, annual_rate_bps, promo_rate_bps, promo_end_date,
 			accrual_frequency, capitalization_frequency, day_count_convention,
-			is_active, start_date, end_date
+			is_active, start_date, end_date, version
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-	`, rule.ID, rule.AccountID, rule.AnnualRateBps, rule.PromoRateBps, rule.PromoEndDate, rule.AccrualFrequency, rule.CapitalizationFrequency, rule.DayCountConvention, rule.IsActive, rule.StartDate, rule.EndDate)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+	`, rule.ID, rule.AccountID, rule.AnnualRateBps, rule.PromoRateBps, rule.PromoEndDate, rule.AccrualFrequency, rule.CapitalizationFrequency, rule.DayCountConvention, rule.IsActive, rule.StartDate, rule.EndDate, rule.Version)
 	if err != nil {
 		return fmt.Errorf("insert interest rule: %w", mapConflict(err))
 	}

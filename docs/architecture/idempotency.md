@@ -22,8 +22,14 @@ Other mutations may also pass through the idempotency middleware, but financial 
 - A key may be reused only with the same request body for the same endpoint.
 - A key reused with a different body returns `409 idempotency_key_reused`.
 - A retry while the first request is still pending returns `409 idempotency_in_progress`.
+- A pending key whose execution lease elapsed returns
+  `409 idempotency_outcome_unknown`; it is not replayed automatically.
 - A completed retry returns the stored status code and response body.
-- Records expire after 24 hours.
+- A pending operation is never taken over automatically. Its mutation may have
+  committed before the process lost the response, so replaying it could duplicate
+  a financial operation. Pending keys require explicit operator reconciliation.
+- Completed records expire after 24 hours. Pending records are retained until
+  an operator reconciles the uncertain operation.
 
 ## Request Hash
 
@@ -91,4 +97,3 @@ Required coverage:
 - in-progress request returns conflict
 - transfer creation remains atomic under retry
 - generated interest accruals are not duplicated by retry
-

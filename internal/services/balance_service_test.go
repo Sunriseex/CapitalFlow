@@ -51,6 +51,19 @@ func TestBalanceServiceCalculate(t *testing.T) {
 			want:      decimal.RequireFromString("800"),
 			wantCount: 4,
 		},
+		{
+			name:      "ignores non-confirmed statuses",
+			accountID: "account-1",
+			transactions: []models.Transaction{
+				{AccountID: "account-1", Type: models.TransactionTypeIncome, Status: models.TransactionStatusConfirmed, Amount: decimal.RequireFromString("100")},
+				{AccountID: "account-1", Type: models.TransactionTypeIncome, Status: models.TransactionStatusPending, Amount: decimal.RequireFromString("200")},
+				{AccountID: "account-1", Type: models.TransactionTypeExpense, Status: models.TransactionStatusCancelled, Amount: decimal.RequireFromString("50")},
+				{AccountID: "account-1", Type: models.TransactionTypeExpense, Status: models.TransactionStatusReversed, Amount: decimal.RequireFromString("25")},
+				{AccountID: "account-1", Type: models.TransactionTypeExpense, Status: models.TransactionStatusSoftDeleted, Amount: decimal.RequireFromString("10")},
+			},
+			want:      decimal.RequireFromString("75"),
+			wantCount: 2,
+		},
 	}
 
 	service := NewBalanceService()

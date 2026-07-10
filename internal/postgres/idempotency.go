@@ -59,28 +59,20 @@ func (r *IdempotencyRepository) CreatePending(ctx context.Context, record *model
 	record.Status = "pending"
 	record.CreatedAt = now
 	record.UpdatedAt = now
+	// Pending records are deliberately never expired or taken over automatically.
+	// Once a handler starts, a process crash can leave the business mutation
+	// committed without the response record. Re-running that mutation would be
+	// unsafe, so only completed records are eligible for retention cleanup.
 	lockedUntil := now.Add(30 * time.Second)
 	record.LockedUntil = &lockedUntil
-	if _, err := r.pool.Exec(ctx, `DELETE FROM idempotency_keys WHERE expires_at <= now()`); err != nil {
+	if _, err := r.pool.Exec(ctx, `DELETE FROM idempotency_keys WHERE status = 'completed' AND expires_at <= now()`); err != nil {
 		return false, fmt.Errorf("delete expired idempotency keys: %w", err)
 	}
 
 	tag, err := r.pool.Exec(ctx, `
 		INSERT INTO idempotency_keys (id, key, user_id, method, path, endpoint, request_hash, status, locked_until, created_at, updated_at, expires_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9, $10, $11)
-		ON CONFLICT (key, user_id, method, path) DO UPDATE
-		SET id = EXCLUDED.id,
-			request_hash = EXCLUDED.request_hash,
-			status = 'pending',
-			status_code = NULL,
-			response_body = NULL,
-			locked_until = EXCLUDED.locked_until,
-			created_at = EXCLUDED.created_at,
-			updated_at = EXCLUDED.updated_at,
-			expires_at = EXCLUDED.expires_at
-		WHERE idempotency_keys.status = 'pending'
-			AND idempotency_keys.locked_until <= now()
-			AND idempotency_keys.request_hash = EXCLUDED.request_hash
+		ON CONFLICT (key, user_id, method, path) DO NOTHING
 	`, record.ID, record.Key, record.UserID, record.Method, record.Path, record.Endpoint, record.RequestHash, record.LockedUntil, record.CreatedAt, record.UpdatedAt, record.ExpiresAt)
 	if err != nil {
 		return false, fmt.Errorf("create idempotency key: %w", err)

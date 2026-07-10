@@ -19,9 +19,9 @@ func NewCategoryLimitRepository(pool *pgxpool.Pool) *CategoryLimitRepository {
 func (r *CategoryLimitRepository) Create(ctx context.Context, limit *models.CategoryLimit) error {
 	_, err := r.pool.Exec(ctx, `
 		INSERT INTO category_limits
-			(id, owner_user_id, category_id, amount, currency, is_active, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-	`, limit.ID, limit.OwnerUserID, limit.CategoryID, limit.Amount, limit.Currency, limit.IsActive, limit.CreatedAt, limit.UpdatedAt)
+			(id, owner_user_id, category_id, amount, currency, is_active, created_at, updated_at, version)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	`, limit.ID, limit.OwnerUserID, limit.CategoryID, limit.Amount, limit.Currency, limit.IsActive, limit.CreatedAt, limit.UpdatedAt, limit.Version)
 	if err != nil {
 		return fmt.Errorf("create category limit: %w", mapConflict(err))
 	}
@@ -30,7 +30,7 @@ func (r *CategoryLimitRepository) Create(ctx context.Context, limit *models.Cate
 
 func (r *CategoryLimitRepository) GetByIDForUser(ctx context.Context, id, userID string) (*models.CategoryLimit, error) {
 	limit, err := scanCategoryLimit(r.pool.QueryRow(ctx, `
-		SELECT id, owner_user_id, category_id, amount, currency, is_active, created_at, updated_at
+		SELECT id, owner_user_id, category_id, amount, currency, is_active, created_at, updated_at, version
 		FROM category_limits WHERE id = $1 AND owner_user_id = $2
 	`, id, userID))
 	if err != nil {
@@ -41,7 +41,7 @@ func (r *CategoryLimitRepository) GetByIDForUser(ctx context.Context, id, userID
 
 func (r *CategoryLimitRepository) ListByUser(ctx context.Context, userID string) ([]models.CategoryLimit, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, owner_user_id, category_id, amount, currency, is_active, created_at, updated_at
+		SELECT id, owner_user_id, category_id, amount, currency, is_active, created_at, updated_at, version
 		FROM category_limits WHERE owner_user_id = $1 ORDER BY updated_at DESC, id DESC
 	`, userID)
 	if err != nil {
@@ -64,16 +64,18 @@ func (r *CategoryLimitRepository) ListByUser(ctx context.Context, userID string)
 }
 
 func (r *CategoryLimitRepository) UpdateForUser(ctx context.Context, limit *models.CategoryLimit, userID string) error {
-	result, err := r.pool.Exec(ctx, `
+	err := r.pool.QueryRow(ctx, `
 		UPDATE category_limits
-		SET category_id = $1, amount = $2, currency = $3, is_active = $4, updated_at = $5
-		WHERE id = $6 AND owner_user_id = $7
-	`, limit.CategoryID, limit.Amount, limit.Currency, limit.IsActive, limit.UpdatedAt, limit.ID, userID)
+		SET category_id = $1, amount = $2, currency = $3, is_active = $4, updated_at = $5,
+			version = version + 1
+		WHERE id = $6 AND owner_user_id = $7 AND version = $8
+		RETURNING version
+	`, limit.CategoryID, limit.Amount, limit.Currency, limit.IsActive, limit.UpdatedAt, limit.ID, userID, limit.Version).Scan(&limit.Version)
 	if err != nil {
+		if mapped := mapNotFound(err); mapped == repository.ErrNotFound {
+			return fmt.Errorf("update category limit: %w", repository.ErrConflict)
+		}
 		return fmt.Errorf("update category limit: %w", mapConflict(err))
-	}
-	if result.RowsAffected() == 0 {
-		return fmt.Errorf("update category limit: %w", repository.ErrNotFound)
 	}
 	return nil
 }
@@ -93,6 +95,7 @@ func scanCategoryLimit(row categoryLimitScanner) (*models.CategoryLimit, error) 
 		&limit.IsActive,
 		&limit.CreatedAt,
 		&limit.UpdatedAt,
+		&limit.Version,
 	); err != nil {
 		return nil, fmt.Errorf("scan category limit row: %w", err)
 	}

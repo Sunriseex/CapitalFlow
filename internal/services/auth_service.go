@@ -35,6 +35,10 @@ var loginLockoutDelays = []time.Duration{
 	24 * time.Hour,
 }
 
+// dummyPasswordHash has the production Argon2 parameters and is used to keep
+// unknown-email login attempts close to the cost of real password checks.
+const dummyPasswordHash = "$argon2id$v=19$m=65536,t=3,p=2$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" //nolint:gosec // Public non-secret timing equalizer.
+
 type AuthService struct {
 	users          repository.UserRepository
 	refresh        repository.RefreshTokenRepository
@@ -190,6 +194,9 @@ func (s *AuthService) Login(ctx context.Context, req AuthRequest) (*AuthSession,
 	user, err := s.users.GetByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
+			if _, verifyErr := s.verifyFunc(req.Password, dummyPasswordHash); verifyErr != nil {
+				return nil, fmt.Errorf("verify dummy password: %w", verifyErr)
+			}
 			s.authentication.Audit(ctx, "login_failed", email, nil, false, "invalid_credentials")
 			return nil, validationError("invalid email or password")
 		}

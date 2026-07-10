@@ -48,6 +48,29 @@ test "$(find "${backup_dir}" -maxdepth 1 -type f -name 'capitalflow-*.zip' | wc 
 if CAPITALFLOW_BACKUP_RUN_ONCE=true \
   CAPITALFLOW_BACKUP_DIR="${backup_dir}" \
   CAPITALFLOW_BACKUP_RETENTION_COUNT=2 \
+  CAPITALFLOW_BIN="${fake_capitalflow}" \
+  CAPITALFLOW_BACKUP_REPLICATION_REQUIRED=true \
+  CAPITALFLOW_BACKUP_RETENTION_BIN="${script_dir}/backup-retention.sh" \
+    "${script_dir}/backup-scheduler.sh" >/dev/null 2>&1; then
+  echo "required off-host replication without a command must fail" >&2
+  exit 1
+fi
+
+CAPITALFLOW_BACKUP_RUN_ONCE=true \
+CAPITALFLOW_BACKUP_DIR="${backup_dir}" \
+CAPITALFLOW_BACKUP_RETENTION_COUNT=2 \
+CAPITALFLOW_BIN="${fake_capitalflow}" \
+CAPITALFLOW_TEST_ARGS="${work_dir}/args" \
+CAPITALFLOW_BACKUP_REPLICATION_REQUIRED=true \
+CAPITALFLOW_BACKUP_REPLICATION_COMMAND='printf "%s\n" "$1" > "${CAPITALFLOW_TEST_REPLICATION_LOG}"' \
+CAPITALFLOW_TEST_REPLICATION_LOG="${work_dir}/replication.log" \
+CAPITALFLOW_BACKUP_RETENTION_BIN="${script_dir}/backup-retention.sh" \
+  "${script_dir}/backup-scheduler.sh"
+grep -q '/capitalflow-[0-9]\{8\}T[0-9]\{6\}Z.zip$' "${work_dir}/replication.log"
+
+if CAPITALFLOW_BACKUP_RUN_ONCE=true \
+  CAPITALFLOW_BACKUP_DIR="${backup_dir}" \
+  CAPITALFLOW_BACKUP_RETENTION_COUNT=2 \
   CAPITALFLOW_BACKUP_TIMEOUT=5m \
   CAPITALFLOW_BIN="${fake_capitalflow}" \
   CAPITALFLOW_TEST_FAIL=true \

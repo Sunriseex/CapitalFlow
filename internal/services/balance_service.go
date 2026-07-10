@@ -44,6 +44,9 @@ func (s *BalanceService) Calculate(ctx context.Context, req CalculateBalanceRequ
 		if tx.AccountID != req.AccountID {
 			continue
 		}
+		if !tx.Status.AffectsBalance() {
+			continue
+		}
 
 		delta, err := transactionDelta(tx)
 		if err != nil {

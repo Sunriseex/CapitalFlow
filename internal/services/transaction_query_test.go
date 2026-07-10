@@ -55,6 +55,19 @@ func TestTransactionQueryAppliesDefaultAndMaximumLimit(t *testing.T) {
 	}
 }
 
+func TestTransactionQueryRejectsUnboundedOffset(t *testing.T) {
+	query := NewTransactionQuery(&recordingTransactionQuery{})
+
+	_, err := query.ListByUser(t.Context(), "user-1", &TransactionListFilter{Limit: 50, Offset: maxTransactionListOffset + 1})
+	if !IsValidationError(err) {
+		t.Fatalf("offset error = %v, want validation error", err)
+	}
+	_, err = query.ListByUser(t.Context(), "user-1", &TransactionListFilter{Limit: 1, Page: maxTransactionListOffset + 2})
+	if !IsValidationError(err) {
+		t.Fatalf("page error = %v, want validation error", err)
+	}
+}
+
 type recordingTransactionQuery struct {
 	userID       string
 	filter       *TransactionListFilter
