@@ -198,6 +198,31 @@ func TestAuthServiceLoginRejectsWrongPasswordWithSafeMessage(t *testing.T) {
 	}
 }
 
+func TestAuthServiceLoginPerformsPasswordWorkForUnknownEmail(t *testing.T) {
+	service, _, _, audit := newTestAuthService(t)
+	var verifiedPassword, verifiedHash string
+	service.verifyFunc = func(password, hash string) (bool, error) {
+		verifiedPassword = password
+		verifiedHash = hash
+		return false, nil
+	}
+
+	_, err := service.Login(t.Context(), AuthRequest{
+		Email:    "missing@example.com",
+		Password: "candidate password",
+	})
+
+	if err == nil || err.Error() != "invalid email or password" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if verifiedPassword != "candidate password" || verifiedHash != dummyPasswordHash {
+		t.Fatalf("password work = (%q, %q), want candidate and dummy hash", verifiedPassword, verifiedHash)
+	}
+	if !audit.hasEventReason("login_failed", "invalid_credentials") {
+		t.Fatal("expected invalid_credentials audit event")
+	}
+}
+
 func TestAuthServiceLoginProgressivelyLocksAccount(t *testing.T) {
 	service, users, _, audit := newTestAuthService(t)
 	users.byID["user-1"] = &models.User{

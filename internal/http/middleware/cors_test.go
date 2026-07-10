@@ -52,7 +52,7 @@ func TestCORSRejectsUnknownOriginHeader(t *testing.T) {
 	}
 }
 
-func TestCORSAllowsLoopbackDevPortWhenLoopbackOriginConfigured(t *testing.T) {
+func TestCORSRejectsLoopbackDevPortMismatch(t *testing.T) {
 	handler := CORS(&CORSConfig{
 		AllowedOrigins: []string{"http://localhost:5173"},
 		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
@@ -67,7 +67,26 @@ func TestCORSAllowsLoopbackDevPortWhenLoopbackOriginConfigured(t *testing.T) {
 
 	handler.ServeHTTP(rec, req)
 
-	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "http://127.0.0.1:5174" {
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "" {
+		t.Fatalf("allow origin = %q, want empty", got)
+	}
+}
+
+func TestCORSAllowsLoopbackAliasOnConfiguredPort(t *testing.T) {
+	handler := CORS(&CORSConfig{
+		AllowedOrigins: []string{"http://localhost:5173"},
+		AllowedMethods: []string{http.MethodGet, http.MethodOptions},
+		AllowedHeaders: []string{"Authorization", "Content-Type"},
+	})(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodOptions, "/api/v1/accounts", http.NoBody)
+	req.Header.Set("Origin", "http://127.0.0.1:5173")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "http://127.0.0.1:5173" {
 		t.Fatalf("allow origin = %q", got)
 	}
 }

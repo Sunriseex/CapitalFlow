@@ -16,6 +16,11 @@ type rateLimitBucket struct {
 	count       int
 }
 
+const (
+	minRateLimitBuckets = 1024
+	maxRateLimitBuckets = 65536
+)
+
 func RateLimitByIP(limit int, window time.Duration) func(http.Handler) http.Handler {
 	return RateLimitByIPWithTrustedProxies(limit, window, nil)
 }
@@ -43,6 +48,13 @@ func rateLimitByIP(limit int, window time.Duration, now func() time.Time, mu *sy
 			current := now()
 
 			mu.Lock()
+			capacity := rateLimitBucketCapacity(limit)
+			if _, exists := buckets[key]; !exists && len(buckets) >= capacity {
+				removeExpiredRateLimitBuckets(buckets, current, window)
+				if len(buckets) >= capacity {
+					removeOldestRateLimitBucket(buckets)
+				}
+			}
 			bucket := buckets[key]
 			if bucket.windowStart.IsZero() || current.Sub(bucket.windowStart) >= window {
 				bucket = rateLimitBucket{windowStart: current}
@@ -50,13 +62,6 @@ func rateLimitByIP(limit int, window time.Duration, now func() time.Time, mu *sy
 			bucket.count++
 			buckets[key] = bucket
 			allowed := bucket.count <= limit
-			if len(buckets) > limit*8 {
-				for bucketKey, bucket := range buckets {
-					if current.Sub(bucket.windowStart) >= window {
-						delete(buckets, bucketKey)
-					}
-				}
-			}
 			mu.Unlock()
 
 			if !allowed {
@@ -68,6 +73,36 @@ func rateLimitByIP(limit int, window time.Duration, now func() time.Time, mu *sy
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func rateLimitBucketCapacity(limit int) int {
+	if limit <= 0 {
+		return minRateLimitBuckets
+	}
+	if limit > maxRateLimitBuckets/8 {
+		return maxRateLimitBuckets
+	}
+	return min(max(limit*8, minRateLimitBuckets), maxRateLimitBuckets)
+}
+
+func removeExpiredRateLimitBuckets(buckets map[string]rateLimitBucket, current time.Time, window time.Duration) {
+	for key, bucket := range buckets {
+		if current.Sub(bucket.windowStart) >= window {
+			delete(buckets, key)
+		}
+	}
+}
+
+func removeOldestRateLimitBucket(buckets map[string]rateLimitBucket) {
+	var oldestKey string
+	var oldest time.Time
+	for key, bucket := range buckets {
+		if oldestKey == "" || bucket.windowStart.Before(oldest) {
+			oldestKey = key
+			oldest = bucket.windowStart
+		}
+	}
+	delete(buckets, oldestKey)
 }
 
 type trustedProxySet struct {

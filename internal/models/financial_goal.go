@@ -25,4 +25,5 @@ type FinancialGoal struct {
 	Status       FinancialGoalStatus `json:"status"`
 	CreatedAt    time.Time           `json:"created_at"`
 	UpdatedAt    time.Time           `json:"updated_at"`
+	Version      int64               `json:"version"`
 }

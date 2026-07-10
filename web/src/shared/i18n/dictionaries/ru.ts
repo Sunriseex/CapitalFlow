@@ -355,6 +355,13 @@ export const ru = {
     transfer: "Перевод",
     posted: "Проведено",
     verified: "Проверено",
+    statuses: {
+      pending: "Ожидает",
+      confirmed: "Подтверждена",
+      cancelled: "Отменена",
+      reversed: "Сторнирована",
+      soft_deleted: "Скрыта",
+    },
     initialBalance: "Начальный баланс",
     interest: "Проценты",
     adjustment: "Корректировка",

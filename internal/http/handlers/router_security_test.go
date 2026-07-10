@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -47,6 +48,9 @@ func TestMetricsEndpointExposesAuthCounters(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), "capitalflow_auth_events_total") {
 		t.Fatalf("response body = %s", rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "capitalflow_http_requests_total") {
+		t.Fatalf("response body is missing HTTP request metrics: %s", rec.Body.String())
 	}
 	if strings.Contains(rec.Body.String(), "cmdline") {
 		t.Fatalf("metrics response leaked expvar cmdline: %s", rec.Body.String())
@@ -329,6 +333,37 @@ func TestRouterLimitsMutationsButNotReads(t *testing.T) {
 		if i == 1 && rec.Code != http.StatusTooManyRequests {
 			t.Fatalf("second mutation status = %d, want %d", rec.Code, http.StatusTooManyRequests)
 		}
+	}
+}
+
+func TestRouterLimitsPreviouslyUngroupedCreateMutations(t *testing.T) {
+	tokens, pair := testProfileTokenPair(t)
+	paths := []string{
+		"/api/v1/categories",
+		"/api/v1/financial-goals",
+		"/api/v1/category-limits",
+	}
+
+	for _, path := range paths {
+		t.Run(path, func(t *testing.T) {
+			store := newTestProfileStore()
+			store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
+			router := newTestRouter(store, &RouterConfig{
+				MutationRateLimitRequests: 1,
+				MutationRateLimitWindow:   time.Minute,
+			}, tokens)
+
+			for i := range 2 {
+				req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, path, strings.NewReader(`{}`))
+				req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
+				req.Header.Set("Idempotency-Key", "request-"+strconv.Itoa(i))
+				rec := httptest.NewRecorder()
+				router.ServeHTTP(rec, req)
+				if i == 1 && rec.Code != http.StatusTooManyRequests {
+					t.Fatalf("second mutation status = %d, want %d: %s", rec.Code, http.StatusTooManyRequests, rec.Body.String())
+				}
+			}
+		})
 	}
 }
 

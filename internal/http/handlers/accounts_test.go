@@ -195,6 +195,13 @@ type testTransactionRepo struct {
 	createTransferUserID         string
 	createTransferIdempotencyKey string
 	createTransferTransactions   []models.Transaction
+	cancelForUserCalls           int
+	cancelForUserTransaction     *models.Transaction
+	reverseForUserCalls          int
+	reverseForUserTransaction    *models.Transaction
+	reverseForUserReversal       *models.Transaction
+	softDeleteForUserCalls       int
+	softDeleteForUserTransaction *models.Transaction
 	listFilteredCalls            int
 	listFilteredUserID           string
 	listFilteredFilter           repository.TransactionListFilter
@@ -229,6 +236,30 @@ func (r *testTransactionRepo) CreateTransfer(_ context.Context, transfer *models
 	r.createTransferIdempotencyKey = transfer.IdempotencyKey
 	r.createTransferTransactions = append(r.createTransferTransactions[:0], transactions...)
 	return nil
+}
+
+func (r *testTransactionRepo) CancelForUser(context.Context, string, string) (*models.Transaction, error) {
+	r.cancelForUserCalls++
+	if r.cancelForUserTransaction != nil {
+		return r.cancelForUserTransaction, nil
+	}
+	return &models.Transaction{ID: "33333333-3333-3333-3333-333333333333", Status: models.TransactionStatusCancelled}, nil
+}
+
+func (r *testTransactionRepo) ReverseForUser(_ context.Context, _, _ string, reversal *models.Transaction) (updated, created *models.Transaction, err error) {
+	r.reverseForUserCalls++
+	if r.reverseForUserTransaction != nil && r.reverseForUserReversal != nil {
+		return r.reverseForUserTransaction, r.reverseForUserReversal, nil
+	}
+	return &models.Transaction{ID: "33333333-3333-3333-3333-333333333333", Status: models.TransactionStatusReversed}, reversal, nil
+}
+
+func (r *testTransactionRepo) SoftDeleteForUser(context.Context, string, string) (*models.Transaction, error) {
+	r.softDeleteForUserCalls++
+	if r.softDeleteForUserTransaction != nil {
+		return r.softDeleteForUserTransaction, nil
+	}
+	return &models.Transaction{ID: "33333333-3333-3333-3333-333333333333", Status: models.TransactionStatusSoftDeleted}, nil
 }
 
 func (r *testTransactionRepo) ListTransfersByUser(context.Context, string) ([]models.Transfer, error) {

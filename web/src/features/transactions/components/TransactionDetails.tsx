@@ -38,9 +38,7 @@ export function TransactionDetails({
     ? (categoryNames.get(transaction.category_id) ?? transaction.category_id)
     : t.common.none;
   const sourceLabel = sourceForTransaction(transaction, t);
-  const statusLabel = transaction.transfer_id
-    ? t.transactions.transfer
-    : t.transactions.verified;
+  const statusLabel = t.transactions.statuses[transaction.status ?? "confirmed"];
 
   return (
     <div className="transaction-detail">
@@ -53,9 +51,7 @@ export function TransactionDetails({
             </small>
           </div>
           <span className="tag info">
-            {transaction.transfer_id
-              ? t.transactions.transfer
-              : t.transactions.posted}
+            {statusLabel}
           </span>
         </div>
         <p

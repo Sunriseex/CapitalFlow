@@ -22,7 +22,10 @@ const (
 	maxIdempotencyKeyLength = 255
 )
 
-const idempotencyCompletionUnknownMessage = "The operation may have completed, but idempotency state could not be persisted. Retry later with the same Idempotency-Key. Do not retry with a new key."
+const (
+	idempotencyCompletionUnknownMessage = "The operation may have completed, but idempotency state could not be persisted. Retry later with the same Idempotency-Key. Do not retry with a new key."
+	idempotencyOutcomeUnknownMessage    = "The earlier operation did not record a final response and may have completed. Reconcile its result before retrying. Do not use a new Idempotency-Key."
+)
 
 func RequireIdempotencyKey(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -126,6 +129,10 @@ func Idempotency(repo IdempotencyStore) func(http.Handler) http.Handler {
 					return
 				}
 				if existing.StatusCode == nil {
+					if existing.LockedUntil == nil || !time.Now().UTC().Before(*existing.LockedUntil) {
+						writeJSONError(w, http.StatusConflict, "idempotency_outcome_unknown", idempotencyOutcomeUnknownMessage, nil)
+						return
+					}
 					writeJSONError(w, http.StatusConflict, "idempotency_in_progress", "Idempotency request is still in progress", nil)
 					return
 				}
@@ -137,6 +144,10 @@ func Idempotency(repo IdempotencyStore) func(http.Handler) http.Handler {
 
 			rec := newCaptureResponseWriter(w)
 			next.ServeHTTP(rec, r)
+			if rec.statusCode() >= http.StatusInternalServerError {
+				rec.flushTo(w)
+				return
+			}
 
 			completeCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 5*time.Second)
 			defer cancel()

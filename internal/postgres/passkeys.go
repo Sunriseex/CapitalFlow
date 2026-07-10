@@ -257,7 +257,7 @@ func scanWebAuthnChallenge(row interface {
 
 func mapConflict(err error) error {
 	var pgErr *pgconn.PgError
-	if err != nil && errors.As(err, &pgErr) && pgErr.Code == "23505" {
+	if err != nil && errors.As(err, &pgErr) && (pgErr.Code == "23505" || pgErr.Code == "23P01") {
 		return repository.ErrConflict
 	}
 	return err

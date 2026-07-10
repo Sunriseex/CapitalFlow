@@ -162,6 +162,67 @@ func (s *TransactionService) CreateTransfer(ctx context.Context, transfer *model
 	return transactions, nil
 }
 
+func (s *TransactionService) CancelForUser(ctx context.Context, userID, transactionID string) (*models.Transaction, error) {
+	if s == nil || s.repo == nil {
+		return nil, fmt.Errorf("transaction repository is required")
+	}
+	transaction, err := s.repo.CancelForUser(ctx, strings.TrimSpace(transactionID), strings.TrimSpace(userID))
+	if err != nil {
+		return nil, fmt.Errorf("cancel transaction: %w", err)
+	}
+	return transaction, nil
+}
+
+func (s *TransactionService) SoftDeleteForUser(ctx context.Context, userID, transactionID string) (*models.Transaction, error) {
+	if s == nil || s.repo == nil {
+		return nil, fmt.Errorf("transaction repository is required")
+	}
+	transaction, err := s.repo.SoftDeleteForUser(ctx, strings.TrimSpace(transactionID), strings.TrimSpace(userID))
+	if err != nil {
+		return nil, fmt.Errorf("soft-delete transaction: %w", err)
+	}
+	return transaction, nil
+}
+
+func (s *TransactionService) ReverseForUser(ctx context.Context, userID, transactionID string) (updated, created *models.Transaction, err error) {
+	if s == nil || s.repo == nil {
+		return nil, nil, fmt.Errorf("transaction repository is required")
+	}
+	original, err := s.repo.GetByIDForUser(ctx, strings.TrimSpace(transactionID), strings.TrimSpace(userID))
+	if err != nil {
+		return nil, nil, fmt.Errorf("get transaction for reversal: %w", err)
+	}
+	if original.Status != "" && original.Status != models.TransactionStatusConfirmed {
+		return nil, nil, validationError("only confirmed transactions can be reversed")
+	}
+	if original.SourceType != "" && original.SourceType != models.TransactionSourceManual {
+		return nil, nil, validationError("only manual transactions can be reversed")
+	}
+	if original.TransferID != nil {
+		return nil, nil, validationError("transfer transactions cannot be reversed through this endpoint")
+	}
+
+	now := time.Now()
+	reversalTransaction := &models.Transaction{
+		ID:             uuid.NewString(),
+		AccountID:      original.AccountID,
+		SourceType:     models.TransactionSourceReconciliationAdjustment,
+		SourceRefID:    &original.ID,
+		SourceMetadata: json.RawMessage(`{}`),
+		Type:           models.TransactionTypeAdjustment,
+		Status:         models.TransactionStatusConfirmed,
+		Amount:         transactionDeltaForReversal(original).Neg(),
+		Description:    "Reversal of transaction " + original.ID,
+		OccurredAt:     now,
+		CreatedAt:      now,
+	}
+	updated, created, err = s.repo.ReverseForUser(ctx, strings.TrimSpace(transactionID), strings.TrimSpace(userID), reversalTransaction)
+	if err != nil {
+		return nil, nil, fmt.Errorf("reverse transaction: %w", err)
+	}
+	return updated, created, nil
+}
+
 func (s *TransactionService) resolveCreateRequest(ctx context.Context, userID string, req *CreateTransactionRequest) (*CreateTransactionRequest, error) {
 	if req == nil {
 		return nil, fmt.Errorf("create transaction request is required")
@@ -281,6 +342,7 @@ func buildTransaction(ctx context.Context, req *CreateTransactionRequest, allowT
 		SourceRefID:      sourceRefID,
 		SourceMetadata:   sourceMetadata,
 		Type:             req.Type,
+		Status:           models.TransactionStatusConfirmed,
 		Amount:           req.Amount,
 		CategoryID:       req.CategoryID,
 		Description:      strings.TrimSpace(req.Description),
@@ -289,4 +351,20 @@ func buildTransaction(ctx context.Context, req *CreateTransactionRequest, allowT
 	}
 
 	return transaction, nil
+}
+
+func transactionDeltaForReversal(tx *models.Transaction) decimal.Decimal {
+	switch tx.Type {
+	case models.TransactionTypeInitialBalance,
+		models.TransactionTypeIncome,
+		models.TransactionTypeTransferIn,
+		models.TransactionTypeInterestIncome,
+		models.TransactionTypeAdjustment:
+		return tx.Amount
+	case models.TransactionTypeExpense,
+		models.TransactionTypeTransferOut:
+		return tx.Amount.Neg()
+	default:
+		return decimal.Zero
+	}
 }

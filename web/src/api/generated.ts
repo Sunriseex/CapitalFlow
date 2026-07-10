@@ -41,6 +41,10 @@ export type ServiceStatus = {
   "version": string;
 };
 
+export type ReadyStatus = {
+  "status": "ok";
+};
+
 export type ChangePasswordRequest = {
   "current_password": string;
   "new_password": string;
@@ -91,6 +95,8 @@ export type UpdateProfileRequest = {
 export type AccountType = "cash" | "card" | "savings" | "term_deposit" | "broker" | "other";
 
 export type TransactionType = "initial_balance" | "income" | "expense" | "transfer_in" | "transfer_out" | "interest_income" | "adjustment";
+
+export type TransactionStatus = "pending" | "confirmed" | "cancelled" | "reversed" | "soft_deleted";
 
 export type TransactionSource = "manual" | "csv_import" | "transfer" | "deposit_interest" | "savings_allocation" | "subscription" | "reconciliation_adjustment" | "automation_rule" | "llm_draft" | "system";
 
@@ -214,11 +220,17 @@ export type Transaction = {
   "source_ref_id"?: string | null;
   "source_metadata": Record<string, unknown>;
   "type": TransactionType;
+  "status": TransactionStatus;
   "amount": string;
   "category_id"?: string | null;
   "description"?: string;
   "occurred_at": string;
   "created_at": string;
+};
+
+export type ReverseTransactionResponse = {
+  "transaction": Transaction;
+  "reversal": Transaction;
 };
 
 export type CreateTransactionRequest = {

@@ -229,6 +229,7 @@ func (r interestCalculationTxRepository) ListInterestRulesByAccount(ctx context.
 func (r interestCalculationTxRepository) ListTransactionsByAccountForUser(ctx context.Context, accountID, userID string) ([]models.Transaction, error) {
 	return listTransactions(ctx, r.tx, transactionSelectSQL+`
 		WHERE t.account_id = $1
+			AND t.status IN ('confirmed', 'reversed')
 			AND EXISTS (
 				SELECT 1 FROM accounts a WHERE a.id = t.account_id AND a.owner_user_id = $2
 			)

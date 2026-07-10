@@ -6,7 +6,7 @@ This page is the operational entrypoint.
 
 * `GET /health`: process is alive.
 * `GET /ready`: dependencies are ready.
-* `GET /metrics`: expvar metrics, including auth counters.
+* `GET /metrics`: allowlisted expvar metrics for auth, HTTP traffic and the DB pool.
 
 ## Normal Deploy Checklist
 
@@ -94,10 +94,35 @@ Production Compose runs `backup-scheduler` daily. Defaults:
 * `CAPITALFLOW_BACKUP_UID` and `CAPITALFLOW_BACKUP_GID` default to the deploy owner
 
 The scheduler writes UTC timestamped archives atomically, keeps the newest
-configured number, and exposes a heartbeat health check. Point
-`CAPITALFLOW_BACKUP_HOST_DIR` at a directory replicated off-host by Syncthing
-or another backup system. Retention only removes files matching
-`capitalflow-*.zip`.
+configured number, and is healthy only while both its heartbeat and last
+successful backup are fresh. The interest scheduler uses the same rule. A
+permanent job failure therefore makes its container unhealthy after
+`CAPITALFLOW_BACKUP_SUCCESS_MAX_AGE` or
+`CAPITALFLOW_INTEREST_SUCCESS_MAX_AGE` (30 hours by default).
+
+Off-host replication is provider-neutral. Configure an executable shell command
+that receives the completed local archive as `$1`. The backup is not marked
+successful when that command fails. For example:
+
+```env
+CAPITALFLOW_BACKUP_REPLICATION_COMMAND='/replication/rclone --config /replication/rclone.conf copyto "$1" "offsite:capitalflow/$(basename "$1")"'
+```
+
+The read-only `CAPITALFLOW_BACKUP_REPLICATION_HOST_DIR` mount is available as
+`/replication`; place the chosen provider's executable and protected config
+there. Leaving the command empty keeps local-only backups and
+must be treated as an unresolved disaster-recovery risk.
+Replication is required by default in production. The scheduler fails fast
+(and the container alerts through its health/restart state) when the command is
+absent. An operator may set `CAPITALFLOW_BACKUP_REPLICATION_REQUIRED=false`
+only for an explicitly accepted temporary local-only deployment.
+
+Production also runs a restore drill every seven days by default
+(`CAPITALFLOW_RESTORE_DRILL_ENABLED=true`). It restores the newest archive into
+a temporary database, verifies the schema, and drops that database. A failed
+drill fails the backup cycle and eventually makes the scheduler unhealthy.
+The durable `.restore-drill-last-success` marker is stored beside the archives.
+Retention only removes files matching `capitalflow-*.zip`.
 
 Every VM deploy also creates
 `capitalflow-<UTC timestamp>-pre-migration.zip` before Goose runs. A backup
@@ -112,7 +137,20 @@ cd /home/sunriseex/projects/CapitalFlow/deploy
 docker compose ps backup-scheduler
 docker compose logs --tail 100 backup-scheduler
 ls -l "${CAPITALFLOW_BACKUP_HOST_DIR:-${HOME}/backups/capitalflow}"
+docker compose exec backup-scheduler cat /operations/capitalflow-backup-scheduler.status
+docker compose exec interest-scheduler cat /operations/capitalflow-interest-scheduler.status
 ```
+
+Deploy and backup runs stop before writes when disk usage reaches
+`CAPITALFLOW_DISK_MAX_USED_PERCENT` (90 by default) or free space falls below
+`CAPITALFLOW_DISK_MIN_FREE_MB`. Treat a failed disk guard or an unhealthy
+scheduler container as an alert. External monitoring should alert on container
+health, `/ready`, HTTP 5xx growth, DB pool saturation, and filesystem usage.
+
+Deploys validate that the API image label, Web image label, CLI version and
+`/health` version are identical. If a migration command fails after services
+were stopped, the deploy trap restarts exactly the services that were running
+before migration.
 
 ## Incident Pages
 

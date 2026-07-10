@@ -17,10 +17,9 @@ import (
 	"github.com/sunriseex/capitalflow/internal/jobs"
 	"github.com/sunriseex/capitalflow/internal/models"
 	"github.com/sunriseex/capitalflow/internal/postgres"
+	"github.com/sunriseex/capitalflow/internal/version"
 	"github.com/sunriseex/capitalflow/pkg/money"
 )
-
-const version = "0.3.0-dev"
 
 func main() {
 	if err := config.Init(); err != nil {
@@ -91,7 +90,7 @@ func main() {
 			os.Exit(1)
 		}
 	case "version":
-		fmt.Println(version)
+		fmt.Println(version.Current())
 	case "help", "-h", "--help":
 		showHelp()
 	default:

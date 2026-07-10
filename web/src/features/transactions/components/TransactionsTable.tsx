@@ -425,6 +425,16 @@ function badgesForTransaction(
   transaction: Transaction,
   t: TranslationDictionary,
 ): TransactionBadge[] {
+  const status = transaction.status ?? "confirmed";
+  if (status !== "confirmed") {
+    return [
+      {
+        label: t.transactions.statuses[status],
+        tone: status === "reversed" ? "info" : "muted",
+      },
+    ];
+  }
+
   if (transaction.transfer_id) {
     return [{ label: t.transactions.transfer, tone: "info" }];
   }

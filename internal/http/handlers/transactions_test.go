@@ -200,6 +200,65 @@ func TestDeleteTransactionRouteIsRemoved(t *testing.T) {
 	}
 }
 
+func TestTransactionLifecycleRoutesRequireIdempotencyKey(t *testing.T) {
+	tokens, pair := testProfileTokenPair(t)
+	store := newTestProfileStore()
+	store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
+
+	router := newTestRouter(store, &RouterConfig{}, tokens)
+	for _, path := range []string{
+		"/api/v1/transactions/33333333-3333-3333-3333-333333333333/cancel",
+		"/api/v1/transactions/33333333-3333-3333-3333-333333333333/reverse",
+		"/api/v1/transactions/33333333-3333-3333-3333-333333333333/soft-delete",
+	} {
+		t.Run(path, func(t *testing.T) {
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, path, nil)
+			req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
+			rec := httptest.NewRecorder()
+
+			router.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusPreconditionRequired {
+				t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusPreconditionRequired, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestCancelTransactionReturnsUpdatedStatus(t *testing.T) {
+	tokens, pair := testProfileTokenPair(t)
+	store := newTestProfileStore()
+	transactions := &testTransactionRepo{
+		cancelForUserTransaction: &models.Transaction{
+			ID:        "33333333-3333-3333-3333-333333333333",
+			AccountID: "11111111-1111-1111-1111-111111111111",
+			Type:      models.TransactionTypeIncome,
+			Status:    models.TransactionStatusCancelled,
+			Amount:    dec("100"),
+		},
+	}
+	store.transactions = transactions
+	store.refresh.byID[pair.RefreshTokenID] = activeTestRefreshToken(pair, "user-1")
+
+	router := newTestRouter(store, &RouterConfig{}, tokens)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/transactions/33333333-3333-3333-3333-333333333333/cancel", nil)
+	req.Header.Set("Authorization", "Bearer "+pair.AccessToken)
+	req.Header.Set("Idempotency-Key", "cancel-transaction")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d: %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"status":"cancelled"`) {
+		t.Fatalf("response missing cancelled status: %s", rec.Body.String())
+	}
+	if transactions.cancelForUserCalls != 1 {
+		t.Fatalf("cancel calls = %d, want 1", transactions.cancelForUserCalls)
+	}
+}
+
 func TestRecalculateInterestRejectsInvalidRequestBeforeStoreAccess(t *testing.T) {
 	tests := []struct {
 		name      string

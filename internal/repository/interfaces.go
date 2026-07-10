@@ -51,6 +51,9 @@ type TransactionRepository interface {
 	CreateForUser(ctx context.Context, userID string, transaction *models.Transaction) error
 	CreateMany(ctx context.Context, transactions []models.Transaction) error
 	CreateTransfer(ctx context.Context, transfer *models.Transfer, transactions []models.Transaction) error
+	CancelForUser(ctx context.Context, id, userID string) (*models.Transaction, error)
+	ReverseForUser(ctx context.Context, id, userID string, reversal *models.Transaction) (updated, created *models.Transaction, err error)
+	SoftDeleteForUser(ctx context.Context, id, userID string) (*models.Transaction, error)
 	ListTransfersByUser(ctx context.Context, userID string) ([]models.Transfer, error)
 	GetByID(ctx context.Context, id string) (*models.Transaction, error)
 	GetByIDForUser(ctx context.Context, id, userID string) (*models.Transaction, error)

@@ -59,6 +59,10 @@ jobs:
           sh scripts/backup-schedule_test.sh
           sh scripts/backup-retention_test.sh
           sh scripts/backup-scheduler_test.sh
+          sh scripts/interest-scheduler_test.sh
+          sh scripts/scheduler-healthcheck_test.sh
+          sh scripts/restore-drill_test.sh
+          sh scripts/disk-guard_test.sh
           sh scripts/pre-migration-backup_test.sh
 
       - name: Build binaries
@@ -206,6 +210,11 @@ jobs:
             postgres "$DATABASE_URL" \
             status
 
+      - name: Run PostgreSQL integration tests
+        env:
+          TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: go test ./internal/postgres -count=1 -v
+
       - name: Verify backup and restore
         env:
           TEST_DATABASE_URL: ${{ env.DATABASE_URL }}
@@ -315,6 +324,8 @@ jobs:
           context: .
           file: web/Dockerfile
           push: false
+          build-args: |
+            APP_VERSION=pr-${{ github.event.pull_request.head.sha }}
           tags: capitalflow-web:pr-${{ github.event.pull_request.head.sha }}
           cache-from: type=gha,scope=web
 
@@ -428,9 +439,22 @@ jobs:
           context: .
           file: web/Dockerfile
           push: true
+          build-args: |
+            APP_VERSION=${{ github.ref_name }}
           tags: ${{ steps.names.outputs.web_tags }}
           cache-from: type=gha,scope=web
           cache-to: type=gha,scope=web,mode=max
+
+      - name: Verify Web image version
+        shell: bash
+        run: |
+          image="${{ steps.names.outputs.web_image }}:${GITHUB_REF_NAME}"
+          docker pull "$image"
+          label_version="$(docker inspect "$image" --format '{{ index .Config.Labels "org.opencontainers.image.version" }}')"
+          if [ "$label_version" != "$GITHUB_REF_NAME" ]; then
+            echo "Expected Web image label version=${GITHUB_REF_NAME}, got ${label_version}" >&2
+            exit 1
+          fi
 
   create-release:
     name: Create GitHub release

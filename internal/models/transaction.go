@@ -52,6 +52,33 @@ const (
 	TransactionTypeAdjustment     TransactionType = "adjustment"
 )
 
+type TransactionStatus string
+
+const (
+	TransactionStatusPending     TransactionStatus = "pending"
+	TransactionStatusConfirmed   TransactionStatus = "confirmed"
+	TransactionStatusCancelled   TransactionStatus = "cancelled"
+	TransactionStatusReversed    TransactionStatus = "reversed"
+	TransactionStatusSoftDeleted TransactionStatus = "soft_deleted"
+)
+
+func (status TransactionStatus) IsValid() bool {
+	switch status {
+	case TransactionStatusPending,
+		TransactionStatusConfirmed,
+		TransactionStatusCancelled,
+		TransactionStatusReversed,
+		TransactionStatusSoftDeleted:
+		return true
+	default:
+		return false
+	}
+}
+
+func (status TransactionStatus) AffectsBalance() bool {
+	return status == "" || status == TransactionStatusConfirmed || status == TransactionStatusReversed
+}
+
 type Transaction struct {
 	ID               string            `json:"id"`
 	AccountID        string            `json:"account_id"`
@@ -61,6 +88,7 @@ type Transaction struct {
 	SourceRefID      *string           `json:"source_ref_id,omitempty"`
 	SourceMetadata   json.RawMessage   `json:"source_metadata,omitempty"`
 	Type             TransactionType   `json:"type"`
+	Status           TransactionStatus `json:"status"`
 	Amount           decimal.Decimal   `json:"amount"`
 	CategoryID       *string           `json:"category_id,omitempty"`
 	Description      string            `json:"description,omitempty"`

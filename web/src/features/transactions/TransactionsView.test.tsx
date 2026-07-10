@@ -45,6 +45,7 @@ const transaction: Transaction = {
   source_type: "manual",
   source_metadata: {},
   type: "income",
+  status: "confirmed",
   amount: "100.00",
   category_id: "category-1",
   description: "Salary",

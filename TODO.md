@@ -93,8 +93,8 @@ Legend:
 
 ### Biggest current risks
 
-1. **Financial audit log is incomplete.** Auth audit exists, but financial/settings-wide audit events are not clearly implemented.
-2. **Transfer model is strong, but lifecycle is narrow.** DB status currently allows only `completed`; no pending/cancelled/reversed states.
+1. **Transfer model lifecycle is narrow.** Transfer status currently allows only `completed`; transaction lifecycle now exists, but transfer pending/cancel/reverse is still not implemented.
+2. **Financial audit log is incomplete.** Core financial/settings audit exists, but backup/restore, import decisions, request IP/user-agent capture and audit query UI are not closed.
 3. **Interest engine exists, but deposit product model is still incomplete.** Rules/accruals/jobs exist; fixed deposits, top-up cutoff, expected-vs-actual interest and imported actual interest matching are not done.
 4. **Currency rates are only latest external display rates.** No CBR/manual provider, no hourly sync, no persisted rate history, no historical report rates.
 5. **Backup archives are not encrypted.** Financial restore is tested, but future integration-secret recovery still needs an explicit key-loss model.
@@ -126,7 +126,7 @@ Legend:
 - [ ] v0.9.1 — Deployment / Operations.
 - [ ] v1.0.0 — Real-money-ready core release.
 
-Reason: the latest repository tag is `v0.5.8`; the next planned release must remain `v0.5.9`, then the verified backlog continues as versioned implementation slices.
+Reason: local tags now reach `v0.5.14`; this TODO is a code-verified backlog, not a trusted release-order source.
 
 # v0.5.9 — Frontend Reference Refactor
 
@@ -173,10 +173,15 @@ Reason: the latest repository tag is `v0.5.8`; the next planned release must rem
 - [x] Transaction creation validates account and category existence through service/repository boundaries.
 - [x] Transactions persist a validated source type, optional source reference and JSONB metadata.
 - [x] Manual, transfer and deposit-interest flows assign their source automatically.
+- [x] Transactions have lifecycle/status values: `pending`, `confirmed`, `cancelled`, `reversed`, `soft_deleted`.
+- [x] Manual transaction cancel, reverse and soft-delete endpoints exist and require `Idempotency-Key`.
+- [x] Balance/reporting queries exclude `pending`, `cancelled` and `soft_deleted` transactions.
+- [x] Reversal keeps the original transaction visible as `reversed` and adds one confirmed compensating adjustment.
+- [x] Transaction lifecycle mutations write immutable audit events.
 
 ### Still TODO
 
-- [ ] Add transaction lifecycle/status:
+- [x] Add transaction lifecycle/status:
   - `pending`;
   - `confirmed`;
   - `cancelled`;
@@ -196,10 +201,10 @@ Reason: the latest repository tag is `v0.5.8`; the next planned release must rem
   - `automation_rule`;
   - `llm_draft`;
   - `system`.
-- [ ] Add soft-delete/reversal/correction semantics for normal transactions.
+- [x] Add soft-delete/reversal semantics for normal manual transactions.
 - [ ] Add explicit correction event model for changed financial history.
-- [ ] Ensure cancelled/reversed/soft-deleted transactions are excluded from current balances.
-- [ ] Add transaction history/audit UI for changed records.
+- [x] Ensure pending/cancelled/soft-deleted transactions are excluded from current balances.
+- [ ] Add transaction history/audit query UI for changed records.
 - [x] Remove stale README route `DELETE /api/v1/transactions/{id}` and document why hard delete is unavailable.
 
 ### Narrow points
@@ -210,7 +215,7 @@ Future imports, subscriptions and automation must populate it when they create t
 ```
 
 ```text
-No hard delete route is better than unsafe delete, but there still needs to be an explicit reversible/correctable history model.
+No hard delete route is better than unsafe delete. Reversal now has a compensating adjustment flow; full edit/correction history is still future work.
 ```
 
 ---
@@ -355,12 +360,13 @@ The future risk is imports and bulk actions, where batch-level and row-level ide
 - [x] Account create/update/archive write atomic audit events with before/after summaries.
 - [x] Interest rule create/update/deactivate write atomic audit events.
 - [x] Profile settings primary currency changes write atomic audit events.
+- [x] Transaction cancel/reverse/soft-delete write atomic audit events.
 
 ### Still TODO
 
 - [x] Add generic `audit_events` table for non-auth events.
 - [x] Audit account create/update/archive.
-- [ ] PARTIAL — audit transaction create/change/reverse/soft-delete (create is covered).
+- [ ] PARTIAL — audit transaction create/reverse/soft-delete/cancel (implemented); generic transaction edit/change is not implemented.
 - [ ] PARTIAL — audit transfer create/reverse/correction (create is covered).
 - [ ] PARTIAL — audit interest rule create/update/delete/deactivate (all implemented mutations are covered; delete does not exist).
 - [ ] PARTIAL — audit settings/security changes (profile primary currency is covered).
@@ -1488,7 +1494,7 @@ The web app itself should not casually rewrite env files.
 
 - [x] `feat(audit): add generic financial/settings audit_events table`
 - [x] `feat(transactions): add source_type/source_ref_id/source_metadata`
-- [ ] `feat(transactions): add lifecycle status and correction/reversal model`
+- [x] `feat(transactions): add lifecycle status and manual cancel/reversal/soft-delete model`
 - [x] `feat(backups): add backup command and restore into fresh DB`
 - [x] `test(backups): verify restore path against empty DB`
 - [ ] `feat(recovery): add server-console password reset command`

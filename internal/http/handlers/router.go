@@ -12,10 +12,12 @@ import (
 )
 
 type Handler struct {
-	app            *application.Application
-	appVersion     string
-	cookieSecure   bool
-	cookieSameSite http.SameSite
+	app                  *application.Application
+	appVersion           string
+	cookieSecure         bool
+	cookieSameSite       http.SameSite
+	dbPoolMetrics        func() DBPoolMetrics
+	operationsMetricsDir string
 }
 
 type RouterConfig struct {
@@ -37,6 +39,8 @@ type RouterConfig struct {
 	MutationRateLimitRequests       int
 	MutationRateLimitWindow         time.Duration
 	TrustedProxies                  []string
+	DBPoolMetrics                   func() DBPoolMetrics
+	OperationsMetricsDir            string
 }
 
 const maxRequestBodyBytes = 1 << 20
@@ -53,13 +57,16 @@ func NewRouter(app *application.Application, cfg *RouterConfig) http.Handler {
 		cookieSecure = true
 	}
 	h := &Handler{
-		app:            app,
-		appVersion:     firstNonEmpty(cfg.AppVersion, "v0.5.8"),
-		cookieSecure:   cookieSecure,
-		cookieSameSite: cookieSameSiteMode(cfg.CookieSameSite),
+		app:                  app,
+		appVersion:           firstNonEmpty(cfg.AppVersion, "v0.5.8"),
+		cookieSecure:         cookieSecure,
+		cookieSameSite:       cookieSameSiteMode(cfg.CookieSameSite),
+		dbPoolMetrics:        cfg.DBPoolMetrics,
+		operationsMetricsDir: cfg.OperationsMetricsDir,
 	}
 	r := chi.NewRouter()
 	r.Use(chimiddleware.RequestID)
+	r.Use(appmiddleware.RequestMetrics)
 	r.Use(appmiddleware.LimitRequestBody(maxRequestBodyBytes))
 	r.Use(appmiddleware.RequestLogger)
 	r.Use(chimiddleware.Recoverer)
@@ -131,10 +138,16 @@ func NewRouter(app *application.Application, cfg *RouterConfig) http.Handler {
 			r.Patch("/settings/profile", h.updateProfile)
 			r.Patch("/financial-goals/{id}", h.updateFinancialGoal)
 			r.Patch("/category-limits/{id}", h.updateCategoryLimit)
+			r.With(appmiddleware.RequireIdempotencyKey).Post("/categories", h.createCategory)
+			r.With(appmiddleware.RequireIdempotencyKey).Post("/financial-goals", h.createFinancialGoal)
+			r.With(appmiddleware.RequireIdempotencyKey).Post("/category-limits", h.createCategoryLimit)
 			r.Post("/accounts", h.createAccount)
 			r.Patch("/accounts/{id}", h.updateAccount)
 			r.Post("/accounts/{id}/archive", h.archiveAccount)
 			r.With(appmiddleware.RequireIdempotencyKey).Post("/transactions", h.createTransaction)
+			r.With(appmiddleware.RequireIdempotencyKey).Post("/transactions/{id}/cancel", h.cancelTransaction)
+			r.With(appmiddleware.RequireIdempotencyKey).Post("/transactions/{id}/reverse", h.reverseTransaction)
+			r.With(appmiddleware.RequireIdempotencyKey).Post("/transactions/{id}/soft-delete", h.softDeleteTransaction)
 			r.With(appmiddleware.RequireIdempotencyKey).Post("/transfers", h.createTransfer)
 			r.Post("/accounts/{id}/interest-rules", h.createInterestRule)
 			r.Patch("/interest-rules/{id}", h.updateInterestRule)
@@ -143,11 +156,8 @@ func NewRouter(app *application.Application, cfg *RouterConfig) http.Handler {
 		})
 
 		r.Get("/categories", h.listCategories)
-		r.With(appmiddleware.RequireIdempotencyKey).Post("/categories", h.createCategory)
 		r.Get("/financial-goals", h.listFinancialGoals)
-		r.With(appmiddleware.RequireIdempotencyKey).Post("/financial-goals", h.createFinancialGoal)
 		r.Get("/category-limits", h.listCategoryLimits)
-		r.With(appmiddleware.RequireIdempotencyKey).Post("/category-limits", h.createCategoryLimit)
 		r.Get("/auth/sessions", h.listSessions)
 		r.Get("/auth/passkeys", h.listPasskeys)
 		r.Get("/currency-rates", h.getCurrencyRates)
